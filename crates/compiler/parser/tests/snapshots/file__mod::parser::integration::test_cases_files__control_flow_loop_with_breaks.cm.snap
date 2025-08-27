@@ -9,7 +9,7 @@ fn loop_control_flow() {
         break;
     }
 
-    while (true) {
+    while true {
         if (should_exit()) {
             break;
         }
@@ -83,7 +83,7 @@ fn loop_control_flow() {
                                 BooleanLiteral(
                                     true,
                                 ),
-                                104..108,
+                                103..107,
                             ),
                             body: Spanned(
                                 Block(
@@ -96,36 +96,36 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "should_exit",
-                                                                    124..135,
+                                                                    122..133,
                                                                 ),
                                                             ),
-                                                            124..135,
+                                                            122..133,
                                                         ),
                                                         args: [],
                                                     },
-                                                    124..137,
+                                                    122..135,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Break,
-                                                                153..159,
+                                                                151..157,
                                                             ),
                                                         ],
                                                     ),
-                                                    139..169,
+                                                    137..167,
                                                 ),
                                                 else_block: None,
                                             },
-                                            120..169,
+                                            118..167,
                                         ),
                                     ],
                                 ),
-                                110..175,
+                                108..173,
                             ),
                         },
-                        97..175,
+                        97..173,
                     ),
                     Spanned(
                         For {
@@ -134,7 +134,7 @@ fn loop_control_flow() {
                                     pattern: Identifier(
                                         Spanned(
                                             "item",
-                                            190..194,
+                                            188..192,
                                         ),
                                     ),
                                     statement_type: None,
@@ -143,10 +143,10 @@ fn loop_control_flow() {
                                             0,
                                             None,
                                         ),
-                                        197..198,
+                                        195..196,
                                     ),
                                 },
-                                186..199,
+                                184..197,
                             ),
                             condition: Spanned(
                                 BinaryOp {
@@ -155,22 +155,22 @@ fn loop_control_flow() {
                                         Identifier(
                                             Spanned(
                                                 "item",
-                                                200..204,
+                                                198..202,
                                             ),
                                         ),
-                                        200..204,
+                                        198..202,
                                     ),
                                     right: Spanned(
                                         Identifier(
                                             Spanned(
                                                 "collection_len",
-                                                207..221,
+                                                205..219,
                                             ),
                                         ),
-                                        207..221,
+                                        205..219,
                                     ),
                                 },
-                                200..221,
+                                198..219,
                             ),
                             step: Spanned(
                                 Assignment {
@@ -178,10 +178,10 @@ fn loop_control_flow() {
                                         Identifier(
                                             Spanned(
                                                 "item",
-                                                223..227,
+                                                221..225,
                                             ),
                                         ),
-                                        223..227,
+                                        221..225,
                                     ),
                                     rhs: Spanned(
                                         BinaryOp {
@@ -190,23 +190,23 @@ fn loop_control_flow() {
                                                 Identifier(
                                                     Spanned(
                                                         "item",
-                                                        230..234,
+                                                        228..232,
                                                     ),
                                                 ),
-                                                230..234,
+                                                228..232,
                                             ),
                                             right: Spanned(
                                                 Literal(
                                                     1,
                                                     None,
                                                 ),
-                                                237..238,
+                                                235..236,
                                             ),
                                         },
-                                        230..238,
+                                        228..236,
                                     ),
                                 },
-                                223..238,
+                                221..236,
                             ),
                             body: Spanned(
                                 Block(
@@ -219,39 +219,39 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "is_invalid",
-                                                                    254..264,
+                                                                    252..262,
                                                                 ),
                                                             ),
-                                                            254..264,
+                                                            252..262,
                                                         ),
                                                         args: [
                                                             Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "item",
-                                                                        265..269,
+                                                                        263..267,
                                                                     ),
                                                                 ),
-                                                                265..269,
+                                                                263..267,
                                                             ),
                                                         ],
                                                     },
-                                                    254..269,
+                                                    252..267,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Break,
-                                                                286..292,
+                                                                284..290,
                                                             ),
                                                         ],
                                                     ),
-                                                    272..302,
+                                                    270..300,
                                                 ),
                                                 else_block: None,
                                             },
-                                            250..302,
+                                            248..300,
                                         ),
                                         Spanned(
                                             Expression(
@@ -261,41 +261,41 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "process",
-                                                                    311..318,
+                                                                    309..316,
                                                                 ),
                                                             ),
-                                                            311..318,
+                                                            309..316,
                                                         ),
                                                         args: [
                                                             Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "item",
-                                                                        319..323,
+                                                                        317..321,
                                                                     ),
                                                                 ),
-                                                                319..323,
+                                                                317..321,
                                                             ),
                                                         ],
                                                     },
-                                                    311..323,
+                                                    309..321,
                                                 ),
                                             ),
-                                            311..325,
+                                            309..323,
                                         ),
                                     ],
                                 ),
-                                240..331,
+                                238..329,
                             ),
                         },
-                        181..331,
+                        179..329,
                     ),
                     Spanned(
                         Let {
                             pattern: Identifier(
                                 Spanned(
                                     "sum",
-                                    379..382,
+                                    377..380,
                                 ),
                             ),
                             statement_type: None,
@@ -304,10 +304,10 @@ fn loop_control_flow() {
                                     0,
                                     None,
                                 ),
-                                385..386,
+                                383..384,
                             ),
                         },
-                        375..387,
+                        373..385,
                     ),
                     Spanned(
                         For {
@@ -316,7 +316,7 @@ fn loop_control_flow() {
                                     pattern: Identifier(
                                         Spanned(
                                             "i",
-                                            401..402,
+                                            399..400,
                                         ),
                                     ),
                                     statement_type: None,
@@ -325,10 +325,10 @@ fn loop_control_flow() {
                                             0,
                                             None,
                                         ),
-                                        405..406,
+                                        403..404,
                                     ),
                                 },
-                                397..407,
+                                395..405,
                             ),
                             condition: Spanned(
                                 BinaryOp {
@@ -337,22 +337,22 @@ fn loop_control_flow() {
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                408..409,
+                                                406..407,
                                             ),
                                         ),
-                                        408..409,
+                                        406..407,
                                     ),
                                     right: Spanned(
                                         Identifier(
                                             Spanned(
                                                 "numbers_len",
-                                                412..423,
+                                                410..421,
                                             ),
                                         ),
-                                        412..423,
+                                        410..421,
                                     ),
                                 },
-                                408..423,
+                                406..421,
                             ),
                             step: Spanned(
                                 Assignment {
@@ -360,10 +360,10 @@ fn loop_control_flow() {
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                425..426,
+                                                423..424,
                                             ),
                                         ),
-                                        425..426,
+                                        423..424,
                                     ),
                                     rhs: Spanned(
                                         BinaryOp {
@@ -372,23 +372,23 @@ fn loop_control_flow() {
                                                 Identifier(
                                                     Spanned(
                                                         "i",
-                                                        429..430,
+                                                        427..428,
                                                     ),
                                                 ),
-                                                429..430,
+                                                427..428,
                                             ),
                                             right: Spanned(
                                                 Literal(
                                                     1,
                                                     None,
                                                 ),
-                                                433..434,
+                                                431..432,
                                             ),
                                         },
-                                        429..434,
+                                        427..432,
                                     ),
                                 },
-                                425..434,
+                                423..432,
                             ),
                             body: Spanned(
                                 Block(
@@ -402,35 +402,35 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    450..451,
+                                                                    448..449,
                                                                 ),
                                                             ),
-                                                            450..451,
+                                                            448..449,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
                                                                 None,
                                                             ),
-                                                            455..456,
+                                                            453..454,
                                                         ),
                                                     },
-                                                    450..456,
+                                                    448..454,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Continue,
-                                                                472..481,
+                                                                470..479,
                                                             ),
                                                         ],
                                                     ),
-                                                    458..491,
+                                                    456..489,
                                                 ),
                                                 else_block: None,
                                             },
-                                            446..491,
+                                            444..489,
                                         ),
                                         Spanned(
                                             Assignment {
@@ -438,10 +438,10 @@ fn loop_control_flow() {
                                                     Identifier(
                                                         Spanned(
                                                             "sum",
-                                                            500..503,
+                                                            498..501,
                                                         ),
                                                     ),
-                                                    500..503,
+                                                    498..501,
                                                 ),
                                                 rhs: Spanned(
                                                     BinaryOp {
@@ -450,32 +450,32 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "sum",
-                                                                    506..509,
+                                                                    504..507,
                                                                 ),
                                                             ),
-                                                            506..509,
+                                                            504..507,
                                                         ),
                                                         right: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    512..513,
+                                                                    510..511,
                                                                 ),
                                                             ),
-                                                            512..513,
+                                                            510..511,
                                                         ),
                                                     },
-                                                    506..513,
+                                                    504..511,
                                                 ),
                                             },
-                                            500..514,
+                                            498..512,
                                         ),
                                     ],
                                 ),
-                                436..520,
+                                434..518,
                             ),
                         },
-                        392..520,
+                        390..518,
                     ),
                     Spanned(
                         Loop {
@@ -487,7 +487,7 @@ fn loop_control_flow() {
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "x",
-                                                        582..583,
+                                                        580..581,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -497,17 +497,17 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "read_input",
-                                                                    586..596,
+                                                                    584..594,
                                                                 ),
                                                             ),
-                                                            586..596,
+                                                            584..594,
                                                         ),
                                                         args: [],
                                                     },
-                                                    586..598,
+                                                    584..596,
                                                 ),
                                             },
-                                            578..599,
+                                            576..597,
                                         ),
                                         Spanned(
                                             If {
@@ -518,35 +518,35 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "x",
-                                                                    612..613,
+                                                                    610..611,
                                                                 ),
                                                             ),
-                                                            612..613,
+                                                            610..611,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
                                                                 None,
                                                             ),
-                                                            617..618,
+                                                            615..616,
                                                         ),
                                                     },
-                                                    612..618,
+                                                    610..616,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Break,
-                                                                634..640,
+                                                                632..638,
                                                             ),
                                                         ],
                                                     ),
-                                                    620..650,
+                                                    618..648,
                                                 ),
                                                 else_block: None,
                                             },
-                                            608..650,
+                                            606..648,
                                         ),
                                         Spanned(
                                             If {
@@ -557,35 +557,35 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "x",
-                                                                    663..664,
+                                                                    661..662,
                                                                 ),
                                                             ),
-                                                            663..664,
+                                                            661..662,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
                                                                 None,
                                                             ),
-                                                            668..669,
+                                                            666..667,
                                                         ),
                                                     },
-                                                    663..669,
+                                                    661..667,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Continue,
-                                                                685..694,
+                                                                683..692,
                                                             ),
                                                         ],
                                                     ),
-                                                    671..704,
+                                                    669..702,
                                                 ),
                                                 else_block: None,
                                             },
-                                            659..704,
+                                            657..702,
                                         ),
                                         Spanned(
                                             Expression(
@@ -595,38 +595,38 @@ fn loop_control_flow() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "process_positive",
-                                                                    713..729,
+                                                                    711..727,
                                                                 ),
                                                             ),
-                                                            713..729,
+                                                            711..727,
                                                         ),
                                                         args: [
                                                             Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "x",
-                                                                        730..731,
+                                                                        728..729,
                                                                     ),
                                                                 ),
-                                                                730..731,
+                                                                728..729,
                                                             ),
                                                         ],
                                                     },
-                                                    713..731,
+                                                    711..729,
                                                 ),
                                             ),
-                                            713..733,
+                                            711..731,
                                         ),
                                     ],
                                 ),
-                                568..739,
+                                566..737,
                             ),
                         },
-                        563..739,
+                        561..737,
                     ),
                 ],
             },
-            0..741,
+            0..739,
         ),
     ),
 ]

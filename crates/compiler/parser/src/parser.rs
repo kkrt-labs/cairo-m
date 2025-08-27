@@ -1094,12 +1094,15 @@ where
             })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
-        // While statement: while (condition) { ... }
+        // While statement: supports both `while (cond) { ... }` and `while cond { ... }`
+        let while_condition = choice((
+            expr.clone()
+                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)), // condition in parens
+            expr.clone(), // bare condition
+        ));
+
         let while_stmt = just(TokenType::While)
-            .ignore_then(
-                expr.clone()
-                    .delimited_by(just(TokenType::LParen), just(TokenType::RParen)), // condition in parens
-            )
+            .ignore_then(while_condition)
             .then(statement.clone()) // body
             .map(|(condition, body)| Statement::While {
                 condition,

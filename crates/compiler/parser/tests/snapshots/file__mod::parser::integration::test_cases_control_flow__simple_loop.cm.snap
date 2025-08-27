@@ -14,7 +14,7 @@ fn test_loops() {
 
     // While loop
     let counter = 0;
-    while (counter != 10) {
+    while counter != 10 {
         counter = counter + 1;
     }
 
@@ -139,20 +139,20 @@ fn test_loops() {
                                         Identifier(
                                             Spanned(
                                                 "counter",
-                                                177..184,
+                                                176..183,
                                             ),
                                         ),
-                                        177..184,
+                                        176..183,
                                     ),
                                     right: Spanned(
                                         Literal(
                                             10,
                                             None,
                                         ),
-                                        188..190,
+                                        187..189,
                                     ),
                                 },
-                                177..190,
+                                176..189,
                             ),
                             body: Spanned(
                                 Block(
@@ -163,10 +163,10 @@ fn test_loops() {
                                                     Identifier(
                                                         Spanned(
                                                             "counter",
-                                                            202..209,
+                                                            200..207,
                                                         ),
                                                     ),
-                                                    202..209,
+                                                    200..207,
                                                 ),
                                                 rhs: Spanned(
                                                     BinaryOp {
@@ -175,30 +175,30 @@ fn test_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "counter",
-                                                                    212..219,
+                                                                    210..217,
                                                                 ),
                                                             ),
-                                                            212..219,
+                                                            210..217,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
                                                                 None,
                                                             ),
-                                                            222..223,
+                                                            220..221,
                                                         ),
                                                     },
-                                                    212..223,
+                                                    210..221,
                                                 ),
                                             },
-                                            202..224,
+                                            200..222,
                                         ),
                                     ],
                                 ),
-                                192..230,
+                                190..228,
                             ),
                         },
-                        170..230,
+                        170..228,
                     ),
                     Spanned(
                         For {
@@ -207,7 +207,7 @@ fn test_loops() {
                                     pattern: Identifier(
                                         Spanned(
                                             "i",
-                                            271..272,
+                                            269..270,
                                         ),
                                     ),
                                     statement_type: None,
@@ -216,10 +216,10 @@ fn test_loops() {
                                             0,
                                             None,
                                         ),
-                                        275..276,
+                                        273..274,
                                     ),
                                 },
-                                267..277,
+                                265..275,
                             ),
                             condition: Spanned(
                                 BinaryOp {
@@ -228,20 +228,20 @@ fn test_loops() {
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                278..279,
+                                                276..277,
                                             ),
                                         ),
-                                        278..279,
+                                        276..277,
                                     ),
                                     right: Spanned(
                                         Literal(
                                             10,
                                             None,
                                         ),
-                                        282..284,
+                                        280..282,
                                     ),
                                 },
-                                278..284,
+                                276..282,
                             ),
                             step: Spanned(
                                 Assignment {
@@ -249,10 +249,10 @@ fn test_loops() {
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                286..287,
+                                                284..285,
                                             ),
                                         ),
-                                        286..287,
+                                        284..285,
                                     ),
                                     rhs: Spanned(
                                         BinaryOp {
@@ -261,23 +261,23 @@ fn test_loops() {
                                                 Identifier(
                                                     Spanned(
                                                         "i",
-                                                        290..291,
+                                                        288..289,
                                                     ),
                                                 ),
-                                                290..291,
+                                                288..289,
                                             ),
                                             right: Spanned(
                                                 Literal(
                                                     1,
                                                     None,
                                                 ),
-                                                294..295,
+                                                292..293,
                                             ),
                                         },
-                                        290..295,
+                                        288..293,
                                     ),
                                 },
-                                286..295,
+                                284..293,
                             ),
                             body: Spanned(
                                 Block(
@@ -287,7 +287,7 @@ fn test_loops() {
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "squared",
-                                                        311..318,
+                                                        309..316,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -298,36 +298,36 @@ fn test_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    321..322,
+                                                                    319..320,
                                                                 ),
                                                             ),
-                                                            321..322,
+                                                            319..320,
                                                         ),
                                                         right: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    325..326,
+                                                                    323..324,
                                                                 ),
                                                             ),
-                                                            325..326,
+                                                            323..324,
                                                         ),
                                                     },
-                                                    321..326,
+                                                    319..324,
                                                 ),
                                             },
-                                            307..327,
+                                            305..325,
                                         ),
                                     ],
                                 ),
-                                297..333,
+                                295..331,
                             ),
                         },
-                        262..333,
+                        260..331,
                     ),
                 ],
             },
-            0..335,
+            0..333,
         ),
     ),
 ]

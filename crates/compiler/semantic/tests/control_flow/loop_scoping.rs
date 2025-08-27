@@ -14,7 +14,7 @@ fn test_loop_scoping() {
             // Each loop creates its own scope
             in_function("loop { let outer = 1; loop { let inner = 2; let x = outer; break; } let y = inner; break; }"),
             // While loop body creates new scope
-            in_function("let condition = true; while (condition) { let loop_var = 42; break; } let x = loop_var;"),
+            in_function("let condition = true; while condition { let loop_var = 42; break; } let x = loop_var;"),
             // Blocks inside loops create additional scopes
             in_function("loop { let loop_var = 1; { let block_var = 2; let x = loop_var; } let y = block_var; break; }"),
         ]

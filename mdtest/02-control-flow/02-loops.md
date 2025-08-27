@@ -34,7 +34,7 @@ While loop with condition:
 fn count_down() -> felt {
     let x = 10;
     let count = 0;
-    while (x != 0) {
+    while x != 0 {
         x = x - 1;
         count = count + 1;
     }

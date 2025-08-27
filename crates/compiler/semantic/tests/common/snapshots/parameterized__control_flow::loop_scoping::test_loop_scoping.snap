@@ -29,14 +29,14 @@ fn test() { loop { let outer = 1; loop { let inner = 2; let x = outer; break; } 
 ============================================================
 
 --- Input 3 (ERROR) ---
-fn test() { let condition = true; while (condition) { let loop_var = 42; break; } let x = loop_var; return; }
+fn test() { let condition = true; while condition { let loop_var = 42; break; } let x = loop_var; return; }
 --- Diagnostics ---
 [1001] Error: Undeclared variable 'loop_var'
-   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scoping:1:91 ]
+   ╭─[ semantic_tests::control_flow::loop_scoping::test_loop_scoping:1:89 ]
    │
- 1 │ fn test() { let condition = true; while (condition) { let loop_var = 42; break; } let x = loop_var; return; }
-   │                                                                                           ────┬───  
-   │                                                                                               ╰───── Undeclared variable 'loop_var'
+ 1 │ fn test() { let condition = true; while condition { let loop_var = 42; break; } let x = loop_var; return; }
+   │                                                                                         ────┬───  
+   │                                                                                             ╰───── Undeclared variable 'loop_var'
 ───╯
 
 ============================================================
