@@ -1,5 +1,5 @@
 //! This component is used to prove the U32StoreSubFpImm opcode.
-//! u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+//! u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) - u32(imm_lo, imm_hi)
 //!
 //! # Columns
 //!
@@ -50,7 +50,7 @@
 //!   * `- [res_lo]` in `RangeCheck16` relation
 //!   * `- [res_hi]` in `RangeCheck16` relation
 
-use cairo_m_common::instruction::U32_STORE_ADD_FP_IMM;
+use cairo_m_common::instruction::U32_STORE_SUB_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -176,7 +176,7 @@ impl Claim {
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
 
-                let opcode_constant = PackedM31::from(M31::from(U32_STORE_ADD_FP_IMM));
+                let opcode_constant = PackedM31::from(M31::from(U32_STORE_SUB_FP_IMM));
                 let src_off = input.inst_value_1;
                 let imm_lo = input.inst_value_2;
                 let imm_hi = input.inst_value_3;
@@ -599,7 +599,7 @@ impl FrameworkEval for Eval {
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
         let two_pow_16 = E::F::from(M31::from(1 << 16));
-        let opcode_constant = E::F::from(M31::from(U32_STORE_ADD_FP_IMM));
+        let opcode_constant = E::F::from(M31::from(U32_STORE_SUB_FP_IMM));
 
         // 17 columns
         let enabler = eval.next_trace_mask();
