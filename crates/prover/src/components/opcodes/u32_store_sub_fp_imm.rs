@@ -1,4 +1,4 @@
-//! This component is used to prove the U32StoreAddFpImm opcode.
+//! This component is used to prove the U32StoreSubFpImm opcode.
 //! u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
 //!
 //! # Columns

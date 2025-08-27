@@ -9,6 +9,7 @@ use crate::preprocessed::PreProcessedColumn;
 
 pub mod range_check_16;
 pub mod range_check_20;
+pub mod range_check_8;
 
 pub struct RangeCheck {
     range: u32,

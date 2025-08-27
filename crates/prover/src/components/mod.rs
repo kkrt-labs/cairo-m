@@ -20,7 +20,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ProverInput;
-use crate::preprocessed::range_check::{range_check_16, range_check_20};
+use crate::preprocessed::range_check::{range_check_16, range_check_20, range_check_8};
 use crate::public_data::PublicData;
 use crate::relations;
 
@@ -31,6 +31,7 @@ pub struct Claim {
     pub merkle: merkle::Claim,
     pub clock_update: clock_update::Claim,
     pub poseidon2: poseidon2::Claim,
+    pub range_check_8: range_check_8::Claim,
     pub range_check_16: range_check_16::Claim,
     pub range_check_20: range_check_20::Claim,
 }
@@ -41,6 +42,7 @@ pub struct Relations {
     pub memory: relations::Memory,
     pub merkle: relations::Merkle,
     pub poseidon2: relations::Poseidon2,
+    pub range_check_8: relations::RangeCheck8,
     pub range_check_16: relations::RangeCheck16,
     pub range_check_20: relations::RangeCheck20,
 }
@@ -51,6 +53,7 @@ pub struct InteractionClaimData {
     pub merkle: merkle::InteractionClaimData,
     pub clock_update: clock_update::InteractionClaimData,
     pub poseidon2: poseidon2::InteractionClaimData,
+    pub range_check_8: range_check_8::InteractionClaimData,
     pub range_check_16: range_check_16::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
 }
@@ -62,6 +65,7 @@ pub struct InteractionClaim {
     pub merkle: merkle::InteractionClaim,
     pub clock_update: clock_update::InteractionClaim,
     pub poseidon2: poseidon2::InteractionClaim,
+    pub range_check_8: range_check_8::InteractionClaim,
     pub range_check_16: range_check_16::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
 }
@@ -74,6 +78,7 @@ impl Claim {
             self.merkle.log_sizes(),
             self.clock_update.log_sizes(),
             self.poseidon2.log_sizes(),
+            self.range_check_8.log_sizes(),
             self.range_check_16.log_sizes(),
             self.range_check_20.log_sizes(),
         ];
@@ -86,6 +91,7 @@ impl Claim {
         self.merkle.mix_into(channel);
         self.clock_update.mix_into(channel);
         self.poseidon2.mix_into(channel);
+        self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
@@ -121,6 +127,10 @@ impl Claim {
             clock_update::Claim::write_trace(&input.memory.clock_update_data);
 
         // Write range_check components
+        let range_check_8_data = opcodes_interaction_claim_data.range_check_8();
+        let (range_check_8_claim, range_check_8_trace, range_check_8_interaction_claim_data) =
+            range_check_8::Claim::write_trace(range_check_8_data);
+
         let range_check_16_data = opcodes_interaction_claim_data.range_check_16();
         let (range_check_16_claim, range_check_16_trace, range_check_16_interaction_claim_data) =
             range_check_16::Claim::write_trace(range_check_16_data);
@@ -136,6 +146,7 @@ impl Claim {
             merkle: merkle_interaction_claim_data,
             clock_update: clock_update_interaction_claim_data,
             poseidon2: poseidon2_interaction_claim_data,
+            range_check_8: range_check_8_interaction_claim_data,
             range_check_16: range_check_16_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
         };
@@ -147,6 +158,7 @@ impl Claim {
             .chain(merkle_trace.to_evals())
             .chain(clock_update_trace.to_evals())
             .chain(poseidon2_trace.to_evals())
+            .chain(range_check_8_trace)
             .chain(range_check_16_trace)
             .chain(range_check_20_trace);
 
@@ -157,6 +169,7 @@ impl Claim {
                 merkle: merkle_claim,
                 clock_update: clock_update_claim,
                 poseidon2: poseidon2_claim,
+                range_check_8: range_check_8_claim,
                 range_check_16: range_check_16_claim,
                 range_check_20: range_check_20_claim,
             },
@@ -203,6 +216,12 @@ impl InteractionClaim {
                 &interaction_claim_data.poseidon2,
             );
 
+        let (range_check_8_interaction_claim, range_check_8_interaction_trace) =
+            range_check_8::InteractionClaim::write_interaction_trace(
+                &relations.range_check_8,
+                &interaction_claim_data.range_check_8,
+            );
+
         let (range_check_16_interaction_claim, range_check_16_interaction_trace) =
             range_check_16::InteractionClaim::write_interaction_trace(
                 &relations.range_check_16,
@@ -222,6 +241,7 @@ impl InteractionClaim {
                 .chain(merkle_interaction_trace)
                 .chain(clock_update_interaction_trace)
                 .chain(poseidon2_interaction_trace)
+                .chain(range_check_8_interaction_trace)
                 .chain(range_check_16_interaction_trace)
                 .chain(range_check_20_interaction_trace),
             Self {
@@ -230,6 +250,7 @@ impl InteractionClaim {
                 merkle: merkle_interaction_claim,
                 clock_update: clock_update_interaction_claim,
                 poseidon2: poseidon2_interaction_claim,
+                range_check_8: range_check_8_interaction_claim,
                 range_check_16: range_check_16_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
             },
@@ -244,6 +265,7 @@ impl InteractionClaim {
         sum += self.merkle.claimed_sum;
         sum += self.clock_update.claimed_sum;
         sum += self.poseidon2.claimed_sum;
+        sum += self.range_check_8.claimed_sum;
         sum += self.range_check_16.claimed_sum;
         sum += self.range_check_20.claimed_sum;
         sum
@@ -255,6 +277,7 @@ impl InteractionClaim {
         self.merkle.mix_into(channel);
         self.clock_update.mix_into(channel);
         self.poseidon2.mix_into(channel);
+        self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
     }
@@ -267,6 +290,7 @@ impl Relations {
             memory: relations::Memory::draw(channel),
             merkle: relations::Merkle::draw(channel),
             poseidon2: relations::Poseidon2::draw(channel),
+            range_check_8: relations::RangeCheck8::draw(channel),
             range_check_16: relations::RangeCheck16::draw(channel),
             range_check_20: relations::RangeCheck20::draw(channel),
         }
@@ -279,6 +303,7 @@ pub struct Components {
     pub merkle: merkle::Component,
     pub clock_update: clock_update::Component,
     pub poseidon2: poseidon2::Component,
+    pub range_check_8: range_check_8::Component,
     pub range_check_16: range_check_16::Component,
     pub range_check_20: range_check_20::Component,
 }
@@ -329,6 +354,14 @@ impl Components {
                 },
                 interaction_claim.poseidon2.claimed_sum,
             ),
+            range_check_8: range_check_8::Component::new(
+                location_allocator,
+                range_check_8::Eval {
+                    claim: claim.range_check_8,
+                    relation: relations.range_check_8.clone(),
+                },
+                interaction_claim.range_check_8.claimed_sum,
+            ),
             range_check_16: range_check_16::Component::new(
                 location_allocator,
                 range_check_16::Eval {
@@ -354,6 +387,7 @@ impl Components {
         provers.push(&self.merkle);
         provers.push(&self.clock_update);
         provers.push(&self.poseidon2);
+        provers.push(&self.range_check_8);
         provers.push(&self.range_check_16);
         provers.push(&self.range_check_20);
         provers
@@ -365,6 +399,7 @@ impl Components {
         verifiers.push(&self.merkle);
         verifiers.push(&self.clock_update);
         verifiers.push(&self.poseidon2);
+        verifiers.push(&self.range_check_8);
         verifiers.push(&self.range_check_16);
         verifiers.push(&self.range_check_20);
         verifiers

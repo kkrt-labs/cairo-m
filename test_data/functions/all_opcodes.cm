@@ -61,6 +61,7 @@ fn main() -> felt {
     let two_pow_16: u32 = 65536;
     let zero_u32: u32 = 0;
     let x_u32: u32 = 42;
+    let y_u32: u32 = 43;
 
     // U32StoreAddFpImm
     // u16_carry = 0 and u32_carry = 0
@@ -85,6 +86,96 @@ fn main() -> felt {
     let u32_prod2: u32 = MAX_u32 * 2u32;
     // Big overflow (overflow_limb = 2)
     let u32_prod3: u32 = MAX_u32 * 4294967295u32;
+
+    // U32StoreDivFpImm - Comprehensive Division Tests
+    // Note: store_div_fp_imm divides [fp + src_off] by immediate, so we need to store numerators first
+
+    // Basic division cases
+    // Divide even number by 2
+    let u32_div1: u32 = x_u32 / 2u32;  // 42 / 2 = 21
+    // Divide odd number by 2
+    let u32_div2: u32 = y_u32 / 2u32;  // 43 / 2 = 21 (integer division)
+
+    // Edge case: Division by 1
+    let u32_div3: u32 = MAX_u32 / 1u32;  // Should return MAX_u32
+
+    // Division with remainder
+    let n100: u32 = 100;
+    let u32_div4: u32 = n100 / 7u32;  // 100 / 7 = 14 (remainder 2)
+    let n1000: u32 = 1000;
+    let u32_div5: u32 = n1000 / 13u32;  // 1000 / 13 = 76 (remainder 12)
+
+    // Division of zero
+    let u32_div6: u32 = zero_u32 / 42u32;  // 0 / 42 = 0
+
+    // Division resulting in small quotient
+    let n5: u32 = 5;
+    let u32_div7: u32 = n5 / 10u32;  // 5 / 10 = 0
+    let n15: u32 = 15;
+    let u32_div8: u32 = n15 / 16u32;  // 15 / 16 = 0
+
+    // Division with 8-bit boundary values
+    let n255: u32 = 255;
+    let u32_div9: u32 = n255 / 255u32;  // 255 / 255 = 1 (max 8-bit value)
+    let n256: u32 = 256;
+    let u32_div10: u32 = n256 / 255u32;  // 256 / 255 = 1 (crosses 8-bit boundary)
+    let n65535: u32 = 65535;
+    let u32_div11: u32 = n65535 / 255u32;  // 65535 / 255 = 257
+
+    // Division with 16-bit boundary values
+    let u32_div12: u32 = MAX_u16 / 65535u32;  // 65535 / 65535 = 1
+    let u32_div13: u32 = two_pow_16 / 65535u32;  // 65536 / 65535 = 1
+    let u32_div14: u32 = MAX_u32 / 65535u32;  // 4294967295 / 65535 = 65537
+
+    // Division testing carry propagation in q * d multiplication
+    let n16777215: u32 = 16777215;  // 2^24 - 1
+    let u32_div15: u32 = n16777215 / 257u32;  // (2^24 - 1) / 257 = 65279
+    let n16777216: u32 = 16777216;  // 2^24
+    let u32_div16: u32 = n16777216 / 256u32;  // 2^24 / 256 = 65536
+
+    // Division with divisors that have specific 8-bit patterns
+    let n1000000: u32 = 1000000;
+    let u32_div17: u32 = n1000000 / 513u32;  // divisor = 0x201 (d_0=1, d_1=2)
+    let u32_div18: u32 = n1000000 / 65793u32;  // divisor = 0x10101 (d_0=1, d_1=1, d_2=1, d_3=1)
+
+    // Testing sub_borrow conditions for r < d check
+    // Case where remainder is close to divisor
+    let u32_div19: u32 = n1000 / 999u32;  // 1000 / 999 = 1, remainder = 1
+    let n65536: u32 = 65536;
+    let u32_div20: u32 = n65536 / 65535u32;  // 65536 / 65535 = 1, remainder = 1
+
+    // Large numerator, small divisor (tests add_carry propagation)
+    let u32_div21: u32 = MAX_u32 / 3u32;  // 4294967295 / 3 = 1431655765
+    let u32_div22: u32 = MAX_u32 / 7u32;  // 4294967295 / 7 = 613566756
+
+    // Testing mul_carry propagation with specific patterns
+    let n4294901760: u32 = 4294901760;  // 0xFFFF0000
+    let u32_div23: u32 = n4294901760 / 65535u32;  // 0xFFFF0000 / 0xFFFF = 65536
+    let n4278190080: u32 = 4278190080;  // 0xFF000000
+    let u32_div24: u32 = n4278190080 / 16711680u32;  // 0xFF000000 / 0xFF0000 = 256
+
+    // Edge case: numerator just less than divisor
+    let n999: u32 = 999;
+    let u32_div26: u32 = n999 / 1000u32;  // 999 / 1000 = 0
+    let n65534: u32 = 65534;
+    let u32_div27: u32 = n65534 / 65535u32;  // 65534 / 65535 = 0
+
+    // Testing division where quotient has specific 8-bit patterns
+    let n66051: u32 = 66051;
+    let u32_div28: u32 = n66051 / 257u32;  // Result = 257 (q_0=1, q_1=1)
+    let n16843009: u32 = 16843009;
+    let u32_div29: u32 = n16843009 / 257u32;  // Result = 65537 (q_0=1, q_1=0, q_2=1, q_3=0)
+
+    // Additional edge cases for thorough testing
+    // Test maximum possible mul_carry values
+    let nLarge1: u32 = 4294967040;  // Close to MAX_u32
+    let u32_div30: u32 = nLarge1 / 255u32;  // Tests high mul_carry values
+
+    // Test division where remainder equals divisor - 1 (maximum valid remainder)
+    let n1998: u32 = 1998;
+    let u32_div31: u32 = n1998 / 999u32;  // 1998 / 999 = 2, remainder = 0
+    let n1997: u32 = 1997;
+    let u32_div32: u32 = n1997 / 999u32;  // 1997 / 999 = 1, remainder = 998 (divisor - 1)
 
     // JnzFpImm
     if (a != 5) {
