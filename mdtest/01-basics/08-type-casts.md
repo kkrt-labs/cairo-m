@@ -5,7 +5,8 @@ Cairo-M supports type casts between compatible types. Currently, only casts from
 
 ## Casting From `felt` to `u32`
 
-> Note: casting from `felt` to `u32` is generating a `i64` in the MIR.
+> Note: casting from `felt` to `u32` is generating multiple CASM instructions,
+> which might hinder performance. Avoid over-using it.
 
 ```cairo-m
 fn test_u32_to_felt(input: u32) -> felt {
