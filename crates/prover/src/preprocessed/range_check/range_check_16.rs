@@ -49,7 +49,7 @@ impl Claim {
     ///
     /// lookup_data contains all range_checks made in other components during main trace generation
     /// write_trace creates a column with all values from 0 to 2**16 - 1 included and counts how many times other components
-    /// have range_checked each values: every occurence of a range_checked value increases by 1 its multiplicity.
+    /// have range_checked each values: every occurrence of a range_checked value increases by 1 its multiplicity.
     /// These multiplicities are stored in a new column.
     pub fn write_trace<'a, MC: MerkleChannel>(
         lookup_data: impl ParallelIterator<Item = &'a PackedM31>,
