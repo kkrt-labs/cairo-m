@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756289067990,
+  "lastUpdate": 1756297400078,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1903,6 +1903,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 338233137,
             "range": "± 1238977",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df1f906f859f1d1887d2f8ff6f0b4db174290cb3",
+          "message": "feat(runner): add LowerThan, AssertEqFpFp and AssertEqFpImm instructions (#254)\n\nfeat(runner): add AssertEqFpFp and AssertEqFpImm instructions\n\n- Add AssertionFailed error variant for assertion instructions\n- Implement AssertEqFpFp for comparing two FP-relative values\n- Implement AssertEqFpImm for comparing FP-relative value with immediate\n- Add comprehensive tests for assertion instructions\n- Register new opcodes 49 and 50 for assert instructions\n\nCloses CORE-1147\n\nfeat(runner): add StoreLowerThanFpImm instruction\n\n- Implement StoreLowerThanFpImm for less-than comparisons\n- Store result as 0 (false) or 1 (true) in M31 field\n- Register opcode 48 for the new instruction\n- Add tests for comparison instruction\n\nCloses CORE-1145",
+          "timestamp": "2025-08-27T13:19:37+01:00",
+          "tree_id": "3f4604f4f8e37cf42b26fe057d456e22a01880b2",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/df1f906f859f1d1887d2f8ff6f0b4db174290cb3"
+        },
+        "date": 1756297399681,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 330181500,
+            "range": "± 1112963",
             "unit": "ns/iter"
           }
         ]
