@@ -1,6 +1,8 @@
 macro_rules! define_opcodes {
     // Single pattern: all opcodes use [opcodes...] syntax
-    ($(([$($opcode_const:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
+    ($(([$($opcode_variant:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
+        define_opcodes!(@check_all_opcodes_used [$($($opcode_variant),+),*]);
+
         // Generate pub mod declarations for all opcodes
         $(pub mod $opcode;)*
 
@@ -49,10 +51,12 @@ macro_rules! define_opcodes {
                 $(
                     // Collect states for all opcodes in this group
                     let mut grouped_states = Vec::new();
-                    $(
-                        let state_data = instructions.states_by_opcodes.entry($opcode_const).or_default();
-                        grouped_states.extend(state_data.drain(..));
-                    )+
+                    paste::paste! {
+                        $(
+                            let state_data = instructions.states_by_opcodes.entry([<$opcode_variant:snake:upper>]).or_default();
+                            grouped_states.extend(state_data.drain(..));
+                        )+
+                    }
 
                     let (paste::paste! { [<$opcode _claim>] }, paste::paste! { [<$opcode _trace_raw>] }, paste::paste! { [<$opcode _interaction_claim_data>] }) =
                         $opcode::Claim::write_trace(&mut grouped_states);
@@ -168,6 +172,60 @@ macro_rules! define_opcodes {
                     .flatten(),
             ))*
     };
+
+    // Helper rule to check that all Opcode variants are used
+    (@check_all_opcodes_used [$($opcode_variant:ident),* $(,)?]) => {
+        // This will be checked at compile time - if any opcode is missing,
+        // the match will be non-exhaustive and compilation will fail
+        const _: fn() = || {
+            use cairo_m_common::instruction::Instruction;
+            let _check_all_opcodes = |opcode: Instruction| {
+                match opcode {
+                    $(
+                        Instruction::$opcode_variant { .. } => {},
+                    )*
+                    // TODO: Add support for these opcodes
+                    Instruction::StoreLowerThanFpImm { .. } => {},
+                    Instruction::AssertEqFpFp { .. } => {},
+                    Instruction::AssertEqFpImm { .. } => {},
+                    Instruction::StoreFpImm { .. } => {},
+                    Instruction::StoreDoubleDerefFpFp { .. } => {},
+                    Instruction::U32StoreAddFpFp { .. } => {},
+                    Instruction::U32StoreSubFpFp { .. } => {},
+                    Instruction::U32StoreMulFpFp { .. } => {},
+                    Instruction::U32StoreDivFpFp { .. } => {},
+                    Instruction::U32StoreAddFpImm { .. } => {},
+                    Instruction::U32StoreSubFpImm { .. } => {},
+                    Instruction::U32StoreMulFpImm { .. } => {},
+                    Instruction::U32StoreDivFpImm { .. } => {},
+                    Instruction::U32StoreImm { .. } => {},
+                    Instruction::U32StoreEqFpFp { .. } => {},
+                    Instruction::U32StoreNeqFpFp { .. } => {},
+                    Instruction::U32StoreGtFpFp { .. } => {},
+                    Instruction::U32StoreGeFpFp { .. } => {},
+                    Instruction::U32StoreLtFpFp { .. } => {},
+                    Instruction::U32StoreLeFpFp { .. } => {},
+                    Instruction::U32StoreEqFpImm { .. } => {},
+                    Instruction::U32StoreNeqFpImm { .. } => {},
+                    Instruction::U32StoreGtFpImm { .. } => {},
+                    Instruction::U32StoreGeFpImm { .. } => {},
+                    Instruction::U32StoreLtFpImm { .. } => {},
+                    Instruction::U32StoreLeFpImm { .. } => {},
+                    Instruction::U32StoreAndFpFp { .. } => {},
+                    Instruction::U32StoreOrFpFp { .. } => {},
+                    Instruction::U32StoreXorFpFp { .. } => {},
+                    Instruction::U32StoreAndFpImm { .. } => {},
+                    Instruction::U32StoreOrFpImm { .. } => {},
+                    Instruction::U32StoreXorFpImm { .. } => {},
+                    Instruction::StoreToDoubleDerefFpImm { .. } => {},
+                    Instruction::StoreToDoubleDerefFpFp { .. } => {},
+                    // Unsound opcodes
+                    Instruction::PrintM31 { .. } => {},
+                    Instruction::PrintU32 { .. } => {} ,
+                }
+            };
+        };
+    };
 }
 
 use cairo_m_common::instruction::*;
@@ -193,28 +251,18 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
-    ([CALL_ABS_IMM], call_abs_imm),
-    ([JMP_ABS_IMM, JMP_REL_IMM], jmp_imm),
-    ([JNZ_FP_IMM], jnz_fp_imm),
-    ([RET], ret),
-    ([STORE_IMM], store_imm),
+    ([CallAbsImm], call_abs_imm),
+    ([JmpAbsImm, JmpRelImm], jmp_imm),
+    ([JnzFpImm], jnz_fp_imm),
+    ([Ret], ret),
+    ([StoreImm], store_imm),
     (
-        [
-            STORE_ADD_FP_FP,
-            STORE_SUB_FP_FP,
-            STORE_MUL_FP_FP,
-            STORE_DIV_FP_FP,
-        ],
+        [StoreAddFpFp, StoreSubFpFp, StoreMulFpFp, StoreDivFpFp,],
         store_fp_fp
     ),
     (
-        [
-            STORE_ADD_FP_IMM,
-            STORE_SUB_FP_IMM,
-            STORE_MUL_FP_IMM,
-            STORE_DIV_FP_IMM,
-        ],
+        [StoreAddFpImm, StoreSubFpImm, StoreMulFpImm, StoreDivFpImm,],
         store_fp_imm
     ),
-    ([STORE_DOUBLE_DEREF_FP], store_double_deref_fp)
+    ([StoreDoubleDerefFp], store_double_deref_fp),
 );
