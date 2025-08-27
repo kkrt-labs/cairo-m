@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756214809277,
+  "lastUpdate": 1756289067990,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1873,6 +1873,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 336767341,
             "range": "± 1484332",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2d5597181159816eec0c315e49c34445929029a7",
+          "message": "feat(compiler): make `while` statements parenthesis optional (#256)\n\n* Support while statement without parentheses in parser and formatter\n\nCo-authored-by: msaug <msaug@protonmail.com>\n\n* remove parenthesis in all examples\n\n---------\n\nCo-authored-by: Cursor Agent <cursoragent@cursor.com>",
+          "timestamp": "2025-08-27T12:00:51+02:00",
+          "tree_id": "ef0f843a7829cf5be1a09c2be567dc1bb0161df0",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/2d5597181159816eec0c315e49c34445929029a7"
+        },
+        "date": 1756289067552,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 338233137,
+            "range": "± 1238977",
             "unit": "ns/iter"
           }
         ]
