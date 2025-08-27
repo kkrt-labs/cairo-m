@@ -335,6 +335,7 @@ impl InteractionClaim {
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
         let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
 
+        // Registers lookups
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
@@ -356,192 +357,56 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[0],
-            &interaction_claim_data.lookup_data.memory[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
+        // Memory lookups
+        for i in 0..N_MEMORY_LOOKUPS / 2 {
+            let mut col = interaction_trace.new_col();
+            (
+                col.par_iter_mut(),
+                &interaction_claim_data.lookup_data.memory[i * 2],
+                &interaction_claim_data.lookup_data.memory[i * 2 + 1],
+            )
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(i, (writer, memory_prev, memory_new))| {
+                    let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
+                    let num_new = PackedQM31::from(enabler_col.packed_at(i));
+                    let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
+                    let denom_new: PackedQM31 = relations.memory.combine(memory_new);
 
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
+                    let numerator = num_prev * denom_new + num_new * denom_prev;
+                    let denom = denom_prev * denom_new;
 
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
+                    writer.write_frac(numerator, denom);
+                });
+            col.finalize_col();
+        }
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[2],
-            &interaction_claim_data.lookup_data.memory[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
+        // Range check 16 lookups
+        for i in 0..N_RANGE_CHECK_16_LOOKUPS / 2 {
+            let mut col = interaction_trace.new_col();
+            (
+                col.par_iter_mut(),
+                &interaction_claim_data.lookup_data.range_check_16[i * 2],
+                &interaction_claim_data.lookup_data.range_check_16[i * 2 + 1],
+            )
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(_i, (writer, range_check_16_0, range_check_16_1))| {
+                    let num = -PackedQM31::one();
+                    let denom_0: PackedQM31 =
+                        relations.range_check_16.combine(&[*range_check_16_0]);
+                    let denom_1: PackedQM31 =
+                        relations.range_check_16.combine(&[*range_check_16_1]);
 
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
+                    let numerator = num * denom_1 + num * denom_0;
+                    let denom = denom_0 * denom_1;
 
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
+                    writer.write_frac(numerator, denom);
+                });
+            col.finalize_col();
+        }
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[4],
-            &interaction_claim_data.lookup_data.memory[5],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[6],
-            &interaction_claim_data.lookup_data.memory[7],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[8],
-            &interaction_claim_data.lookup_data.memory[9],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[10],
-            &interaction_claim_data.lookup_data.memory[11],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_16[0],
-            &interaction_claim_data.lookup_data.range_check_16[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_16_0, range_check_16_1))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_16.combine(&[*range_check_16_0]);
-                let denom_1: PackedQM31 = relations.range_check_16.combine(&[*range_check_16_1]);
-
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_16[2],
-            &interaction_claim_data.lookup_data.range_check_16[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_16_2, range_check_16_3))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_16.combine(&[*range_check_16_2]);
-                let denom_1: PackedQM31 = relations.range_check_16.combine(&[*range_check_16_3]);
-
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_16[4],
-            &interaction_claim_data.lookup_data.range_check_16[5],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_16_4, range_check_16_5))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_16.combine(&[*range_check_16_4]);
-                let denom_1: PackedQM31 = relations.range_check_16.combine(&[*range_check_16_5]);
-
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
+        // Range check 20 lookups
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
