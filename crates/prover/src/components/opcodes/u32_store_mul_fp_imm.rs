@@ -186,7 +186,7 @@ impl Claim {
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
-        let m31_16_shift = PackedM31::from(M31::from(1 << 16));
+        let two_pow_16 = PackedM31::from(M31::from(1 << 16));
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -243,7 +243,7 @@ impl Claim {
                         .to_array()
                         .map(|x| M31::from(x.0 >> 16)),
                 );
-                let res_hi = p0_hi + p1_lo + p2_lo - overflow_limb * m31_16_shift;
+                let res_hi = p0_hi + p1_lo + p2_lo - overflow_limb * two_pow_16;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -685,7 +685,7 @@ impl FrameworkEval for Eval {
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
         let two = E::F::from(M31::from(2));
-        let m31_16_shift = E::F::from(M31::from(1 << 16));
+        let two_pow_16 = E::F::from(M31::from(1 << 16));
         let opcode_constant = E::F::from(M31::from(U32_STORE_MUL_FP_IMM));
 
         // 23 columns
@@ -728,29 +728,28 @@ impl FrameworkEval for Eval {
         eval.add_constraint(
             enabler.clone()
                 * (op0_val_lo.clone() * imm_lo.clone()
-                    - (p0_hi.clone() * m31_16_shift.clone() + res_lo.clone())),
+                    - (p0_hi.clone() * two_pow_16.clone() + res_lo.clone())),
         );
 
         // p1 = op0_val_hi * imm_lo = p1_hi * 2^16 + p1_lo
         eval.add_constraint(
             enabler.clone()
                 * (op0_val_hi.clone() * imm_lo.clone()
-                    - (p1_hi.clone() * m31_16_shift.clone() + p1_lo.clone())),
+                    - (p1_hi.clone() * two_pow_16.clone() + p1_lo.clone())),
         );
 
         // p2 = op0_val_lo * imm_hi = p2_hi * 2^16 + p2_lo
         eval.add_constraint(
             enabler.clone()
                 * (op0_val_lo.clone() * imm_hi.clone()
-                    - (p2_hi.clone() * m31_16_shift.clone() + p2_lo.clone())),
+                    - (p2_hi.clone() * two_pow_16.clone() + p2_lo.clone())),
         );
 
         // Result constraint: res_hi = p0_hi + p1_lo + p2_lo - overflow_limb * 2^16
         eval.add_constraint(
             enabler.clone()
                 * (res_hi.clone()
-                    - (p0_hi.clone() + p1_lo.clone() + p2_lo.clone()
-                        - overflow_limb * m31_16_shift)),
+                    - (p0_hi.clone() + p1_lo.clone() + p2_lo.clone() - overflow_limb * two_pow_16)),
         );
 
         // Registers update

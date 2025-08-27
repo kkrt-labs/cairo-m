@@ -160,7 +160,7 @@ impl Claim {
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
-        let m31_16_shift = PackedM31::from(M31::from(1 << 16));
+        let two_pow_16 = PackedM31::from(M31::from(1 << 16));
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -207,8 +207,8 @@ impl Claim {
                         }
                     }));
 
-                let res_lo = op0_val_lo + imm_lo - u16_carry * m31_16_shift;
-                let res_hi = op0_val_hi + imm_hi + u16_carry - u32_carry * m31_16_shift;
+                let res_lo = op0_val_lo + imm_lo - u16_carry * two_pow_16;
+                let res_hi = op0_val_hi + imm_hi + u16_carry - u32_carry * two_pow_16;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -593,7 +593,7 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let m31_16_shift = E::F::from(M31::from(1 << 16));
+        let two_pow_16 = E::F::from(M31::from(1 << 16));
         let opcode_constant = E::F::from(M31::from(U32_STORE_ADD_FP_IMM));
 
         // 17 columns
@@ -615,9 +615,9 @@ impl FrameworkEval for Eval {
         let u16_carry = eval.next_trace_mask();
         let u32_carry = eval.next_trace_mask();
 
-        let res_lo = op0_val_lo.clone() + imm_lo.clone() - u16_carry.clone() * m31_16_shift.clone();
+        let res_lo = op0_val_lo.clone() + imm_lo.clone() - u16_carry.clone() * two_pow_16.clone();
         let res_hi = op0_val_hi.clone() + imm_hi.clone() + u16_carry.clone()
-            - u32_carry.clone() * m31_16_shift;
+            - u32_carry.clone() * two_pow_16;
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
