@@ -16,6 +16,7 @@
 //! - `StoreAddFpFp { src0_off: M31, src1_off: M31, dst_off: M31 }` - 4 M31 total
 //! - `Ret {}` - 1 M31 total (just the opcode)
 
+use assert::{assert_eq_fp_fp, assert_eq_fp_imm};
 use cairo_m_common::instruction::*;
 use cairo_m_common::{Instruction, State};
 use stwo_prover::core::fields::m31::M31;
@@ -27,6 +28,7 @@ use crate::vm::instructions::print::*;
 use crate::vm::instructions::store::*;
 use crate::vm::{Memory, MemoryError};
 
+pub mod assert;
 pub mod call;
 pub mod jnz;
 pub mod jump;
@@ -192,6 +194,9 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         STORE_TO_DOUBLE_DEREF_FP_FP => store_to_double_deref_fp_fp,
         PRINT_M31 => print_m31,
         PRINT_U32 => print_u32,
+        STORE_LOWER_THAN_FP_IMM => store_lower_than_fp_imm,
+        ASSERT_EQ_FP_FP => assert_eq_fp_fp,
+        ASSERT_EQ_FP_IMM => assert_eq_fp_imm,
         _ => return Err(InstructionError::InvalidOpcode(op)),
     };
     Ok(f)

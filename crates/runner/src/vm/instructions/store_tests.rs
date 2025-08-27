@@ -773,6 +773,30 @@ proptest! {
             1,
         ).unwrap();
     }
+
+    #[test]
+    fn test_store_lower_than_fp_imm(src_val: u32, imm_val: u32) {
+        let src = M31::from(src_val);
+        let imm = M31::from(imm_val);
+        let expected_res = if src < imm { M31::from(1) } else { M31::from(0) };
+
+        let mut initial_mem = vec![0; 4];
+        initial_mem[1] = src_val;
+        let mut expected_mem = initial_mem.clone();
+        expected_mem[3] = expected_res.0;
+
+        run_simple_store_test(
+            &initial_mem,
+            Instruction::StoreLowerThanFpImm {
+                src_off: M31(1),
+                imm,
+                dst_off: M31(3),
+            },
+            store_lower_than_fp_imm,
+            &expected_mem,
+            1,
+        ).unwrap();
+    }
 }
 
 // -----------------------------------------------------------------------------

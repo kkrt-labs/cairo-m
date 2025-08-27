@@ -883,6 +883,31 @@ fn test_try_from_smallvec() {
             },
             "PrintU32 instruction",
         ),
+        (
+            smallvec![M31::from(48), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::StoreLowerThanFpImm {
+                src_off: M31::from(1),
+                imm: M31::from(2),
+                dst_off: M31::from(3),
+            },
+            "StoreLowerThanFpImm instruction",
+        ),
+        (
+            smallvec![M31::from(49), M31::from(1), M31::from(2)],
+            Instruction::AssertEqFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
+            },
+            "AssertEqFpFp instruction",
+        ),
+        (
+            smallvec![M31::from(50), M31::from(1), M31::from(2)],
+            Instruction::AssertEqFpImm {
+                src_off: M31::from(1),
+                imm: M31::from(2),
+            },
+            "AssertEqFpImm instruction",
+        ),
     ];
 
     assert_eq!(test_cases.len(), MAX_OPCODE as usize + 1);
@@ -1123,6 +1148,19 @@ fn test_roundtrip_all_instructions() {
             imm_hi: M31::from(0x1234),
             imm_lo: M31::from(0x5678),
             dst_off: M31::from(23),
+        },
+        Instruction::StoreLowerThanFpImm {
+            src_off: M31::from(24),
+            imm: M31::from(25),
+            dst_off: M31::from(26),
+        },
+        Instruction::AssertEqFpFp {
+            src0_off: M31::from(27),
+            src1_off: M31::from(28),
+        },
+        Instruction::AssertEqFpImm {
+            src_off: M31::from(29),
+            imm: M31::from(30),
         },
     ];
 
