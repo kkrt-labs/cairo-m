@@ -3,7 +3,7 @@ source: crates/compiler/parser/tests/common.rs
 expression: snapshot
 ---
 --- Code ---
-fn test() { x & 0xFF as felt; }
+fn test() { x as felt && y; }
 --- AST ---
 [
     Function(
@@ -25,46 +25,48 @@ fn test() { x & 0xFF as felt; }
                         Expression(
                             Spanned(
                                 BinaryOp {
-                                    op: BitwiseAnd,
+                                    op: And,
                                     left: Spanned(
-                                        Identifier(
-                                            Spanned(
-                                                "x",
-                                                12..13,
-                                            ),
-                                        ),
-                                        12..13,
-                                    ),
-                                    right: Spanned(
                                         Cast {
                                             expr: Spanned(
-                                                Literal(
-                                                    255,
-                                                    None,
+                                                Identifier(
+                                                    Spanned(
+                                                        "x",
+                                                        12..13,
+                                                    ),
                                                 ),
-                                                16..20,
+                                                12..13,
                                             ),
                                             target_type: Spanned(
                                                 Named(
                                                     Spanned(
                                                         Felt,
-                                                        24..28,
+                                                        17..21,
                                                     ),
                                                 ),
-                                                24..28,
+                                                17..21,
                                             ),
                                         },
-                                        16..28,
+                                        12..21,
+                                    ),
+                                    right: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "y",
+                                                25..26,
+                                            ),
+                                        ),
+                                        25..26,
                                     ),
                                 },
-                                12..28,
+                                12..26,
                             ),
                         ),
-                        12..29,
+                        12..27,
                     ),
                 ],
             },
-            0..31,
+            0..29,
         ),
     ),
 ]

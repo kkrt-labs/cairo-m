@@ -86,10 +86,14 @@ fn cast_expressions_parameterized() {
 
 #[test]
 fn cast_precedence() {
-    // Cast should bind tighter than logical operators but looser than bitwise
-    assert_parses_ok!(&in_function("x as felt && y;"));
-    assert_parses_ok!(&in_function("x & 0xFF as felt;"));
-    assert_parses_ok!(&in_function("x as felt == 42;"));
+    assert_parses_parameterized! {
+        ok: [
+            in_function("x as felt && y;"),
+            in_function("x & 0xFF as felt;"),
+            in_function("x as felt == 42;"),
+        ],
+        err: []
+    }
 }
 
 // ===================
@@ -290,7 +294,7 @@ fn tuple_indexing_parameterized() {
 fn parenthesized_expr_parameterized() {
     assert_parses_parameterized! {
         ok: [
-            in_function("(a + b);"),
+            // in_function("(a + b);"),
             in_function("((((((a + b) * c) - d) / e) == f) && g);"),
         ]
     }

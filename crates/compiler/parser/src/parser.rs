@@ -15,21 +15,113 @@
 //! - **Statement parsing**: Handles control flow, variable declarations, assignments
 //! - **Top-level item parsing**: Functions, structs, imports, and constants
 //!
-//! ## Salsa Integration & Incremental Compilation
+//! ## Maintainers’ Guide
 //!
-//! This parser is integrated with [Salsa](https://salsa-rs.github.io/salsa/) to enable
-//! incremental compilation and caching of parse results. The integration follows best practices:
+//! This section is for anyone touching the grammar or parser. It captures the
+//! core patterns, invariants, and gotchas when working with a PEG/Chumsky parser.
 //!
-//! ### Current Implementation
-//! - **Input types**: `SourceFile` marked with `#[salsa::input]` represents source code
-//! - **Cached parsing**: Only the `parse_file` operation is tracked, not individual AST nodes
-//! - **Plain AST types**: All AST nodes are regular Rust types for maximum performance
-//! - **Database integration**: Parser functions take a `&dyn Db` parameter for the parsing operation
+//! ## TL;DR rules (read this first)
+//! - **No left recursion.** Always write tiers as `tier := lower (op lower)*`.
+//! - **Unary is right-assoc:** `(op)* lower` implemented with `foldr`.
+//! - **Postfix chains:** `primary postfix*` implemented with `foldl`.
+//! - **Never put a zero-length parser inside `.repeated()`**, or you’ll loop forever.
+//! - **Parentheses vs tuples:** parse `()` / `(x)` / `(x, y, ...)` deterministically; avoid speculative `separated_by` that can match zero.
+//! - **`as` (cast) sits between unary and multiplicative** and is left-assoc: `Postfix ("as" Type)*`.
 //!
-//! ### Caching Behavior
-//! Salsa caches the entire parse result. When source code changes, only the parsing operation
-//! is re-executed. The resulting AST is stored as a single cached unit, which is much more
-//! efficient than tracking individual nodes.
+//! ## Grammar snapshot (EBNF)
+//! ```ebnf
+//! Expr        ::= Or
+//! Or          ::= And         ( "||" And )*
+//! And         ::= Bitwise     ( "&&" Bitwise )*
+//! Bitwise     ::= Equality    ( ("&" | "|" | "^") Equality )*
+//! Equality    ::= Rel         ( ("==" | "!=") Rel )*
+//! Rel         ::= Add         ( ("<" | ">" | "<=" | ">=") Add )*
+//! Add         ::= Mul         ( ("+" | "-") Mul )*
+//! Mul         ::= Cast        ( ("*" | "/") Cast )*
+//! Cast        ::= Postfix     ( "as" Type )*           // left-assoc
+//! Postfix     ::= Prefix      PostOp*
+//! Prefix      ::= ( "!" | "-" )* Primary               // right-assoc
+//! PostOp      ::= Call | Member | TupleIndex | Index
+//! Call        ::= "(" ArgList? ")"
+//! Member      ::= "." IDENT
+//! TupleIndex  ::= "." UNSUFFIXED_INT
+//! Index       ::= "[" Expr "]"
+//! Primary     ::= Literal | Bool | IDENT | StructLiteral | ArrayLiteral | TupleOrParen
+//! TupleOrParen ::= "(" Expr ( "," Expr )* ","? ")" | "()"   // see “Parens” note
+//!
+//! Type        ::= PostType ("*")*                           // right-assoc pointers via fold
+//! PostType    ::= NamedType | ArrayType | TupleType
+//! ArrayType   ::= "[" Type ";" UNSUFFIXED_INT "]"
+//! TupleType   ::= "(" Type ( "," Type )+ ","? ")"
+//! ```
+//!
+//! ## Operator precedence (low → high)
+//! 1. `||`
+//! 2. `&&`
+//! 3. `== != < > <= >=`
+//! 4. `+ -`
+//! 5. `* /`
+//! 6. `as`
+//! 7. Prefix `! -`
+//! 8. Postfix (call, member, index, tuple index)
+//!
+//! ## Chumsky recipe → grammar pattern
+//! - **Left-assoc binary tier:**
+//!   `tier = lower.clone().foldl( (op.then(lower.clone())).repeated(), |lhs, (op, rhs)| … )`
+//! - **Right-assoc prefix:**
+//!   `prefix = op.repeated().foldr(lower.clone(), |op, expr| … )`
+//! - **Postfix chain:**
+//!   `call = primary.foldl(postfix.repeated(), |expr, op| … )`
+//! - **Pointers (right-assoc):**
+//!   `base.foldl(star.repeated(), |ty, star| Pointer(ty))` with spans widened carefully.
+//!
+//! ## Invariants to keep
+//! - Parsers used inside `.repeated()` **must consume input on success**.
+//! - Spans must cover the full syntactic construct (start of leftmost child to end of rightmost).
+//! - Tuple index literals **cannot have a suffix**; array sizes **must be unsuffixed** integers.
+//! - Postfix is strictly left-to-right (`a.b(c)[i].0` builds left-assoc).
+//!
+//! ## Parens & tuples (why this matters)
+//! Avoid `expr.separated_by(,).collect()` as the first choice after `(` because it can match zero
+//! and cause deep backtracking. Parse deterministically instead:
+//! - `()` → unit tuple
+//! - `(e)` (no trailing comma) → parenthesized expression
+//! - `(e, ...)` or trailing comma → tuple
+//!
+//! ## Adding a new binary operator (checklist)
+//! 1. **Choose its precedence tier** and associativity (usually left).
+//! 2. **Insert a new chain** using the fold pattern above, between the two adjacent tiers.
+//! 3. **Update `BinaryOp` enum** and its `Display` impl.
+//! 4. **Add lexer token(s)** if needed.
+//! 5. **Write tests**: simple, nested with neighbors, and deeply nested stress.
+//! 6. **Fuzz or property test** a few minutes (optional but recommended).
+//!
+//! ## Example: left recursion → PEG-safe
+//! ```text
+//! Bad (left-recursive):   E := E "+" T | T
+//! Good (PEG/Chumsky):     E := T ( "+" T )*
+//! ```
+//!
+//! ## Cast tier (`as`) placement
+//! - Implemented as `unary.foldl(("as".ignore_then(type_expr)).repeated(), …)`.
+//! - Sits *above* multiplicative inputs and *below* unary.
+//! - Left-associative by design: `a as T1 as T2` parses as `(a as T1) as T2`.
+//!
+//! ## Common pitfalls
+//! - **Zero-length inside `.repeated()`** → infinite loop (stack overflow or hang).
+//! - **Ambiguous `(` branches** → massive backtracking. Use the deterministic paren/tuple rule.
+//! - **Span drift** → diagnostics point at the wrong place. Always widen from left.start to right.end.
+//!
+//! ## Tests to keep healthy
+//! - Deep parens without casts: `((((((a + b) * c) - d) / e) == f) && g);`
+//! - Parens with casts: `((((a + b) as felt) * c as u32) - d) as felt;`
+//! - Paren forms: `(); (x); (x,); (x, y);`
+//! - Postfix chain: `obj.method(a, b)[i].0`
+//!
+//! ## Salsa integration note
+//! We cache the whole `ParsedModule` as a single Salsa value. Changing the grammar only requires
+//! touching the top-level `parser()` builder; AST node types remain plain Rust structs/enums.
+//!
 
 use cairo_m_compiler_diagnostics::Diagnostic;
 use chumsky::input::ValueInput;
@@ -691,23 +783,38 @@ where
             .map(|(name, fields)| Expression::StructLiteral { name, fields })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
-        // Tuple expressions and parenthesized expressions: "(a, b, c)" or "(expr)"
+        // Tuple expressions and parenthesized expressions: "(a, b, c)" | "(expr)" | "()"
         let tuple_expr = just(TokenType::LParen)
             .ignore_then(
-                expr.clone()
-                    .separated_by(just(TokenType::Comma))
-                    .collect::<Vec<_>>()
-                    .then(just(TokenType::Comma).or_not()), // Check for trailing comma
+                // Either unit `()` OR at least one Expr
+                choice((
+                    // Unit tuple
+                    just(TokenType::RParen)
+                        .to::<Vec<_>>(vec![])
+                        .map(|v| (v, false)),
+                    // One-or-more: first, then any ", expr", with optional trailing comma, finally the ")"
+                    expr.clone()
+                        .then(
+                            just(TokenType::Comma)
+                                .ignore_then(expr.clone())
+                                .repeated()
+                                .collect::<Vec<_>>(),
+                        )
+                        .then(just(TokenType::Comma).or_not())
+                        .then_ignore(just(TokenType::RParen))
+                        .map(|((first, rest), trailing)| {
+                            let mut all = Vec::with_capacity(1 + rest.len());
+                            all.push(first);
+                            all.extend(rest);
+                            (all, trailing.is_some())
+                        }),
+                )),
             )
-            .then_ignore(just(TokenType::RParen))
-            .map(|(exprs, trailing_comma)| {
-                match (exprs.len(), trailing_comma.is_some()) {
-                    // Single element with trailing comma -> tuple
-                    (1, true) => Expression::Tuple(exprs),
-                    // Single element without trailing comma -> parenthesized expression
-                    (1, false) => exprs.into_iter().next().unwrap().value().clone(),
-                    // Multiple elements -> always a tuple (regardless of trailing comma)
-                    (_, _) => Expression::Tuple(exprs),
+            .map(|(exprs, had_trailing)| {
+                match (exprs.len(), had_trailing) {
+                    (0, _) => Expression::Tuple(vec![]),                  // ()
+                    (1, false) => exprs.first().unwrap().value().clone(), // (e)
+                    _ => Expression::Tuple(exprs), // (e, ...) or trailing comma
                 }
             })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
@@ -857,13 +964,43 @@ where
             },
         );
 
+        // Simple type parser for cast expressions - only supports basic named types
+        // This avoids the infinite recursion issue with the full type_expr_parser
+        let simple_cast_type = ident_parser().map_with(|name, extra| {
+            let named_type = match name.as_str() {
+                "felt" => NamedType::Felt,
+                "bool" => NamedType::Bool,
+                "u32" => NamedType::U32,
+                _ => NamedType::Custom(name),
+            };
+            let span = extra.span();
+            Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
+        });
+
+        // Cast operator: expr as Type (left-associative, lower than unary, higher than binary)
+        let cast = unary.clone().foldl(
+            just(TokenType::As).ignore_then(simple_cast_type).repeated(),
+            |expr, target_type| {
+                let span_expr = expr.span();
+                let span_type = target_type.span();
+                let span = SimpleSpan::from(span_expr.start..span_type.end);
+                Spanned::new(
+                    Expression::Cast {
+                        expr: Box::new(expr),
+                        target_type,
+                    },
+                    span,
+                )
+            },
+        );
+
         // Multiplicative operators: *, / (left-associative)
-        let mul = unary.clone().foldl(
+        let mul = cast.clone().foldl(
             choice((
                 op(TokenType::Mul, BinaryOp::Mul),
                 op(TokenType::Div, BinaryOp::Div),
             ))
-            .then(unary.clone())
+            .then(cast.clone())
             .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();
@@ -932,45 +1069,14 @@ where
             },
         );
 
-        // Simple type parser for cast expressions - only supports basic named types
-        // This avoids the infinite recursion issue with the full type_expr_parser
-        let simple_cast_type = ident_parser().map_with(|name, extra| {
-            let named_type = match name.as_str() {
-                "felt" => NamedType::Felt,
-                "bool" => NamedType::Bool,
-                "u32" => NamedType::U32,
-                _ => NamedType::Custom(name),
-            };
-            let span = extra.span();
-            Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
-        });
-
-        // Cast operator: as (lower precedence than comparison, higher than bitwise)
-        // This means "x + 5 as felt" parses as "(x + 5) as felt"
-        let cast = cmp.clone().foldl(
-            just(TokenType::As).ignore_then(simple_cast_type).repeated(),
-            |expr, target_type| {
-                let span_expr = expr.span();
-                let span_type = target_type.span();
-                let span = SimpleSpan::from(span_expr.start..span_type.end);
-                Spanned::new(
-                    Expression::Cast {
-                        expr: Box::new(expr),
-                        target_type,
-                    },
-                    span,
-                )
-            },
-        );
-
         // Bitwise operators: &, |, ^ (left-associative)
-        let bitwise = cast.clone().foldl(
+        let bitwise = cmp.clone().foldl(
             choice((
                 op(TokenType::BitwiseAnd, BinaryOp::BitwiseAnd),
                 op(TokenType::BitwiseOr, BinaryOp::BitwiseOr),
                 op(TokenType::BitwiseXor, BinaryOp::BitwiseXor),
             ))
-            .then(cast.clone())
+            .then(cmp.clone())
             .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();

@@ -204,37 +204,37 @@ fn test() { x + 5 as felt; }
                     Spanned(
                         Expression(
                             Spanned(
-                                Cast {
-                                    expr: Spanned(
-                                        BinaryOp {
-                                            op: Add,
-                                            left: Spanned(
-                                                Identifier(
-                                                    Spanned(
-                                                        "x",
-                                                        12..13,
-                                                    ),
-                                                ),
+                                BinaryOp {
+                                    op: Add,
+                                    left: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "x",
                                                 12..13,
                                             ),
-                                            right: Spanned(
+                                        ),
+                                        12..13,
+                                    ),
+                                    right: Spanned(
+                                        Cast {
+                                            expr: Spanned(
                                                 Literal(
                                                     5,
                                                     None,
                                                 ),
                                                 16..17,
                                             ),
-                                        },
-                                        12..17,
-                                    ),
-                                    target_type: Spanned(
-                                        Named(
-                                            Spanned(
-                                                Felt,
+                                            target_type: Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        21..25,
+                                                    ),
+                                                ),
                                                 21..25,
                                             ),
-                                        ),
-                                        21..25,
+                                        },
+                                        16..25,
                                     ),
                                 },
                                 12..25,
