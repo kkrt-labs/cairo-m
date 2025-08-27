@@ -4,7 +4,7 @@ fn loop_control_flow() {
         break;
     }
 
-    while (true) {
+    while true {
         if (should_exit()) {
             break;
         }

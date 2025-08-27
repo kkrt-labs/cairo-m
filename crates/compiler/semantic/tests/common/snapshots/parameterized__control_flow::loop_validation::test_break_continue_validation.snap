@@ -95,19 +95,19 @@ fn test() { break; if true { continue; } { break; } return; }
 ============================================================
 
 --- Input 7 (ERROR) ---
-fn test() { break; loop { break; } continue; while (true) { if true { break; } else { continue; } } return; }
+fn test() { break; loop { break; } continue; while true { if true { break; } else { continue; } } return; }
 --- Diagnostics ---
 [3003] Error: `break` outside of loop
    ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:13 ]
    │
- 1 │ fn test() { break; loop { break; } continue; while (true) { if true { break; } else { continue; } } return; }
+ 1 │ fn test() { break; loop { break; } continue; while true { if true { break; } else { continue; } } return; }
    │             ───┬──  
    │                ╰──── `break` outside of loop
 ───╯
 [3004] Error: `continue` outside of loop
    ╭─[ semantic_tests::control_flow::loop_validation::test_break_continue_validation:1:36 ]
    │
- 1 │ fn test() { break; loop { break; } continue; while (true) { if true { break; } else { continue; } } return; }
+ 1 │ fn test() { break; loop { break; } continue; while true { if true { break; } else { continue; } } return; }
    │                                    ────┬────  
    │                                        ╰────── `continue` outside of loop
 ───╯

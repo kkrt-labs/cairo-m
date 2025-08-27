@@ -6,9 +6,9 @@ expression: snapshot
 fn nested_loops() {
     // Nested while loops
     let i = 0;
-    while (i != 5) {
+    while i != 5 {
         let j = 0;
-        while (j != 3) {
+        while j != 3 {
             if (i == 2 && j == 1) {
                 break;
             }
@@ -32,7 +32,7 @@ fn nested_loops() {
         if (value == -1) {
             break;
         }
-        while (value != 0) {
+        while value != 0 {
             value = value - 1;
             if (value == 5) {
                 continue;
@@ -86,20 +86,20 @@ fn nested_loops() {
                                         Identifier(
                                             Spanned(
                                                 "i",
-                                                72..73,
+                                                71..72,
                                             ),
                                         ),
-                                        72..73,
+                                        71..72,
                                     ),
                                     right: Spanned(
                                         Literal(
                                             5,
                                             None,
                                         ),
-                                        77..78,
+                                        76..77,
                                     ),
                                 },
-                                72..78,
+                                71..77,
                             ),
                             body: Spanned(
                                 Block(
@@ -109,7 +109,7 @@ fn nested_loops() {
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "j",
-                                                        94..95,
+                                                        92..93,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -118,10 +118,10 @@ fn nested_loops() {
                                                         0,
                                                         None,
                                                     ),
-                                                    98..99,
+                                                    96..97,
                                                 ),
                                             },
-                                            90..100,
+                                            88..98,
                                         ),
                                         Spanned(
                                             While {
@@ -132,20 +132,20 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "j",
-                                                                    116..117,
+                                                                    113..114,
                                                                 ),
                                                             ),
-                                                            116..117,
+                                                            113..114,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 3,
                                                                 None,
                                                             ),
-                                                            121..122,
+                                                            118..119,
                                                         ),
                                                     },
-                                                    116..122,
+                                                    113..119,
                                                 ),
                                                 body: Spanned(
                                                     Block(
@@ -162,20 +162,20 @@ fn nested_loops() {
                                                                                         Identifier(
                                                                                             Spanned(
                                                                                                 "i",
-                                                                                                142..143,
+                                                                                                138..139,
                                                                                             ),
                                                                                         ),
-                                                                                        142..143,
+                                                                                        138..139,
                                                                                     ),
                                                                                     right: Spanned(
                                                                                         Literal(
                                                                                             2,
                                                                                             None,
                                                                                         ),
-                                                                                        147..148,
+                                                                                        143..144,
                                                                                     ),
                                                                                 },
-                                                                                142..148,
+                                                                                138..144,
                                                                             ),
                                                                             right: Spanned(
                                                                                 BinaryOp {
@@ -184,38 +184,38 @@ fn nested_loops() {
                                                                                         Identifier(
                                                                                             Spanned(
                                                                                                 "j",
-                                                                                                152..153,
+                                                                                                148..149,
                                                                                             ),
                                                                                         ),
-                                                                                        152..153,
+                                                                                        148..149,
                                                                                     ),
                                                                                     right: Spanned(
                                                                                         Literal(
                                                                                             1,
                                                                                             None,
                                                                                         ),
-                                                                                        157..158,
+                                                                                        153..154,
                                                                                     ),
                                                                                 },
-                                                                                152..158,
+                                                                                148..154,
                                                                             ),
                                                                         },
-                                                                        142..158,
+                                                                        138..154,
                                                                     ),
                                                                     then_block: Spanned(
                                                                         Block(
                                                                             [
                                                                                 Spanned(
                                                                                     Break,
-                                                                                    178..184,
+                                                                                    174..180,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        160..198,
+                                                                        156..194,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                138..198,
+                                                                134..194,
                                                             ),
                                                             Spanned(
                                                                 Assignment {
@@ -223,10 +223,10 @@ fn nested_loops() {
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "j",
-                                                                                211..212,
+                                                                                207..208,
                                                                             ),
                                                                         ),
-                                                                        211..212,
+                                                                        207..208,
                                                                     ),
                                                                     rhs: Spanned(
                                                                         BinaryOp {
@@ -235,30 +235,30 @@ fn nested_loops() {
                                                                                 Identifier(
                                                                                     Spanned(
                                                                                         "j",
-                                                                                        215..216,
+                                                                                        211..212,
                                                                                     ),
                                                                                 ),
-                                                                                215..216,
+                                                                                211..212,
                                                                             ),
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     1,
                                                                                     None,
                                                                                 ),
-                                                                                219..220,
+                                                                                215..216,
                                                                             ),
                                                                         },
-                                                                        215..220,
+                                                                        211..216,
                                                                     ),
                                                                 },
-                                                                211..221,
+                                                                207..217,
                                                             ),
                                                         ],
                                                     ),
-                                                    124..231,
+                                                    120..227,
                                                 ),
                                             },
-                                            109..231,
+                                            107..227,
                                         ),
                                         Spanned(
                                             Assignment {
@@ -266,10 +266,10 @@ fn nested_loops() {
                                                     Identifier(
                                                         Spanned(
                                                             "i",
-                                                            240..241,
+                                                            236..237,
                                                         ),
                                                     ),
-                                                    240..241,
+                                                    236..237,
                                                 ),
                                                 rhs: Spanned(
                                                     BinaryOp {
@@ -278,30 +278,30 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "i",
-                                                                    244..245,
+                                                                    240..241,
                                                                 ),
                                                             ),
-                                                            244..245,
+                                                            240..241,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 1,
                                                                 None,
                                                             ),
-                                                            248..249,
+                                                            244..245,
                                                         ),
                                                     },
-                                                    244..249,
+                                                    240..245,
                                                 ),
                                             },
-                                            240..250,
+                                            236..246,
                                         ),
                                     ],
                                 ),
-                                80..256,
+                                78..252,
                             ),
                         },
-                        65..256,
+                        65..252,
                     ),
                     Spanned(
                         For {
@@ -310,7 +310,7 @@ fn nested_loops() {
                                     pattern: Identifier(
                                         Spanned(
                                             "idx",
-                                            297..300,
+                                            293..296,
                                         ),
                                     ),
                                     statement_type: None,
@@ -319,10 +319,10 @@ fn nested_loops() {
                                             0,
                                             None,
                                         ),
-                                        303..304,
+                                        299..300,
                                     ),
                                 },
-                                293..305,
+                                289..301,
                             ),
                             condition: Spanned(
                                 BinaryOp {
@@ -331,22 +331,22 @@ fn nested_loops() {
                                         Identifier(
                                             Spanned(
                                                 "idx",
-                                                306..309,
+                                                302..305,
                                             ),
                                         ),
-                                        306..309,
+                                        302..305,
                                     ),
                                     right: Spanned(
                                         Identifier(
                                             Spanned(
                                                 "items_len",
-                                                312..321,
+                                                308..317,
                                             ),
                                         ),
-                                        312..321,
+                                        308..317,
                                     ),
                                 },
-                                306..321,
+                                302..317,
                             ),
                             step: Spanned(
                                 Assignment {
@@ -354,10 +354,10 @@ fn nested_loops() {
                                         Identifier(
                                             Spanned(
                                                 "idx",
-                                                323..326,
+                                                319..322,
                                             ),
                                         ),
-                                        323..326,
+                                        319..322,
                                     ),
                                     rhs: Spanned(
                                         BinaryOp {
@@ -366,23 +366,23 @@ fn nested_loops() {
                                                 Identifier(
                                                     Spanned(
                                                         "idx",
-                                                        329..332,
+                                                        325..328,
                                                     ),
                                                 ),
-                                                329..332,
+                                                325..328,
                                             ),
                                             right: Spanned(
                                                 Literal(
                                                     1,
                                                     None,
                                                 ),
-                                                335..336,
+                                                331..332,
                                             ),
                                         },
-                                        329..336,
+                                        325..332,
                                     ),
                                 },
-                                323..336,
+                                319..332,
                             ),
                             body: Spanned(
                                 Block(
@@ -392,7 +392,7 @@ fn nested_loops() {
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "x",
-                                                        352..353,
+                                                        348..349,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -402,25 +402,25 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "items",
-                                                                    356..361,
+                                                                    352..357,
                                                                 ),
                                                             ),
-                                                            356..361,
+                                                            352..357,
                                                         ),
                                                         index: Spanned(
                                                             Identifier(
                                                                 Spanned(
                                                                     "idx",
-                                                                    362..365,
+                                                                    358..361,
                                                                 ),
                                                             ),
-                                                            362..365,
+                                                            358..361,
                                                         ),
                                                     },
-                                                    356..365,
+                                                    352..361,
                                                 ),
                                             },
-                                            348..367,
+                                            344..363,
                                         ),
                                         Spanned(
                                             If {
@@ -431,42 +431,42 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "x",
-                                                                    380..381,
+                                                                    376..377,
                                                                 ),
                                                             ),
-                                                            380..381,
+                                                            376..377,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
                                                                 None,
                                                             ),
-                                                            385..386,
+                                                            381..382,
                                                         ),
                                                     },
-                                                    380..386,
+                                                    376..382,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Continue,
-                                                                402..411,
+                                                                398..407,
                                                             ),
                                                         ],
                                                     ),
-                                                    388..421,
+                                                    384..417,
                                                 ),
                                                 else_block: None,
                                             },
-                                            376..421,
+                                            372..417,
                                         ),
                                         Spanned(
                                             Let {
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "result",
-                                                        434..440,
+                                                        430..436,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -476,34 +476,34 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "process",
-                                                                    443..450,
+                                                                    439..446,
                                                                 ),
                                                             ),
-                                                            443..450,
+                                                            439..446,
                                                         ),
                                                         args: [
                                                             Spanned(
                                                                 Identifier(
                                                                     Spanned(
                                                                         "x",
-                                                                        451..452,
+                                                                        447..448,
                                                                     ),
                                                                 ),
-                                                                451..452,
+                                                                447..448,
                                                             ),
                                                         ],
                                                     },
-                                                    443..452,
+                                                    439..448,
                                                 ),
                                             },
-                                            430..454,
+                                            426..450,
                                         ),
                                     ],
                                 ),
-                                338..460,
+                                334..456,
                             ),
                         },
-                        288..460,
+                        284..456,
                     ),
                     Spanned(
                         Loop {
@@ -515,7 +515,7 @@ fn nested_loops() {
                                                 pattern: Identifier(
                                                     Spanned(
                                                         "value",
-                                                        526..531,
+                                                        522..527,
                                                     ),
                                                 ),
                                                 statement_type: None,
@@ -525,17 +525,17 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "get_value",
-                                                                    534..543,
+                                                                    530..539,
                                                                 ),
                                                             ),
-                                                            534..543,
+                                                            530..539,
                                                         ),
                                                         args: [],
                                                     },
-                                                    534..545,
+                                                    530..541,
                                                 ),
                                             },
-                                            522..546,
+                                            518..542,
                                         ),
                                         Spanned(
                                             If {
@@ -546,10 +546,10 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "value",
-                                                                    559..564,
+                                                                    555..560,
                                                                 ),
                                                             ),
-                                                            559..564,
+                                                            555..560,
                                                         ),
                                                         right: Spanned(
                                                             UnaryOp {
@@ -559,28 +559,28 @@ fn nested_loops() {
                                                                         1,
                                                                         None,
                                                                     ),
-                                                                    569..570,
+                                                                    565..566,
                                                                 ),
                                                             },
-                                                            568..570,
+                                                            564..566,
                                                         ),
                                                     },
-                                                    559..570,
+                                                    555..566,
                                                 ),
                                                 then_block: Spanned(
                                                     Block(
                                                         [
                                                             Spanned(
                                                                 Break,
-                                                                586..592,
+                                                                582..588,
                                                             ),
                                                         ],
                                                     ),
-                                                    572..602,
+                                                    568..598,
                                                 ),
                                                 else_block: None,
                                             },
-                                            555..602,
+                                            551..598,
                                         ),
                                         Spanned(
                                             While {
@@ -591,20 +591,20 @@ fn nested_loops() {
                                                             Identifier(
                                                                 Spanned(
                                                                     "value",
-                                                                    618..623,
+                                                                    613..618,
                                                                 ),
                                                             ),
-                                                            618..623,
+                                                            613..618,
                                                         ),
                                                         right: Spanned(
                                                             Literal(
                                                                 0,
                                                                 None,
                                                             ),
-                                                            627..628,
+                                                            622..623,
                                                         ),
                                                     },
-                                                    618..628,
+                                                    613..623,
                                                 ),
                                                 body: Spanned(
                                                     Block(
@@ -615,10 +615,10 @@ fn nested_loops() {
                                                                         Identifier(
                                                                             Spanned(
                                                                                 "value",
-                                                                                644..649,
+                                                                                638..643,
                                                                             ),
                                                                         ),
-                                                                        644..649,
+                                                                        638..643,
                                                                     ),
                                                                     rhs: Spanned(
                                                                         BinaryOp {
@@ -627,23 +627,23 @@ fn nested_loops() {
                                                                                 Identifier(
                                                                                     Spanned(
                                                                                         "value",
-                                                                                        652..657,
+                                                                                        646..651,
                                                                                     ),
                                                                                 ),
-                                                                                652..657,
+                                                                                646..651,
                                                                             ),
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     1,
                                                                                     None,
                                                                                 ),
-                                                                                660..661,
+                                                                                654..655,
                                                                             ),
                                                                         },
-                                                                        652..661,
+                                                                        646..655,
                                                                     ),
                                                                 },
-                                                                644..662,
+                                                                638..656,
                                                             ),
                                                             Spanned(
                                                                 If {
@@ -654,53 +654,53 @@ fn nested_loops() {
                                                                                 Identifier(
                                                                                     Spanned(
                                                                                         "value",
-                                                                                        679..684,
+                                                                                        673..678,
                                                                                     ),
                                                                                 ),
-                                                                                679..684,
+                                                                                673..678,
                                                                             ),
                                                                             right: Spanned(
                                                                                 Literal(
                                                                                     5,
                                                                                     None,
                                                                                 ),
-                                                                                688..689,
+                                                                                682..683,
                                                                             ),
                                                                         },
-                                                                        679..689,
+                                                                        673..683,
                                                                     ),
                                                                     then_block: Spanned(
                                                                         Block(
                                                                             [
                                                                                 Spanned(
                                                                                     Continue,
-                                                                                    709..718,
+                                                                                    703..712,
                                                                                 ),
                                                                             ],
                                                                         ),
-                                                                        691..732,
+                                                                        685..726,
                                                                     ),
                                                                     else_block: None,
                                                                 },
-                                                                675..732,
+                                                                669..726,
                                                             ),
                                                         ],
                                                     ),
-                                                    630..742,
+                                                    624..736,
                                                 ),
                                             },
-                                            611..742,
+                                            607..736,
                                         ),
                                     ],
                                 ),
-                                512..748,
+                                508..742,
                             ),
                         },
-                        507..748,
+                        503..742,
                     ),
                 ],
             },
-            0..750,
+            0..744,
         ),
     ),
 ]

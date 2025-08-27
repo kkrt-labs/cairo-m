@@ -12,7 +12,7 @@ fn test_unreachable_code_detection() {
             // Reachable code with conditional break
             "fn test(c: bool) { loop { if c { break; } let x = 1; } return (); }",
             // Reachable code after while loop
-            in_function("while (false) { let x = 1; } let y = 2;"),
+            in_function("while false { let x = 1; } let y = 2;"),
         ],
         err: [
             // Code after return

@@ -1908,7 +1908,7 @@ mod tests {
                     let z = 3u32;
                 }
 
-                while (a >= 0u32) {              // OK: felt >= felt
+                while a >= 0u32 {              // OK: felt >= felt
                     let w = 4u32;
                 }
 

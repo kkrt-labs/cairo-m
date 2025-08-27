@@ -7,7 +7,7 @@ Source:
 fn test_loop_optimization() -> felt {
     let i = 0;
     let sum = 0;
-    while (i != 5) {
+    while i != 5 {
         sum = sum + i;  // Accumulator pattern
         i = i + 1;      // Simple increment
     }

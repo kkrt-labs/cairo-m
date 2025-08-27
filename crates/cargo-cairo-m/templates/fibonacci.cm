@@ -4,7 +4,7 @@ fn fibonacci(n: felt) -> felt {
     let next = 1;
 
     let counter = 0;
-    while (counter != n) {
+    while counter != n {
         let new_next = current + next;
         current = next;
         next = new_next;

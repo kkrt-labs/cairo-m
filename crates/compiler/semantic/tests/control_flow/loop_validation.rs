@@ -9,8 +9,8 @@ fn test_break_continue_validation() {
             in_function("loop { break; }"),
             in_function("loop { if(1==2) { continue; } else {break;} }"),
             // break/continue in while loop
-            in_function("while(true) { break; }"),
-            in_function("while(true) { if(true) {continue;} }"),
+            in_function("while true { break; }"),
+            in_function("while true { if(true) {continue;} }"),
             // in nested loops
             in_function("loop { loop { break; } break; }"),
             in_function("loop { loop { if true {continue;} else {break;} } break; }"),
@@ -29,7 +29,7 @@ fn test_break_continue_validation() {
             // multiple errors
             in_function("break; if true { continue; } { break; }"),
             // mix of valid and invalid
-            in_function("break; loop { break; } continue; while (true) { if true { break; } else { continue; } }"),
+            in_function("break; loop { break; } continue; while true { if true { break; } else { continue; } }"),
         ]
     }
 }
