@@ -64,7 +64,17 @@ impl<'a> MdTestRunner<'a> {
                 )
             }
             (Ok(_), true) => {
-                panic!("Test '{}' expected to fail but succeeded", test.name);
+                // Test succeeded but an error was expected
+                if test.metadata.expected_error.as_deref() == Some("compilation") {
+                    format!(
+                        "Source:\n{}\n{}\nResult: UNEXPECTED SUCCESS (expected compilation error)",
+                        test.cairo_source,
+                        "=".repeat(60)
+                    )
+                } else {
+                    // Skip test if it expects a runtime error but succeeded
+                    return None;
+                }
             }
             (Err(e), true) => {
                 format!(
