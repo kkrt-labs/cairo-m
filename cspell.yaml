@@ -11,6 +11,7 @@ words:
   - arrayinsert
   - binop
   - bitflags
+  - bswap
   - bytemuck
   - cairols
   - cairom
@@ -84,6 +85,7 @@ words:
   - resx
   - rfib
   - rfind
+  - rotr
   - rngs
   - rustc
   - rustflags
@@ -126,6 +128,7 @@ words:
   - unsuffixed
   - vulns
   - walkdir
+  - wasmparser
   - womir
   - worktree
   - worktrees

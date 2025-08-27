@@ -1,0 +1,78 @@
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: wasm_load_result
+---
+WASM File: nested_loop.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Module Output:
+module {
+  // Function 0
+  fn nested_loop {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %2 = 0 (u32)
+      jump 2
+
+    1:
+      %1 = φ u32 { [%5]: %6 }
+      jump 11
+
+    2:
+      %3 = φ u32 { [%0]: %0, [%4]: %3 }
+      %4 = φ u32 { [%0]: %2, [%4]: %19 }
+      %5 = φ u32 { [%0]: %2, [%4]: %7 }
+      %6 = φ u32 { [%0]: %2, [%4]: %8 }
+      jump 3
+
+    3:
+      %9 = %4 U32Less %3
+      if %9 then jump 6 else jump 5
+
+    4:
+      %7 = φ u32 { [%9]: %12 }
+      %8 = φ u32 { [%9]: %13 }
+      %18 = 1 (u32)
+      %19 = %4 U32Add %18
+      jump 2
+
+    5:
+      jump 1
+
+    6:
+      %10 = 0 (u32)
+      jump 7
+
+    7:
+      %11 = φ u32 { [%6]: %4, [%10]: %11 }
+      %12 = φ u32 { [%6]: %10, [%10]: %17 }
+      %13 = φ u32 { [%6]: %6, [%10]: %15 }
+      jump 8
+
+    8:
+      %14 = %12 U32Less %11
+      if %14 then jump 10 else jump 9
+
+    9:
+      jump 4
+
+    10:
+      %15 = %13 U32Add %11
+      %16 = 1 (u32)
+      %17 = %12 U32Add %16
+      jump 7
+
+    11:
+      return %1
+
+  }
+
+}

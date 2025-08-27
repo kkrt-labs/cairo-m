@@ -1,7 +1,8 @@
 //! WASM Module Loader
 //!
-//! This module provides functionality for loading and analyzing WASM modules,
-//! with graceful handling of different womir API versions.
+//! This module provides functionality for loading the WOMIR BlockLess DAG representation of a WASM module.
+
+#![allow(clippy::future_not_send)] // Allow this lint for self-referencing structs in this module
 
 use std::fmt::{Debug, Display};
 use std::fs;
@@ -9,8 +10,10 @@ use std::path::Path;
 
 use thiserror::Error;
 
+use ouroboros::self_referencing;
+
 use womir::generic_ir::GenericIrSetting;
-use womir::loader::{load_wasm, Program};
+use womir::loader::{load_wasm_unflattened, UnflattenedProgram};
 
 #[derive(Error, Debug)]
 pub enum WasmLoadError {
@@ -22,23 +25,18 @@ pub enum WasmLoadError {
     ParseError { message: String },
 }
 
-/// A WASM module that lazily parses when first accessed
-pub struct WasmModule {
-    bytes: Vec<u8>,
+/// Module loaded by the womir crate.
+/// TODO : find a way to avoid using ouroboros and #allow(clippy::future_not_send)
+#[self_referencing]
+pub struct BlocklessDagModule {
+    wasm_binary: Vec<u8>,
+    #[borrows(wasm_binary)]
+    #[covariant]
+    pub program: UnflattenedProgram<'this, GenericIrSetting>,
 }
 
-impl WasmModule {
-    /// Converts the WASM module into a WOMIR program.
-    /// This is inefficient, as it will parse the WASM module every time it is called.
-    /// However we don't plan on using the WOMIR representation in the future.
-    pub fn program(&self) -> Result<Program<'_, GenericIrSetting>, WasmLoadError> {
-        load_wasm(GenericIrSetting, &self.bytes).map_err(|e| WasmLoadError::ParseError {
-            message: e.to_string(),
-        })
-    }
-
-    /// Loads a WASM module from a file.
-    /// For now this just copies the bytes into the struct.
+impl BlocklessDagModule {
+    /// Loads a WASM module from a file and converts it to the WOMIR BlockLess DAG representation.
     pub fn from_file(file_path: &str) -> Result<Self, WasmLoadError> {
         let path = Path::new(file_path);
         if !path.exists() {
@@ -49,56 +47,86 @@ impl WasmModule {
 
         let bytes = fs::read(path).map_err(|e| WasmLoadError::IoError { source: e })?;
 
-        // Validate the bytes can be parsed (early error detection)
-        load_wasm(GenericIrSetting, &bytes).map_err(|e| WasmLoadError::ParseError {
-            message: e.to_string(),
-        })?;
-
-        Ok(Self { bytes })
+        BlocklessDagModuleTryBuilder {
+            wasm_binary: bytes,
+            program_builder: |wasm_binary: &Vec<u8>| {
+                load_wasm_unflattened(GenericIrSetting, wasm_binary).map_err(|e| {
+                    WasmLoadError::ParseError {
+                        message: e.to_string(),
+                    }
+                })
+            },
+        }
+        .try_build()
     }
 }
 
-impl Display for WasmModule {
+impl Display for BlocklessDagModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let program = match self.program() {
-            Ok(prog) => prog,
-            Err(e) => return write!(f, "Error parsing WASM: {}", e),
-        };
+        self.with_program(|program| {
+            let mut output = String::new();
+            for (func_idx, func) in program.functions.iter() {
+                let func_name = program
+                    .c
+                    .exported_functions
+                    .get(func_idx)
+                    .map(|name| name.to_string())
+                    .unwrap_or_else(|| format!("func_{}", func_idx));
 
-        let mut output = String::new();
-
-        for func in program.functions.iter() {
-            // Get function name - check if exported, otherwise use default
-            let func_name = program
-                .c
-                .exported_functions
-                .get(&func.func_idx)
-                .map(|name| name.to_string())
-                .unwrap_or_else(|| format!("func_{}", func.func_idx));
-
-            output.push_str(&format!(
-                "Function: {} ({} directives)\n",
-                func_name,
-                func.directives.len()
-            ));
-
-            for (i, directive) in func.directives.iter().enumerate() {
-                output.push_str(&format!("  {:3}: {}\n", i, directive));
+                output.push_str(&format!("{}:\n", func_name));
+                Self::format_nodes(&func.nodes, &mut output, 1);
             }
-            output.push('\n'); // Empty line between functions
-        }
-
-        // Remove the trailing newline if there were functions
-        if !output.is_empty() {
-            output.pop(); // Remove the last newline
-        }
-
-        write!(f, "{}", output)
+            write!(f, "{}", output)
+        })
     }
 }
 
-impl Debug for WasmModule {
+impl BlocklessDagModule {
+    /// Recursively format nodes with proper indentation for nested structures
+    fn format_nodes(
+        nodes: &[womir::loader::blockless_dag::Node],
+        output: &mut String,
+        indent_level: usize,
+    ) {
+        let indent = "  ".repeat(indent_level);
+        for node in nodes {
+            match &node.operation {
+                womir::loader::blockless_dag::Operation::Loop { sub_dag, .. } => {
+                    // Format the loop node itself
+                    output.push_str(&format!("{}{:?}\n", indent, node));
+                    // Recursively format the sub-DAG with increased indentation
+                    Self::format_nodes(&sub_dag.nodes, output, indent_level + 1);
+                }
+                _ => {
+                    // Regular node with current indentation
+                    output.push_str(&format!("{}{:?}\n", indent, node));
+                }
+            }
+        }
+    }
+}
+
+impl Debug for BlocklessDagModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_loader_basic() {
+        // Test basic loading functionality
+        let result = BlocklessDagModule::from_file("tests/test_cases/add.wasm");
+        assert!(result.is_ok(), "Should load add.wasm successfully");
+
+        let module = result.unwrap();
+        let program = module.with_program(|program| program);
+        assert!(
+            !program.functions.is_empty(),
+            "Should have at least one function"
+        );
     }
 }

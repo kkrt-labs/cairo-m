@@ -1,0 +1,43 @@
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: wasm_load_result
+---
+WASM File: simple_if.wasm
+============================================================
+Success: true
+Functions loaded: 1
+============================================================
+Module Output:
+module {
+  // Function 0
+  fn simple_if {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %2 = 5 (u32)
+      %3 = %0 U32Greater %2
+      if %3 then jump 1 else jump 3
+
+    1:
+      %4 = 10 (u32)
+      %5 = %0 U32Add %4
+      jump 2
+
+    2:
+      %1 = φ u32 { [%3]: %0, [%1]: %5 }
+      jump 4
+
+    3:
+      jump 2
+
+    4:
+      return %1
+
+  }
+
+}

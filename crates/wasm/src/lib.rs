@@ -3,6 +3,5 @@
 //! This crate provides functionality for loading and analyzing WASM modules
 //! as part of the Cairo-M compiler toolchain.
 
+pub mod flattening;
 pub mod loader;
-
-pub use loader::WasmModule;

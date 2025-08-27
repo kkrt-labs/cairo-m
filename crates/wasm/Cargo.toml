@@ -7,6 +7,16 @@ license.workspace = true
 [dependencies]
 womir.workspace = true
 thiserror.workspace = true
+cairo-m-compiler-mir.workspace = true
+cairo-m-compiler-codegen.workspace = true
+cairo-m-common.workspace = true
+stwo-prover.workspace = true
+ouroboros = "0.18"
+wasmparser = "0.235.0"
+clap = { version = "4.0", features = ["derive"] }
+sonic-rs = "0.3"
 
 [dev-dependencies]
 insta = "1.43.1"
+proptest = "1.7.0"
+cairo-m-runner.workspace = true

@@ -1,0 +1,58 @@
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: wasm_load_result
+---
+WASM File: bitwise.wasm
+============================================================
+Success: true
+Functions loaded: 3
+============================================================
+Module Output:
+module {
+  // Function 0
+  fn and {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 & (u32) %1
+      jump 1
+
+    1:
+      return %2
+
+  }
+
+  // Function 1
+  fn or {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 | (u32) %1
+      jump 1
+
+    1:
+      return %2
+
+  }
+
+  // Function 2
+  fn xor {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 ^ (u32) %1
+      jump 1
+
+    1:
+      return %2
+
+  }
+
+}
