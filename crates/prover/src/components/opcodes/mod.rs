@@ -1,6 +1,6 @@
 macro_rules! define_opcodes {
     // Single pattern: all opcodes use [opcodes...] syntax
-    ($(([$(const $opcode_const:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
+    ($(([$($opcode_const:ident),+ $(,)?], $opcode:ident)),* $(,)?) => {
         // Generate pub mod declarations for all opcodes
         $(pub mod $opcode;)*
 
@@ -193,28 +193,28 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
-    ([const CALL_ABS_IMM], call_abs_imm),
-    ([const JMP_ABS_IMM, const JMP_REL_IMM], jmp_imm),
-    ([const JNZ_FP_IMM], jnz_fp_imm),
-    ([const RET], ret),
-    ([const STORE_IMM], store_imm),
+    ([CALL_ABS_IMM], call_abs_imm),
+    ([JMP_ABS_IMM, JMP_REL_IMM], jmp_imm),
+    ([JNZ_FP_IMM], jnz_fp_imm),
+    ([RET], ret),
+    ([STORE_IMM], store_imm),
     (
         [
-            const STORE_ADD_FP_FP,
-            const STORE_SUB_FP_FP,
-            const STORE_MUL_FP_FP,
-            const STORE_DIV_FP_FP,
+            STORE_ADD_FP_FP,
+            STORE_SUB_FP_FP,
+            STORE_MUL_FP_FP,
+            STORE_DIV_FP_FP,
         ],
         store_fp_fp
     ),
     (
         [
-            const STORE_ADD_FP_IMM,
-            const STORE_SUB_FP_IMM,
-            const STORE_MUL_FP_IMM,
-            const STORE_DIV_FP_IMM,
+            STORE_ADD_FP_IMM,
+            STORE_SUB_FP_IMM,
+            STORE_MUL_FP_IMM,
+            STORE_DIV_FP_IMM,
         ],
         store_fp_imm
     ),
-    ([const STORE_DOUBLE_DEREF_FP], store_double_deref_fp)
+    ([STORE_DOUBLE_DEREF_FP], store_double_deref_fp)
 );
