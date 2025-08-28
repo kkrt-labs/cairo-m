@@ -19,7 +19,6 @@
 use assert::{assert_eq_fp_fp, assert_eq_fp_imm};
 use cairo_m_common::instruction::*;
 use cairo_m_common::{Instruction, State};
-use stwo_prover::core::fields::m31::M31;
 
 use crate::vm::instructions::call::*;
 use crate::vm::instructions::jnz::*;
