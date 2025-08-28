@@ -20,13 +20,40 @@ fn basic_arithmetic() -> felt {
 
 ## Division in Field
 
-Division uses multiplicative inverse:
+Division of field elements (and therefore division in Cairo-M) is not the
+integer division you have in many programming languages, where the integral part
+of the quotient is returned (so you get 7 / 3 = 2). As long as the numerator is
+a multiple of the denominator, it will behave as you expect `(6 / 3 = 2)`. If
+this is not the case, for example when we divide 7/3, it will result in a field
+element x that will satisfy `3 * x = 7`.
 
 ```cairo-m
 fn field_division() -> felt {
-    let a = 100;
-    let b = 10;
-    return a / b;  // Returns 10 (uses field inverse)
+    let a = 6;
+    let b = 3;
+    return a / b;  // Returns 2
+}
+```
+
+If the numerator is not divisible by the denominator, the result of the division
+in field arithmetics can be computed as the inverse of the denominator
+multiplied by the numerator.
+
+```cairo-m
+fn field_division_non_divisible() -> felt {
+    let a = 7;
+    let b = 3;
+    return a / b;  // Returns 1431655767 (uses field inverse)
+}
+```
+
+```rust
+use stwo_prover::core::fields::m31::M31;
+
+fn field_division_non_divisible() -> M31 {
+    let a = M31::from(7);
+    let b = M31::from(3);
+    a / b
 }
 ```
 
@@ -35,10 +62,18 @@ fn field_division() -> felt {
 Numbers wrap around at field prime:
 
 ```cairo-m
-//! expected: 0
 fn test_wraparound() -> felt {
     let max = 2147483646;  // 2^31 - 2
     return max + 1;  // Wraps to 2^31 - 1
+}
+```
+
+```rust
+use stwo_prover::core::fields::m31::M31;
+
+fn test_wraparound() -> M31 {
+    let max = M31::from(2147483646);  // 2^31 - 2
+    max + M31::from(1)  // Should wrap to M31::from(2^31 - 1)
 }
 ```
 
@@ -88,10 +123,18 @@ fn complex_expression() -> felt {
 Testing field overflow:
 
 ```cairo-m
-//! expected: 5
 fn test_overflow() -> felt {
     let large = 2147483640;  // Close to 2^31 - 1
     return large + 12;        // Wraps around
+}
+```
+
+```rust
+use stwo_prover::core::fields::m31::M31;
+
+fn test_overflow() -> M31 {
+    let large = M31::from(2147483640);  // Close to 2^31 - 1
+    large + M31::from(12)  // Should wrap to M31::from(2^31 - 1)
 }
 ```
 

@@ -9,6 +9,7 @@ use once_cell::sync::Lazy;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::process::Command;
 use stwo_prover::core::fields::m31::M31;
 
@@ -312,8 +313,28 @@ fn run_rust_differential(
 ) -> Result<String, String> {
     // Create wrapper that calls the function with the same arguments
     let rust_args = format_rust_args(args, params);
-    let wrapped_code = format!(
-        r#"
+
+    // Check if the rust source uses M31
+    let uses_m31 = rust_source.contains("use stwo_prover::core::fields::m31::M31");
+
+    let wrapped_code = if uses_m31 {
+        // For M31 returns, we need to extract the numeric value
+        format!(
+            r#"
+{}
+
+fn main() {{
+    let result = {}({});
+    // M31 has a .0 field that contains the u32 value
+    println!("{{}}", result.0);
+}}
+"#,
+            rust_source, entry_point, rust_args
+        )
+    } else {
+        // Standard wrapper for non-M31 returns
+        format!(
+            r#"
 {}
 
 fn main() {{
@@ -325,8 +346,9 @@ fn main() {{
     }}
 }}
 "#,
-        rust_source, entry_point, rust_args
-    );
+            rust_source, entry_point, rust_args
+        )
+    };
 
     run_rust_code(&wrapped_code)
 }
@@ -380,6 +402,95 @@ fn format_rust_value(value: &InputValue, ty: &AbiType) -> String {
     }
 }
 
+/// Structure to hold crate dependency information
+#[derive(Debug)]
+struct CrateDependency {
+    name: String,
+    rlib_path: PathBuf,
+}
+
+/// Build workspace crates and extract their artifact paths using cargo JSON output
+fn build_and_discover_crates() -> Result<Vec<CrateDependency>, String> {
+    // Build the required crates with JSON output
+    let output = Command::new("cargo")
+        .args([
+            "build",
+            "-p",
+            "stwo-prover",
+            "-p",
+            "cairo-m-common",
+            "-p",
+            "cairo-m-test-utils",
+            "--message-format=json",
+        ])
+        .output()
+        .map_err(|e| format!("Failed to run cargo build: {}", e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Cargo build failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+
+    let mut dependencies = Vec::new();
+
+    // Parse JSON output to find artifact paths
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        if let Ok(json) = serde_json::from_str::<serde_json::Value>(line) {
+            // Check if this is a compiler-artifact message
+            if json["reason"] == "compiler-artifact" {
+                if let Some(target) = json.get("target") {
+                    let name = target["name"].as_str().unwrap_or("");
+
+                    // We're interested in our workspace crates
+                    if name == "stwo_prover"
+                        || name == "cairo_m_common"
+                        || name == "cairo_m_test_utils"
+                    {
+                        if let Some(filenames) = json.get("filenames") {
+                            // Find the rlib file in the filenames array
+                            for filename in filenames.as_array().unwrap_or(&Vec::new()) {
+                                if let Some(path_str) = filename.as_str() {
+                                    if path_str.ends_with(".rlib") {
+                                        // Use the actual path from the JSON
+                                        let path = PathBuf::from(path_str);
+
+                                        // If the file doesn't exist at this path, try the deps directory
+                                        let final_path = if path.exists() {
+                                            path
+                                        } else {
+                                            // Try to find it in target/debug/deps
+                                            let deps_path = PathBuf::from(format!(
+                                                "target/debug/deps/lib{}.rlib",
+                                                name
+                                            ));
+                                            if deps_path.exists() {
+                                                deps_path
+                                            } else {
+                                                // Fall back to the original path
+                                                path
+                                            }
+                                        };
+
+                                        dependencies.push(CrateDependency {
+                                            name: name.to_string(),
+                                            rlib_path: final_path,
+                                        });
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(dependencies)
+}
+
 fn run_rust_code(rust_source: &str) -> Result<String, String> {
     // Create a temporary directory
     let temp_dir = tempfile::tempdir().map_err(|e| format!("Failed to create temp dir: {}", e))?;
@@ -388,11 +499,47 @@ fn run_rust_code(rust_source: &str) -> Result<String, String> {
     std::fs::write(&rust_file, rust_source)
         .map_err(|e| format!("Failed to write Rust file: {}", e))?;
 
-    // Compile the Rust code
-    let output = Command::new("rustc")
+    // Build dependencies and get their paths
+    let dependencies = build_and_discover_crates()?;
+
+    // Build rustc command with dependency information
+    let mut rustc_cmd = Command::new("rustc");
+    rustc_cmd
         .arg(&rust_file)
+        .arg("--edition=2021")
+        .arg("--crate-type=bin")
         .arg("-o")
-        .arg(temp_dir.path().join("test"))
+        .arg(temp_dir.path().join("test"));
+
+    // Add dependency directory and extern crates
+    if !dependencies.is_empty() {
+        // Add both the main directory and deps directory
+        if let Some(first_dep) = dependencies.first() {
+            if let Some(deps_dir) = first_dep.rlib_path.parent() {
+                rustc_cmd
+                    .arg("-L")
+                    .arg(format!("dependency={}", deps_dir.display()));
+
+                // Also add the deps subdirectory if it exists
+                let deps_subdir = deps_dir.join("deps");
+                if deps_subdir.exists() {
+                    rustc_cmd
+                        .arg("-L")
+                        .arg(format!("dependency={}", deps_subdir.display()));
+                }
+            }
+        }
+
+        // Add each crate as an extern
+        for dep in &dependencies {
+            rustc_cmd
+                .arg("--extern")
+                .arg(format!("{}={}", dep.name, dep.rlib_path.display()));
+        }
+    }
+
+    // Compile the Rust code
+    let output = rustc_cmd
         .output()
         .map_err(|e| format!("Failed to run rustc: {}", e))?;
 
