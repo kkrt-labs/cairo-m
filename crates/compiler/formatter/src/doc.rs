@@ -102,6 +102,28 @@ impl Doc {
         Self::concat(parts)
     }
 
+    /// Strip trailing semicolon from the document if present
+    pub fn strip_trailing_semicolon(self) -> Self {
+        match self {
+            Self::Concat(mut docs) => {
+                // Check if the last doc is a semicolon
+                if let Some(last) = docs.last() {
+                    if matches!(last, Self::Text(s) if s == ";") {
+                        docs.pop();
+                        return Self::concat(docs);
+                    }
+                }
+                Self::concat(docs)
+            }
+            Self::Text(s) if s.ends_with(';') => {
+                let mut new_s = s;
+                new_s.pop();
+                Self::text(new_s)
+            }
+            _ => self,
+        }
+    }
+
     /// Render the document to a string with a given max width
     pub fn render(&self, max_width: usize) -> String {
         let mut renderer = Renderer::new(max_width);

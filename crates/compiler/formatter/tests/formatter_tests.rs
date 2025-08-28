@@ -81,3 +81,36 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 "#;
     assert_eq!(format_code(input), expected);
 }
+
+#[test]
+fn test_for_loop_formatting_with_parentheses() {
+    let input = r#"fn test() -> () {
+    for (let i = 0u32; i < 10; i = i + 1) {
+        do_stuff();
+    }
+}"#;
+    let expected = r#"fn test() -> () {
+    for (let i = 0u32; i < 10; i = i + 1) {
+        do_stuff();
+    }
+}
+"#;
+    assert_eq!(format_code(input), expected);
+}
+
+#[test]
+fn test_for_loop_formatting_ensures_parentheses() {
+    // Test that formatter always includes parentheses around for loop expressions
+    let input = r#"fn test() -> () {
+    for (let i=0u32;i<10;i=i+1) {
+        do_stuff();
+    }
+}"#;
+    let expected = r#"fn test() -> () {
+    for (let i = 0u32; i < 10; i = i + 1) {
+        do_stuff();
+    }
+}
+"#;
+    assert_eq!(format_code(input), expected);
+}

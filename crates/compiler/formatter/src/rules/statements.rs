@@ -124,7 +124,7 @@ impl Format for Statement {
             } => {
                 let mut parts = vec![Doc::text("for"), Doc::text(" "), Doc::text("(")];
 
-                // Format init without semicolon (we'll add it manually)
+                // Format init (already includes semicolon for let statements)
                 let init_formatted = init.value().format(ctx);
                 parts.push(init_formatted);
                 parts.push(Doc::text(" "));
@@ -136,7 +136,12 @@ impl Format for Statement {
                 // Format step - if it's an expression statement, don't include the semicolon
                 match step.value() {
                     Self::Expression(expr) => parts.push(expr.value().format(ctx)),
-                    _ => parts.push(step.value().format(ctx)),
+                    _ => {
+                        let step_formatted = step.value().format(ctx);
+                        // Remove trailing semicolon if present since this is inside for loop parentheses
+                        let step_without_semicolon = step_formatted.strip_trailing_semicolon();
+                        parts.push(step_without_semicolon);
+                    }
                 }
 
                 parts.push(Doc::text(")"));
