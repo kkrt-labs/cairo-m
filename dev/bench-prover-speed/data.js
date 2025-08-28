@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756372773767,
+  "lastUpdate": 1756389762442,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1259,6 +1259,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6018422889,
             "range": "± 43761462",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a86e3a5c7dc567537bce4a3e8d5c7990c024c0e2",
+          "message": "feat(prover): add range_check 8 and 16 (#261)\n\n* feat: add range_check 8 and 16\n\n* refacto: define macros in the mod.rs file\n\n* feat: add trait for range_checks\n\n* refacto: deal with range_check_20 the same way as 8 and 16 are dealt with\n\n* refacto: import trait in opcodes\n\n* rebase: rebase fix",
+          "timestamp": "2025-08-28T15:47:19+02:00",
+          "tree_id": "352c739f2d71f8263b89435e8e86084bfc30b58b",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/a86e3a5c7dc567537bce4a3e8d5c7990c024c0e2"
+        },
+        "date": 1756389761298,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6047626149,
+            "range": "± 42302884",
             "unit": "ns/iter"
           }
         ]
