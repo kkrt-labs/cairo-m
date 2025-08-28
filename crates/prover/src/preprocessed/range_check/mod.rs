@@ -11,9 +11,18 @@ use crate::preprocessed::PreProcessedColumn;
 #[macro_use]
 pub mod range_check_macro;
 
-pub mod range_check_16;
-pub mod range_check_20;
-pub mod range_check_8;
+pub mod range_check_8 {
+    use crate::relations::RangeCheck8;
+    crate::define_range_check!(8, range_check_8, RangeCheck8);
+}
+pub mod range_check_16 {
+    use crate::relations::RangeCheck16;
+    crate::define_range_check!(16, range_check_16, RangeCheck16);
+}
+pub mod range_check_20 {
+    use crate::relations::RangeCheck20;
+    crate::define_range_check!(20, range_check_20, RangeCheck20);
+}
 
 pub struct RangeCheck {
     range: u32,
