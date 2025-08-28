@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756392845795,
+  "lastUpdate": 1756409807053,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1993,6 +1993,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 332592234,
             "range": "± 1917042",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3029fd86483114f24f2a8ac5a6fab22c6347152",
+          "message": "refactor(compiler): remove dead code and restrict visibility (#276)\n\n- Remove unused Store, Load, GEP instruction variants from MIR\n- Delete obsolete control_flow.rs and conditional_pass_test.rs files\n- Change public functions to pub(crate) where not externally used\n- Enable Rust dead code detection by restricting visibility\n- Clean up unused imports and functions across compiler crates\n- Simplify instruction handling by removing pointer-based operations\n\nThis cleanup reduces the codebase by ~3000 lines and improves maintainability\nby leveraging Rust's dead code analysis. Part of the aggregate-first MIR\nmigration that eliminated pointer-based memory operations.",
+          "timestamp": "2025-08-28T21:32:13+02:00",
+          "tree_id": "ad9add36ab41abd7a6fa0ffcdce9676f9169c252",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/f3029fd86483114f24f2a8ac5a6fab22c6347152"
+        },
+        "date": 1756409806668,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 335244541,
+            "range": "± 2040349",
             "unit": "ns/iter"
           }
         ]
