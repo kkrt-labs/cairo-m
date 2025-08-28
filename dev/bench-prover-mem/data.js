@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756368328141,
+  "lastUpdate": 1756369942939,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1154,6 +1154,35 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/kkrt-labs/cairo-m/commit/3f94ce4b65dc87087369b891a5ff92ad70d49666"
         },
         "date": 1756368328099,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2415357506,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f74c42057d81ae44442b9508cbe3184e12dd5740",
+          "message": "refacto: remove unused opcodes (#262)",
+          "timestamp": "2025-08-28T11:17:43+03:00",
+          "tree_id": "2ceb4fb97e1dfc5b84d9ce3f697d9effc435acda",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/f74c42057d81ae44442b9508cbe3184e12dd5740"
+        },
+        "date": 1756369942883,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
