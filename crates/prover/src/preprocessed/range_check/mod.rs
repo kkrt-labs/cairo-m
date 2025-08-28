@@ -1,5 +1,7 @@
+use rayon::iter::ParallelIterator;
 use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
 use stwo_prover::core::backend::simd::column::BaseColumn;
+use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
@@ -7,7 +9,39 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::PreProcessedColumn;
 
-pub mod range_check_20;
+// Trait for components that provide range check data
+pub trait RangeCheckProvider {
+    /// Returns range_check_8 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+
+    /// Returns range_check_16 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+
+    /// Returns range_check_20 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+}
+// Include the macro implementation
+#[macro_use]
+pub mod range_check_macro;
+
+pub mod range_check_8 {
+    use crate::relations::RangeCheck8;
+    crate::define_range_check!(8, range_check_8, RangeCheck8);
+}
+pub mod range_check_16 {
+    use crate::relations::RangeCheck16;
+    crate::define_range_check!(16, range_check_16, RangeCheck16);
+}
+pub mod range_check_20 {
+    use crate::relations::RangeCheck20;
+    crate::define_range_check!(20, range_check_20, RangeCheck20);
+}
 
 pub struct RangeCheck {
     range: u32,

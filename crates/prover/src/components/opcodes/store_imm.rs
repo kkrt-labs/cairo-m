@@ -53,6 +53,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
+use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -67,6 +68,13 @@ const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,
     pub non_padded_length: usize,
+}
+
+// Implement RangeCheckProvider to expose range_check_20 data
+impl RangeCheckProvider for InteractionClaimData {
+    fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        self.lookup_data.range_check_20.par_iter().flatten()
+    }
 }
 
 #[derive(Uninitialized, IterMut, ParIterMut)]

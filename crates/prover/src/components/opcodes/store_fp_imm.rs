@@ -86,6 +86,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
+use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -107,6 +108,13 @@ pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
+}
+
+// Implement RangeCheckProvider to expose range_check_20 data
+impl RangeCheckProvider for InteractionClaimData {
+    fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        self.lookup_data.range_check_20.par_iter().flatten()
+    }
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
