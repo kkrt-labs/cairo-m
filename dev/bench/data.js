@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756371321002,
+  "lastUpdate": 1756392845795,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1963,6 +1963,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 335708465,
             "range": "± 2619664",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78ad3a55191f40f2d50318e0c9f880a8fce6244c",
+          "message": "feat(runner): add crate dependency support for mdtest runner (#268)\n\n* feat(runner): add crate dependency support for mdtest runner\n\nEnable mdtest runner to use external crates like stwo_prover in Rust test snippets\nby implementing rustc compilation with --extern flags. This allows field arithmetic\ntests to use M31 types directly from stwo_prover.\n\nChanges:\n- Add serde_json as dev dependency for parsing cargo build JSON output\n- Implement build_and_discover_crates() to find rlib paths via cargo --message-format=json\n- Enhance run_rust_code() to pass --extern and -L flags to rustc\n- Add special handling for M31 return types in test wrapper code\n- Update arithmetic mdtest examples to demonstrate M31 usage\n\nCORE-1168\n\n* update snapshots",
+          "timestamp": "2025-08-28T16:48:31+02:00",
+          "tree_id": "6981eb40108784647d0ccfba55ea6045c78ff35b",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/78ad3a55191f40f2d50318e0c9f880a8fce6244c"
+        },
+        "date": 1756392845330,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 332592234,
+            "range": "± 1917042",
             "unit": "ns/iter"
           }
         ]
