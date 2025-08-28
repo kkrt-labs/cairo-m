@@ -248,6 +248,7 @@ fn test_expression_type_coverage() {
             Expression::Identifier(_) => "Identifier",
             Expression::UnaryOp { .. } => "UnaryOp",
             Expression::BinaryOp { .. } => "BinaryOp",
+            Expression::Parenthesized(_) => "Parenthesized",
             Expression::FunctionCall { .. } => "FunctionCall",
             Expression::MemberAccess { .. } => "MemberAccess",
             Expression::IndexAccess { .. } => "IndexAccess",

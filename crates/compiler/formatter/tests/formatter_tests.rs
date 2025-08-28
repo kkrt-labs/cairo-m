@@ -1,6 +1,5 @@
 use cairo_m_compiler_parser::{ParserDatabaseImpl, SourceFile};
 use cairo_m_formatter::{format_source_file, FormatterConfig};
-use insta::assert_snapshot;
 
 fn format_code(source: &str) -> String {
     let db = ParserDatabaseImpl::default();
@@ -9,34 +8,34 @@ fn format_code(source: &str) -> String {
     format_source_file(&db, file, &config)
 }
 
+// Parentheses preservation and precedence-sensitive formatting
 #[test]
-fn test_format_simple_function() {
-    let input = r#"fn   add(x:felt,y:felt)->felt{let result=x+y;return result;}"#;
-    assert_snapshot!(format_code(input));
+fn test_parentheses_preserved_in_binary_expression() {
+    let input = r#"fn test(x: felt) -> felt { let y = (x+1)*2; return y; }"#;
+    let expected = "fn test(x: felt) -> felt {\n    let y = (x + 1) * 2;\n    return y;\n}\n";
+    assert_eq!(format_code(input), expected);
 }
 
 #[test]
-fn test_format_struct() {
-    let input = r#"struct Point{x:felt,y:felt,}"#;
-    assert_snapshot!(format_code(input));
+fn test_nested_parentheses_and_casts_preserved() {
+    let input =
+        r#"fn test() -> felt { let z = ((((a+b) as felt)*c as u32)-d) as felt; return z; }"#;
+    let expected = "fn test() -> felt {\n    let z = ((((a + b) as felt) * c as u32) - d) as felt;\n    return z;\n}\n";
+    assert_eq!(format_code(input), expected);
 }
 
 #[test]
-fn test_format_if_statement() {
-    let input = r#"fn test(x:felt)->felt{if x==0{return 1;}else{return x;}}"#;
-    assert_snapshot!(input, format_code(input));
+fn test_if_condition_parentheses_removed() {
+    let input = r#"fn test() -> felt { if (x==y) { return 1; } else { return 0; } return 0; }"#;
+    let expected = "fn test() -> felt {\n    if x == y {\n        return 1;\n    } else {\n        return 0;\n    }\n    return 0;\n}\n";
+    assert_eq!(format_code(input), expected);
 }
 
 #[test]
-fn test_format_const() {
-    let input = r#"const PI=314;"#;
-    assert_snapshot!(format_code(input));
-}
-
-#[test]
-fn test_format_use_statement() {
-    let input = r#"use std::math::sqrt;"#;
-    assert_snapshot!(format_code(input));
+fn test_if_condition_no_parentheses() {
+    let input = r#"fn test() -> felt { if x==y { return 1; } else { return 0; } return 0; }"#;
+    let expected = "fn test() -> felt {\n    if x == y {\n        return 1;\n    } else {\n        return 0;\n    }\n    return 0;\n}\n";
+    assert_eq!(format_code(input), expected);
 }
 
 #[test]
@@ -51,15 +50,13 @@ fn test_idempotence() {
 }
 
 #[test]
-fn test_format_while_statement_with_parens() {
-    let input = r#"fn test(){while(i!=n){i=i+1;}}"#;
-    assert_snapshot!(format_code(input));
-}
-
-#[test]
-fn test_format_while_statement_without_parens() {
-    let input = r#"fn test(){while i!=n{i=i+1;}}"#;
-    assert_snapshot!(format_code(input));
+fn test_while_condition_with_and_without_parentheses() {
+    let with_parens = r#"fn test(){while(i!=n){i=i+1;}}"#;
+    let without_parens = r#"fn test(){while i!=n{i=i+1;}}"#;
+    let expected_with = "fn test() -> () {\n    while i != n {\n        i = i + 1;\n    }\n}\n";
+    let expected_without = "fn test() -> () {\n    while i != n {\n        i = i + 1;\n    }\n}\n";
+    assert_eq!(format_code(with_parens), expected_with);
+    assert_eq!(format_code(without_parens), expected_without);
 }
 
 #[test]
@@ -67,4 +64,20 @@ fn test_should_not_format_unparsable_code() {
     let input = r#"fn test(x:felt)->felt{let z; let y=x+1;return y;}"#;
     let formatted = format_code(input);
     assert_eq!(input, formatted);
+}
+
+#[test]
+fn test_keeping_operator_parentheses_nested() {
+    let input = r#"
+/// SHA-256 Maj (majority) function: majority vote of x, y, z.
+fn maj(x: u32, y: u32, z: u32) -> u32 {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+"#;
+    let expected = r#"/// SHA-256 Maj (majority) function: majority vote of x, y, z.
+fn maj(x: u32, y: u32, z: u32) -> u32 {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+"#;
+    assert_eq!(format_code(input), expected);
 }

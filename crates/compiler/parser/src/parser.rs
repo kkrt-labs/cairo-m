@@ -305,6 +305,11 @@ pub enum Expression {
         expr: Box<Spanned<Expression>>,
         target_type: Spanned<TypeExpr>,
     },
+    /// Parenthesized expression (e.g., `(a + b)`)
+    ///
+    /// This node preserves source parentheses for the formatter while being a no-op
+    /// for semantic analysis and code generation.
+    Parenthesized(Box<Spanned<Expression>>),
 }
 
 /// Represents a function parameter with its name and type.
@@ -493,6 +498,17 @@ pub struct UseStmt {
     pub path: Vec<Spanned<String>>,
     /// The imported items.
     pub items: UseItems,
+}
+
+// Deterministic a deterministic paren-or-tuple parser.
+//
+// Key idea: after parsing the *first* inner expression, we `.cut()` to prevent
+// backtracking to the unit-path and decide based on the next token: ',' → tuple,
+// ')' → parenthesized.
+#[derive(Debug, Clone)]
+enum ParenTail {
+    Paren,                           // (e)
+    Tuple(Vec<Spanned<Expression>>), // (e, rest..., [trailing ,]) )
 }
 
 /// Wrapper for the parsed AST result.
@@ -783,40 +799,44 @@ where
             .map(|(name, fields)| Expression::StructLiteral { name, fields })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
-        // Tuple expressions and parenthesized expressions: "(a, b, c)" | "(expr)" | "()"
-        let tuple_expr = just(TokenType::LParen)
+        // Deterministic parens using lookahead with `.rewind()`
+        let paren_or_tuple = just(TokenType::LParen)
             .ignore_then(
-                // Either unit `()` OR at least one Expr
-                choice((
-                    // Unit tuple
-                    just(TokenType::RParen)
-                        .to::<Vec<_>>(vec![])
-                        .map(|v| (v, false)),
-                    // One-or-more: first, then any ", expr", with optional trailing comma, finally the ")"
+                // Unit: ()
+                just(TokenType::RParen).to(Expression::Tuple(vec![])).or(
+                    // Non-unit: start by parsing the *first* inner expression exactly once
                     expr.clone()
                         .then(
-                            just(TokenType::Comma)
-                                .ignore_then(expr.clone())
-                                .repeated()
-                                .collect::<Vec<_>>(),
+                            // Decide the tail based on the next token without consuming it
+                            choice((
+                                // Next is ','  => tuple tail
+                                just(TokenType::Comma).rewind().ignore_then(
+                                    // actually consume ',' and parse the rest
+                                    just(TokenType::Comma)
+                                        .ignore_then(expr.clone())
+                                        .repeated()
+                                        .collect::<Vec<_>>()
+                                        .then(just(TokenType::Comma).or_not())
+                                        .then_ignore(just(TokenType::RParen))
+                                        .map(|(rest, _trailing)| ParenTail::Tuple(rest)),
+                                ),
+                                // Next is ')'  => parenthesized
+                                just(TokenType::RParen)
+                                    .rewind()
+                                    .ignore_then(just(TokenType::RParen).to(ParenTail::Paren)),
+                            )),
                         )
-                        .then(just(TokenType::Comma).or_not())
-                        .then_ignore(just(TokenType::RParen))
-                        .map(|((first, rest), trailing)| {
-                            let mut all = Vec::with_capacity(1 + rest.len());
-                            all.push(first);
-                            all.extend(rest);
-                            (all, trailing.is_some())
+                        .map(|(first, tail)| match tail {
+                            ParenTail::Paren => Expression::Parenthesized(Box::new(first)),
+                            ParenTail::Tuple(mut rest) => {
+                                let mut all = Vec::with_capacity(1 + rest.len());
+                                all.push(first);
+                                all.append(&mut rest);
+                                Expression::Tuple(all)
+                            }
                         }),
-                )),
+                ),
             )
-            .map(|(exprs, had_trailing)| {
-                match (exprs.len(), had_trailing) {
-                    (0, _) => Expression::Tuple(vec![]),                  // ()
-                    (1, false) => exprs.first().unwrap().value().clone(), // (e)
-                    _ => Expression::Tuple(exprs), // (e, ...) or trailing comma
-                }
-            })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
         // Array literal expressions: "[elem1, elem2, elem3]"
@@ -835,10 +855,7 @@ where
             .or(struct_literal)
             .or(array_literal)
             .or(ident_expr)
-            .or(expr
-                .clone()
-                .delimited_by(just(TokenType::LParen), just(TokenType::RParen)))
-            .or(tuple_expr);
+            .or(paren_or_tuple);
 
         // Postfix operations (left-associative): function calls, member access, indexing
         let postfix_op = choice((

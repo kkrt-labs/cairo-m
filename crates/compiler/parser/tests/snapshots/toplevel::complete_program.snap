@@ -110,94 +110,99 @@ expression: snapshot
                         Return {
                             value: Some(
                                 Spanned(
-                                    BinaryOp {
-                                        op: Add,
-                                        left: Spanned(
+                                    Parenthesized(
+                                        Spanned(
                                             BinaryOp {
-                                                op: Mul,
+                                                op: Add,
                                                 left: Spanned(
-                                                    MemberAccess {
-                                                        object: Spanned(
-                                                            Identifier(
-                                                                Spanned(
-                                                                    "v",
+                                                    BinaryOp {
+                                                        op: Mul,
+                                                        left: Spanned(
+                                                            MemberAccess {
+                                                                object: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "v",
+                                                                            139..140,
+                                                                        ),
+                                                                    ),
                                                                     139..140,
                                                                 ),
-                                                            ),
-                                                            139..140,
+                                                                field: Spanned(
+                                                                    "x",
+                                                                    141..142,
+                                                                ),
+                                                            },
+                                                            139..142,
                                                         ),
-                                                        field: Spanned(
-                                                            "x",
-                                                            141..142,
-                                                        ),
-                                                    },
-                                                    139..142,
-                                                ),
-                                                right: Spanned(
-                                                    MemberAccess {
-                                                        object: Spanned(
-                                                            Identifier(
-                                                                Spanned(
-                                                                    "v",
+                                                        right: Spanned(
+                                                            MemberAccess {
+                                                                object: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "v",
+                                                                            145..146,
+                                                                        ),
+                                                                    ),
                                                                     145..146,
                                                                 ),
-                                                            ),
-                                                            145..146,
-                                                        ),
-                                                        field: Spanned(
-                                                            "x",
-                                                            147..148,
-                                                        ),
-                                                    },
-                                                    145..148,
-                                                ),
-                                            },
-                                            139..148,
-                                        ),
-                                        right: Spanned(
-                                            BinaryOp {
-                                                op: Mul,
-                                                left: Spanned(
-                                                    MemberAccess {
-                                                        object: Spanned(
-                                                            Identifier(
-                                                                Spanned(
-                                                                    "v",
-                                                                    151..152,
+                                                                field: Spanned(
+                                                                    "x",
+                                                                    147..148,
                                                                 ),
-                                                            ),
-                                                            151..152,
-                                                        ),
-                                                        field: Spanned(
-                                                            "y",
-                                                            153..154,
+                                                            },
+                                                            145..148,
                                                         ),
                                                     },
-                                                    151..154,
+                                                    139..148,
                                                 ),
                                                 right: Spanned(
-                                                    MemberAccess {
-                                                        object: Spanned(
-                                                            Identifier(
-                                                                Spanned(
-                                                                    "v",
+                                                    BinaryOp {
+                                                        op: Mul,
+                                                        left: Spanned(
+                                                            MemberAccess {
+                                                                object: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "v",
+                                                                            151..152,
+                                                                        ),
+                                                                    ),
+                                                                    151..152,
+                                                                ),
+                                                                field: Spanned(
+                                                                    "y",
+                                                                    153..154,
+                                                                ),
+                                                            },
+                                                            151..154,
+                                                        ),
+                                                        right: Spanned(
+                                                            MemberAccess {
+                                                                object: Spanned(
+                                                                    Identifier(
+                                                                        Spanned(
+                                                                            "v",
+                                                                            157..158,
+                                                                        ),
+                                                                    ),
                                                                     157..158,
                                                                 ),
-                                                            ),
-                                                            157..158,
-                                                        ),
-                                                        field: Spanned(
-                                                            "y",
-                                                            159..160,
+                                                                field: Spanned(
+                                                                    "y",
+                                                                    159..160,
+                                                                ),
+                                                            },
+                                                            157..160,
                                                         ),
                                                     },
-                                                    157..160,
+                                                    151..160,
                                                 ),
                                             },
-                                            151..160,
+                                            139..160,
                                         ),
-                                    },
-                                    139..160,
+                                    ),
+                                    138..161,
                                 ),
                             ),
                         },

@@ -465,6 +465,13 @@ pub fn expression_semantic_type<'db>(
             TypeId::new(db, TypeData::Felt)
         }
         Expression::BooleanLiteral(_) => TypeId::new(db, TypeData::Bool),
+        Expression::Parenthesized(inner) => {
+            // Parentheses are semantically transparent; propagate expected type
+            if let Some(inner_id) = semantic_index.expression_id_by_span(inner.span()) {
+                return expression_semantic_type(db, crate_id, file, inner_id, context_expected);
+            }
+            TypeId::new(db, TypeData::Error)
+        }
         Expression::Identifier(name) => {
             if let Some((def_idx, _)) =
                 semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
