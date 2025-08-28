@@ -98,7 +98,7 @@ fn test_for_loop_formatting_with_parentheses() {
     assert_eq!(format_code(input), expected);
 }
 
-#[test]  
+#[test]
 fn test_for_loop_formatting_ensures_parentheses() {
     // Test that formatter always includes parentheses around for loop expressions
     let input = r#"fn test() -> () {
