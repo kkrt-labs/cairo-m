@@ -63,7 +63,7 @@ process_array_4:
   26: 15 5 7 9             // u32([fp + 9], [fp + 10]) = u32([fp + 5], [fp + 6]) U32Add u32([fp + 7], [fp + 8])
   27: 6 3 2 16             // [fp + 16] = [fp + 3] * 2 - Scale index by element size
   28: 4 4 0 11             // [fp + 11] = [fp + 4] + 0 (copy array pointer)
-  29: 23 0 0 17            // [fp + 17, fp + 18] = u32(0)
+  29: 23 0 0 17            // [fp + 17], [fp + 18] = u32(0)
   30: 45 4 16 17           // [[fp + 4] + [fp + 16]] = [fp + 17] (u32 slot 0)
   31: 4 16 1 19            // [fp + 19] = [fp + 16] + 1 (adjust for slot 1)
   32: 45 4 19 18           // [[fp + 4] + [fp + 19]] = [fp + 18] (u32 slot 1)

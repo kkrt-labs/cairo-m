@@ -383,20 +383,7 @@ impl CodeGenerator {
                 let callee_function = module.functions.get(*callee).ok_or_else(|| {
                     CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
                 })?;
-
-                let callee_name = &callee_function.name;
-                let _num_returns = callee_function.return_values.len();
-
-                if dests.is_empty() {
-                    // Void call (no return values)
-                    builder.void_call(callee_name, args, signature)?;
-                } else if dests.len() == 1 {
-                    // Single return value
-                    builder.call(dests[0], callee_name, args, signature)?;
-                } else {
-                    // Multiple return values
-                    builder.call_multiple(dests, callee_name, args, signature)?;
-                }
+                builder.lower_call(&callee_function.name, args, signature, dests)?;
             }
             InstructionKind::Cast {
                 dest,
@@ -631,7 +618,7 @@ impl CodeGenerator {
                     }
                 }
                 let target_label = format!("{function_name}_{target:?}");
-                builder.jump(&target_label)?;
+                builder.jump(&target_label);
             }
 
             Terminator::If {
@@ -646,7 +633,7 @@ impl CodeGenerator {
                 // Because CASM has only JNZ, we need to jump to the then_label if the condition is true.
                 // We can't optimize a fallthrough.
                 builder.jnz(*condition, &then_label)?;
-                builder.jump(&else_label)?;
+                builder.jump(&else_label);
             }
 
             Terminator::BranchCmp {
@@ -668,66 +655,66 @@ impl CodeGenerator {
                 match op {
                     BinaryOp::Eq => {
                         // For felt comparison, compute `a - b`. Result is zero if equal.
-                        builder.generate_arithmetic_op(
+                        builder.compute_into_offset(
                             BinaryOp::Sub,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to else if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &else_label)?;
+                        builder.jnz_offset(temp_slot_offset, &else_label);
                         // Fallthrough to the `then` block if the `jnz` was not taken.
                         let then_is_next = next_block_id == Some(*then_target);
                         if !then_is_next {
-                            builder.jump(&then_label)?;
+                            builder.jump(&then_label);
                         }
                     }
                     BinaryOp::Neq => {
                         // For felt comparison, compute `a - b`. Result is non-zero if not equal.
-                        builder.generate_arithmetic_op(
+                        builder.compute_into_offset(
                             BinaryOp::Sub,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to then if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        builder.jnz_offset(temp_slot_offset, &then_label);
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {
-                            builder.jump(&else_label)?;
+                            builder.jump(&else_label);
                         }
                     }
                     BinaryOp::U32Eq => {
                         // For U32 comparison, use U32Eq which returns a felt (1 if equal, 0 if not)
-                        builder.generate_u32_op(
+                        builder.compute_into_offset(
                             BinaryOp::U32Eq,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to then if non-zero (equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        builder.jnz_offset(temp_slot_offset, &then_label);
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {
-                            builder.jump(&else_label)?;
+                            builder.jump(&else_label);
                         }
                     }
                     BinaryOp::U32Neq => {
                         // For U32 comparison, use U32Neq which returns a felt (1 if not equal, 0 if equal)
-                        builder.generate_u32_op(
+                        builder.compute_into_offset(
                             BinaryOp::U32Neq,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to then if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        builder.jnz_offset(temp_slot_offset, &then_label);
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {
-                            builder.jump(&else_label)?;
+                            builder.jump(&else_label);
                         }
                     }
                     _ => {

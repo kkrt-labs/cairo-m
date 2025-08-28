@@ -25,6 +25,7 @@ words:
   - combinators
   - csed
   - cstark
+  - ctrlflow
   - dashmap
   - dataclass
   - deque
@@ -89,8 +90,9 @@ words:
   - rfib
   - rfind
   - rlib
-  - rotr
   - rngs
+  - rotr
+  - rposition
   - rustc
   - rustflags
   - rustsec
