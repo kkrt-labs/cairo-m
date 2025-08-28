@@ -77,6 +77,7 @@
 //!   * `q_2 * d_3 + q_3 * d_2 + mul_carry_4 - mul_carry_5 * 2 ** 8 - prod_5`
 //!   * `q_3 * d_3 + mul_carry_5 - mul_carry_6 * 2 ** 8 - prod_6`
 //!   * `mul_carry_6 - prod_7`
+//!   * NOTE: 254 is the max value of a carry for u8 mul (MAX_u8 = 255): MAX_u8 * MAX_u8 = 254 * 2 ** 8 + 1
 //!   * `- [254 - mul_carry_0]` in `RangeCheck8` relation
 //!   * `- [254 - mul_carry_1]` in `RangeCheck8` relation
 //!   * `- [254 - mul_carry_2]` in `RangeCheck8` relation
@@ -579,7 +580,7 @@ impl Claim {
                 *lookup_data.range_check_16[12] = sub_check_lo;
                 *lookup_data.range_check_16[13] = sub_check_hi;
 
-                // 8-bit range checks (stored in range_check_8 but we'll use range_check_16 for now since range_check_8 doesn't exist)
+                // 8-bit range checks
                 // For the subtraction checks d - r - 1
 
                 *lookup_data.range_check_8[0] = d_0;
