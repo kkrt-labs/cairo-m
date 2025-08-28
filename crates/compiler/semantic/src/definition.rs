@@ -346,6 +346,7 @@ mod tests {
 
         let const_def = ConstDef {
             name: Spanned::new("PI".to_string(), SimpleSpan::from(0..2)),
+            ty: None,
             value: Spanned::new(Expression::Literal(314, None), SimpleSpan::from(3..6)),
         };
         let spanned_const = Spanned::new(const_def, SimpleSpan::from(0..10));

@@ -63,6 +63,9 @@ fn toplevel_const_parameterized() {
         ok: [
             "const MAX_SIZE = 100;",
             "const COMPUTED = 2 * 3 + 1;",
+            "const SIZE: felt = 3;",
+            "const MAX_VALUE: u32 = 100;",
+            "const PI: felt = 314;",
         ]
     }
 }
@@ -105,6 +108,7 @@ fn complete_program() {
         }
 
         const TOP_LEVEL_CONST = 100;
+        const TYPED_CONST: felt = 42;
     "#
     );
 }

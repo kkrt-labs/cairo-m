@@ -1,0 +1,15 @@
+// Test const declarations with explicit type annotations
+const SIZE: felt = 3;
+const MAX_VALUE: u32 = 100;
+const PI: felt = 314;
+
+// Multiple const declarations
+const A: felt = 1;
+const B: u32 = 2;
+const C: felt = A + 3;
+
+// Const in function scope should parse but semantic will check validity
+fn test() -> felt {
+    const LOCAL: felt = 42;
+    return LOCAL;
+}

@@ -1467,8 +1467,14 @@ where
                 let current_scope = self.current_scope();
                 self.index.set_scope_for_span(stmt.span(), current_scope);
 
-                // Process the value expression first
-                self.visit_expr(&const_def.value);
+                // Process the value expression with optional type annotation
+                if let Some(ref ty) = const_def.ty {
+                    self.with_expected_type(Some(ty.clone()), |builder| {
+                        builder.visit_expr(&const_def.value);
+                    });
+                } else {
+                    self.visit_expr(&const_def.value);
+                }
                 let value_expr_id = self
                     .index
                     .expression_id_by_span(const_def.value.span())

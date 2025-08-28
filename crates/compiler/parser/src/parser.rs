@@ -413,6 +413,8 @@ pub enum TopLevelItem {
 pub struct ConstDef {
     /// The constant's name
     pub name: Spanned<String>,
+    /// Optional type annotation
+    pub ty: Option<Spanned<TypeExpr>>,
     /// The constant's value expression
     pub value: Spanned<Expression>,
 }
@@ -1210,10 +1212,15 @@ where
         // Const statement: const NAME = expression;
         let const_stmt = just(TokenType::Const)
             .ignore_then(spanned_ident.clone()) // constant name
+            .then(
+                just(TokenType::Colon)
+                    .ignore_then(type_expr.clone())
+                    .or_not(),
+            ) // optional type annotation
             .then_ignore(just(TokenType::Eq)) // ignore '='
             .then(expr.clone()) // value expression
             .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-            .map(|(name, value)| Statement::Const(ConstDef { name, value }))
+            .map(|((name, ty), value)| Statement::Const(ConstDef { name, ty, value }))
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
         // If statement: supports both `if (cond) { ... }` and `if cond { ... }`
@@ -1506,15 +1513,17 @@ where
     I: ValueInput<'tokens, Token = TokenType<'src>, Span = SimpleSpan>,
 {
     let spanned_ident = spanned_ident_parser();
+    let type_expr = type_expr_parser();
     let expr = expression_parser();
 
-    // Constant definition: const NAME = expression;
+    // Constant definition: const NAME [: Type] = expression;
     just(TokenType::Const)
         .ignore_then(spanned_ident) // constant name
+        .then(just(TokenType::Colon).ignore_then(type_expr).or_not()) // optional type annotation
         .then_ignore(just(TokenType::Eq)) // ignore '='
         .then(expr) // value expression
         .then_ignore(just(TokenType::Semicolon)) // ignore ';'
-        .map_with(|(name, value), extra| Spanned(ConstDef { name, value }, extra.span()))
+        .map_with(|((name, ty), value), extra| Spanned(ConstDef { name, ty, value }, extra.span()))
 }
 
 /// Creates a parser for top-level items
