@@ -82,14 +82,15 @@ pub fn determine_comment_position(
     source: &str,
 ) -> Option<CommentPosition> {
     let comment_start = comment_span.start;
+    let comment_end = comment_span.end;
     let node_start = node_span.start;
     let node_end = node_span.end;
 
     if comment_start < node_start {
-        // Check if comment is on the line immediately before the node
-        let between = &source[comment_start..node_start];
-        let newlines = between.chars().filter(|&c| c == '\n').count();
-        if newlines <= 1 {
+        // Treat a comment as "Before" if there's nothing but whitespace and other
+        // comments between this comment's end and the start of the node. This
+        // handles docstrings stacked above TODOs etc.
+        if is_only_whitespace_or_comments(&source[comment_end..node_start]) {
             return Some(CommentPosition::Before);
         }
     } else if comment_start >= node_end {
@@ -106,6 +107,28 @@ pub fn determine_comment_position(
     }
 
     None
+}
+
+/// Returns true if the slice contains only whitespace and line comments (// ...\n)
+fn is_only_whitespace_or_comments(slice: &str) -> bool {
+    let bytes = slice.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b' ' | b'\t' | b'\r' | b'\n' => {
+                i += 1;
+            }
+            b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => {
+                // Skip until end of line
+                i += 2;
+                while i < bytes.len() && bytes[i] != b'\n' {
+                    i += 1;
+                }
+            }
+            _ => return false,
+        }
+    }
+    true
 }
 
 #[cfg(test)]
