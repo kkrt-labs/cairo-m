@@ -119,17 +119,17 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
     }
 
     // Run differential testing with Rust
-    let converted_rust;
-    let rust_source = if let Some(rust) = &test.rust_source {
-        rust.as_str()
+    let (rust_source, rust_entry_point) = if let Some(rust) = &test.rust_source {
+        (rust.to_string(), entry_point.clone())
     } else {
-        converted_rust = convert_cairo_to_rust(&test.cairo_source);
-        &converted_rust
+        let converted_rust = convert_cairo_to_rust(&test.cairo_source);
+        let converted_entrypoint = convert_cairo_to_rust(&entry_point);
+        (converted_rust, converted_entrypoint)
     };
 
     let rust_output = run_rust_differential(
-        rust_source,
-        &entry_point,
+        &rust_source,
+        &rust_entry_point,
         &args,
         &entrypoint_info.params,
         &entrypoint_info.returns,
