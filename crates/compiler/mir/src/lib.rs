@@ -94,9 +94,6 @@ mod instruction_tests;
 mod insert_instructions_test;
 
 #[cfg(test)]
-mod conditional_pass_test;
-
-#[cfg(test)]
 mod pretty_print_tests;
 
 #[cfg(test)]

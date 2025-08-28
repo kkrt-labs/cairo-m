@@ -86,7 +86,7 @@ pub enum CallResult {
 
 impl<'a, 'db> LoweringContext<'a, 'db> {
     /// Get or compute the MIR type for an expression
-    pub fn get_expr_type(&self, expr_id: ExpressionId) -> MirType {
+    pub(crate) fn get_expr_type(&self, expr_id: ExpressionId) -> MirType {
         let mut cache = self.expr_type_cache.borrow_mut();
         cache
             .entry(expr_id)
@@ -100,7 +100,7 @@ impl<'a, 'db> LoweringContext<'a, 'db> {
 }
 
 impl<'a, 'db> MirBuilder<'a, 'db> {
-    pub fn new(
+    pub(crate) fn new(
         db: &'db dyn SemanticDb,
         file: File,
         semantic_index: &'a SemanticIndex,
@@ -143,7 +143,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Resolves an imported function to its FunctionId in the crate
     ///
     /// Follows the import chain: module_name.function_name -> FunctionId
-    pub fn resolve_imported_function(
+    pub(crate) fn resolve_imported_function(
         &self,
         imported_module_name: &str,
         function_name: &str,
@@ -195,7 +195,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Creates a new block and returns its ID
-    pub fn create_block(&mut self) -> BasicBlockId {
+    pub(crate) fn create_block(&mut self) -> BasicBlockId {
         self.cfg().new_block(None)
     }
 
@@ -208,13 +208,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Terminates the current block with a jump to the target
-    pub fn terminate_with_jump(&mut self, target: BasicBlockId) {
+    pub(crate) fn terminate_with_jump(&mut self, target: BasicBlockId) {
         let state = self.cfg().terminate_with_jump(target);
         self.state.is_terminated = state.is_terminated;
     }
 
     /// Terminates the current block with a conditional branch
-    pub fn terminate_with_branch(
+    pub(crate) fn terminate_with_branch(
         &mut self,
         condition: Value,
         then_block: BasicBlockId,
@@ -227,23 +227,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Terminates the current block with a return
-    pub fn terminate_with_return(&mut self, values: Vec<Value>) {
+    pub(crate) fn terminate_with_return(&mut self, values: Vec<Value>) {
         let state = self.cfg().terminate_with_return(values);
         self.state.is_terminated = state.is_terminated;
     }
 
-    /// Creates blocks for an if statement
-    pub fn create_if_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
-        self.cfg().create_if_blocks()
-    }
-
     /// Creates blocks for a loop
-    pub fn create_loop_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
+    pub(crate) fn create_loop_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
         self.cfg().create_loop_blocks()
     }
 
     /// Creates blocks for a for loop
-    pub fn create_for_loop_blocks(
+    pub(crate) fn create_for_loop_blocks(
         &mut self,
     ) -> (BasicBlockId, BasicBlockId, BasicBlockId, BasicBlockId) {
         self.cfg().create_for_loop_blocks()
@@ -258,30 +253,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         InstrBuilder::new(&mut self.state.mir_function, self.state.current_block_id)
     }
 
-    /// Add an instruction directly (legacy support - prefer using instr() methods)
-    pub fn add_instruction(&mut self, instruction: Instruction) {
-        self.instr().add_instruction(instruction);
-    }
-
-    /// Allocate frame space for a variable
-    pub fn alloc_frame(&mut self, ty: MirType) -> ValueId {
-        self.instr().alloc_frame(ty)
-    }
-
-    /// Store a value
-    pub fn store_value(&mut self, dest: Value, value: Value, ty: MirType) {
-        self.instr().store(dest, value, ty);
-    }
-
     /// Check if the current block is terminated
-    pub fn is_current_block_terminated(&mut self) -> bool {
+    pub(crate) fn is_current_block_terminated(&mut self) -> bool {
         self.cfg().is_terminated()
     }
 
     /// Get the return types of the function being lowered
     ///
     /// This retrieves the function's semantic type and extracts the return type information.
-    pub fn get_function_return_types(
+    pub(crate) fn get_function_return_types(
         &self,
         func_def_id: DefinitionId<'db>,
     ) -> Result<Vec<MirType>, String> {
@@ -311,14 +291,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
     }
 
-    pub fn convert_definition_id(&self, def_id: DefinitionId) -> MirDefinitionId {
+    pub(crate) fn convert_definition_id(&self, def_id: DefinitionId) -> MirDefinitionId {
         MirDefinitionId {
             definition_index: def_id.id_in_file(self.ctx.db).index(),
             file_id: self.ctx.file_id,
         }
     }
 
-    pub fn get_function_signature(
+    pub(crate) fn get_function_signature(
         &self,
         func_id: FunctionId,
     ) -> Result<(Vec<MirType>, Vec<MirType>), String> {
@@ -380,7 +360,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Supports:
     /// - Simple identifiers (foo)
     /// - Member access for imports (module.foo)
-    pub fn resolve_callee_expression(
+    pub(crate) fn resolve_callee_expression(
         &self,
         callee: &Spanned<Expression>,
     ) -> Result<FunctionId, String> {
@@ -457,36 +437,13 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
     }
 
-    // ===== Memory Access Helper Methods (DEPRECATED) =====
-    // These methods encourage memory-based thinking and are being phased out
-    // in favor of value-based aggregate operations.
-
-    /// Get the address of a field/element (for lvalue expressions)
-    /// Returns the ValueId of the address
-    pub fn get_element_address(
-        &mut self,
-        base_addr: Value,
-        offset: Value,
-        target_type: MirType,
-        comment: &str,
-    ) -> ValueId {
-        let addr = self
-            .state
-            .mir_function
-            .new_typed_value_id(MirType::pointer(target_type));
-        self.instr().add_instruction(
-            Instruction::get_element_ptr(addr, base_addr, offset).with_comment(comment.to_string()),
-        );
-        addr
-    }
-
     // ================================================================================
     // Value-Based Aggregate Operations
     // ================================================================================
 
     /// Create a tuple from a list of values
     /// Returns the ValueId of the new tuple
-    pub fn make_tuple(&mut self, elements: Vec<Value>, tuple_type: MirType) -> ValueId {
+    pub(crate) fn make_tuple(&mut self, elements: Vec<Value>, tuple_type: MirType) -> ValueId {
         let dest = self.state.mir_function.new_typed_value_id(tuple_type);
         self.instr()
             .add_instruction(Instruction::make_tuple(dest, elements));
@@ -495,7 +452,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Extract an element from a tuple value
     /// Returns the ValueId of the extracted element
-    pub fn extract_tuple_element(
+    pub(crate) fn extract_tuple_element(
         &mut self,
         tuple_val: Value,
         index: usize,
@@ -517,7 +474,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Create a struct from field values
     /// Returns the ValueId of the new struct
-    pub fn make_struct(&mut self, fields: Vec<(String, Value)>, struct_type: MirType) -> ValueId {
+    pub(crate) fn make_struct(
+        &mut self,
+        fields: Vec<(String, Value)>,
+        struct_type: MirType,
+    ) -> ValueId {
         let dest = self
             .state
             .mir_function
@@ -529,7 +490,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Extract a field from a struct value
     /// Returns the ValueId of the extracted field
-    pub fn extract_struct_field(
+    pub(crate) fn extract_struct_field(
         &mut self,
         struct_val: Value,
         field_name: String,
@@ -548,7 +509,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Insert a field into a struct value, creating a new struct
     /// Returns the ValueId of the new struct with the field updated
-    pub fn insert_field(
+    pub(crate) fn insert_field(
         &mut self,
         struct_val: Value,
         field_name: String,
@@ -570,7 +531,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Alias for insert_field for consistency with deprecated method names
-    pub fn insert_struct_field(
+    pub(crate) fn insert_struct_field(
         &mut self,
         struct_val: Value,
         field_name: &str,
@@ -582,7 +543,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Insert an element into a tuple value, creating a new tuple
     /// Returns the ValueId of the new tuple with the element updated
-    pub fn insert_tuple(
+    pub(crate) fn insert_tuple(
         &mut self,
         tuple_val: Value,
         index: usize,
@@ -606,7 +567,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// Get the ExpressionId for a given span
     ///
     /// This is a common pattern used throughout the lowering code
-    pub fn expr_id(&self, span: chumsky::prelude::SimpleSpan) -> Result<ExpressionId, String> {
+    pub(crate) fn expr_id(
+        &self,
+        span: chumsky::prelude::SimpleSpan,
+    ) -> Result<ExpressionId, String> {
         self.ctx
             .semantic_index
             .expression_id_by_span(span)
@@ -624,25 +588,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// 1. Getting the ExpressionId from span
     /// 2. Getting the semantic type from the expression
     /// 3. Converting to MirType
-    pub fn expr_mir_type(&self, span: chumsky::prelude::SimpleSpan) -> Result<MirType, String> {
+    pub(crate) fn expr_mir_type(
+        &self,
+        span: chumsky::prelude::SimpleSpan,
+    ) -> Result<MirType, String> {
         let expr_id = self.expr_id(span)?;
         let semantic_type =
             expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
         Ok(MirType::from_semantic_type(self.ctx.db, semantic_type))
-    }
-
-    /// Get both the ExpressionId and MirType for a span
-    ///
-    /// This is useful when you need both values, avoiding duplicate lookups
-    pub fn expr_id_and_type(
-        &self,
-        span: chumsky::prelude::SimpleSpan,
-    ) -> Result<(ExpressionId, MirType), String> {
-        let expr_id = self.expr_id(span)?;
-        let semantic_type =
-            expression_semantic_type(self.ctx.db, self.ctx.crate_id, self.ctx.file, expr_id, None);
-        let mir_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-        Ok((expr_id, mir_type))
     }
 
     // ================================================================================
@@ -650,7 +603,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     // ================================================================================
 
     /// Bind a variable to a value using SSA tracking
-    pub fn bind_variable(
+    pub(crate) fn bind_variable(
         &mut self,
         ident_name: &str,
         _ident_span: chumsky::prelude::SimpleSpan,
@@ -706,7 +659,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Read a variable using SSA tracking
-    pub fn read_variable(
+    pub(crate) fn read_variable(
         &mut self,
         ident_name: &str,
         ident_span: chumsky::prelude::SimpleSpan,
@@ -747,7 +700,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Seal a block - no more predecessors will be added
     /// This must be called when the predecessor set of a block is finalized
-    pub fn seal_block(&mut self, block_id: BasicBlockId) {
+    pub(crate) fn seal_block(&mut self, block_id: BasicBlockId) {
         // Mark in CFG builder first
         let mut cfg = self.cfg();
         cfg.seal_block(block_id);
@@ -757,14 +710,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     }
 
     /// Mark a block as filled - all local statements processed
-    pub fn mark_block_filled(&mut self, block_id: BasicBlockId) {
+    pub(crate) fn mark_block_filled(&mut self, block_id: BasicBlockId) {
         let mut cfg = self.cfg();
         cfg.mark_block_filled(block_id);
     }
 
     /// Create a fixed-size array from element values
     /// Returns the ValueId of the new array
-    pub fn make_fixed_array(&mut self, elements: Vec<Value>, element_type: MirType) -> ValueId {
+    pub(crate) fn make_fixed_array(
+        &mut self,
+        elements: Vec<Value>,
+        element_type: MirType,
+    ) -> ValueId {
         let size = elements.len();
         let array_type = MirType::FixedArray {
             element_type: Box::new(element_type.clone()),
@@ -778,7 +735,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Index into a fixed-size array
     /// Returns the ValueId of the extracted element
-    pub fn array_index(
+    pub(crate) fn array_index(
         &mut self,
         array_val: Value,
         index_val: Value,
@@ -799,7 +756,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
     /// Insert/update an element in a fixed-size array
     /// Returns the ValueId of the new array with the element updated
-    pub fn array_insert(
+    pub(crate) fn array_insert(
         &mut self,
         array_val: Value,
         index_val: Value,

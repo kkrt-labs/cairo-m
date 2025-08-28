@@ -99,18 +99,18 @@ pub struct ValidatorRegistry {
 }
 
 impl ValidatorRegistry {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Add a validator to the registry
-    pub fn add_validator<V: Validator + 'static>(mut self, validator: V) -> Self {
+    pub(crate) fn add_validator<V: Validator + 'static>(mut self, validator: V) -> Self {
         self.validators.push(Box::new(validator));
         self
     }
 
     /// Run all validators and returns all diagnostics collected by the validators and semantic index builder.
-    pub fn validate_all(
+    pub(crate) fn validate_all(
         &self,
         db: &dyn SemanticDb,
         crate_id: Crate,
@@ -143,16 +143,6 @@ impl ValidatorRegistry {
 
         DiagnosticCollection::new(diagnostics)
     }
-
-    /// Get the number of registered validators
-    pub fn len(&self) -> usize {
-        self.validators.len()
-    }
-
-    /// Check if the registry is empty
-    pub fn is_empty(&self) -> bool {
-        self.validators.is_empty()
-    }
 }
 
 /// Create a default validator registry with basic semantic validators
@@ -174,7 +164,7 @@ impl ValidatorRegistry {
 /// - **StyleValidator**: Code style and best practices
 /// - **SecurityValidator**: Security-related checks
 /// - **PerformanceValidator**: Performance hints and optimizations
-pub fn create_default_registry() -> ValidatorRegistry {
+pub(crate) fn create_default_registry() -> ValidatorRegistry {
     ValidatorRegistry::new()
         .add_validator(crate::validation::scope_check::ScopeValidator)
         .add_validator(crate::validation::type_validator::TypeValidator)
@@ -242,7 +232,7 @@ mod tests {
             .add_validator(validator1)
             .add_validator(validator2);
 
-        assert_eq!(registry.len(), 2);
-        assert!(!registry.is_empty());
+        assert_eq!(registry.validators.len(), 2);
+        assert!(!registry.validators.is_empty());
     }
 }

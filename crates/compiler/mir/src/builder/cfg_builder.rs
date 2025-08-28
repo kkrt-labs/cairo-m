@@ -47,7 +47,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// The ID of the newly created block
-    pub fn new_block(&mut self, name: Option<String>) -> BasicBlockId {
+    pub(crate) fn new_block(&mut self, name: Option<String>) -> BasicBlockId {
         let block_name =
             name.unwrap_or_else(|| format!("block_{}", self.function.basic_blocks.len()));
         self.function.add_basic_block_with_name(block_name)
@@ -84,23 +84,15 @@ impl<'f> CfgBuilder<'f> {
     }
 
     /// Returns a reference to the current block
-    pub fn current_block(&self) -> &BasicBlock {
+    pub(crate) fn current_block(&self) -> &BasicBlock {
         self.function
             .basic_blocks
             .get(self.current_block_id)
             .expect("Current block should exist")
     }
 
-    /// Returns a mutable reference to the current block
-    pub fn current_block_mut(&mut self) -> &mut BasicBlock {
-        self.function
-            .basic_blocks
-            .get_mut(self.current_block_id)
-            .expect("Current block should exist")
-    }
-
     /// Checks if the current block is terminated
-    pub fn is_terminated(&self) -> bool {
+    pub(crate) fn is_terminated(&self) -> bool {
         self.is_terminated || self.current_block().has_terminator()
     }
 
@@ -160,7 +152,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Panics
     /// Panics if the block is already terminated
-    pub fn terminate(&mut self, terminator: Terminator) -> CfgState {
+    pub(crate) fn terminate(&mut self, terminator: Terminator) -> CfgState {
         if self.is_terminated() {
             panic!("Attempting to terminate an already terminated block");
         }
@@ -177,7 +169,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// The new CFG state after termination
-    pub fn terminate_with_jump(&mut self, target: BasicBlockId) -> CfgState {
+    pub(crate) fn terminate_with_jump(&mut self, target: BasicBlockId) -> CfgState {
         self.terminate(Terminator::jump(target))
     }
 
@@ -190,7 +182,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// The new CFG state after termination
-    pub fn terminate_with_branch(
+    pub(crate) fn terminate_with_branch(
         &mut self,
         condition: Value,
         then_target: BasicBlockId,
@@ -206,50 +198,8 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// The new CFG state after termination
-    pub fn terminate_with_return(&mut self, values: Vec<Value>) -> CfgState {
+    pub(crate) fn terminate_with_return(&mut self, values: Vec<Value>) -> CfgState {
         self.terminate(Terminator::return_values(values))
-    }
-
-    /// Creates a new block and switches to it
-    ///
-    /// This is a convenience method that combines new_block and switch_to_block.
-    ///
-    /// ## Arguments
-    /// * `name` - Optional name for the new block
-    ///
-    /// ## Returns
-    /// The ID of the newly created block
-    pub fn create_and_switch_to_block(&mut self, name: Option<String>) -> BasicBlockId {
-        let block_id = self.new_block(name);
-        self.switch_to_block(block_id);
-        block_id
-    }
-
-    /// Terminates the current block with a jump and switches to the target
-    ///
-    /// This is a common pattern in control flow construction.
-    ///
-    /// ## Arguments
-    /// * `target` - The block to jump to and switch to
-    ///
-    /// ## Returns
-    /// The new CFG state after jumping
-    pub fn jump_to(&mut self, target: BasicBlockId) -> CfgState {
-        if !self.is_terminated() {
-            self.terminate_with_jump(target);
-        }
-        self.switch_to_block(target)
-    }
-
-    /// Gets a reference to a specific block by ID
-    ///
-    /// ## Arguments
-    /// * `block_id` - The ID of the block to get
-    ///
-    /// ## Returns
-    /// An optional reference to the block
-    pub fn get_block(&self, block_id: BasicBlockId) -> Option<&BasicBlock> {
-        self.function.basic_blocks.get(block_id)
     }
 
     /// Gets a mutable reference to a specific block by ID
@@ -259,7 +209,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// An optional mutable reference to the block
-    pub fn get_block_mut(&mut self, block_id: BasicBlockId) -> Option<&mut BasicBlock> {
+    pub(crate) fn get_block_mut(&mut self, block_id: BasicBlockId) -> Option<&mut BasicBlock> {
         self.function.basic_blocks.get_mut(block_id)
     }
 
@@ -271,26 +221,15 @@ impl<'f> CfgBuilder<'f> {
     /// ## Arguments
     /// * `block_id` - The ID of the block to terminate
     /// * `terminator` - The terminator to set
-    pub fn set_block_terminator(&mut self, block_id: BasicBlockId, terminator: Terminator) {
+    pub(crate) fn set_block_terminator(&mut self, block_id: BasicBlockId, terminator: Terminator) {
         self.set_terminator_internal(block_id, terminator);
-    }
-
-    /// Creates blocks for an if-then-else pattern
-    ///
-    /// ## Returns
-    /// A tuple of (then_block_id, else_block_id, merge_block_id)
-    pub fn create_if_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
-        let then_block = self.new_block(Some("then".to_string()));
-        let else_block = self.new_block(Some("else".to_string()));
-        let merge_block = self.new_block(Some("merge".to_string()));
-        (then_block, else_block, merge_block)
     }
 
     /// Creates blocks for a loop pattern
     ///
     /// ## Returns
     /// A tuple of (header_block_id, body_block_id, exit_block_id)
-    pub fn create_loop_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
+    pub(crate) fn create_loop_blocks(&mut self) -> (BasicBlockId, BasicBlockId, BasicBlockId) {
         let header = self.new_block(Some("loop_header".to_string()));
         let body = self.new_block(Some("loop_body".to_string()));
         let exit = self.new_block(Some("loop_exit".to_string()));
@@ -301,7 +240,7 @@ impl<'f> CfgBuilder<'f> {
     ///
     /// ## Returns
     /// A tuple of (header_block_id, body_block_id, step_block_id, exit_block_id)
-    pub fn create_for_loop_blocks(
+    pub(crate) fn create_for_loop_blocks(
         &mut self,
     ) -> (BasicBlockId, BasicBlockId, BasicBlockId, BasicBlockId) {
         let header = self.new_block(Some("for_header".to_string()));
@@ -313,7 +252,7 @@ impl<'f> CfgBuilder<'f> {
 
     /// Mark a block as filled (all local statements processed)
     /// This is used by SSA construction to track when a block is complete
-    pub fn mark_block_filled(&mut self, block_id: BasicBlockId) {
+    pub(crate) fn mark_block_filled(&mut self, block_id: BasicBlockId) {
         let block = self
             .get_block_mut(block_id)
             .unwrap_or_else(|| panic!("Block {:?} not found", block_id));
@@ -322,18 +261,12 @@ impl<'f> CfgBuilder<'f> {
 
     /// Mark a block as sealed (no more predecessors)
     /// This is used by SSA construction - when called, it means the predecessor set is final
-    pub fn seal_block(&mut self, block_id: BasicBlockId) {
+    pub(crate) fn seal_block(&mut self, block_id: BasicBlockId) {
         let block = self
             .get_block_mut(block_id)
             .unwrap_or_else(|| panic!("Block {:?} not found", block_id));
         block.seal();
         // NOTE: SSA builder will also need to track sealed blocks in its own set
         // This method is just for marking the BasicBlock itself
-    }
-
-    /// Debug helper: verify edge consistency
-    #[cfg(debug_assertions)]
-    pub fn validate_edges(&self) -> Result<(), String> {
-        self.function.validate()
     }
 }

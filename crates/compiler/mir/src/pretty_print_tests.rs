@@ -264,18 +264,4 @@ mod tests {
             "%4 = extractfield %3, \"position\""
         );
     }
-
-    #[test]
-    fn test_instruction_with_comment() {
-        let mut func = make_test_function();
-        let elem = func.new_value_id(); // %0
-        let dest = func.new_value_id(); // %1
-
-        let instr = Instruction::make_tuple(dest, vec![Value::operand(elem)])
-            .with_comment("Create singleton tuple".to_string());
-
-        let output = instr.pretty_print(0);
-        assert!(output.contains("// Create singleton tuple"));
-        assert!(output.contains("%1 = maketuple %0"));
-    }
 }

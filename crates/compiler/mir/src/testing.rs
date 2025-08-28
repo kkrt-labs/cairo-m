@@ -3,7 +3,6 @@
 //! This module provides testing utilities and helpers for working with MIR
 //! in unit tests and integration tests.
 
-use crate::instruction::CalleeSignature;
 use crate::{
     BasicBlockId, BinaryOp, FunctionId, Instruction, MirFunction, MirModule, MirType, Terminator,
     Value, ValueId,
@@ -16,14 +15,14 @@ pub struct TestMirBuilder {
 
 impl TestMirBuilder {
     /// Creates a new test MIR builder
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             module: MirModule::new(),
         }
     }
 
     /// Adds a function to the module and returns a function builder
-    pub fn function(&mut self, name: &str) -> TestFunctionBuilder<'_> {
+    pub(crate) fn function(&mut self, name: &str) -> TestFunctionBuilder<'_> {
         let function = MirFunction::new(name.to_string());
         TestFunctionBuilder {
             function,
@@ -32,7 +31,7 @@ impl TestMirBuilder {
     }
 
     /// Builds the final MIR module
-    pub fn build(self) -> MirModule {
+    pub(crate) fn build(self) -> MirModule {
         self.module
     }
 }
@@ -51,7 +50,7 @@ pub struct TestFunctionBuilder<'a> {
 
 impl<'a> TestFunctionBuilder<'a> {
     /// Gets a block builder for the entry block
-    pub fn block(&mut self) -> TestBlockBuilder<'_> {
+    pub(crate) fn block(&mut self) -> TestBlockBuilder<'_> {
         let block_id = self.function.entry_block;
         TestBlockBuilder {
             function: &mut self.function,
@@ -59,30 +58,8 @@ impl<'a> TestFunctionBuilder<'a> {
         }
     }
 
-    /// Adds a new basic block and returns a block builder for it
-    pub fn new_block(&mut self) -> TestBlockBuilder<'_> {
-        let block_id = self.function.add_basic_block();
-        TestBlockBuilder {
-            function: &mut self.function,
-            current_block: block_id,
-        }
-    }
-
-    /// Sets the entry block
-    pub fn entry_block(&mut self, block_id: BasicBlockId) -> &mut Self {
-        self.function.entry_block = block_id;
-        self
-    }
-
-    /// Adds a parameter and returns its ValueId
-    pub fn parameter(&mut self) -> ValueId {
-        let value_id = self.function.new_value_id();
-        self.function.parameters.push(value_id);
-        value_id
-    }
-
     /// Finishes building the function and adds it to the module
-    pub fn build(self) -> FunctionId {
+    pub(crate) fn build(self) -> FunctionId {
         self.module.add_function(self.function)
     }
 }
@@ -95,7 +72,7 @@ pub struct TestBlockBuilder<'a> {
 
 impl<'a> TestBlockBuilder<'a> {
     /// Adds an assignment instruction
-    pub fn assign(&mut self, source: Value) -> ValueId {
+    pub(crate) fn assign(&mut self, source: Value) -> ValueId {
         let dest = self.function.new_value_id();
         let instruction = Instruction::assign(dest, source, MirType::felt());
         self.function
@@ -106,7 +83,7 @@ impl<'a> TestBlockBuilder<'a> {
     }
 
     /// Adds a binary operation instruction
-    pub fn binary_op(&mut self, op: BinaryOp, left: Value, right: Value) -> ValueId {
+    pub(crate) fn binary_op(&mut self, op: BinaryOp, left: Value, right: Value) -> ValueId {
         let dest = self.function.new_value_id();
         let instruction = Instruction::binary_op(op, dest, left, right);
         self.function
@@ -116,61 +93,16 @@ impl<'a> TestBlockBuilder<'a> {
         dest
     }
 
-    /// Adds a function call instruction
-    pub fn call(&mut self, callee: FunctionId, args: Vec<Value>) -> ValueId {
-        let dest = self.function.new_value_id();
-        // For testing, create a simple signature
-        let signature = CalleeSignature {
-            param_types: args.iter().map(|_| MirType::Felt).collect(),
-            return_types: vec![MirType::Felt],
-        };
-        let instruction = Instruction::call(vec![dest], callee, args, signature);
-        self.function
-            .get_basic_block_mut(self.current_block)
-            .unwrap()
-            .push_instruction(instruction);
-        dest
-    }
-
-    /// Adds a void function call instruction
-    pub fn void_call(&mut self, callee: FunctionId, args: Vec<Value>) {
-        // For testing, create a simple signature based on the arguments
-        let signature = CalleeSignature {
-            param_types: args.iter().map(|_| MirType::Felt).collect(),
-            return_types: vec![], // Void call has no returns
-        };
-        let instruction = Instruction::call(vec![], callee, args, signature);
-        self.function
-            .get_basic_block_mut(self.current_block)
-            .unwrap()
-            .push_instruction(instruction);
-    }
-
     /// Sets the terminator for this block
-    pub fn terminate(&mut self, terminator: Terminator) {
+    pub(crate) fn terminate(&mut self, terminator: Terminator) {
         self.function
             .get_basic_block_mut(self.current_block)
             .unwrap()
             .set_terminator(terminator);
     }
 
-    /// Sets a jump terminator
-    pub fn jump(&mut self, target: BasicBlockId) {
-        self.terminate(Terminator::jump(target));
-    }
-
-    /// Sets a conditional branch terminator
-    pub fn branch(
-        &mut self,
-        condition: Value,
-        then_target: BasicBlockId,
-        else_target: BasicBlockId,
-    ) {
-        self.terminate(Terminator::branch(condition, then_target, else_target));
-    }
-
     /// Sets a return terminator with a value
-    pub fn return_value(&mut self, value: Value) {
+    pub(crate) fn return_value(&mut self, value: Value) {
         // Also set up the function's return_values field if returning an operand
         if let Value::Operand(id) = value {
             if !self.function.return_values.contains(&id) {
@@ -181,13 +113,8 @@ impl<'a> TestBlockBuilder<'a> {
     }
 
     /// Sets a void return terminator
-    pub fn return_void(&mut self) {
+    pub(crate) fn return_void(&mut self) {
         self.terminate(Terminator::return_void());
-    }
-
-    /// Returns the current block ID
-    pub fn block_id(&self) -> BasicBlockId {
-        self.current_block
     }
 }
 
@@ -196,27 +123,27 @@ pub mod values {
     use super::*;
 
     /// Creates an integer literal value
-    pub fn int(value: u32) -> Value {
+    pub(crate) fn int(value: u32) -> Value {
         Value::integer(value)
     }
 
     /// Creates a boolean literal value
-    pub fn bool(value: bool) -> Value {
+    pub(crate) fn bool(value: bool) -> Value {
         Value::boolean(value)
     }
 
     /// Creates a unit value
-    pub fn unit() -> Value {
+    pub(crate) fn unit() -> Value {
         Value::unit()
     }
 
     /// Creates an operand value
-    pub fn operand(id: ValueId) -> Value {
+    pub(crate) fn operand(id: ValueId) -> Value {
         Value::operand(id)
     }
 
     /// Creates an error value
-    pub fn error() -> Value {
+    pub(crate) fn error() -> Value {
         Value::error()
     }
 }

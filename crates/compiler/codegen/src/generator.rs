@@ -8,8 +8,8 @@ use cairo_m_common::instruction::*;
 use cairo_m_common::program::{AbiSlot, AbiType, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
-    MirModule, MirType, Terminator, Value, ValueId,
+    BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, MirFunction, MirModule,
+    MirType, Terminator, Value, ValueId,
 };
 
 use crate::{
@@ -64,7 +64,7 @@ impl CodeGenerator {
     }
 
     /// Compile the generated code into a CompiledProgram.
-    pub fn compile(self) -> Program {
+    pub(crate) fn compile(self) -> Program {
         let instructions = self
             .instructions
             .iter()
@@ -316,7 +316,7 @@ impl CodeGenerator {
                 }
 
                 // Use the unified type-aware assign method
-                builder.assign_typed(*dest, *source, ty, target_offset)?;
+                builder.assign(*dest, *source, ty, target_offset)?;
             }
 
             InstructionKind::UnaryOp { op, dest, source } => {
@@ -333,7 +333,7 @@ impl CodeGenerator {
                     target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
-                builder.unary_op_with_target(*op, *dest, *source, target_offset)?;
+                builder.unary_op(*op, *dest, *source, target_offset)?;
             }
 
             InstructionKind::BinaryOp {
@@ -370,7 +370,7 @@ impl CodeGenerator {
                     target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
                 }
 
-                builder.binary_op_with_target(*op, *dest, *left, *right, target_offset)?;
+                builder.binary_op(*op, *dest, *left, *right, target_offset)?;
             }
 
             InstructionKind::Call {
@@ -398,141 +398,6 @@ impl CodeGenerator {
                     builder.call_multiple(dests, callee_name, args, signature)?;
                 }
             }
-
-            InstructionKind::Load { dest, address, ty } => {
-                // Determine if this is a U32 load based on type
-                if matches!(ty, MirType::U32) {
-                    builder.load_u32(*dest, *address)?;
-                } else {
-                    builder.load(*dest, *address)?;
-                }
-            }
-
-            InstructionKind::Store { address, value, ty } => {
-                // Check if this store's destination is used as a call argument
-                if let Value::Operand(addr_id) = address {
-                    if let Some(next_instruction) = block_instructions.get(instruction_index + 1) {
-                        if let InstructionKind::Call {
-                            args, signature, ..
-                        } = &next_instruction.kind
-                        {
-                            // Check if the stored-to address is used as an argument
-                            if let Some(arg_index) = args.iter().position(
-                                |arg| matches!(arg, Value::Operand(id) if *id == *addr_id),
-                            ) {
-                                // Direct Argument Placement: store directly to argument position
-                                let l = builder.current_frame_usage();
-                                let mut arg_offset = l;
-                                for (i, param_type) in signature.param_types.iter().enumerate() {
-                                    if i == arg_index {
-                                        break;
-                                    }
-                                    // Arrays are passed as pointers (1 slot)
-                                    arg_offset += DataLayout::memory_size_of(param_type) as i32;
-                                }
-
-                                // Store the value directly at the argument offset
-                                match value {
-                                    Value::Literal(Literal::Integer(imm)) => {
-                                        builder.store_immediate_at(
-                                            *imm,
-                                            arg_offset,
-                                            format!(
-                                                "Direct arg placement: [fp + {}] = {}",
-                                                arg_offset, imm
-                                            ),
-                                        )?;
-                                        // Map the address ValueId to this offset
-                                        builder.layout_mut().map_value(*addr_id, arg_offset);
-                                    }
-                                    Value::Operand(_src_id) => {
-                                        // For operand sources, use regular store but at arg offset
-                                        builder.store_at(*addr_id, arg_offset, *value)?;
-                                    }
-                                    _ => {
-                                        // Fallback to regular store
-                                        builder.store(*address, *value)?;
-                                    }
-                                }
-                                return Ok(());
-                            }
-                        }
-                    }
-                }
-
-                // Determine if this is a U32 store based on type
-                if matches!(ty, MirType::U32) {
-                    // Handle U32 store with optimization
-                    if let Value::Operand(addr_id) = address {
-                        if let Some(next_instruction) =
-                            block_instructions.get(instruction_index + 1)
-                        {
-                            if let InstructionKind::Call {
-                                args, signature, ..
-                            } = &next_instruction.kind
-                            {
-                                if let Some(arg_index) = args.iter().position(
-                                    |arg| matches!(arg, Value::Operand(id) if *id == *addr_id),
-                                ) {
-                                    let l = builder.current_frame_usage();
-                                    let mut arg_offset = l;
-                                    for (i, param_type) in signature.param_types.iter().enumerate()
-                                    {
-                                        if i == arg_index {
-                                            break;
-                                        }
-                                        // Arrays are passed as pointers (1 slot)
-                                        arg_offset += DataLayout::memory_size_of(param_type) as i32;
-                                    }
-
-                                    match value {
-                                        Value::Literal(Literal::Integer(imm)) => {
-                                            builder.store_u32_immediate_at(
-                                                *imm,
-                                                arg_offset,
-                                                format!(
-                                                    "Direct arg placement: [fp + {}], [fp + {}] = u32({})",
-                                                    arg_offset, arg_offset + 1, imm
-                                                ),
-                                            )?;
-                                            builder.layout_mut().map_value(*addr_id, arg_offset);
-                                        }
-                                        Value::Operand(_src_id) => {
-                                            builder.store_u32_at(*addr_id, arg_offset, *value)?;
-                                        }
-                                        _ => {
-                                            builder.store_u32(*address, *value)?;
-                                        }
-                                    }
-                                    return Ok(());
-                                }
-                            }
-                        }
-                    }
-                    builder.store_u32(*address, *value)?;
-                } else {
-                    // Normal store (non-U32)
-                    builder.store(*address, *value)?;
-                }
-            }
-
-            InstructionKind::FrameAlloc { dest, ty } => {
-                // Allocate the requested frame space dynamically based on type size
-                let size = DataLayout::memory_size_of(ty);
-                builder.allocate_frame_slots(*dest, size)?;
-            }
-
-            InstructionKind::AddressOf { .. } => {
-                todo!("AddressOf is not implemented yet");
-            }
-
-            InstructionKind::GetElementPtr { dest, base, offset } => {
-                builder.get_element_ptr(*dest, *base, *offset)?;
-            }
-
-            // Note: GetElementPtrTyped, BuildStruct, BuildTuple, ExtractValue, and InsertValue
-            // have been removed from the instruction set as they were never generated by the
-            // IR lowering phase. The compiler uses a memory-based approach for aggregates.
             InstructionKind::Cast {
                 dest,
                 source,
@@ -1072,7 +937,6 @@ fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
         MirType::Felt => AbiType::Felt,
         MirType::Bool => AbiType::Bool,
         MirType::U32 => AbiType::U32,
-        MirType::Pointer(inner) => AbiType::Pointer(Box::new(abi_type_from_mir(inner)?)),
         MirType::Tuple(types) => {
             let elems: Vec<AbiType> = types
                 .iter()
@@ -1091,7 +955,11 @@ fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
             element: Box::new(abi_type_from_mir(element_type)?),
             size: *size as u32,
         },
-        MirType::Function { .. } => AbiType::Pointer(Box::new(AbiType::Unit)),
+        MirType::Function { .. } => {
+            return Err(CodegenError::InvalidMir(
+                "Functions are not supported in entrypoint signatures".into(),
+            ))
+        }
         MirType::Unit => AbiType::Unit,
         MirType::Error | MirType::Unknown => {
             return Err(CodegenError::InvalidMir(

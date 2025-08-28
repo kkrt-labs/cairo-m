@@ -100,7 +100,7 @@ fn walk_top_level_item<'ast, V: Visitor<'ast> + ?Sized>(visitor: &mut V, item: &
 }
 
 /// Walk a type expression, visiting nested type expressions
-pub fn walk_type_expr<'ast, V: Visitor<'ast> + ?Sized>(
+pub(crate) fn walk_type_expr<'ast, V: Visitor<'ast> + ?Sized>(
     visitor: &mut V,
     type_expr: &'ast Spanned<TypeExpr>,
 ) {

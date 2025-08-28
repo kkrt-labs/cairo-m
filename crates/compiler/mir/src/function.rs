@@ -115,13 +115,13 @@ impl MirFunction {
     }
 
     /// Adds a new basic block with a name and returns its ID
-    pub fn add_basic_block_with_name(&mut self, name: String) -> BasicBlockId {
+    pub(crate) fn add_basic_block_with_name(&mut self, name: String) -> BasicBlockId {
         let block = BasicBlock::with_name(name);
         self.basic_blocks.push(block)
     }
 
     /// Gets a basic block by ID
-    pub fn get_basic_block(&self, id: BasicBlockId) -> Option<&BasicBlock> {
+    pub(crate) fn get_basic_block(&self, id: BasicBlockId) -> Option<&BasicBlock> {
         self.basic_blocks.get(id)
     }
 
@@ -150,21 +150,13 @@ impl MirFunction {
     }
 
     /// Gets the type for a value ID
-    pub fn get_value_type(&self, value_id: ValueId) -> Option<&MirType> {
+    pub(crate) fn get_value_type(&self, value_id: ValueId) -> Option<&MirType> {
         self.value_types.get(&value_id)
-    }
-
-    /// Gets the type for a value ID, returning Unknown if not found
-    pub fn get_value_type_or_unknown(&self, value_id: ValueId) -> MirType {
-        self.value_types
-            .get(&value_id)
-            .cloned()
-            .unwrap_or(MirType::unknown())
     }
 
     /// Marks a ValueId as defined, enforcing SSA form
     /// Returns an error if the ValueId has already been defined
-    pub fn mark_as_defined(&mut self, dest: ValueId) -> Result<(), String> {
+    pub(crate) fn mark_as_defined(&mut self, dest: ValueId) -> Result<(), String> {
         if !self.defined_values.insert(dest) {
             return Err(format!(
                 "SSA violation: ValueId {:?} is being defined multiple times",
@@ -174,34 +166,19 @@ impl MirFunction {
         Ok(())
     }
 
-    /// Maps a semantic definition to a MIR value
-    pub fn map_definition(&mut self, def_id: MirDefinitionId, value_id: ValueId) {
-        self.locals.insert(def_id, value_id);
-    }
-
-    /// Looks up the MIR value for a semantic definition
-    pub fn lookup_definition(&self, def_id: MirDefinitionId) -> Option<ValueId> {
-        self.locals.get(&def_id).copied()
-    }
-
     /// Returns an iterator over all basic blocks
     pub fn basic_blocks(&self) -> impl Iterator<Item = (BasicBlockId, &BasicBlock)> {
         self.basic_blocks.iter_enumerated()
     }
 
     /// Returns the number of basic blocks in this function
-    pub fn block_count(&self) -> usize {
+    pub(crate) fn block_count(&self) -> usize {
         self.basic_blocks.len()
-    }
-
-    /// Returns the number of local variables in this function
-    pub fn local_count(&self) -> usize {
-        self.locals.len()
     }
 
     /// Returns a map from each ValueId to its usage count in the function.
     /// This is useful for optimization passes like dead code elimination or instruction fusion.
-    pub fn get_value_use_counts(&self) -> FxHashMap<ValueId, usize> {
+    pub(crate) fn get_value_use_counts(&self) -> FxHashMap<ValueId, usize> {
         let mut counts = FxHashMap::default();
         for (_id, block) in self.basic_blocks() {
             for instruction in &block.instructions {
@@ -341,7 +318,7 @@ impl MirFunction {
     ///
     /// This performs a depth-first search to determine reachability.
     /// Useful for dead code elimination and validation.
-    pub fn is_block_reachable(&self, target: BasicBlockId) -> bool {
+    pub(crate) fn is_block_reachable(&self, target: BasicBlockId) -> bool {
         let mut visited = std::collections::HashSet::new();
         let mut stack = vec![self.entry_block];
 
@@ -365,7 +342,7 @@ impl MirFunction {
     /// Returns all unreachable basic blocks
     ///
     /// This is useful for optimization passes and validation warnings.
-    pub fn unreachable_blocks(&self) -> Vec<BasicBlockId> {
+    pub(crate) fn unreachable_blocks(&self) -> Vec<BasicBlockId> {
         self.basic_blocks()
             .map(|(id, _)| id)
             .filter(|&id| !self.is_block_reachable(id))
@@ -389,7 +366,7 @@ impl MirFunction {
 
     /// Replace an edge from pred->old_succ with pred->new_succ
     /// Updates predecessor lists and expects terminator to be updated separately
-    pub fn replace_edge(
+    pub(crate) fn replace_edge(
         &mut self,
         pred: BasicBlockId,
         old_succ: BasicBlockId,
@@ -408,7 +385,7 @@ impl MirFunction {
 
     /// Disconnect two blocks by removing pred/succ edges
     /// Only removes from predecessor list; terminator should be updated separately
-    pub fn disconnect(&mut self, pred: BasicBlockId, succ: BasicBlockId) {
+    pub(crate) fn disconnect(&mut self, pred: BasicBlockId, succ: BasicBlockId) {
         // Get mutable reference to successor block - panic if not found
         let succ_block = self
             .basic_blocks
@@ -419,7 +396,7 @@ impl MirFunction {
 
     /// Replace all occurrences of `from` value with `to` value throughout the function
     /// This is needed for trivial phi elimination
-    pub fn replace_all_uses(&mut self, from: ValueId, to: ValueId) {
+    pub(crate) fn replace_all_uses(&mut self, from: ValueId, to: ValueId) {
         if from == to {
             return; // No-op
         }
@@ -463,7 +440,7 @@ impl MirFunction {
 
     /// Create a new phi instruction at the front of the given block
     /// Returns the destination ValueId
-    pub fn new_phi(&mut self, block_id: BasicBlockId, ty: MirType) -> ValueId {
+    pub(crate) fn new_phi(&mut self, block_id: BasicBlockId, ty: MirType) -> ValueId {
         let dest = self.new_typed_value_id(ty.clone());
 
         // Mark as defined for SSA validation
@@ -479,40 +456,23 @@ impl MirFunction {
         dest
     }
 
-    /// Create a phi instruction with specific operands
-    pub fn new_phi_with_operands(
-        &mut self,
-        block_id: BasicBlockId,
-        ty: MirType,
-        operands: Vec<(BasicBlockId, Value)>,
-    ) -> ValueId {
-        let dest = self.new_typed_value_id(ty.clone());
-
-        // Mark as defined for SSA validation
-        self.mark_as_defined(dest)
-            .expect("Phi destination should be unique");
-
-        let phi_instr = Instruction::phi(dest, ty, operands);
-
-        if let Some(block) = self.basic_blocks.get_mut(block_id) {
-            block.push_phi_front(phi_instr);
-        }
-
-        dest
-    }
-
     // ==================== SSA Construction Methods ====================
     // Based on Braun et al. "Simple and Efficient Construction of Static Single Assignment Form"
 
     /// Write a variable in a block (Algorithm 1, writeVariable)
-    pub fn write_variable(&mut self, var: MirDefinitionId, block: BasicBlockId, value: ValueId) {
+    pub(crate) fn write_variable(
+        &mut self,
+        var: MirDefinitionId,
+        block: BasicBlockId,
+        value: ValueId,
+    ) {
         self.current_def.insert((var, block), value);
         // Also update the locals map for compatibility
         self.locals.insert(var, value);
     }
 
     /// Read a variable from a block (Algorithm 1, readVariable)
-    pub fn read_variable(&mut self, var: MirDefinitionId, block: BasicBlockId) -> ValueId {
+    pub(crate) fn read_variable(&mut self, var: MirDefinitionId, block: BasicBlockId) -> ValueId {
         if let Some(&value) = self.current_def.get(&(var, block)) {
             return value;
         }
@@ -701,7 +661,7 @@ impl MirFunction {
 
     /// Seal a block (Algorithm 2, sealBlock)
     /// This is called when no more predecessors will be added to the block
-    pub fn seal_block(&mut self, block: BasicBlockId) {
+    pub(crate) fn seal_block(&mut self, block: BasicBlockId) {
         // Add to sealed blocks
         self.sealed_blocks.insert(block);
 
@@ -717,14 +677,13 @@ impl MirFunction {
         }
     }
 
-    /// Check if a block is sealed
-    pub fn is_block_sealed(&self, block: BasicBlockId) -> bool {
-        self.sealed_blocks.contains(&block)
-    }
-
     /// Set terminator while properly maintaining CFG edges
     /// This is a helper for optimization passes that need to change control flow
-    pub fn set_terminator_with_edges(&mut self, block_id: BasicBlockId, new_term: Terminator) {
+    pub(crate) fn set_terminator_with_edges(
+        &mut self,
+        block_id: BasicBlockId,
+        new_term: Terminator,
+    ) {
         // Get old target blocks
         let old_targets = if let Some(block) = self.basic_blocks.get(block_id) {
             block.terminator.target_blocks()

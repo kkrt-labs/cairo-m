@@ -5,7 +5,6 @@
 //! the lowering process.
 
 pub mod builder;
-pub mod control_flow;
 pub mod expr;
 pub mod function;
 pub mod stmt;

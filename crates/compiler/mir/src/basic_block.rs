@@ -4,7 +4,7 @@
 //! A basic block is a straight-line sequence of instructions with exactly one entry
 //! point and one exit point.
 
-use crate::{indent_str, BasicBlockId, Instruction, PrettyPrint, Terminator, ValueId};
+use crate::{indent_str, BasicBlockId, Instruction, PrettyPrint, Terminator};
 
 /// A basic block in the Control Flow Graph
 ///
@@ -110,16 +110,6 @@ impl BasicBlock {
         self.instructions.is_empty()
     }
 
-    /// Returns an iterator over the instructions in this block
-    pub fn instructions(&self) -> impl Iterator<Item = &Instruction> {
-        self.instructions.iter()
-    }
-
-    /// Returns a mutable iterator over the instructions in this block
-    pub fn instructions_mut(&mut self) -> impl Iterator<Item = &mut Instruction> {
-        self.instructions.iter_mut()
-    }
-
     /// Returns the terminator of this block
     pub const fn terminator(&self) -> &Terminator {
         &self.terminator
@@ -131,7 +121,7 @@ impl BasicBlock {
     /// - Block has a valid terminator (not placeholder)
     /// - Instructions are well-formed
     /// - No obvious inconsistencies
-    pub fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         // Note: We allow Unreachable terminators during construction,
         // but they should be replaced before final validation
 
@@ -150,49 +140,15 @@ impl BasicBlock {
         Ok(())
     }
 
-    /// Returns all values used by this basic block
-    ///
-    /// This includes values used in instructions and the terminator.
-    /// Useful for data flow analysis and optimization.
-    pub fn used_values(&self) -> std::collections::HashSet<crate::ValueId> {
-        let mut used = std::collections::HashSet::new();
-
-        // Collect from instructions
-        for instruction in &self.instructions {
-            used.extend(instruction.used_values());
-        }
-
-        // Collect from terminator
-        used.extend(self.terminator.used_values());
-
-        used
-    }
-
-    /// Returns all values defined by this basic block
-    ///
-    /// This includes values defined by instructions in this block.
-    /// The terminator cannot define values, only use them.
-    pub fn defined_values(&self) -> std::collections::HashSet<crate::ValueId> {
-        let mut defined = std::collections::HashSet::new();
-
-        for instruction in &self.instructions {
-            if let Some(dest) = instruction.destination() {
-                defined.insert(dest);
-            }
-        }
-
-        defined
-    }
-
     /// Add a predecessor, avoiding duplicates
-    pub fn add_pred(&mut self, pred: BasicBlockId) {
+    pub(crate) fn add_pred(&mut self, pred: BasicBlockId) {
         if !self.preds.contains(&pred) {
             self.preds.push(pred);
         }
     }
 
     /// Remove a predecessor
-    pub fn remove_pred(&mut self, pred: BasicBlockId) {
+    pub(crate) fn remove_pred(&mut self, pred: BasicBlockId) {
         self.preds.retain(|&p| p != pred);
     }
 
@@ -225,7 +181,7 @@ impl BasicBlock {
     }
 
     /// Get the range of phi instructions at the start of this block
-    pub fn phi_range(&self) -> std::ops::Range<usize> {
+    pub(crate) fn phi_range(&self) -> std::ops::Range<usize> {
         let end = self
             .instructions
             .iter()
@@ -235,7 +191,7 @@ impl BasicBlock {
     }
 
     /// Get all phi instructions in this block
-    pub fn phi_instructions(&self) -> impl Iterator<Item = &Instruction> {
+    pub(crate) fn phi_instructions(&self) -> impl Iterator<Item = &Instruction> {
         let range = self.phi_range();
         self.instructions[range].iter()
     }
@@ -247,59 +203,9 @@ impl BasicBlock {
     }
 
     /// Get all non-phi instructions in this block
-    pub fn non_phi_instructions(&self) -> impl Iterator<Item = &Instruction> {
+    pub(crate) fn non_phi_instructions(&self) -> impl Iterator<Item = &Instruction> {
         let range = self.phi_range();
         self.instructions[range.end..].iter()
-    }
-
-    /// Count phi instructions
-    pub fn phi_count(&self) -> usize {
-        self.phi_range().len()
-    }
-
-    /// Check if this block has any phi instructions
-    pub fn has_phis(&self) -> bool {
-        self.phi_count() > 0
-    }
-
-    /// Find a phi instruction by its destination ValueId
-    pub fn find_phi(&self, dest: ValueId) -> Option<&Instruction> {
-        self.phi_instructions().find(|instr| {
-            if let crate::InstructionKind::Phi { dest: phi_dest, .. } = &instr.kind {
-                *phi_dest == dest
-            } else {
-                false
-            }
-        })
-    }
-
-    /// Find a phi instruction mutably by its destination ValueId
-    pub fn find_phi_mut(&mut self, dest: ValueId) -> Option<&mut Instruction> {
-        self.phi_instructions_mut().find(|instr| {
-            if let crate::InstructionKind::Phi { dest: phi_dest, .. } = &instr.kind {
-                *phi_dest == dest
-            } else {
-                false
-            }
-        })
-    }
-
-    /// Remove a phi instruction by its destination ValueId
-    /// Returns true if a phi was removed
-    pub fn remove_phi(&mut self, dest: ValueId) -> bool {
-        let range = self.phi_range();
-        if let Some(pos) = self.instructions[range.clone()].iter().position(|instr| {
-            if let crate::InstructionKind::Phi { dest: phi_dest, .. } = &instr.kind {
-                *phi_dest == dest
-            } else {
-                false
-            }
-        }) {
-            self.instructions.remove(range.start + pos);
-            true
-        } else {
-            false
-        }
     }
 }
 

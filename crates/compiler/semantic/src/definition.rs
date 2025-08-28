@@ -93,7 +93,7 @@ pub struct FunctionDefRef {
 }
 
 impl FunctionDefRef {
-    pub fn from_ast(func: &Spanned<FunctionDef>) -> Self {
+    pub(crate) fn from_ast(func: &Spanned<FunctionDef>) -> Self {
         Self {
             name: func.value().name.value().clone(),
             params_ast: func
@@ -116,7 +116,7 @@ pub struct StructDefRef {
 }
 
 impl StructDefRef {
-    pub fn from_ast(struct_def: &Spanned<StructDef>) -> Self {
+    pub(crate) fn from_ast(struct_def: &Spanned<StructDef>) -> Self {
         Self {
             name: struct_def.value().name.value().clone(),
             fields_ast: struct_def
@@ -140,7 +140,10 @@ pub struct ConstDefRef {
 }
 
 impl ConstDefRef {
-    pub fn from_ast(const_def: &Spanned<ConstDef>, value_expr_id: Option<ExpressionId>) -> Self {
+    pub(crate) fn from_ast(
+        const_def: &Spanned<ConstDef>,
+        value_expr_id: Option<ExpressionId>,
+    ) -> Self {
         Self {
             name: const_def.value().name.value().clone(),
             type_ast: const_def.value().ty.clone(),
@@ -162,7 +165,7 @@ pub struct LetDefRef {
 }
 
 impl LetDefRef {
-    pub fn from_let_statement(
+    pub(crate) fn from_let_statement(
         name: &str,
         explicit_type_ast: Option<Spanned<TypeExpr>>,
         value_expr_id: Option<ExpressionId>,
@@ -175,21 +178,7 @@ impl LetDefRef {
         }
     }
 
-    pub fn from_destructuring(
-        name: &str,
-        explicit_type_ast: Option<Spanned<TypeExpr>>,
-        value_expr_id: ExpressionId,
-        index: usize,
-    ) -> Self {
-        Self {
-            name: name.to_string(),
-            value_expr_id: Some(value_expr_id),
-            explicit_type_ast,
-            destructuring_info: Some((value_expr_id, vec![index])),
-        }
-    }
-
-    pub fn from_nested_destructuring(
+    pub(crate) fn from_nested_destructuring(
         name: &str,
         explicit_type_ast: Option<Spanned<TypeExpr>>,
         value_expr_id: ExpressionId,
@@ -213,7 +202,7 @@ pub struct ParameterDefRef {
 }
 
 impl ParameterDefRef {
-    pub fn from_ast(param: &Parameter) -> Self {
+    pub(crate) fn from_ast(param: &Parameter) -> Self {
         Self {
             name: param.name.value().clone(),
             type_ast: param.type_expr.clone(),
@@ -245,38 +234,6 @@ pub struct Definitions {
 }
 
 impl Definitions {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add a definition to the collection
-    pub fn add(&mut self, scope_id: FileScopeId, place_id: ScopedPlaceId, kind: DefinitionKind) {
-        self.definitions.push((scope_id, place_id, kind));
-    }
-
-    /// Create a collection with a single definition
-    pub fn single(scope_id: FileScopeId, place_id: ScopedPlaceId, kind: DefinitionKind) -> Self {
-        Self {
-            definitions: vec![(scope_id, place_id, kind)],
-        }
-    }
-
-    /// Get all definitions
-    pub fn all(&self) -> &[(FileScopeId, ScopedPlaceId, DefinitionKind)] {
-        &self.definitions
-    }
-
-    /// Find definitions by kind
-    pub fn by_kind(
-        &self,
-        kind_matcher: impl Fn(&DefinitionKind) -> bool,
-    ) -> Vec<&(FileScopeId, ScopedPlaceId, DefinitionKind)> {
-        self.definitions
-            .iter()
-            .filter(|(_, _, kind)| kind_matcher(kind))
-            .collect()
-    }
-
     /// Check if there are any definitions
     pub const fn is_empty(&self) -> bool {
         self.definitions.is_empty()
@@ -285,11 +242,6 @@ impl Definitions {
     /// Get the number of definitions
     pub const fn len(&self) -> usize {
         self.definitions.len()
-    }
-
-    /// Iterate over all definitions
-    pub fn iter(&self) -> impl Iterator<Item = &(FileScopeId, ScopedPlaceId, DefinitionKind)> + '_ {
-        self.definitions.iter()
     }
 }
 
@@ -306,10 +258,6 @@ mod tests {
 
     fn named_type(name: NamedType) -> Spanned<TypeExpr> {
         spanned(TypeExpr::Named(spanned(name)))
-    }
-
-    fn tuple_type(elements: Vec<Spanned<TypeExpr>>) -> Spanned<TypeExpr> {
-        spanned(TypeExpr::Tuple(elements))
     }
 
     #[test]
@@ -355,56 +303,5 @@ mod tests {
         let spanned_const = Spanned::new(const_def, SimpleSpan::from(0..10));
         let const_ref = ConstDefRef::from_ast(&spanned_const, None);
         assert_eq!(const_ref.name, "PI");
-    }
-
-    #[test]
-    fn test_definitions_collection() {
-        let scope_id = crate::place::FileScopeId::new(0);
-        let place_id1 = crate::place::ScopedPlaceId::new(0);
-        let place_id2 = crate::place::ScopedPlaceId::new(1);
-
-        let def1_kind = DefinitionKind::Function(FunctionDefRef {
-            name: "func1".to_string(),
-            params_ast: vec![],
-            return_type_ast: tuple_type(vec![]), // Unit type
-        });
-
-        let def2_kind = DefinitionKind::Const(ConstDefRef {
-            name: "CONST1".to_string(),
-            type_ast: None,
-            value_expr_id: None,
-        });
-
-        let mut definitions = Definitions::new();
-        definitions.add(scope_id, place_id1, def1_kind);
-        definitions.add(scope_id, place_id2, def2_kind);
-
-        assert_eq!(definitions.len(), 2);
-        assert!(!definitions.is_empty());
-
-        // Test filtering by kind
-        let funcs = definitions.by_kind(|kind| matches!(kind, DefinitionKind::Function(_)));
-        assert_eq!(funcs.len(), 1);
-
-        let consts = definitions.by_kind(|kind| matches!(kind, DefinitionKind::Const(_)));
-        assert_eq!(consts.len(), 1);
-    }
-
-    #[test]
-    fn test_single_definition() {
-        let scope_id = crate::place::FileScopeId::new(0);
-        let place_id = crate::place::ScopedPlaceId::new(0);
-
-        let def_kind = DefinitionKind::Function(FunctionDefRef {
-            name: "test".to_string(),
-            params_ast: vec![("param".to_string(), named_type(NamedType::Felt))],
-            return_type_ast: named_type(NamedType::Felt),
-        });
-
-        let definitions = Definitions::single(scope_id, place_id, def_kind);
-        assert_eq!(definitions.len(), 1);
-
-        let all_defs = definitions.all();
-        assert_eq!(all_defs.len(), 1);
     }
 }

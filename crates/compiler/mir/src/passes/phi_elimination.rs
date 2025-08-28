@@ -45,7 +45,7 @@ pub struct PhiElimination {
 
 impl PhiElimination {
     /// Create a new phi elimination pass
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             debug: false,
             stats: EliminationStats::default(),

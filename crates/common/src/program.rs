@@ -13,7 +13,6 @@ pub enum AbiType {
     Felt,
     Bool,
     U32,
-    Pointer(Box<AbiType>),
     Tuple(Vec<AbiType>),
     Struct {
         name: String,
@@ -30,7 +29,7 @@ impl AbiType {
     /// Number of field element slots this type occupies when flattened.
     pub fn size_in_slots(&self) -> usize {
         match self {
-            Self::Felt | Self::Bool | Self::Pointer(_) => 1,
+            Self::Felt | Self::Bool => 1,
             Self::U32 => 2,
             Self::Tuple(types) => types.iter().map(|t| t.size_in_slots()).sum(),
             Self::Struct { fields, .. } => fields.iter().map(|(_, t)| t.size_in_slots()).sum(),
@@ -46,7 +45,7 @@ impl AbiType {
     /// - Unit: 0 slots
     pub fn call_slot_size(ty: &Self) -> usize {
         match ty {
-            Self::Felt | Self::Bool | Self::Pointer(_) => 1,
+            Self::Felt | Self::Bool => 1,
             Self::U32 => 2,
             Self::Tuple(ts) => ts.iter().map(Self::call_slot_size).sum(),
             Self::Struct { fields, .. } => {
@@ -171,12 +170,6 @@ impl Serialize for AbiType {
                 map.serialize_entry("kind", "U32")?;
                 map.end()
             }
-            Self::Pointer(inner) => {
-                let mut map = serializer.serialize_map(Some(2))?;
-                map.serialize_entry("kind", "Pointer")?;
-                map.serialize_entry("pointee", inner.as_ref())?;
-                map.end()
-            }
             Self::Tuple(elements) => {
                 let mut map = serializer.serialize_map(Some(2))?;
                 map.serialize_entry("kind", "Tuple")?;
@@ -238,7 +231,6 @@ impl<'de> Deserialize<'de> for AbiType {
                 A: MapAccess<'de>,
             {
                 let mut kind: Option<String> = None;
-                let mut pointee: Option<AbiType> = None;
                 let mut elements: Option<Vec<AbiType>> = None;
                 let mut name: Option<String> = None;
                 let mut fields: Option<Vec<(String, AbiType)>> = None;
@@ -248,7 +240,6 @@ impl<'de> Deserialize<'de> for AbiType {
                 while let Some(key) = map.next_key::<String>()? {
                     match key.as_str() {
                         "kind" => kind = Some(map.next_value()?),
-                        "pointee" => pointee = Some(map.next_value()?),
                         "elements" => elements = Some(map.next_value()?),
                         "name" => name = Some(map.next_value()?),
                         "fields" => {
@@ -280,9 +271,6 @@ impl<'de> Deserialize<'de> for AbiType {
                     "Felt" => Ok(AbiType::Felt),
                     "Bool" => Ok(AbiType::Bool),
                     "U32" => Ok(AbiType::U32),
-                    "Pointer" => Ok(AbiType::Pointer(Box::new(
-                        pointee.ok_or_else(|| de::Error::missing_field("pointee"))?,
-                    ))),
                     "Tuple" => Ok(AbiType::Tuple(elements.unwrap_or_default())),
                     "Struct" => Ok(AbiType::Struct {
                         name: name.ok_or_else(|| de::Error::missing_field("name"))?,

@@ -7,8 +7,6 @@
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::SemanticDb;
 
-use crate::DataLayout;
-
 /// A simplified type representation for MIR
 ///
 /// This is a lifetime-free representation of types that can be stored
@@ -24,9 +22,6 @@ pub enum MirType {
 
     /// 32-bit unsigned integer type
     U32,
-
-    /// Pointer to another type
-    Pointer(Box<MirType>),
 
     /// Tuple type with element types
     Tuple(Vec<MirType>),
@@ -78,11 +73,6 @@ impl MirType {
         Self::U32
     }
 
-    /// Creates a pointer type
-    pub fn pointer(inner: Self) -> Self {
-        Self::Pointer(Box::new(inner))
-    }
-
     /// Creates a tuple type
     pub const fn tuple(types: Vec<Self>) -> Self {
         Self::Tuple(types)
@@ -102,7 +92,7 @@ impl MirType {
     }
 
     /// Creates a function type
-    pub fn function(params: Vec<Self>, return_type: Self) -> Self {
+    pub(crate) fn function(params: Vec<Self>, return_type: Self) -> Self {
         Self::Function {
             params,
             return_type: Box::new(return_type),
@@ -129,11 +119,6 @@ impl MirType {
         matches!(self, Self::Felt | Self::Bool | Self::U32)
     }
 
-    /// Returns true if this is a pointer type
-    pub const fn is_pointer(&self) -> bool {
-        matches!(self, Self::Pointer(_))
-    }
-
     /// Returns true if this is an error or unknown type
     pub const fn is_error_like(&self) -> bool {
         matches!(self, Self::Error | Self::Unknown)
@@ -152,29 +137,6 @@ impl MirType {
             self,
             Self::Tuple(_) | Self::Struct { .. } | Self::FixedArray { .. }
         )
-    }
-
-    /// Gets the size in slots (field elements) for this type
-    #[deprecated(note = "Use DataLayout::value_size_of() instead for better centralization")]
-    pub fn size_in_slots(&self) -> usize {
-        // Delegate to DataLayout for consistency
-        DataLayout::value_size_of(self)
-    }
-
-    /// Calculates the offset of a struct field by name
-    /// Returns None if the field is not found or this is not a struct type
-    #[deprecated(note = "Use DataLayout::field_offset() instead for better centralization")]
-    pub fn field_offset(&self, field_name: &str) -> Option<usize> {
-        // Delegate to DataLayout for consistency
-        DataLayout::field_offset(self, field_name)
-    }
-
-    /// Calculates the offset of a tuple element by index
-    /// Returns None if the index is out of bounds or this is not a tuple type
-    #[deprecated(note = "Use DataLayout::tuple_offset() instead for better centralization")]
-    pub fn tuple_element_offset(&self, index: usize) -> Option<usize> {
-        // Delegate to DataLayout for consistency
-        DataLayout::tuple_offset(self, index)
     }
 
     /// Gets the type of a struct field by name
@@ -203,15 +165,11 @@ impl MirType {
     /// This is the main conversion function that properly handles all semantic types
     /// by recursively converting inner types and extracting information from
     /// interned types like structs and functions.
-    pub fn from_semantic_type(db: &dyn SemanticDb, type_id: TypeId) -> Self {
+    pub(crate) fn from_semantic_type(db: &dyn SemanticDb, type_id: TypeId) -> Self {
         match type_id.data(db) {
             TypeData::Felt => Self::felt(),
             TypeData::U32 => Self::u32(),
             TypeData::Bool => Self::bool(),
-            TypeData::Pointer(inner_type) => {
-                let inner_mir_type = Self::from_semantic_type(db, inner_type);
-                Self::pointer(inner_mir_type)
-            }
             TypeData::Tuple(types) => {
                 let mir_types: Vec<Self> = types
                     .iter()
@@ -262,7 +220,6 @@ impl std::fmt::Display for MirType {
             Self::Felt => write!(f, "felt"),
             Self::Bool => write!(f, "bool"),
             Self::U32 => write!(f, "u32"),
-            Self::Pointer(inner) => write!(f, "*{inner}"),
             Self::Tuple(types) => {
                 write!(f, "(")?;
                 for (i, ty) in types.iter().enumerate() {

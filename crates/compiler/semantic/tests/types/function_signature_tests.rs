@@ -98,57 +98,6 @@ fn test_function_with_struct_parameters() {
 }
 
 #[test]
-fn test_function_with_pointer_parameters() {
-    let db = test_db();
-    let program = r#"
-        fn modify_value(ptr: felt*, new_value: felt) {
-            // Function body would modify the value
-        }
-    "#;
-    let crate_id = crate_from_program(&db, program);
-    let file = *crate_id.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, crate_id);
-    let root_scope = semantic_index.root_scope().unwrap();
-
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("modify_value", root_scope)
-        .unwrap();
-    let def_id = DefinitionId::new(&db, file, def_idx);
-
-    let signature = function_semantic_signature(&db, crate_id, def_id).unwrap();
-    let params = signature.params(&db);
-    let return_type = signature.return_type(&db);
-
-    // Check parameters
-    assert_eq!(params.len(), 2);
-
-    let (ptr_name, ptr_type) = &params[0];
-    assert_eq!(ptr_name, "ptr");
-    match ptr_type.data(&db) {
-        TypeData::Pointer(inner) => {
-            assert!(matches!(inner.data(&db), TypeData::Felt));
-        }
-        other => panic!("Expected pointer to felt, got {other:?}"),
-    }
-
-    let (value_name, value_type) = &params[1];
-    assert_eq!(value_name, "new_value");
-    assert!(matches!(value_type.data(&db), TypeData::Felt));
-
-    // Check return type (should be void/unit)
-    // The exact representation of void depends on implementation
-    match return_type.data(&db) {
-        TypeData::Unknown => {
-            // Expected for void functions - they might be represented as Unknown
-        }
-        other => {
-            // Document what actually happens for void functions
-            println!("Void function return type: {other:?}");
-        }
-    }
-}
-
-#[test]
 fn test_function_with_no_parameters() {
     let db = test_db();
     let program = r#"

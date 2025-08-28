@@ -637,19 +637,6 @@ impl ScalarReplacementOfAggregates {
                     }
                 }
             }
-            InstructionKind::Load { address, .. } => {
-                if let Value::Operand(id) = address {
-                    callback(*id);
-                }
-            }
-            InstructionKind::Store { address, value, .. } => {
-                if let Value::Operand(id) = address {
-                    callback(*id);
-                }
-                if let Value::Operand(id) = value {
-                    callback(*id);
-                }
-            }
             InstructionKind::ExtractTupleElement { tuple, .. } => {
                 if let Value::Operand(id) = tuple {
                     callback(*id);
@@ -703,18 +690,6 @@ impl ScalarReplacementOfAggregates {
                     if let Value::Operand(id) = val {
                         callback(*id);
                     }
-                }
-            }
-            InstructionKind::AddressOf { operand, .. } => {
-                callback(*operand);
-            }
-            InstructionKind::FrameAlloc { .. } => {}
-            InstructionKind::GetElementPtr { base, offset, .. } => {
-                if let Value::Operand(id) = base {
-                    callback(*id);
-                }
-                if let Value::Operand(id) = offset {
-                    callback(*id);
                 }
             }
             InstructionKind::Cast { source, .. } => {
@@ -1282,28 +1257,6 @@ impl MirPass for ScalarReplacementOfAggregates {
                         } else {
                             new_instrs.push(inst);
                         }
-                    }
-
-                    InstructionKind::Store { address, value, ty } => {
-                        if matches!(
-                            ty,
-                            MirType::Tuple(_) | MirType::Struct { .. } | MirType::FixedArray { .. }
-                        ) {
-                            if let Value::Operand(src_id) = value {
-                                if let Some(state) = agg_states.get(src_id) {
-                                    let mat_id = materialize(function, &mut new_instrs, state, ty);
-                                    new_instrs.push(Instruction::store(
-                                        *address,
-                                        Value::operand(mat_id),
-                                        ty.clone(),
-                                    ));
-                                    self.stats.materializations += 1;
-                                    block_modified = true;
-                                    continue;
-                                }
-                            }
-                        }
-                        new_instrs.push(inst);
                     }
 
                     // Everything else: keep as-is

@@ -51,7 +51,7 @@ pub enum PureExpressionKey {
 impl PureExpressionKey {
     /// Try to create a PureExpressionKey from an instruction
     /// Returns None if the instruction has side effects or uses literals
-    pub fn from_instruction(instr: &crate::Instruction) -> Option<Self> {
+    pub(crate) fn from_instruction(instr: &crate::Instruction) -> Option<Self> {
         // Only consider pure instructions
         if !instr.is_pure() {
             return None;
@@ -162,10 +162,6 @@ impl PureExpressionKey {
 
             // Skip instructions with side effects or not supported
             InstructionKind::Call { .. }
-            | InstructionKind::Store { .. }
-            | InstructionKind::Load { .. }
-            | InstructionKind::FrameAlloc { .. }
-            | InstructionKind::GetElementPtr { .. }
             | InstructionKind::Assign { .. }
             | InstructionKind::Debug { .. }
             | InstructionKind::Phi { .. }
@@ -177,7 +173,7 @@ impl PureExpressionKey {
             | InstructionKind::ArrayInsert { .. } => None,
 
             // Cast operations - skip for now
-            InstructionKind::Cast { .. } | InstructionKind::AddressOf { .. } => None,
+            InstructionKind::Cast { .. } => None,
 
             // Array operations - can be CSE'd similar to tuples
             InstructionKind::MakeFixedArray { elements, .. } => {

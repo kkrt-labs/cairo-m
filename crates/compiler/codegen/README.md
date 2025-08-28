@@ -42,10 +42,6 @@ Cairo VM.
 
 ❌ **Not Yet Implemented**:
 
-- Load/Store for indirect memory access
-- AddressOf operations
-- GetElementPtr for struct/array access
-- Cast operations
 - Debug instructions
 
 ## CASM Output Format

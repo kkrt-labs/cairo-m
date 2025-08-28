@@ -56,10 +56,6 @@ pub mod tests {
         }
     }
 
-    pub fn test_db() -> TestDatabase {
-        TestDatabase::default()
-    }
-
     #[test]
     fn test_mir_db_trait() {
         use std::collections::HashMap;

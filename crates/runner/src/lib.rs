@@ -200,10 +200,6 @@ where
             let u32_value = reconstruct_u32_from_parts(low_word.0, high_word.0)?;
             Ok((CairoMValue::U32(u32_value), 2))
         }
-        AbiType::Pointer(_) => {
-            let pointer_value = read(base_off)?;
-            Ok((CairoMValue::Pointer(pointer_value), 1))
-        }
         AbiType::Tuple(element_types) => {
             let mut offset = 0usize;
             let mut tuple_values = Vec::with_capacity(element_types.len());
@@ -471,13 +467,6 @@ fn encode_value_for_call(
             let lo = M31::from(u & U16_MAX);
             let hi = M31::from(u >> 16);
             dst.extend_from_slice(&[lo, hi]);
-        }
-        (AbiType::Pointer(_), _) => {
-            // Pointers cannot be provided directly as inputs in runner
-            return Err(AbiCodecError::TypeMismatch(
-                "Pointer types are internal-only and cannot be provided as input.".to_string(),
-            )
-            .into());
         }
         (AbiType::Tuple(types), InputValue::List(values)) => {
             if types.len() != values.len() {

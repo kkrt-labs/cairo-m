@@ -90,7 +90,7 @@ impl std::fmt::Display for BinaryOp {
 
 impl BinaryOp {
     /// Convert from parser op based on operand type
-    pub fn from_parser(
+    pub(crate) fn from_parser(
         op: cairo_m_compiler_parser::parser::BinaryOp,
         operand_type: &cairo_m_compiler_semantic::types::TypeData,
     ) -> Result<Self, String> {
@@ -262,39 +262,6 @@ pub enum InstructionKind {
         signature: CalleeSignature,
     },
 
-    /// Load from memory: `dest = load addr`
-    /// For accessing memory locations and dereferencing pointers
-    Load {
-        dest: ValueId,
-        ty: MirType,
-        address: Value,
-    },
-
-    /// Store to memory: `store addr, value`
-    /// For writing to memory locations
-    Store {
-        address: Value,
-        value: Value,
-        ty: MirType,
-    },
-
-    /// Allocate space in the function frame: `dest = framealloc type`
-    /// For allocating local variables and temporary storage
-    FrameAlloc { dest: ValueId, ty: MirType },
-
-    /// Get address of a value: `dest = &operand`
-    /// For taking addresses of variables
-    AddressOf { dest: ValueId, operand: ValueId },
-
-    /// Get element pointer: `dest = getelementptr base, offset`
-    /// Calculates memory address based on base pointer and offset
-    /// Similar to LLVM's GEP instruction for struct member and array index access
-    GetElementPtr {
-        dest: ValueId,
-        base: Value,
-        offset: Value,
-    },
-
     /// Cast/conversion: `source as dest`
     /// For type conversions between compatible types
     Cast {
@@ -432,46 +399,6 @@ impl Instruction {
         }
     }
 
-    /// Creates a new load instruction
-    pub const fn load(dest: ValueId, ty: MirType, address: Value) -> Self {
-        Self {
-            kind: InstructionKind::Load { dest, ty, address },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new store instruction
-    pub const fn store(address: Value, value: Value, ty: MirType) -> Self {
-        Self {
-            kind: InstructionKind::Store { address, value, ty },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new frame allocation instruction
-    pub const fn frame_alloc(dest: ValueId, ty: MirType) -> Self {
-        Self {
-            kind: InstructionKind::FrameAlloc { dest, ty },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new address-of instruction
-    pub const fn address_of(dest: ValueId, operand: ValueId) -> Self {
-        Self {
-            kind: InstructionKind::AddressOf { dest, operand },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
     /// Creates a new call instruction with multiple return values
     pub fn call(
         dests: Vec<ValueId>,
@@ -494,16 +421,6 @@ impl Instruction {
                 args,
                 signature,
             },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new get element pointer instruction
-    pub const fn get_element_ptr(dest: ValueId, base: Value, offset: Value) -> Self {
-        Self {
-            kind: InstructionKind::GetElementPtr { dest, base, offset },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -733,22 +650,12 @@ impl Instruction {
         self
     }
 
-    /// Sets a comment for this instruction
-    pub fn with_comment(mut self, comment: String) -> Self {
-        self.comment = Some(comment);
-        self
-    }
-
     /// Returns the destination values if this instruction defines any
     pub fn destinations(&self) -> Vec<ValueId> {
         match &self.kind {
             InstructionKind::Assign { dest, .. }
             | InstructionKind::UnaryOp { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
-            | InstructionKind::Load { dest, .. }
-            | InstructionKind::FrameAlloc { dest, .. }
-            | InstructionKind::AddressOf { dest, .. }
-            | InstructionKind::GetElementPtr { dest, .. }
             | InstructionKind::Cast { dest, .. }
             | InstructionKind::Phi { dest, .. }
             | InstructionKind::MakeTuple { dest, .. }
@@ -763,14 +670,12 @@ impl Instruction {
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
-            InstructionKind::Store { .. }
-            | InstructionKind::Debug { .. }
-            | InstructionKind::Nop => vec![],
+            InstructionKind::Debug { .. } | InstructionKind::Nop => vec![],
         }
     }
 
     /// Returns the destination value if this instruction defines exactly one
-    pub fn destination(&self) -> Option<ValueId> {
+    pub(crate) fn destination(&self) -> Option<ValueId> {
         let dests = self.destinations();
         if dests.len() == 1 {
             Some(dests[0])
@@ -780,7 +685,7 @@ impl Instruction {
     }
 
     /// Returns all values used by this instruction
-    pub fn used_values(&self) -> HashSet<ValueId> {
+    pub(crate) fn used_values(&self) -> HashSet<ValueId> {
         let mut used = HashSet::new();
 
         match &self.kind {
@@ -807,38 +712,6 @@ impl Instruction {
 
             InstructionKind::Call { args, .. } => {
                 visit_values(args, |id| {
-                    used.insert(id);
-                });
-            }
-
-            InstructionKind::Load { address, .. } => {
-                visit_value(address, |id| {
-                    used.insert(id);
-                });
-            }
-
-            InstructionKind::Store { address, value, .. } => {
-                visit_value(address, |id| {
-                    used.insert(id);
-                });
-                visit_value(value, |id| {
-                    used.insert(id);
-                });
-            }
-
-            InstructionKind::FrameAlloc { .. } => {
-                // Frame allocation doesn't use any values as input
-            }
-
-            InstructionKind::AddressOf { operand, .. } => {
-                used.insert(*operand);
-            }
-
-            InstructionKind::GetElementPtr { base, offset, .. } => {
-                visit_value(base, |id| {
-                    used.insert(id);
-                });
-                visit_value(offset, |id| {
                     used.insert(id);
                 });
             }
@@ -956,7 +829,7 @@ impl Instruction {
     }
 
     /// Replace all occurrences of `from` value with `to` value in this instruction
-    pub fn replace_value_uses(&mut self, from: ValueId, to: ValueId) {
+    pub(crate) fn replace_value_uses(&mut self, from: ValueId, to: ValueId) {
         if from == to {
             return; // No-op
         }
@@ -976,25 +849,6 @@ impl Instruction {
             }
             InstructionKind::Call { args, .. } => {
                 replace_value_ids(args, from, to);
-            }
-            InstructionKind::Load { address, .. } => {
-                replace_value_id(address, from, to);
-            }
-            InstructionKind::Store { address, value, .. } => {
-                replace_value_id(address, from, to);
-                replace_value_id(value, from, to);
-            }
-            InstructionKind::FrameAlloc { .. } => {
-                // Frame allocation doesn't use any values as input - nothing to replace
-            }
-            InstructionKind::AddressOf { operand, .. } => {
-                if *operand == from {
-                    *operand = to;
-                }
-            }
-            InstructionKind::GetElementPtr { base, offset, .. } => {
-                replace_value_id(base, from, to);
-                replace_value_id(offset, from, to);
             }
             InstructionKind::Cast { source, .. } => {
                 replace_value_id(source, from, to);
@@ -1067,11 +921,6 @@ impl Instruction {
             InstructionKind::UnaryOp { .. } => Ok(()),
             InstructionKind::BinaryOp { .. } => Ok(()),
             InstructionKind::Call { .. } => Ok(()),
-            InstructionKind::Load { .. } => Ok(()),
-            InstructionKind::Store { .. } => Ok(()),
-            InstructionKind::FrameAlloc { .. } => Ok(()),
-            InstructionKind::AddressOf { .. } => Ok(()),
-            InstructionKind::GetElementPtr { .. } => Ok(()),
             InstructionKind::Cast { .. } => Ok(()),
             InstructionKind::Debug { .. } => Ok(()),
             InstructionKind::Phi { .. } => Ok(()),
@@ -1092,10 +941,7 @@ impl Instruction {
     pub const fn has_side_effects(&self) -> bool {
         matches!(
             self.kind,
-            InstructionKind::Call { .. }
-                | InstructionKind::Store { .. }
-                | InstructionKind::FrameAlloc { .. }
-                | InstructionKind::Debug { .. }
+            InstructionKind::Call { .. } | InstructionKind::Debug { .. }
         )
     }
 
@@ -1124,43 +970,12 @@ impl Instruction {
         matches!(self.kind, InstructionKind::Phi { .. })
     }
 
-    /// Get phi operands if this is a phi instruction
-    pub fn phi_operands(&self) -> Option<&[(BasicBlockId, Value)]> {
-        if let InstructionKind::Phi { sources, .. } = &self.kind {
-            Some(sources)
-        } else {
-            None
-        }
-    }
-
     /// Get phi operands mutably if this is a phi instruction
     pub const fn phi_operands_mut(&mut self) -> Option<&mut Vec<(BasicBlockId, Value)>> {
         if let InstructionKind::Phi { sources, .. } = &mut self.kind {
             Some(sources)
         } else {
             None
-        }
-    }
-
-    /// Add an operand to a phi instruction
-    /// Returns true if operand was added, false if not a phi
-    pub fn add_phi_operand(&mut self, block: BasicBlockId, value: Value) -> bool {
-        if let Some(sources) = self.phi_operands_mut() {
-            sources.push((block, value));
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Set all phi operands at once
-    /// Returns true if successful, false if not a phi
-    pub fn set_phi_operands(&mut self, operands: Vec<(BasicBlockId, Value)>) -> bool {
-        if let Some(sources) = self.phi_operands_mut() {
-            *sources = operands;
-            true
-        } else {
-            false
         }
     }
 }
@@ -1246,53 +1061,6 @@ impl PrettyPrint for Instruction {
                         .join(", ");
                     result.push_str(&format!("{} = call {:?}({})", dests_str, callee, args_str));
                 }
-            }
-
-            InstructionKind::Load { dest, ty, address } => {
-                result.push_str(&format!(
-                    "{} = load {} {}",
-                    dest.pretty_print(0),
-                    ty,
-                    address.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::Store { address, value, ty } => {
-                if matches!(ty, MirType::Felt) {
-                    result.push_str(&format!(
-                        "store {}, {}",
-                        address.pretty_print(0),
-                        value.pretty_print(0),
-                    ));
-                } else {
-                    result.push_str(&format!(
-                        "store {}, {} ({})",
-                        address.pretty_print(0),
-                        value.pretty_print(0),
-                        ty
-                    ));
-                }
-            }
-
-            InstructionKind::FrameAlloc { dest, ty } => {
-                result.push_str(&format!("{} = framealloc {}", dest.pretty_print(0), ty));
-            }
-
-            InstructionKind::AddressOf { dest, operand } => {
-                result.push_str(&format!(
-                    "{} = &{}",
-                    dest.pretty_print(0),
-                    operand.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::GetElementPtr { dest, base, offset } => {
-                result.push_str(&format!(
-                    "{} = getelementptr {}, {}",
-                    dest.pretty_print(0),
-                    base.pretty_print(0),
-                    offset.pretty_print(0)
-                ));
             }
 
             InstructionKind::Cast {

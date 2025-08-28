@@ -7,7 +7,7 @@ use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
-use crate::{BasicBlockId, FunctionId, Instruction, MirType, Value, ValueId};
+use crate::{FunctionId, Instruction, MirType, Value, ValueId};
 
 use super::builder::MirBuilder;
 
@@ -19,16 +19,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         !self.state.loop_stack.is_empty()
     }
 
-    /// Gets the current loop's continue and break targets
-    pub fn current_loop_targets(&self) -> Option<(BasicBlockId, BasicBlockId)> {
-        self.state.loop_stack.last().copied()
-    }
-
     /// Emits a call instruction with destinations and proper signature
     ///
     /// This helper centralizes the logic for emitting function calls with
     /// proper signatures and destination handling.
-    pub fn emit_call_with_destinations(
+    pub(crate) fn emit_call_with_destinations(
         &mut self,
         func_id: FunctionId,
         args: Vec<Value>,
@@ -54,7 +49,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     /// This is used for function calls in expression statements where the
     /// return value is not used. It handles both void functions and functions
     /// that return values by creating dummy destinations.
-    pub fn emit_call_and_discard_result(
+    pub(crate) fn emit_call_and_discard_result(
         &mut self,
         func_id: FunctionId,
         args: Vec<Value>,

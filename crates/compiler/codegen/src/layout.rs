@@ -65,7 +65,7 @@ pub struct FunctionLayout {
 
 impl FunctionLayout {
     /// Creates a new layout for a function, allocating slots for its parameters.
-    pub fn new(function: &MirFunction) -> CodegenResult<Self> {
+    pub(crate) fn new(function: &MirFunction) -> CodegenResult<Self> {
         let mut layout = Self {
             name: function.name.clone(),
             value_layouts: FxHashMap::default(),
@@ -183,26 +183,6 @@ impl FunctionLayout {
                             current_offset += size;
                         }
                     }
-                    InstructionKind::FrameAlloc { dest, ty } => {
-                        // Skip if already allocated
-                        if self.value_layouts.contains_key(dest) {
-                            continue;
-                        }
-
-                        // Allocate a block of memory
-                        let offset = current_offset as i32;
-                        let size = DataLayout::memory_size_of(ty);
-                        self.value_layouts
-                            .insert(*dest, ValueLayout::MultiSlot { offset, size });
-                        current_offset += size;
-                    }
-                    InstructionKind::GetElementPtr {
-                        dest: _,
-                        base: _,
-                        offset: _,
-                    } => {
-                        panic!("GetElementPtr lowering is not supported");
-                    }
                     _ => {
                         // For all other instructions, process destinations normally
                         for dest_id in instruction.destinations() {
@@ -251,7 +231,7 @@ impl FunctionLayout {
     }
 
     /// Allocates a new local variable at the next available positive offset from `fp`.
-    pub fn allocate_local(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
+    pub(crate) fn allocate_local(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
         // If this value is already allocated, return its offset.
         if let Some(layout) = self.value_layouts.get(&value_id) {
             return match layout {
@@ -277,7 +257,7 @@ impl FunctionLayout {
 
     /// Manually maps a `ValueId` to a specific offset. Used by the caller to map
     /// return value destinations.
-    pub fn map_value(&mut self, value_id: ValueId, offset: i32) {
+    pub(crate) fn map_value(&mut self, value_id: ValueId, offset: i32) {
         // Check if we already have a layout for this value to preserve its size
         let size = self.get_value_size(value_id);
 
@@ -305,7 +285,7 @@ impl FunctionLayout {
     }
 
     /// Gets the fp-relative offset for a `ValueId`.
-    pub fn get_offset(&self, value_id: ValueId) -> CodegenResult<i32> {
+    pub(crate) fn get_offset(&self, value_id: ValueId) -> CodegenResult<i32> {
         match self.value_layouts.get(&value_id) {
             Some(ValueLayout::Slot { offset }) | Some(ValueLayout::MultiSlot { offset, .. }) => {
                 Ok(*offset)
@@ -341,22 +321,12 @@ impl FunctionLayout {
     }
 
     /// Gets the size of a value in slots.
-    pub fn get_value_size(&self, value_id: ValueId) -> usize {
+    pub(crate) fn get_value_size(&self, value_id: ValueId) -> usize {
         match self.value_layouts.get(&value_id) {
             Some(ValueLayout::Slot { .. }) => 1,
             Some(ValueLayout::MultiSlot { size, .. }) => *size,
             _ => 1, // Default to single slot
         }
-    }
-
-    /// Gets the value layout for a specific ValueId.
-    pub fn get_layout(&self, value_id: ValueId) -> CodegenResult<&ValueLayout> {
-        self.value_layouts.get(&value_id).ok_or_else(|| {
-            CodegenError::LayoutError(format!(
-                "No layout found for value {value_id:?} in function {}",
-                self.name
-            ))
-        })
     }
 
     /// Gets the current top offset (highest allocated offset in the frame).
@@ -372,7 +342,7 @@ impl FunctionLayout {
     /// Checks if a value with the given size is stored contiguously starting at the expected offset.
     /// For single-slot values, this just checks if the value is at the expected offset.
     /// For multi-slot values, this checks that all slots are contiguous.
-    pub fn is_contiguous(
+    pub(crate) fn is_contiguous(
         &self,
         value_id: ValueId,
         expected_offset: i32,
@@ -391,7 +361,7 @@ impl FunctionLayout {
 #[cfg(test)]
 impl FunctionLayout {
     /// Creates a new empty layout for testing.
-    pub fn new_for_test() -> Self {
+    pub(crate) fn new_for_test() -> Self {
         Self {
             name: "test".to_string(),
             value_layouts: FxHashMap::default(),
@@ -403,7 +373,7 @@ impl FunctionLayout {
     }
 
     /// Allocates a value with the given size for testing.
-    pub fn allocate_value(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
+    pub(crate) fn allocate_value(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
         self.allocate_local(value_id, size)
     }
 }

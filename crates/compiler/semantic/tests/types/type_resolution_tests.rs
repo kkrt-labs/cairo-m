@@ -7,7 +7,7 @@ use cairo_m_compiler_parser::parser::NamedType;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
-use crate::{crate_from_program, get_main_semantic_index, named_type, pointer_type};
+use crate::{crate_from_program, get_main_semantic_index, named_type};
 
 #[test]
 fn test_resolve_primitive_types() {
@@ -19,45 +19,6 @@ fn test_resolve_primitive_types() {
 
     let felt_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::Felt), root_scope);
     assert!(matches!(felt_type.data(&db), TypeData::Felt));
-
-    let pointer_felt_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        pointer_type(named_type(NamedType::Felt)),
-        root_scope,
-    );
-    assert!(
-        matches!(pointer_felt_type.data(&db), TypeData::Pointer(t) if matches!(t.data(&db), TypeData::Felt))
-    );
-}
-
-#[test]
-fn test_resolve_nested_pointer_types() {
-    let db = test_db();
-    let crate_id = crate_from_program(&db, "");
-    let file = *crate_id.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, crate_id);
-    let root_scope = semantic_index.root_scope().unwrap();
-
-    // Test felt** (pointer to pointer to felt)
-    let double_pointer_felt = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        pointer_type(pointer_type(named_type(NamedType::Felt))),
-        root_scope,
-    );
-
-    match double_pointer_felt.data(&db) {
-        TypeData::Pointer(inner) => match inner.data(&db) {
-            TypeData::Pointer(inner_inner) => {
-                assert!(matches!(inner_inner.data(&db), TypeData::Felt));
-            }
-            other => panic!("Expected pointer to felt, got {other:?}"),
-        },
-        other => panic!("Expected pointer to pointer, got {other:?}"),
-    }
 }
 
 #[test]
@@ -108,51 +69,6 @@ fn test_struct_type_resolution() {
     let felt_type = TypeId::new(&db, TypeData::Felt);
     let expected_fields = vec![("x".to_string(), felt_type), ("y".to_string(), felt_type)];
     assert_eq!(fields, expected_fields);
-}
-
-#[test]
-#[ignore]
-fn test_struct_with_pointer_fields() {
-    // TODO: This currently doesn't compile, as the parser doesn't support pointer types.
-    // for structs.
-    let db = test_db();
-    let program = r#"
-        struct Node {
-            value: felt,
-            next: Node*,
-        }
-    "#;
-    let crate_id = crate_from_program(&db, program);
-    let file = *crate_id.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, crate_id);
-    let root_scope = semantic_index.root_scope().unwrap();
-
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Node", root_scope)
-        .unwrap();
-    let def_id = DefinitionId::new(&db, file, def_idx);
-    let semantic_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
-
-    let fields = semantic_data.fields(&db);
-    assert_eq!(fields.len(), 2);
-
-    // Check value field is felt
-    let (value_name, value_type) = &fields[0];
-    assert_eq!(value_name, "value");
-    assert!(matches!(value_type.data(&db), TypeData::Felt));
-
-    // Check next field is *Node
-    let (next_name, next_type) = &fields[1];
-    assert_eq!(next_name, "next");
-    match next_type.data(&db) {
-        TypeData::Pointer(inner) => match inner.data(&db) {
-            TypeData::Struct(struct_id) => {
-                assert_eq!(struct_id.name(&db), "Node");
-            }
-            other => panic!("Expected pointer to Node struct, got {other:?}"),
-        },
-        other => panic!("Expected pointer type, got {other:?}"),
-    }
 }
 
 #[test]

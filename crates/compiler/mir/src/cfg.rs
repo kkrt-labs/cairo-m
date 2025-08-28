@@ -8,7 +8,7 @@ use crate::{BasicBlock, BasicBlockId, MirFunction, Terminator};
 use rustc_hash::FxHashMap;
 
 /// Get all successor blocks of a given block
-pub fn get_successors(function: &MirFunction, block_id: BasicBlockId) -> Vec<BasicBlockId> {
+pub(crate) fn get_successors(function: &MirFunction, block_id: BasicBlockId) -> Vec<BasicBlockId> {
     if let Some(block) = function.basic_blocks.get(block_id) {
         block.terminator.target_blocks()
     } else {
@@ -17,7 +17,10 @@ pub fn get_successors(function: &MirFunction, block_id: BasicBlockId) -> Vec<Bas
 }
 
 /// Get all predecessor blocks of a given block
-pub fn get_predecessors(function: &MirFunction, target_id: BasicBlockId) -> Vec<BasicBlockId> {
+pub(crate) fn get_predecessors(
+    function: &MirFunction,
+    target_id: BasicBlockId,
+) -> Vec<BasicBlockId> {
     let block = function
         .basic_blocks
         .get(target_id)
@@ -25,25 +28,12 @@ pub fn get_predecessors(function: &MirFunction, target_id: BasicBlockId) -> Vec<
     block.preds.clone()
 }
 
-/// Build a complete predecessor map for the function
-pub fn build_predecessor_map(function: &MirFunction) -> FxHashMap<BasicBlockId, Vec<BasicBlockId>> {
-    let mut predecessors: FxHashMap<BasicBlockId, Vec<BasicBlockId>> = FxHashMap::default();
-
-    for (block_id, block) in function.basic_blocks.iter_enumerated() {
-        for successor in block.terminator.target_blocks() {
-            predecessors.entry(successor).or_default().push(block_id);
-        }
-    }
-
-    predecessors
-}
-
 /// Check if an edge is critical
 ///
 /// A critical edge is an edge from a block with multiple successors to a block
 /// with multiple predecessors. These edges need to be split to ensure correct
 /// phi node elimination and other transformations.
-pub fn is_critical_edge(
+pub(crate) fn is_critical_edge(
     function: &MirFunction,
     pred_id: BasicBlockId,
     succ_id: BasicBlockId,
@@ -82,7 +72,7 @@ pub fn is_critical_edge(
 ///    |  /
 ///   Succ
 /// ```
-pub fn split_critical_edge(
+pub(crate) fn split_critical_edge(
     function: &mut MirFunction,
     pred_id: BasicBlockId,
     succ_id: BasicBlockId,
@@ -114,7 +104,7 @@ pub fn split_critical_edge(
 /// Split all critical edges in a function
 ///
 /// Returns a map from (predecessor, successor) pairs to the newly created edge blocks.
-pub fn split_all_critical_edges(
+pub(crate) fn split_all_critical_edges(
     function: &mut MirFunction,
 ) -> FxHashMap<(BasicBlockId, BasicBlockId), BasicBlockId> {
     let mut edge_splits = FxHashMap::default();
@@ -136,42 +126,6 @@ pub fn split_all_critical_edges(
     }
 
     edge_splits
-}
-
-/// Check if a block is a merge point (has multiple predecessors)
-pub fn is_merge_point(function: &MirFunction, block_id: BasicBlockId) -> bool {
-    get_predecessors(function, block_id).len() > 1
-}
-
-/// Check if a block is a branch point (has multiple successors)
-pub fn is_branch_point(function: &MirFunction, block_id: BasicBlockId) -> bool {
-    get_successors(function, block_id).len() > 1
-}
-
-/// Get the single predecessor of a block, if it has exactly one
-pub fn get_single_predecessor(
-    function: &MirFunction,
-    block_id: BasicBlockId,
-) -> Option<BasicBlockId> {
-    let preds = get_predecessors(function, block_id);
-    if preds.len() == 1 {
-        Some(preds[0])
-    } else {
-        None
-    }
-}
-
-/// Get the single successor of a block, if it has exactly one
-pub fn get_single_successor(
-    function: &MirFunction,
-    block_id: BasicBlockId,
-) -> Option<BasicBlockId> {
-    let succs = get_successors(function, block_id);
-    if succs.len() == 1 {
-        Some(succs[0])
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]
@@ -332,24 +286,5 @@ mod tests {
         let entry_succs = get_successors(&function, entry);
         assert!(entry_succs.contains(&edge_block));
         assert!(!entry_succs.contains(&merge));
-    }
-
-    #[test]
-    fn test_merge_and_branch_points() {
-        let function = create_diamond_cfg();
-
-        // Entry is a branch point
-        assert!(is_branch_point(&function, BasicBlockId::from_raw(0)));
-        assert!(!is_merge_point(&function, BasicBlockId::from_raw(0)));
-
-        // Left and Right are neither
-        assert!(!is_branch_point(&function, BasicBlockId::from_raw(1)));
-        assert!(!is_merge_point(&function, BasicBlockId::from_raw(1)));
-        assert!(!is_branch_point(&function, BasicBlockId::from_raw(2)));
-        assert!(!is_merge_point(&function, BasicBlockId::from_raw(2)));
-
-        // Merge is a merge point
-        assert!(!is_branch_point(&function, BasicBlockId::from_raw(3)));
-        assert!(is_merge_point(&function, BasicBlockId::from_raw(3)));
     }
 }
