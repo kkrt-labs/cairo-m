@@ -59,7 +59,6 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
-use crate::components::opcodes::RangeCheckProvider;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
@@ -72,8 +71,6 @@ const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * ((N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2));
-
-impl RangeCheckProvider for InteractionClaimData {}
 
 pub struct InteractionClaimData {
     pub lookup_data: LookupData,

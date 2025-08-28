@@ -85,7 +85,6 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
-use crate::components::opcodes::RangeCheckProvider;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
@@ -103,8 +102,6 @@ pub struct InteractionClaimData {
     pub lookup_data: LookupData,
     pub non_padded_length: usize,
 }
-
-impl RangeCheckProvider for InteractionClaimData {}
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
