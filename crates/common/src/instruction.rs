@@ -263,35 +263,35 @@ define_instruction!(
     JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3, operands: [Felt];                              // jmp rel imm if [fp + cond_off] != 0
 
     // U32 operations with FP operands
-    U32StoreAddFpFp = 15, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreSubFpFp = 16, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) - u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreMulFpFp = 17, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreDivFpFp = 18, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreAddFpFp = 15, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreSubFpFp = 16, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) - u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreMulFpFp = 17, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreDivFpFp = 18, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
 
     // U32 operations with immediate
-    U32StoreAddFpImm = 19, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
-    U32StoreSubFpImm = 20, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) - u32(imm_lo, imm_hi)
-    U32StoreMulFpImm = 21, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
-    U32StoreDivFpImm = 22, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+    U32StoreAddFpImm = 19, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+    U32StoreSubFpImm = 20, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) - u32(imm_lo, imm_hi)
+    U32StoreMulFpImm = 21, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
+    U32StoreDivFpImm = 22, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
 
     // U32 Memory operations
-    U32StoreImm = 23, 2, fields: [imm_lo, imm_hi, dst_off], size: 4, operands: [U32, U32];                             // u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
+    U32StoreImm = 23, 1, fields: [imm_lo, imm_hi, dst_off], size: 4, operands: [U32];                             // u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
 
     // U32 Comparison operations
-    U32StoreEqFpFp = 24, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) == u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreNeqFpFp = 25, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];               // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) != u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreGtFpFp = 26, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) > u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreGeFpFp = 27, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) >= u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreLtFpFp = 28, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreLeFpFp = 29, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                 // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) <= u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreEqFpFp = 24, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) == u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreNeqFpFp = 25, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];               // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) != u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreGtFpFp = 26, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) > u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreGeFpFp = 27, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) >= u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreLtFpFp = 28, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreLeFpFp = 29, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                 // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) <= u32([fp + src1_off], [fp + src1_off + 1])
 
     // U32 Comparison operations with immediate
-    U32StoreEqFpImm = 30, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
-    U32StoreNeqFpImm = 31, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) != u32(imm_lo, imm_hi)
-    U32StoreGtFpImm = 32, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) > u32(imm_lo, imm_hi)
-    U32StoreGeFpImm = 33, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) >= u32(imm_lo, imm_hi)
-    U32StoreLtFpImm = 34, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
-    U32StoreLeFpImm = 35, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) <= u32(imm_lo, imm_hi)
+    U32StoreEqFpImm = 30, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
+    U32StoreNeqFpImm = 31, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) != u32(imm_lo, imm_hi)
+    U32StoreGtFpImm = 32, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) > u32(imm_lo, imm_hi)
+    U32StoreGeFpImm = 33, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) >= u32(imm_lo, imm_hi)
+    U32StoreLtFpImm = 34, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
+    U32StoreLeFpImm = 35, 2, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) <= u32(imm_lo, imm_hi)
 
     // U32 Bitwise operations
     U32StoreAndFpFp = 36, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) & u32([fp + src1_off], [fp + src1_off + 1])
