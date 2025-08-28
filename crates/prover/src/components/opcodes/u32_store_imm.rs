@@ -115,7 +115,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreAddFpImm opcode.
+    /// Writes the trace for the U32StoreImm opcode.
     ///
     /// # Important
     /// This function filters the inputs and creates a local vector which is cleared after processing.
