@@ -238,7 +238,7 @@ fn find_best_attachment(
             };
 
             // Rank preferences: EndOfLine < Before < After
-            // Docstrings ("///") should strongly prefer Before
+            // docstrings ("///") should strongly prefer Before
             let is_doc = comment.text.trim_start().starts_with("///");
             let rank = match pos {
                 CommentPosition::EndOfLine => 0,
