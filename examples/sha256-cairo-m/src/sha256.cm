@@ -1,18 +1,20 @@
 // SHA-256 cryptographic hash function implementation in Cairo-M.
 // This implementation follows NIST FIPS 180-4 specification.
 // It operates on pre-padded messages represented as arrays of u32 words.
+
+// Pre-computed powers of 2 for n = 0 to 31
+const POW2 = [1u32, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 2147483648];
+
 /// Rotate right operation: rotates bits of x right by n positions.
 fn rotr(x: u32, n: u32) -> u32 {
-    if n >= 32 {
+    let n: u32 = n & 31u32;
+    if n == 0 {
         return x;
-    } // Pre-computed powers of 2 for n = 0 to 31
-    let POW2: [u32; 32] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 2147483648];
+    }
     let n_felt: felt = n as felt;
     let pow2_n = POW2[n_felt];
-    let bits_32: u32 = 32;
-    let complement_n: u32 = bits_32 - n;
-    let complement_n_felt: felt = complement_n as felt;
-    let pow2_complement = POW2[complement_n_felt];
+    let complement_n = 32 - n_felt;
+    let pow2_complement = POW2[complement_n];
     let shr_part = x / pow2_n;
     let shl_part = x * pow2_complement;
     return shr_part | shl_part;
