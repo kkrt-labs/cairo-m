@@ -85,12 +85,12 @@ fn test_sha256(msg: &[u8]) {
         InputValue::List(padded_buffer),
         InputValue::Number(num_chunks as i64),
     ];
-    let expected = rust_sha256(msg);
+    let expected = sha256_hash(msg);
     assert_cairo_array_result!(&COMPILED_PROGRAM, "sha256_hash", args, expected);
 }
 
 /// Computes the SHA-256 hash using a trusted Rust implementation.
-fn rust_sha256(msg: &[u8]) -> [u32; 8] {
+fn sha256_hash(msg: &[u8]) -> [u32; 8] {
     let mut hasher = Sha256::new();
     hasher.update(msg);
     let result_bytes: [u8; 32] = hasher.finalize().into();
@@ -304,37 +304,37 @@ mod helpers {
 
     /// SHA-256 Σ₀ (big sigma 0) function
     #[inline]
-    fn rust_big_sigma0(x: u32) -> u32 {
+    fn big_sigma0(x: u32) -> u32 {
         x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
     }
 
     /// SHA-256 Σ₁ (big sigma 1) function
     #[inline]
-    fn rust_big_sigma1(x: u32) -> u32 {
+    fn big_sigma1(x: u32) -> u32 {
         x.rotate_right(6) ^ x.rotate_right(11) ^ x.rotate_right(25)
     }
 
     /// SHA-256 σ₀ (small sigma 0) function
     #[inline]
-    fn rust_small_sigma0(x: u32) -> u32 {
+    fn small_sigma0(x: u32) -> u32 {
         x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3)
     }
 
     /// SHA-256 σ₁ (small sigma 1) function
     #[inline]
-    fn rust_small_sigma1(x: u32) -> u32 {
+    fn small_sigma1(x: u32) -> u32 {
         x.rotate_right(17) ^ x.rotate_right(19) ^ (x >> 10)
     }
 
     /// SHA-256 Ch (choice) function
     #[inline]
-    fn rust_ch(x: u32, y: u32, z: u32) -> u32 {
+    fn ch(x: u32, y: u32, z: u32) -> u32 {
         (x & y) ^ (!x & z)
     }
 
     /// SHA-256 Maj (majority) function
     #[inline]
-    fn rust_maj(x: u32, y: u32, z: u32) -> u32 {
+    fn maj(x: u32, y: u32, z: u32) -> u32 {
         (x & y) ^ (x & z) ^ (y & z)
     }
 
@@ -364,32 +364,32 @@ mod helpers {
 
         #[test]
         fn test_big_sigma0(x: u32) {
-            test_unary_function(x, "big_sigma0", rust_big_sigma0(x));
+            test_unary_function(x, "big_sigma0", big_sigma0(x));
         }
 
         #[test]
         fn test_big_sigma1(x: u32) {
-            test_unary_function(x, "big_sigma1", rust_big_sigma1(x));
+            test_unary_function(x, "big_sigma1", big_sigma1(x));
         }
 
         #[test]
         fn test_small_sigma0(x: u32) {
-            test_unary_function(x, "small_sigma0", rust_small_sigma0(x));
+            test_unary_function(x, "small_sigma0", small_sigma0(x));
         }
 
         #[test]
         fn test_small_sigma1(x: u32) {
-            test_unary_function(x, "small_sigma1", rust_small_sigma1(x));
+            test_unary_function(x, "small_sigma1", small_sigma1(x));
         }
 
         #[test]
         fn test_ch(x: u32, y: u32, z: u32) {
-            test_ternary_function(x, y, z, "ch", rust_ch(x, y, z));
+            test_ternary_function(x, y, z, "ch", ch(x, y, z));
         }
 
         #[test]
         fn test_maj(x: u32, y: u32, z: u32) {
-            test_ternary_function(x, y, z, "maj", rust_maj(x, y, z));
+            test_ternary_function(x, y, z, "maj", maj(x, y, z));
         }
     }
 }

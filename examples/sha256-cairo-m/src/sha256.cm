@@ -12,14 +12,13 @@ const K = [1116352408u32, 1899447441, 3049323471, 3921009573, 961987163, 1508970
 const U32_MAX = 4294967295u32;
 
 /// Rotate right operation: rotates bits of x right by n positions.
-fn rotr(x: u32, n: u32) -> u32 {
-    let n: u32 = n & 31u32;
+fn rotr(x: u32, n: felt) -> u32 {
+    // No need to check n bounds - all calls in SHA-256 use constants in range [2, 25]
     if n == 0 {
         return x;
     }
-    let n_felt: felt = n as felt;
-    let pow2_n = POW2[n_felt];
-    let complement_n = 32 - n_felt;
+    let pow2_n = POW2[n];
+    let complement_n = 32 - n;
     let pow2_complement = POW2[complement_n];
     let shr_part = x / pow2_n;
     let shl_part = x * pow2_complement;

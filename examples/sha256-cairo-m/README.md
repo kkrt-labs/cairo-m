@@ -54,8 +54,21 @@ This implementation follows the NIST FIPS 180-4 specification for SHA-256:
 - Processes messages in 512-bit (64-byte) chunks
 - Uses 32-bit word operations compatible with Cairo-M's u32 type
 - Implements all required bitwise operations (rotate, shift, XOR, AND)
-- Supports messages up to 2 chunks (128 bytes) in the current configuration
 
+**Important Limitations:**
+
+- **Pre-padded input required**: Unlike standard SHA-256 implementations, this
+  version expects the input to be already padded according to SHA-256
+  specifications
+- **Fixed buffer size**: The implementation uses a fixed buffer of 32 u32 words
+  (128 bytes), limiting it to 2 chunks maximum
+- **Actual message size limits**:
+  - Up to 55 bytes → fits in 1 chunk after padding
+  - 56-119 bytes → requires 2 chunks after padding
+  - 120+ bytes → exceeds current implementation limit
+
+These limitations exist because Cairo-M requires fixed-size arrays at compile
+time, preventing dynamic memory allocation.
 
 ### Testing Approach
 
@@ -65,14 +78,6 @@ The test suite includes:
   (rotr, sigma functions, Ch, Maj)
 - **Integration tests**: Comprehensive test vectors including edge cases
 - **Reference comparison**: All results verified against Rust's `sha2` crate
-
-## Extending the Implementation
-
-To modify the maximum message size:
-
-1. Update `MAX_CHUNKS` in `integration_test.rs`
-2. Adjust `PADDED_BUFFER_U32_SIZE` accordingly
-3. Update the fixed array size in `sha256.cm` to match
 
 ## Resources
 
