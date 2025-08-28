@@ -1,5 +1,7 @@
+use rayon::iter::ParallelIterator;
 use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
 use stwo_prover::core::backend::simd::column::BaseColumn;
+use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::fields::m31::{BaseField, M31};
 use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
@@ -7,6 +9,23 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::PreProcessedColumn;
 
+// Trait for components that provide range check data
+pub trait RangeCheckProvider {
+    /// Returns range_check_8 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+
+    /// Returns range_check_16 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+
+    /// Returns range_check_20 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+}
 // Include the macro implementation
 #[macro_use]
 pub mod range_check_macro;

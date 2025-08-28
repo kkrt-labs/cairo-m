@@ -109,6 +109,13 @@ pub struct LookupData {
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
+// Implement RangeCheckProvider to expose range_check_20 data
+impl crate::preprocessed::range_check::RangeCheckProvider for InteractionClaimData {
+    fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        self.lookup_data.range_check_20.par_iter().flatten()
+    }
+}
+
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
 pub struct Claim {
     pub log_size: u32,

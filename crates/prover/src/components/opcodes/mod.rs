@@ -81,17 +81,19 @@ macro_rules! define_opcodes {
         // Implement InteractionClaimData methods
         impl InteractionClaimData {
             pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
-                define_opcodes!(@range_check_20 self, $($opcode),*)
+                use $crate::preprocessed::range_check::RangeCheckProvider;
+                rayon::iter::empty()
+                    $(.chain(self.$opcode.get_range_check_20()))*
             }
 
             pub fn range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
-                use $crate::components::opcodes::RangeCheckProvider;
+                use $crate::preprocessed::range_check::RangeCheckProvider;
                 rayon::iter::empty()
                     $(.chain(self.$opcode.get_range_check_16()))*
             }
 
             pub fn range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
-                use $crate::components::opcodes::RangeCheckProvider;
+                use $crate::preprocessed::range_check::RangeCheckProvider;
                 rayon::iter::empty()
                     $(.chain(self.$opcode.get_range_check_8()))*
             }
@@ -169,23 +171,6 @@ macro_rules! define_opcodes {
         }
     };
 
-
-    // Helper rule for range_check_20 chaining
-    (@range_check_20 $self:ident, $first:ident $(, $rest:ident)*) => {
-        $self.$first
-            .lookup_data
-            .range_check_20
-            .par_iter()
-            .flatten()
-            $(.chain(
-                $self.$rest
-                    .lookup_data
-                    .range_check_20
-                    .par_iter()
-                    .flatten(),
-            ))*
-    };
-
     // Helper rule to check that all Opcode variants are used
     (@check_all_opcodes_used [$($opcode_variant:ident),* $(,)?]) => {
         // This will be checked at compile time - if any opcode is missing,
@@ -242,7 +227,7 @@ macro_rules! define_opcodes {
 
 use cairo_m_common::instruction::*;
 use num_traits::Zero;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::ParallelIterator;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -260,23 +245,6 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::Instructions;
 use crate::components::Relations;
-
-// Trait for components that provide range check data
-pub trait RangeCheckProvider {
-    /// Returns range_check_8 data if the component has it, otherwise returns an empty iterator
-    fn get_range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
-        rayon::iter::empty()
-    }
-
-    /// Returns range_check_16 data if   component has it, otherwise returns an empty iterator
-    fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
-        rayon::iter::empty()
-    }
-}
-
-// Default implementation for all InteractionClaimData types
-// Opcodes that have range_check_8 or range_check_16 will override these methods
-impl<T> RangeCheckProvider for T {}
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
