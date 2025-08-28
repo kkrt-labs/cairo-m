@@ -1467,8 +1467,14 @@ where
                 let current_scope = self.current_scope();
                 self.index.set_scope_for_span(stmt.span(), current_scope);
 
-                // Process the value expression first
-                self.visit_expr(&const_def.value);
+                // Process the value expression with optional type annotation
+                if let Some(ref ty) = const_def.ty {
+                    self.with_expected_type(Some(ty.clone()), |builder| {
+                        builder.visit_expr(&const_def.value);
+                    });
+                } else {
+                    self.visit_expr(&const_def.value);
+                }
                 let value_expr_id = self
                     .index
                     .expression_id_by_span(const_def.value.span())
@@ -1477,6 +1483,7 @@ where
                 // Define the constant
                 let def_kind = DefinitionKind::Const(ConstDefRef {
                     name: const_def.name.value().clone(),
+                    type_ast: const_def.ty.clone(),
                     value_expr_id: Some(value_expr_id),
                 });
                 self.add_place_with_definition(
@@ -1581,8 +1588,14 @@ where
         let current_scope = self.current_scope();
         self.index.set_scope_for_span(const_span, current_scope);
 
-        // Visit the value expression first
-        self.visit_expr(&const_def_inner.value);
+        // Visit the value expression with optional type annotation
+        if let Some(ref ty) = const_def_inner.ty {
+            self.with_expected_type(Some(ty.clone()), |builder| {
+                builder.visit_expr(&const_def_inner.value);
+            });
+        } else {
+            self.visit_expr(&const_def_inner.value);
+        }
         let value_expr_id = self
             .index
             .expression_id_by_span(const_def_inner.value.span())

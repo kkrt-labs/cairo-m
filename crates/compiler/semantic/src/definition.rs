@@ -133,6 +133,8 @@ impl StructDefRef {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstDefRef {
     pub name: String,
+    /// Optional explicit type annotation
+    pub type_ast: Option<Spanned<TypeExpr>>,
     /// The expression ID for the constant's value (to be assigned during semantic analysis)
     pub value_expr_id: Option<ExpressionId>,
 }
@@ -141,6 +143,7 @@ impl ConstDefRef {
     pub fn from_ast(const_def: &Spanned<ConstDef>, value_expr_id: Option<ExpressionId>) -> Self {
         Self {
             name: const_def.value().name.value().clone(),
+            type_ast: const_def.value().ty.clone(),
             value_expr_id,
         }
     }
@@ -346,6 +349,7 @@ mod tests {
 
         let const_def = ConstDef {
             name: Spanned::new("PI".to_string(), SimpleSpan::from(0..2)),
+            ty: None,
             value: Spanned::new(Expression::Literal(314, None), SimpleSpan::from(3..6)),
         };
         let spanned_const = Spanned::new(const_def, SimpleSpan::from(0..10));
@@ -367,6 +371,7 @@ mod tests {
 
         let def2_kind = DefinitionKind::Const(ConstDefRef {
             name: "CONST1".to_string(),
+            type_ast: None,
             value_expr_id: None,
         });
 

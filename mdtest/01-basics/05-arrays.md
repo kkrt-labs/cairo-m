@@ -164,3 +164,34 @@ fn compute_result(a: i32, b: i32) -> i32 {
     return tuple_.1[0] + struct_.values[1];
 }
 ```
+
+## Constant Arrays
+
+Arrays can be declared as constants. In that case, an access to the array with a
+compile-time known constant will simply replace the access with the constant
+value.
+
+```cairo-m
+const POW2: [u32; 3] = [1, 2, 4];
+
+fn const_arr_access_const_value() -> u32 {
+    return POW2[0] + POW2[1] + POW2[2]; // Replaced with 1 + 2 + 4 = 7
+}
+```
+
+When the index is not known at compile-time, the array will be fully
+materialized every time it's called.
+
+<!-- TODO: optimize this by pre-materializing the array -->
+
+```cairo-m
+const POW2: [u32; 3] = [1, 2, 4];
+
+fn test_main() -> u32 {
+    return const_arr_access_const_value(0);
+}
+
+fn const_arr_access_const_value(i: felt) -> u32 {
+    return POW2[i];
+}
+```

@@ -385,3 +385,80 @@ fn test_pointer_to_struct_field_access() {
     }
     assert!(found_ptr_access, "Should have found ptr.x expression");
 }
+
+#[test]
+fn test_typed_const_resolution() {
+    let db = test_db();
+    let program = r#"
+        const SIZE: felt = 3;
+        const MAX: u32 = 100;
+        const PI = 314;  // No type annotation, should infer felt
+        const POW2: [u32; 3] = [1, 2, 4];
+
+        fn test_felt() -> felt {
+            return SIZE;
+        }
+
+        fn test_u32() -> u32 {
+            return MAX;
+        }
+
+        fn test_inferred() -> felt {
+            return PI;
+        }
+    "#;
+
+    let crate_id = crate_from_program(&db, program);
+    let main_file = *crate_id.modules(&db).values().next().unwrap();
+    let module_index = module_semantic_index(&db, crate_id, "main".into()).unwrap();
+
+    // Check SIZE const has felt type
+    let (size_def_idx, _) = module_index
+        .resolve_name_to_definition("SIZE", FileScopeId::new(0))
+        .expect("SIZE const should be defined");
+    let size_def_id = DefinitionId::new(&db, main_file, size_def_idx);
+    let size_type = definition_semantic_type(&db, crate_id, size_def_id);
+    assert!(
+        matches!(size_type.data(&db), TypeData::Felt),
+        "SIZE should have felt type"
+    );
+
+    // Check MAX const has u32 type
+    let (max_def_idx, _) = module_index
+        .resolve_name_to_definition("MAX", FileScopeId::new(0))
+        .expect("MAX const should be defined");
+    let max_def_id = DefinitionId::new(&db, main_file, max_def_idx);
+    let max_type = definition_semantic_type(&db, crate_id, max_def_id);
+    assert!(
+        matches!(max_type.data(&db), TypeData::U32),
+        "MAX should have u32 type"
+    );
+
+    // Check PI const infers felt type
+    let (pi_def_idx, _) = module_index
+        .resolve_name_to_definition("PI", FileScopeId::new(0))
+        .expect("PI const should be defined");
+    let pi_def_id = DefinitionId::new(&db, main_file, pi_def_idx);
+    let pi_type = definition_semantic_type(&db, crate_id, pi_def_id);
+    assert!(
+        matches!(pi_type.data(&db), TypeData::Felt),
+        "PI should infer felt type"
+    );
+
+    // Check POW2 const has [u32; 3] type
+    let (pow2_def_idx, _) = module_index
+        .resolve_name_to_definition("POW2", FileScopeId::new(0))
+        .expect("POW2 const should be defined");
+    let pow2_def_id = DefinitionId::new(&db, main_file, pow2_def_idx);
+    let pow2_type = definition_semantic_type(&db, crate_id, pow2_def_id);
+    let pow2_data = pow2_type.data(&db);
+    if let TypeData::FixedArray { element_type, size } = pow2_data {
+        assert_eq!(size, 3, "POW2 should have size 3");
+        assert!(
+            matches!(element_type.data(&db), TypeData::U32),
+            "POW2 element type should be U32"
+        );
+    } else {
+        panic!("POW2 should be a FixedArray type");
+    }
+}

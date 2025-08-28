@@ -24,6 +24,7 @@ expression: snapshot
         }
 
         const TOP_LEVEL_CONST = 100;
+        const TYPED_CONST: felt = 42;
     
 --- AST ---
 [
@@ -446,6 +447,7 @@ expression: snapshot
                     "TOP_LEVEL_CONST",
                     408..423,
                 ),
+                ty: None,
                 value: Spanned(
                     Literal(
                         100,
@@ -455,6 +457,35 @@ expression: snapshot
                 ),
             },
             402..430,
+        ),
+    ),
+    Const(
+        Spanned(
+            ConstDef {
+                name: Spanned(
+                    "TYPED_CONST",
+                    445..456,
+                ),
+                ty: Some(
+                    Spanned(
+                        Named(
+                            Spanned(
+                                Felt,
+                                458..462,
+                            ),
+                        ),
+                        458..462,
+                    ),
+                ),
+                value: Spanned(
+                    Literal(
+                        42,
+                        None,
+                    ),
+                    465..467,
+                ),
+            },
+            439..468,
         ),
     ),
 ]

@@ -1178,8 +1178,45 @@ impl TypeValidator {
                 // Expression statements are handled by check_expression_types
                 let _expr_id = index.expression_id_by_span(expr.span());
             }
-            Statement::Const(_) => {
-                // Const statements are handled during definition processing
+            Statement::Const(const_def) => {
+                // Validate that the const value type matches the declared type
+                if let Some(ref type_ast) = const_def.ty {
+                    if let Some(value_expr_id) = index.expression_id_by_span(const_def.value.span())
+                    {
+                        // Get the declared type
+                        let declared_type = resolve_ast_type(
+                            db,
+                            crate_id,
+                            file,
+                            type_ast.clone(),
+                            index.scope_for_span(stmt.span()).unwrap(),
+                        );
+
+                        // Get the actual value type
+                        let value_type = expression_semantic_type(
+                            db,
+                            crate_id,
+                            file,
+                            value_expr_id,
+                            Some(declared_type),
+                        );
+
+                        // Check compatibility
+                        if !are_types_compatible(db, value_type, declared_type) {
+                            sink.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::TypeMismatch,
+                                    format!(
+                                        "Type mismatch in const declaration: expected `{}`, got `{}`",
+                                        declared_type.data(db).display_name(db),
+                                        value_type.data(db).display_name(db)
+                                    ),
+                                )
+                                .with_location(file.file_path(db).to_string(), const_def.value.span()),
+                            );
+                        }
+                    }
+                }
             }
             Statement::Loop { body } => {
                 self.check_statement_type(db, crate_id, file, index, function_def, body, sink);

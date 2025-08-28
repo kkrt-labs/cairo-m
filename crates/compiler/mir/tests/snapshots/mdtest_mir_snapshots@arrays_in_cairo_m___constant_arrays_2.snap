@@ -1,0 +1,41 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Arrays in Cairo-M - Constant Arrays 2"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+const POW2: [u32; 3] = [1, 2, 4];
+
+fn test_main() -> u32 {
+    return const_arr_access_const_value(0);
+}
+
+fn const_arr_access_const_value(i: felt) -> u32 {
+    return POW2[i];
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_main {
+    entry: 0
+
+    0:
+      %0 = call 1(0)
+      return %0
+
+  }
+
+  // Function 1
+  fn const_arr_access_const_value {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %1 = makefixedarray [1, 2, 4]
+      %2 = arrayindex %1, %0
+      return %2
+
+  }
+
+}

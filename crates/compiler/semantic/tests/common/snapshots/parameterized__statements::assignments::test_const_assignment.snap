@@ -1,0 +1,31 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { const x = 42; x = 100; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to const variable `x`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:27 ]
+   │
+ 1 │ fn test() { const x = 42; x = 100; return; }
+   │                   ┬       ┬  
+   │                   ╰────────── const variable defined here
+   │                           │  
+   │                           ╰── cannot assign to const variable `x`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+
+            const POW2: [u32; 3] = [1, 2, 4felt];
+            
+--- Diagnostics ---
+[2001] Error: Array element at index 2 has type `felt`, but expected `u32` to match first element
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:2:43 ]
+   │
+ 2 │             const POW2: [u32; 3] = [1, 2, 4felt];
+   │                                           ──┬──  
+   │                                             ╰──── Array element at index 2 has type `felt`, but expected `u32` to match first element
+───╯

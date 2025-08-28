@@ -1,0 +1,39 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Constant Arrays 2"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+const POW2: [u32; 3] = [1, 2, 4];
+
+fn test_main() -> u32 {
+    return const_arr_access_const_value(0);
+}
+
+fn const_arr_access_const_value(i: felt) -> u32 {
+    return POW2[i];
+}
+============================================================
+Generated CASM:
+test_main:
+test_main:
+test_main_0:
+   0: 9 0 2 _              // Arg 0: [fp + 2] = 0
+   1: 10 5 5 _             // call const_arr_access_const_value
+   2: 4 3 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 3] + 0
+   3: 4 4 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 4] + 0
+   4: 11 _ _ _             // return
+const_arr_access_const_value:
+const_arr_access_const_value:
+const_arr_access_const_value_0:
+   5: 23 1 0 3             // [fp + 3], [fp + 4] = u32(1)
+   6: 23 2 0 5             // [fp + 5], [fp + 6] = u32(2)
+   7: 23 4 0 7             // [fp + 7], [fp + 8] = u32(4)
+   8: 43 3 0 _             // [fp + 0] = fp + 3
+   9: 6 -5 2 9             // [fp + 9] = [fp + -5] * 2 - Scale index by element size
+  10: 42 0 9 1             // [fp + 1] = [[fp + 0] + [fp + 9]]
+  11: 4 9 1 10             // [fp + 10] = [fp + 9] + 1 (offset for slot 1)
+  12: 42 0 10 2            // [fp + 2] = [[fp + 0] + [fp + 10]] (slot 1)
+  13: 4 1 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 1] + 0
+  14: 4 2 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 2] + 0
+  15: 11 _ _ _             // return

@@ -13,6 +13,7 @@ const MAX_SIZE = 100;
                     "MAX_SIZE",
                     6..14,
                 ),
+                ty: None,
                 value: Spanned(
                     Literal(
                         100,
@@ -38,6 +39,7 @@ const COMPUTED = 2 * 3 + 1;
                     "COMPUTED",
                     6..14,
                 ),
+                ty: None,
                 value: Spanned(
                     BinaryOp {
                         op: Add,
@@ -73,6 +75,114 @@ const COMPUTED = 2 * 3 + 1;
                 ),
             },
             0..27,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+const SIZE: felt = 3;
+--- AST ---
+[
+    Const(
+        Spanned(
+            ConstDef {
+                name: Spanned(
+                    "SIZE",
+                    6..10,
+                ),
+                ty: Some(
+                    Spanned(
+                        Named(
+                            Spanned(
+                                Felt,
+                                12..16,
+                            ),
+                        ),
+                        12..16,
+                    ),
+                ),
+                value: Spanned(
+                    Literal(
+                        3,
+                        None,
+                    ),
+                    19..20,
+                ),
+            },
+            0..21,
+        ),
+    ),
+]
+============================================================
+
+--- Input 4 ---
+const MAX_VALUE: u32 = 100;
+--- AST ---
+[
+    Const(
+        Spanned(
+            ConstDef {
+                name: Spanned(
+                    "MAX_VALUE",
+                    6..15,
+                ),
+                ty: Some(
+                    Spanned(
+                        Named(
+                            Spanned(
+                                U32,
+                                17..20,
+                            ),
+                        ),
+                        17..20,
+                    ),
+                ),
+                value: Spanned(
+                    Literal(
+                        100,
+                        None,
+                    ),
+                    23..26,
+                ),
+            },
+            0..27,
+        ),
+    ),
+]
+============================================================
+
+--- Input 5 ---
+const PI: felt = 314;
+--- AST ---
+[
+    Const(
+        Spanned(
+            ConstDef {
+                name: Spanned(
+                    "PI",
+                    6..8,
+                ),
+                ty: Some(
+                    Spanned(
+                        Named(
+                            Spanned(
+                                Felt,
+                                10..14,
+                            ),
+                        ),
+                        10..14,
+                    ),
+                ),
+                value: Spanned(
+                    Literal(
+                        314,
+                        None,
+                    ),
+                    17..20,
+                ),
+            },
+            0..21,
         ),
     ),
 ]

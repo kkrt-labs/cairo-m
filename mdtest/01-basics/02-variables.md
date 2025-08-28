@@ -54,3 +54,16 @@ fn test_mutation() -> felt {
     return x;
 }
 ```
+
+## Constants
+
+Constants are declared using the `const` keyword. They can be assigned an
+optional type; otherwise, the type is inferred from the expression.
+
+```cairo-m
+const POW2: [u32; 3] = [1, 2, 4];
+
+fn test_const() -> u32 {
+    return POW2[0] + POW2[1] + POW2[2];
+}
+```
