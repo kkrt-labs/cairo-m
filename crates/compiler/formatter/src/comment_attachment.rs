@@ -221,22 +221,51 @@ fn find_best_attachment(
     source: &str,
 ) -> Option<SimpleSpan<usize>> {
     // Find nodes that could be related to this comment
-    let mut candidates = Vec::new();
+    let mut candidates: Vec<(
+        SimpleSpan<usize>,
+        crate::trivia::CommentPosition,
+        usize,
+        u32,
+    )> = Vec::new();
 
     for &span in node_spans {
-        if let Some(_pos) = determine_comment_position(comment.span, span, source) {
-            candidates.push(span);
+        if let Some(pos) = determine_comment_position(comment.span, span, source) {
+            // Distance from the relevant edge
+            let distance = if comment.span.start < span.start {
+                span.start.saturating_sub(comment.span.start)
+            } else {
+                comment.span.start.saturating_sub(span.end)
+            };
+
+            // Rank preferences: EndOfLine < Before < After
+            // Docstrings ("///") should strongly prefer Before
+            let is_doc = comment.text.trim_start().starts_with("///");
+            let rank = match pos {
+                CommentPosition::EndOfLine => 0,
+                CommentPosition::Before => {
+                    if is_doc {
+                        0
+                    } else {
+                        1
+                    }
+                }
+                CommentPosition::After => {
+                    if is_doc {
+                        3
+                    } else {
+                        2
+                    }
+                }
+            };
+            candidates.push((span, pos, distance, rank));
         }
     }
 
-    // Return the closest candidate
-    candidates.into_iter().min_by_key(|&span| {
-        if comment.span.start < span.start {
-            span.start - comment.span.start
-        } else {
-            comment.span.start - span.end
-        }
-    })
+    // Prefer lower rank then smaller distance
+    candidates
+        .into_iter()
+        .min_by_key(|&(_span, _pos, distance, rank)| (rank, distance))
+        .map(|(span, _pos, _distance, _rank)| span)
 }
 
 /// Find the nearest node to a comment
