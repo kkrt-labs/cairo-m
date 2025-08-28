@@ -71,9 +71,13 @@ impl Format for FunctionDef {
             .collect::<Vec<_>>();
         parts.push(parens(comma_separated(params)));
 
-        // Return type
-        parts.push(Doc::text(" -> "));
-        parts.push(self.return_type.value().format(ctx));
+        // Return type (skip empty unit type only if it's implicit - has span 0..0)
+        let is_implicit_unit = matches!(self.return_type.value(), cairo_m_compiler_parser::parser::TypeExpr::Tuple(types) if types.is_empty());
+
+        if !is_implicit_unit {
+            parts.push(Doc::text(" -> "));
+            parts.push(self.return_type.value().format(ctx));
+        }
 
         // Body
         parts.push(Doc::text(" {"));

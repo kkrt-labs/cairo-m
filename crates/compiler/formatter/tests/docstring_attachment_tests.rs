@@ -37,7 +37,7 @@ fn inc(x: felt) -> felt {
 }
 
 /// No-op function
-fn noop() -> () {}
+fn noop() {}
 "#;
 
     assert_eq!(format_code(input), expected);

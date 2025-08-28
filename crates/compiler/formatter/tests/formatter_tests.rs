@@ -53,8 +53,8 @@ fn test_idempotence() {
 fn test_while_condition_with_and_without_parentheses() {
     let with_parens = r#"fn test(){while(i!=n){i=i+1;}}"#;
     let without_parens = r#"fn test(){while i!=n{i=i+1;}}"#;
-    let expected_with = "fn test() -> () {\n    while i != n {\n        i = i + 1;\n    }\n}\n";
-    let expected_without = "fn test() -> () {\n    while i != n {\n        i = i + 1;\n    }\n}\n";
+    let expected_with = "fn test() {\n    while i != n {\n        i = i + 1;\n    }\n}\n";
+    let expected_without = "fn test() {\n    while i != n {\n        i = i + 1;\n    }\n}\n";
     assert_eq!(format_code(with_parens), expected_with);
     assert_eq!(format_code(without_parens), expected_without);
 }
@@ -84,12 +84,12 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 
 #[test]
 fn test_for_loop_formatting_with_parentheses() {
-    let input = r#"fn test() -> () {
+    let input = r#"fn test() {
     for (let i = 0u32; i < 10; i = i + 1) {
         do_stuff();
     }
 }"#;
-    let expected = r#"fn test() -> () {
+    let expected = r#"fn test() {
     for (let i = 0u32; i < 10; i = i + 1) {
         do_stuff();
     }
@@ -100,16 +100,27 @@ fn test_for_loop_formatting_with_parentheses() {
 
 #[test]
 fn test_for_loop_formatting_ensures_parentheses() {
-    // Test that formatter always includes parentheses around for loop expressions
-    let input = r#"fn test() -> () {
+    let input = r#"fn test() {
     for (let i=0u32;i<10;i=i+1) {
         do_stuff();
     }
 }"#;
-    let expected = r#"fn test() -> () {
+    let expected = r#"fn test() {
     for (let i = 0u32; i < 10; i = i + 1) {
         do_stuff();
     }
+}
+"#;
+    assert_eq!(format_code(input), expected);
+}
+
+#[test]
+fn test_function_no_return_type() {
+    let input = r#"
+fn test() { return; }
+"#;
+    let expected = r#"fn test() {
+    return;
 }
 "#;
     assert_eq!(format_code(input), expected);
