@@ -76,6 +76,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
+use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -97,10 +98,12 @@ pub struct InteractionClaimData {
     pub non_padded_length: usize,
 }
 
-// Implement RangeCheckProvider to expose range_check_16 data
-impl crate::components::opcodes::RangeCheckProvider for InteractionClaimData {
+impl RangeCheckProvider for InteractionClaimData {
     fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
         self.lookup_data.range_check_16.par_iter().flatten()
+    }
+    fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        self.lookup_data.range_check_20.par_iter().flatten()
     }
 }
 
