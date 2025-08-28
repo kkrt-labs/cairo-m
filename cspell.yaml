@@ -87,6 +87,7 @@ words:
   - resx
   - rfib
   - rfind
+  - rlib
   - rotr
   - rngs
   - rustc

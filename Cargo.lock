@@ -679,6 +679,7 @@ dependencies = [
  "proptest",
  "rand 0.8.5",
  "regex",
+ "serde_json",
  "smallvec",
  "sonic-rs 0.5.1",
  "stwo-prover",

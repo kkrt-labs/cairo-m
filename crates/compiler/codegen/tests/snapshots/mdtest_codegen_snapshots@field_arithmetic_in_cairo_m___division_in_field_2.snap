@@ -1,20 +1,20 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
-description: "Codegen snapshot for mdtest: Field Arithmetic in Cairo-M - Division in Field"
+description: "Codegen snapshot for mdtest: Field Arithmetic in Cairo-M - Division in Field 2"
 input_file: mdtest/01-basics/04-arithmetic.md
 ---
 Source:
-fn field_division() -> felt {
-    let a = 6;
+fn field_division_non_divisible() -> felt {
+    let a = 7;
     let b = 3;
-    return a / b;  // Returns 2
+    return a / b;  // Returns 1431655767 (uses field inverse)
 }
 ============================================================
 Generated CASM:
-field_division:
-field_division:
-field_division_0:
-   0: 9 6 0 _              // [fp + 0] = 6
+field_division_non_divisible:
+field_division_non_divisible:
+field_division_non_divisible_0:
+   0: 9 7 0 _              // [fp + 0] = 7
    1: 9 3 1 _              // [fp + 1] = 3
    2: 3 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
    3: 11 _ _ _             // return
