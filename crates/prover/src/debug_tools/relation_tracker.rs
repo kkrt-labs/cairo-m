@@ -209,6 +209,8 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.u32_store_div_fp_imm, trace),
         add_to_relation_entries(&opcodes.u32_store_eq_fp_fp, trace),
         add_to_relation_entries(&opcodes.u32_store_eq_fp_imm, trace),
+        add_to_relation_entries(&opcodes.u32_store_lt_fp_imm, trace),
+        add_to_relation_entries(&opcodes.u32_store_lt_fp_fp, trace),
         add_to_relation_entries(memory, trace),
         add_to_relation_entries(merkle, trace),
         add_to_relation_entries(clock_update, trace),

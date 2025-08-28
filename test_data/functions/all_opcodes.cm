@@ -54,6 +54,21 @@ fn main() -> felt {
     let mul3 = x_u32 * 4;
     // U32StoreAddFpImm: [fp + off2] = [fp + off0] + imm
     let add3 = x_u32 + 4;
+    // U32StoreLtFpImm
+    let is_lt1 = x_u32 < 1u32;
+    let is_lt2 = x_u32 < 0u32;
+    let is_lt1 = x_u32 < 42u32;
+    let is_lt1 = x_u32 < 43u32;
+
+    // U32StoreLtFpFp
+    let zero = 0u32;
+    let one = 1u32;
+    let forty_two = 42u32;
+    let forty_three = 43u32;
+    let is_lt1 = x_u32 < one;
+    let is_lt2 = x_u32 < zero;
+    let is_lt1 = x_u32 < forty_two;
+    let is_lt1 = x_u32 < forty_three;
 
     // JnzFpImm
     if (a != 5) {
