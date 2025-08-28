@@ -4,6 +4,7 @@
 //! from the AST to MIR values.
 
 use cairo_m_compiler_parser::parser::{BinaryOp, Expression, Spanned, UnaryOp};
+use cairo_m_compiler_semantic::definition::DefinitionKind;
 use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId};
 use cairo_m_compiler_semantic::type_resolution::{
@@ -78,15 +79,34 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         name: &Spanned<String>,
         scope_id: FileScopeId,
     ) -> Result<Value, String> {
-        if let Some((def_idx, _)) = self
+        if let Some((def_idx, def)) = self
             .ctx
             .semantic_index
             .resolve_name_to_definition(name.value(), scope_id)
         {
             let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+
+            // Check if this is a constant definition
+            if let DefinitionKind::Const(const_ref) = &def.kind {
+                // Constants need to be evaluated to their values
+                if let Some(value_expr_id) = const_ref.value_expr_id {
+                    // Get the constant's value expression from the semantic index
+                    if let Some(expr_info) = self.ctx.semantic_index.expression(value_expr_id) {
+                        // Lower the constant's value expression
+                        let const_expr =
+                            Spanned::new(expr_info.ast_node.clone(), expr_info.ast_span);
+                        return self.lower_expression(&const_expr);
+                    }
+                }
+                return Err(format!(
+                    "Constant '{}' has no value expression",
+                    name.value()
+                ));
+            }
+
             let _mir_def_id = self.convert_definition_id(def_id);
 
-            // Look up the MIR value for this definition
+            // Look up the MIR value for this definition (for variables, not constants)
             if let Ok(var_value) = self.read_variable(name.value(), name.span()) {
                 // Get the type to check if this is an array pointer
                 let value_type = self.state.mir_function.get_value_type(var_value);
