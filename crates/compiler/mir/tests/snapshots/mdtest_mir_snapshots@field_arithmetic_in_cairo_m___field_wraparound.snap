@@ -4,15 +4,15 @@ description: "MIR snapshot for mdtest: Field Arithmetic in Cairo-M - Field Wrapa
 input_file: mdtest/01-basics/04-arithmetic.md
 ---
 Source:
-fn test_wraparound() -> felt {
+fn test_wraparound_upper() -> felt {
     let max = 2147483646;  // 2^31 - 2
-    return max + 1;  // Wraps to 2^31 - 1
+    return max + 1;  // Wraps to 2^31 - 1 == 0
 }
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn test_wraparound {
+  fn test_wraparound_upper {
     entry: 0
 
     0:

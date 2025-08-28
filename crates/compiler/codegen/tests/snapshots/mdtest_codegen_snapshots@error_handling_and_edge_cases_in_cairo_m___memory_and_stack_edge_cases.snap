@@ -20,29 +20,32 @@ Generated CASM:
 deep_recursion:
 deep_recursion:
 deep_recursion_0:
-   0: 32 -6 1000 0 0       // [fp + 0] = u32([fp + -6], [fp + -5]) U32Greater u32(1000, 0)
-   1: 14 0 2 _             // if [fp + 0] != 0 jmp rel deep_recursion_1
-   2: 12 7 _ _             // jump abs deep_recursion_2
+   0: 34 -6 1001 0 0       // [fp + 0] = u32([fp + -6], [fp + -5]) U32Greater u32(1001, 0)
+   1: 9 1 10 _             // [fp + 10] = 1
+   2: 4 0 0 25             // [fp + 25] = [fp + 0] + 0
+   3: 1 10 25 0            // [fp + 0] = [fp + 10] op [fp + 25]
+   4: 14 0 2 _             // if [fp + 0] != 0 jmp rel deep_recursion_1
+   5: 12 10 _ _            // jump abs deep_recursion_2
 deep_recursion_1:
-   3: 4 -8 0 -4            // Return value 0 slot 0: [fp -4] = [fp + -8] + 0
-   4: 4 -7 0 -3            // Return value 0 slot 1: [fp -3] = [fp + -7] + 0
-   5: 11 _ _ _             // return
+   6: 4 -8 0 -4            // Return value 0 slot 0: [fp -4] = [fp + -8] + 0
+   7: 4 -7 0 -3            // Return value 0 slot 1: [fp -3] = [fp + -7] + 0
+   8: 11 _ _ _             // return
 deep_recursion_2:
-   6: 35 -8 1 0 1          // [fp + 1] = u32([fp + -8], [fp + -7]) U32LessEqual u32(1, 0)
-   7: 14 1 2 _             // if [fp + 1] != 0 jmp rel deep_recursion_3
-   8: 12 13 _ _            // jump abs deep_recursion_4
+   9: 34 -8 2 0 1          // [fp + 1] = u32([fp + -8], [fp + -7]) U32LessEqual u32(2, 0)
+  10: 14 1 2 _             // if [fp + 1] != 0 jmp rel deep_recursion_3
+  11: 12 16 _ _            // jump abs deep_recursion_4
 deep_recursion_3:
-   9: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
-  10: 11 _ _ _             // return
+  12: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
+  13: 11 _ _ _             // return
 deep_recursion_4:
-  11: 20 -8 1 0 2          // u32([fp + 2], [fp + 3]) = u32([fp + -8], [fp + -7]) U32Sub u32(1, 0)
-  12: 19 -6 1 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + -6], [fp + -5]) U32Add u32(1, 0)
-  13: 4 2 0 14             // Arg 0 slot 0: [fp + 14] = [fp + 2] + 0
-  14: 4 3 0 15             // Arg 0 slot 1: [fp + 15] = [fp + 3] + 0
-  15: 4 12 0 16            // Arg 1 slot 0: [fp + 16] = [fp + 12] + 0
-  16: 4 13 0 17            // Arg 1 slot 1: [fp + 17] = [fp + 13] + 0
-  17: 10 20 0 _            // call deep_recursion
-  18: 15 -8 18 8           // u32([fp + 8], [fp + 9]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + 18], [fp + 19])
-  19: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
-  20: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
-  21: 11 _ _ _             // return
+  14: 19 -8 65535 65535 2  // u32([fp + 2], [fp + 3]) = u32([fp + -8], [fp + -7]) U32Sub u32(65535, 65535)
+  15: 19 -6 1 0 13         // u32([fp + 13], [fp + 14]) = u32([fp + -6], [fp + -5]) U32Add u32(1, 0)
+  16: 4 2 0 15             // Arg 0 slot 0: [fp + 15] = [fp + 2] + 0
+  17: 4 3 0 16             // Arg 0 slot 1: [fp + 16] = [fp + 3] + 0
+  18: 4 13 0 17            // Arg 1 slot 0: [fp + 17] = [fp + 13] + 0
+  19: 4 14 0 18            // Arg 1 slot 1: [fp + 18] = [fp + 14] + 0
+  20: 10 21 0 _            // call deep_recursion
+  21: 15 -8 19 8           // u32([fp + 8], [fp + 9]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + 19], [fp + 20])
+  22: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
+  23: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
+  24: 11 _ _ _             // return

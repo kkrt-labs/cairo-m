@@ -43,7 +43,7 @@ is_even_1:
    9: 9 1 -3 _             // Return value 0: [fp -3] = 1
   10: 11 _ _ _             // return
 is_even_2:
-  11: 5 -4 1 2             // [fp + 2] = [fp + -4] op 1
+  11: 4 -4 2147483646 2    // [fp + 2] = [fp + -4] op 1
   12: 10 4 15 _            // call is_odd
   13: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
   14: 11 _ _ _             // return
@@ -56,7 +56,7 @@ is_odd_1:
   17: 9 0 -3 _             // Return value 0: [fp -3] = 0
   18: 11 _ _ _             // return
 is_odd_2:
-  19: 5 -4 1 2             // [fp + 2] = [fp + -4] op 1
+  19: 4 -4 2147483646 2    // [fp + 2] = [fp + -4] op 1
   20: 10 4 7 _             // call is_even
   21: 4 3 0 -3             // Return value 0: [fp -3] = [fp + 3] + 0
   22: 11 _ _ _             // return

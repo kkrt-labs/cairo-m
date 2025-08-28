@@ -192,30 +192,6 @@ proptest! {
     }
 
     #[test]
-    fn test_store_sub_fp_imm(src_val: u32, imm_val: u32) {
-        let src = M31::from(src_val);
-        let imm = M31::from(imm_val);
-        let expected_res = src - imm;
-
-        let mut initial_mem = vec![0; 4];
-        initial_mem[1] = src_val;
-        let mut expected_mem = initial_mem.clone();
-        expected_mem[3] = expected_res.0;
-
-        run_simple_store_test(
-            &initial_mem,
-            Instruction::StoreSubFpImm {
-                src_off: M31(1),
-                imm,
-                dst_off: M31(3),
-            },
-            store_sub_fp_imm,
-            &expected_mem,
-            1,
-        ).unwrap();
-    }
-
-    #[test]
     fn test_store_double_deref_fp(val_to_store: u32, dst_val: u32) {
         run_simple_store_test(
             &[0, 1, dst_val, val_to_store],
@@ -362,26 +338,6 @@ proptest! {
             1,
         ).unwrap();
     }
-
-    #[test]
-    fn test_store_div_fp_imm(src_val: u32, imm_val: u32) {
-        let imm = M31::from(imm_val);
-        prop_assume!(imm != M31::zero(), "division by zero");
-
-        let src = M31::from(src_val);
-        let expected_res = src / imm;
-        run_simple_store_test(
-            &[0, src_val],
-            Instruction::StoreDivFpImm {
-                src_off: M31(1),
-                imm,
-                dst_off: M31(2),
-            },
-            store_div_fp_imm,
-            &[0, src_val, expected_res.0],
-            1,
-        ).unwrap();
-    }
 }
 
 #[test]
@@ -396,20 +352,6 @@ fn test_store_div_fp_fp_by_zero() {
     };
 
     let _ = store_div_fp_fp(&mut memory, state, &instruction);
-}
-
-#[test]
-#[should_panic(expected = "0 has no inverse")]
-fn test_store_div_fp_imm_by_zero() {
-    let mut memory = Memory::from_iter([0u32, 4].map(Into::into));
-    let state = State::default();
-    let instruction = Instruction::StoreDivFpImm {
-        src_off: M31(1),
-        imm: M31(0),
-        dst_off: M31(2),
-    };
-
-    let _ = store_div_fp_imm(&mut memory, state, &instruction);
 }
 
 // -----------------------------------------------------------------------------
@@ -448,47 +390,6 @@ proptest! {
                 dst_off: M31(2),
             },
             u32_store_add_fp_imm,
-            0,
-            2,
-            2,
-        );
-        assert_eq!(err.unwrap_err(), InstructionExecutionError::Memory(MemoryError::U32LimbOutOfRange {
-            limb_lo: imm_val_lo,
-            limb_hi: imm_val_hi,
-        }));
-    }
-
-    #[test]
-    fn test_u32_store_sub_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
-        let imm_val = (imm_val_hi << 16) | imm_val_lo;
-        let expected_res = src_value.wrapping_sub(imm_val);
-        run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreSubFpImm {
-                src_off: M31(0),
-                imm_lo: M31(imm_val_lo),
-                imm_hi: M31(imm_val_hi),
-                dst_off: M31(2),
-            },
-            u32_store_sub_fp_imm,
-            expected_res,
-            2,
-            2,
-        ).unwrap();
-    }
-
-    #[test]
-    fn test_u32_store_sub_fp_imm_invalid_limbs(src_value: u32, imm_val_lo: u32, imm_val_hi: u32) {
-        prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
-        let err = run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreSubFpImm {
-                src_off: M31(0),
-                imm_hi: M31(imm_val_hi),
-                imm_lo: M31(imm_val_lo),
-                dst_off: M31(2),
-            },
-            u32_store_sub_fp_imm,
             0,
             2,
             2,

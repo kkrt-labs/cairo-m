@@ -30,7 +30,7 @@ array_sum_loop_0:
    8: 19 1 0 0 4           // u32([fp + 4], [fp + 5]) = u32([fp + 1], [fp + 2]) + u32(0, 0)
    9: 4 3 0 6              // [fp + 6] = [fp + 3] + 0
 array_sum_loop_1:
-  10: 5 6 5 22             // [fp + 22] = [fp + 6] op 5
+  10: 4 6 2147483642 22    // [fp + 22] = [fp + 6] op 5
   11: 14 22 2 _            // if [fp + 22] != 0 jmp rel array_sum_loop_2
   12: 12 24 _ _            // jump abs array_sum_loop_3
 array_sum_loop_2:

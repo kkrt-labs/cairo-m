@@ -8,7 +8,7 @@ use std::path::Path;
 use cairo_m_common::execution::Segment;
 use cairo_m_common::instruction::InstructionError;
 use cairo_m_common::{Instruction, Program, State};
-use instructions::opcode_to_instruction_fn;
+use instructions::instruction_to_fn;
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -126,7 +126,7 @@ impl VM {
         let instruction: Instruction = instruction_m31s.try_into()?;
 
         // Get opcode from the instruction for dispatch
-        let instruction_fn = opcode_to_instruction_fn(instruction.opcode_value().into())?;
+        let instruction_fn = instruction_to_fn(instruction)?;
         self.trace.push(self.state);
         self.state = instruction_fn(&mut self.memory, self.state, &instruction)?;
         Ok(())

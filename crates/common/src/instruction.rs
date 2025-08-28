@@ -234,9 +234,7 @@ define_instruction!(
 
     // Arithmetic operations with immediate: order matters for the prover, see store_fp_imm.rs
     StoreAddFpImm = 4, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] + imm
-    // StoreSubFpImm removed - use StoreAddFpImm with negated immediate
     StoreMulFpImm = 6, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] * imm
-    // StoreDivFpImm removed - use StoreMulFpImm with inverse immediate
 
     // Comparison operations
     StoreLowerThanFpImm = 48, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt]; // [fp + dst_off] = [fp + src_off] < imm
@@ -270,7 +268,6 @@ define_instruction!(
 
     // U32 operations with immediate
     U32StoreAddFpImm = 19, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
-    // U32StoreSubFpImm removed - use U32StoreAddFpImm with two's complement immediate
     U32StoreMulFpImm = 21, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
     U32StoreDivFpImm = 22, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
 
@@ -279,19 +276,11 @@ define_instruction!(
 
     // U32 Comparison operations (minimal set - others derived via swaps/complements)
     U32StoreEqFpFp = 24, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) == u32([fp + src1_off], [fp + src1_off + 1])
-    // U32StoreNeqFpFp removed - use 1 - U32StoreEqFpFp
-    // U32StoreGtFpFp removed - use U32StoreLtFpFp with swapped operands
-    // U32StoreGeFpFp removed - use 1 - U32StoreLtFpFp
     U32StoreLtFpFp = 28, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
-    // U32StoreLeFpFp removed - use U32StoreGeFpFp with swapped operands
 
     // U32 Comparison operations with immediate (minimal set - others derived)
     U32StoreEqFpImm = 30, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
-    // U32StoreNeqFpImm removed - use 1 - U32StoreEqFpImm
-    // U32StoreGtFpImm removed - use 1 - U32StoreLeFpImm
-    // U32StoreGeFpImm removed - use 1 - U32StoreLtFpImm
     U32StoreLtFpImm = 34, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
-    // U32StoreLeFpImm removed - converted to U32StoreLtFpImm with bias (x <= c → x < c+1)
 
     // U32 Bitwise operations
     U32StoreAndFpFp = 36, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) & u32([fp + src1_off], [fp + src1_off + 1])

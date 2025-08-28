@@ -191,21 +191,12 @@ macro_rules! define_opcodes {
                     Instruction::U32StoreMulFpFp { .. } => {},
                     Instruction::U32StoreDivFpFp { .. } => {},
                     Instruction::U32StoreAddFpImm { .. } => {},
-                    // U32StoreSubFpImm removed - compiled as U32StoreAddFpImm with two's complement
                     Instruction::U32StoreMulFpImm { .. } => {},
                     Instruction::U32StoreDivFpImm { .. } => {},
                     Instruction::U32StoreEqFpFp { .. } => {},
-                    // U32StoreNeqFpFp removed - compiled as 1 - U32StoreEqFpFp
-                    // U32StoreGtFpFp removed - compiled as U32StoreLtFpFp with swapped operands
-                    // U32StoreGeFpFp removed - compiled as 1 - U32StoreLtFpFp
                     Instruction::U32StoreLtFpFp { .. } => {},
-                    // U32StoreLeFpFp removed - use swapped operands
                     Instruction::U32StoreEqFpImm { .. } => {},
-                    // U32StoreNeqFpImm removed - compiled as 1 - U32StoreEqFpImm
-                    // U32StoreGtFpImm removed - compiled as 1 - U32StoreLeFpImm
-                    // U32StoreGeFpImm removed - compiled as 1 - U32StoreLtFpImm
                     Instruction::U32StoreLtFpImm { .. } => {},
-                    // U32StoreLeFpImm removed - compiled as U32StoreLtFpImm with bias
                     Instruction::U32StoreAndFpFp { .. } => {},
                     Instruction::U32StoreOrFpFp { .. } => {},
                     Instruction::U32StoreXorFpFp { .. } => {},

@@ -416,11 +416,11 @@ fn run_fib_test(n: u32) {
             src1_off: M31(2),
             dst_off: M31(2),
         }, // store_add_fp_fp: [fp+2] = [fp+3] + [fp+2] (b = temp + b)
-        Instruction::StoreSubFpImm {
+        Instruction::StoreAddFpImm {
             src_off: M31(0),
-            imm: M31(1),
+            imm: M31::from(-1),
             dst_off: M31(0),
-        }, // store_sub_fp_imm: [fp+0] = [fp+0] - 1 (counter--)
+        }, // store_sub_fp_imm: [fp+0] = [fp+0] + (-1) (counter--)
         // Jump back to condition check
         Instruction::JmpAbsImm { target: M31(3) }, // jmp_abs_imm: jmp abs 3
     ];
@@ -512,11 +512,11 @@ fn run_exponential_recursive_fib_test(n: u32) {
         }, // 5: store_imm: [fp - 3] = 0
         Instruction::Ret {}, // 6: ret
         // Check if argument is 1
-        Instruction::StoreSubFpImm {
+        Instruction::StoreAddFpImm {
             src_off: minus_4,
-            imm: M31(1),
+            imm: M31::from(-1),
             dst_off: M31(0),
-        }, // 7: store_sub_fp_imm: [fp] = [fp - 4] - 1
+        }, // 7: store_sub_fp_imm: [fp] = [fp - 4] + (-1)
         Instruction::JnzFpImm {
             cond_off: M31(0),
             offset: M31(3),
@@ -540,11 +540,11 @@ fn run_exponential_recursive_fib_test(n: u32) {
             dst_off: minus_3,
         }, // 12: store_add_fp_imm: [fp - 3] = [fp + 1] + 0
         // fib(n-2)
-        Instruction::StoreSubFpImm {
+        Instruction::StoreAddFpImm {
             src_off: M31(0),
-            imm: M31(1),
+            imm: M31::from(-1),
             dst_off: M31(0),
-        }, // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] - 1
+        }, // 13: Store n - 2, from previously computed n - 1 [fp] = [fp] + (-1)
         Instruction::CallAbsImm {
             frame_off: M31(2),
             target: M31(4),
