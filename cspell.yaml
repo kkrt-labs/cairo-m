@@ -40,7 +40,7 @@ words:
   - extractfield
   - extracttuple
   - filetime
-  - FIPS
+  - fips
   - foldl
   - foldr
   - framealloc

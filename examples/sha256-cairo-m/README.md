@@ -56,12 +56,6 @@ This implementation follows the NIST FIPS 180-4 specification for SHA-256:
 - Implements all required bitwise operations (rotate, shift, XOR, AND)
 - Supports messages up to 2 chunks (128 bytes) in the current configuration
 
-### Cairo-M Features Used
-
-- **u32 arithmetic**: Native support for 32-bit unsigned integer operations
-- **Arrays**: Fixed-size arrays for message buffers and hash state
-- **Control flow**: While loops for chunk processing and message scheduling
-- **Bitwise operations**: XOR, AND, and custom rotate-right implementation
 
 ### Testing Approach
 

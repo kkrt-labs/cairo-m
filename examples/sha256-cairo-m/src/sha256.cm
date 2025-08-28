@@ -23,7 +23,7 @@ fn rotr(x: u32, n: u32) -> u32 {
     let pow2_complement = POW2[complement_n];
     let shr_part = x / pow2_n;
     let shl_part = x * pow2_complement;
-    return shr_part | shl_part;
+    return shl_part | shr_part;
 }
 
 /// SHA-256 Σ₀ function used in the compression function.
