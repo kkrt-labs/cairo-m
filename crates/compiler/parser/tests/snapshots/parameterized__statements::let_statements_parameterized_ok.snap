@@ -264,6 +264,7 @@ fn test() { const PI = 314; }
                                     "PI",
                                     18..20,
                                 ),
+                                ty: None,
                                 value: Spanned(
                                     Literal(
                                         314,
