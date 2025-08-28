@@ -28,9 +28,31 @@ fn test_assignments() {
             // Assignment with incompatible operator result type
             in_function("let x: felt = 42; let y: felt = 100; let z: felt = (x == y);"),
             in_function("let x: felt = 42; let y: felt = 100; let z: felt = (x != y);"),
+        ]
+    }
+}
 
-            // Assignment to consts
-            in_function("const x = 42; x = 100;"),
+fn test_const_assignment() {
+    assert_semantic_parameterized! {
+        ok: [
+            r#"
+            const X: felt = 42;
+            const Y: felt = 100;
+            fn foo() -> felt{
+                return X + Y;
+            }
+            "#,
+
+            r#"
+            const X: u32 = 42;
+            const Y: u32 = 100;
+            fn foo() -> u32{
+                return X + Y;
+            }
+            "#,
+        ],
+        err: [
+            in_function("const x = 42; x = 100;"), // Cannot re-assign to const
         ]
     }
 }
