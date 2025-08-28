@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756297400078,
+  "lastUpdate": 1756371321002,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -1933,6 +1933,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 330181500,
             "range": "± 1112963",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11d9ea49be47c3ed020d1df6aa068792addf2a80",
+          "message": "feat(compiler): add type cast support from u32 to felt (#255)\n\n* feat(compiler): add type cast support from u32 to felt\n\n- Add Cast expression variant to parser with 'as' keyword\n- Implement precedence rules: cast binds tighter than logical, looser than arithmetic\n- Add semantic validation for cast expressions (only u32 to felt allowed)\n- Implement MIR lowering for cast operations\n- Generate efficient CASM code using StoreLowerThanFpImm for range checking\n- Add comprehensive test coverage with snapshots at all compiler phases\n- Update mdtest documentation with type casting examples\n\nThe implementation converts u32 to felt by:\n1. Validating high limb < 2^15 using StoreLowerThanFpImm\n2. Asserting the validation passes\n3. Computing result as lo + (hi * 2^16)\n\n* fix snaps\n\n* edit snaps\n\n* fix parser infinite recursion on tuple parenthesis\n\n* update semantic snap\n\n* fix bound checks\n\n* fix doc\n\n* fix snapshots\n\n* fix mdtest runner",
+          "timestamp": "2025-08-28T10:50:49+02:00",
+          "tree_id": "22468bf1182bffe549d6c03c1ac563724dacecab",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/11d9ea49be47c3ed020d1df6aa068792addf2a80"
+        },
+        "date": 1756371320590,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 335708465,
+            "range": "± 2619664",
             "unit": "ns/iter"
           }
         ]
