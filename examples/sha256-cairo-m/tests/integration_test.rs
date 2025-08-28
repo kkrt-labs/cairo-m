@@ -41,7 +41,7 @@ macro_rules! assert_cairo_array_result {
         assert_eq!(
             cairo_result_vec.as_slice(),
             &$expected[..],
-            "SHA-256 result mismatch"
+            "Cairo array result mismatch"
         );
     }};
 }
@@ -282,6 +282,15 @@ proptest! {
         if input.len() <= (MAX_CHUNKS - 1) * 64 + 55 {
             test_sha256(&input);
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "Message requires")]
+    fn test_sha256_exceeds_chunk_limit(len in 120..=500usize) {
+        // Test messages that exceed MAX_CHUNKS limit
+        // 120+ bytes require 3+ chunks after padding (exceeds our MAX_CHUNKS=2)
+        let input: Vec<u8> = (0..len).map(|i| (i & 0xFF) as u8).collect();
+        test_sha256(&input);
     }
 }
 

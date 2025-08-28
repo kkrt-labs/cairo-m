@@ -1,30 +1,21 @@
 // SHA-256 cryptographic hash function implementation in Cairo-M.
 // This implementation follows NIST FIPS 180-4 specification.
 // It operates on pre-padded messages represented as arrays of u32 words.
-
 /// Rotate right operation: rotates bits of x right by n positions.
 fn rotr(x: u32, n: u32) -> u32 {
-    let pow2_n = pow2(n);
+    if n >= 32 {
+        return x;
+    } // Pre-computed powers of 2 for n = 0 to 31
+    let POW2: [u32; 32] = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 2147483648];
+    let n_felt: felt = n as felt;
+    let pow2_n = POW2[n_felt];
     let bits_32: u32 = 32;
     let complement_n: u32 = bits_32 - n;
-    let pow2_complement = pow2(complement_n);
+    let complement_n_felt: felt = complement_n as felt;
+    let pow2_complement = POW2[complement_n_felt];
     let shr_part = x / pow2_n;
     let shl_part = x * pow2_complement;
     return shr_part | shl_part;
-}
-
-/// Computes 2^n for n < 32. Returns 0 for n >= 32.
-fn pow2(n: u32) -> u32 {
-    if n >= 32 {
-        return 0;
-    }
-    let result: u32 = 1;
-    let i: u32 = 0;
-    while (i != n) {
-        result = result * 2;
-        i = i + 1;
-    }
-    return result;
 }
 
 /// SHA-256 Σ₀ function used in the compression function.
@@ -62,37 +53,18 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 /// Updates the hash state H in-place.
 fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
     // SHA-256 round constants (first 32 bits of fractional parts of cube roots of first 64 primes)
-    let K: [u32; 64] = [
-        1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221,
-        3624381080, 310598401, 607225278, 1426881987, 1925078388, 2162078206, 2614888103, 3248222580,
-        3835390401, 4022224774, 264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986,
-        2554220882, 2821834349, 2952996808, 3210313671, 3336571891, 3584528711, 113926993, 338241895,
-        666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, 2177026350, 2456956037,
-        2730485921, 2820302411, 3259730800, 3345764771, 3516065817, 3600352804, 4094571909, 275423344,
-        430227734, 506948616, 659060556, 883997877, 958139571, 1322822218, 1537002063, 1747873779,
-        1955562222, 2024104815, 2227730452, 2361852424, 2428436474, 2756734187, 3204031479, 3329325298
-    ];
-    // Message schedule array
-    let W: [u32; 64] = [
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    ];
-    
-    // Copy chunk into first 16 words of message schedule
-    let round = 0;
-    while (round != 16) {
-        W[round] = chunk[round];
-        round = round + 1;
-    }
-    
-    // Extend the message schedule
-    while (round != 64) {
-        let s0 = small_sigma0(W[round - 15]);
-        let s1 = small_sigma1(W[round - 2]);
-        W[round] = W[round - 16] + s0 + W[round - 7] + s1;
-        round = round + 1;
+    let K: [u32; 64] = [1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221, 3624381080, 310598401, 607225278, 1426881987, 1925078388, 2162078206, 2614888103, 3248222580, 3835390401, 4022224774, 264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986, 2554220882, 2821834349, 2952996808, 3210313671, 3336571891, 3584528711, 113926993, 338241895, 666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, 2177026350, 2456956037, 2730485921, 2820302411, 3259730800, 3345764771, 3516065817, 3600352804, 4094571909, 275423344, 430227734, 506948616, 659060556, 883997877, 958139571, 1322822218, 1537002063, 1747873779, 1955562222, 2024104815, 2227730452, 2361852424, 2428436474, 2756734187, 3204031479, 3329325298]; // Message schedule array
+    let W: [u32; 64] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // Copy chunk into first 16 words of message schedule
+    let t = 0;
+    while t != 16 {
+        W[t] = chunk[t];
+        t = t + 1;
+    } // Extend the message schedule
+    while t != 64 {
+        let s0 = small_sigma0(W[t - 15]);
+        let s1 = small_sigma1(W[t - 2]);
+        W[t] = W[t - 16] + s0 + W[t - 7] + s1;
+        t = t + 1;
     }
     let a = H[0];
     let b = H[1];
@@ -101,11 +73,10 @@ fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
     let e = H[4];
     let f = H[5];
     let g = H[6];
-    let h = H[7];
-    // Compression function main loop
-    round = 0;
-    while (round != 64) {
-        let temp1 = h + big_sigma1(e) + ch(e, f, g) + K[round] + W[round];
+    let h = H[7]; // Compression function main loop
+    t = 0;
+    while t != 64 {
+        let temp1 = h + big_sigma1(e) + ch(e, f, g) + K[t] + W[t];
         let temp2 = big_sigma0(a) + maj(a, b, c);
         h = g;
         g = f;
@@ -115,7 +86,7 @@ fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
         c = b;
         b = a;
         a = temp1 + temp2;
-        round = round + 1;
+        t = t + 1;
     }
     H[0] = H[0] + a;
     H[1] = H[1] + b;
