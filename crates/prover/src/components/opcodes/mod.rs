@@ -85,11 +85,15 @@ macro_rules! define_opcodes {
             }
 
             pub fn range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
-                define_opcodes!(@range_check_16 self)
+                use $crate::components::opcodes::RangeCheckProvider;
+                rayon::iter::empty()
+                    $(.chain(self.$opcode.get_range_check_16()))*
             }
 
             pub fn range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
-                define_opcodes!(@range_check_8 self)
+                use $crate::components::opcodes::RangeCheckProvider;
+                rayon::iter::empty()
+                    $(.chain(self.$opcode.get_range_check_8()))*
             }
         }
 
@@ -165,15 +169,6 @@ macro_rules! define_opcodes {
         }
     };
 
-    // Helper rule for range_check_8 chaining
-    (@range_check_8 $self:ident) => {
-        rayon::iter::empty()
-    };
-
-    // Helper rule for range_check_16 chaining
-    (@range_check_16 $self:ident) => {
-        rayon::iter::empty()
-    };
 
     // Helper rule for range_check_20 chaining
     (@range_check_20 $self:ident, $first:ident $(, $rest:ident)*) => {
@@ -265,6 +260,23 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::Instructions;
 use crate::components::Relations;
+
+// Trait for components that provide range check data
+pub trait RangeCheckProvider {
+    /// Returns range_check_8 data if the component has it, otherwise returns an empty iterator
+    fn get_range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+
+    /// Returns range_check_16 data if   component has it, otherwise returns an empty iterator
+    fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        rayon::iter::empty()
+    }
+}
+
+// Default implementation for all InteractionClaimData types
+// Opcodes that have range_check_8 or range_check_16 will override these methods
+impl<T> RangeCheckProvider for T {}
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
