@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756223582678,
+  "lastUpdate": 1756368327468,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1169,6 +1169,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6066179464,
             "range": "± 36190210",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f94ce4b65dc87087369b891a5ff92ad70d49666",
+          "message": "Add compile-time check for opcode AIR implementation coverage (#260)\n\n* Remove useless const in macro\n\n* Re-add compile check for opcode AIR implementation",
+          "timestamp": "2025-08-28T10:51:15+03:00",
+          "tree_id": "c40efa9031edf51c69be95731c8020d4954a9929",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/3f94ce4b65dc87087369b891a5ff92ad70d49666"
+        },
+        "date": 1756368326982,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6008057661,
+            "range": "± 24549326",
             "unit": "ns/iter"
           }
         ]
