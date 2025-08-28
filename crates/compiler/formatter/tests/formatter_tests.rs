@@ -65,3 +65,19 @@ fn test_should_not_format_unparsable_code() {
     let formatted = format_code(input);
     assert_eq!(input, formatted);
 }
+
+#[test]
+fn test_keeping_operator_parentheses_nested() {
+    let input = r#"
+/// SHA-256 Maj (majority) function: majority vote of x, y, z.
+fn maj(x: u32, y: u32, z: u32) -> u32 {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+"#;
+    let expected = r#"/// SHA-256 Maj (majority) function: majority vote of x, y, z.
+fn maj(x: u32, y: u32, z: u32) -> u32 {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+"#;
+    assert_eq!(format_code(input), expected);
+}
