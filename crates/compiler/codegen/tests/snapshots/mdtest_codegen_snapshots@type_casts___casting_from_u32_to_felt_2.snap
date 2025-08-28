@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
-description: "Codegen snapshot for mdtest: Type Casts - Casting between Felt and U32 2"
+description: "Codegen snapshot for mdtest: Type Casts - Casting from u32 to felt 2"
 input_file: mdtest/01-basics/08-type-casts.md
 ---
 Source:
@@ -13,7 +13,7 @@ fn test_felt_to_u32() -> u32 {
 Result: EXPECTED ERROR
 Semantic validation failed with diagnostics:
 [2001] Error: Invalid cast from 'felt' to 'u32'. Only u32 to felt casting is currently supported.
-   ╭─[ Type Casts - Casting between Felt and U32 2:3:18 ]
+   ╭─[ Type Casts - Casting from u32 to felt 2:3:18 ]
    │
  3 │     let y: u32 = x as u32;
    │                  ┬  

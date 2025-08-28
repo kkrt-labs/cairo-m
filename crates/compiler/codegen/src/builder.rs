@@ -2779,7 +2779,7 @@ impl CasmBuilder {
 
                 // If hi < 32767, we're good
                 let ok_label = self.new_label_name("u32_cast_ok");
-                self.instructions.push(
+                self.add_instruction(
                     InstructionBuilder::new(JNZ_FP_IMM)
                         .with_operand(Operand::Literal(hi_lt_32767))
                         .with_operand(Operand::Label(ok_label.clone()))

@@ -1,23 +1,22 @@
 ---
 source: crates/compiler/mir/tests/mdtest_snapshots.rs
-description: "MIR snapshot for mdtest: Type Casts - Casting a u32 that doesn't fit in a felt 2"
+description: "MIR snapshot for mdtest: Type Casts -  to "
 input_file: mdtest/01-basics/08-type-casts.md
 ---
 Source:
-fn test_u32_to_felt_limit() -> felt {
-    let x: u32 = 2147483646;
-    let y: felt = x as felt;
+fn test_u32_to_felt(input: u32) -> felt {
+    let y: felt = input as felt;
     return y;
 }
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn test_u32_to_felt_limit {
+  fn test_u32_to_felt {
+    parameters: [0]
     entry: 0
 
     0:
-      %0 = 2147483646 (u32)
       %1 = cast %0 from u32 to felt
       return %1
 

@@ -1,6 +1,6 @@
 ---
 source: crates/compiler/mir/tests/mdtest_snapshots.rs
-description: "MIR snapshot for mdtest: Type Casts - Casting a u32 that doesn't fit in a felt 2"
+description: "MIR snapshot for mdtest: Type Casts -  that doesn't fit in a  2"
 input_file: mdtest/01-basics/08-type-casts.md
 ---
 Source:

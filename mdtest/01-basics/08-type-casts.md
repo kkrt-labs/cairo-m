@@ -3,21 +3,14 @@
 Cairo-M supports type casts between compatible types. Currently, only casts from
 `u32` to `felt` are supported.
 
-## Casting From `felt` to `u32`
+## Casting from u32 to felt
 
-> Note: casting from `felt` to `u32` is generating multiple CASM instructions,
+> Note: casting from `u32` to `felt` is generating multiple CASM instructions,
 > which might hinder performance. Avoid over-using it.
 
 ```cairo-m
 fn test_u32_to_felt(input: u32) -> felt {
     let y: felt = input as felt;
-    return y;
-}
-```
-
-```rust
-fn test_u32_to_felt(input: u32) -> i64 {
-    let y: i64 = input as i64;
     return y;
 }
 ```
@@ -31,7 +24,7 @@ fn test_felt_to_u32() -> u32 {
 }
 ```
 
-## Casting a `u32` that doesn't fit in a `felt`
+## Casting a u32 that doesn't fit in a felt
 
 Casting a `u32` in a `felt` checks that the `u32` value is _strictly_ less than
 `P == 2^31 - 1`.

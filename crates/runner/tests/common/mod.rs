@@ -164,7 +164,11 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
 }
 
 fn sanitize_test_name(name: &str) -> String {
-    name.replace(" - ", "_").replace(" ", "_").replace("/", "_")
+    name.replace(" - ", "_")
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("`", "")
+        .replace("'", "")
 }
 
 fn find_test_function(cairo_source: &str) -> String {
