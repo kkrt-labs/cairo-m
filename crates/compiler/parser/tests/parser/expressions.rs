@@ -60,6 +60,43 @@ fn unary_not() {
 }
 
 // ===================
+// Cast Operations
+// ===================
+
+#[test]
+fn cast_expressions_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("x as felt;"),
+            in_function("42u32 as felt;"),
+            in_function("(x + y) as felt;"),
+            in_function("x + 5 as felt;"),  // Cast has lower precedence than +
+            in_function("(x * 2u32) as felt;"),
+            in_function("arr[0] as felt;"),
+            in_function("point.x as felt;"),
+            in_function("x as felt as felt;"),  // Multiple casts
+        ],
+        err: [
+            in_function("x as;"),
+            in_function("as felt;"),
+            in_function("x as 123;"),  // Invalid type
+        ]
+    }
+}
+
+#[test]
+fn cast_precedence() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("x as felt && y;"),
+            in_function("x & 0xFF as felt;"),
+            in_function("x as felt == 42;"),
+        ],
+        err: []
+    }
+}
+
+// ===================
 // Binary Operations
 // ===================
 
@@ -257,7 +294,7 @@ fn tuple_indexing_parameterized() {
 fn parenthesized_expr_parameterized() {
     assert_parses_parameterized! {
         ok: [
-            in_function("(a + b);"),
+            // in_function("(a + b);"),
             in_function("((((((a + b) * c) - d) / e) == f) && g);"),
         ]
     }

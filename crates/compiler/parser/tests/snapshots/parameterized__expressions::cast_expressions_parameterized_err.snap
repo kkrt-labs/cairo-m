@@ -1,0 +1,40 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { x as; }
+--- Diagnostics ---
+[02] Error: found ';' expected identifier
+   ╭─[ test.cairo:1:17 ]
+   │
+ 1 │ fn test() { x as; }
+   │                 ┬  
+   │                 ╰── found ';' expected identifier
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { as felt; }
+--- Diagnostics ---
+[02] Error: found 'as' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '[', '(', or '}'
+   ╭─[ test.cairo:1:13 ]
+   │
+ 1 │ fn test() { as felt; }
+   │             ─┬  
+   │              ╰── found 'as' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '[', '(', or '}'
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { x as 123; }
+--- Diagnostics ---
+[02] Error: found '123' expected identifier
+   ╭─[ test.cairo:1:18 ]
+   │
+ 1 │ fn test() { x as 123; }
+   │                  ─┬─  
+   │                   ╰─── found '123' expected identifier
+───╯

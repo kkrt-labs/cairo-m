@@ -1,0 +1,29 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Type Casts - Casting a u32 that doesn't fit in a felt 2"
+input_file: mdtest/01-basics/08-type-casts.md
+---
+Source:
+fn test_u32_to_felt_limit() -> felt {
+    let x: u32 = 2147483646;
+    let y: felt = x as felt;
+    return y;
+}
+============================================================
+Generated CASM:
+test_u32_to_felt_limit:
+test_u32_to_felt_limit:
+test_u32_to_felt_limit_0:
+   0: 23 65534 32767 0     // u32([fp + 0], [fp + 1]) = u32(2147483646)
+   1: 48 1 32767 3         // [fp + 3] = [fp + 1] < 32767 // hi < 2^15 - 1
+   2: 14 3 6 _             // if [fp + 3] != 0, jump to u32_cast_ok_0
+   3: 48 1 32768 4         // [fp + 4] = [fp + 1] < 32768 // hi < 2^15
+   4: 1 4 3 5              // [fp + 5] = [fp + 4] - [fp + 3] // hi == 32767
+   5: 48 0 65535 6         // [fp + 6] = [fp + 0] < 65535 // lo < 2^16 - 1
+   6: 2 5 6 7              // [fp + 7] = [fp + 5] * [fp + 6] // hi==32767 && lo<65535
+   7: 50 7 1 _             // assert(hi == 32767 && lo < 65535)
+u32_cast_ok_0:
+   8: 6 1 65536 8          // [fp + 8] = [fp + 1] * 65536 // hi * 2^16
+   9: 0 0 8 2              // [fp + 2] = [fp + 0] + [fp + 8] // Cast u32->felt
+  10: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  11: 11 _ _ _             // return

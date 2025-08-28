@@ -31,6 +31,8 @@ words:
   - dests
   - dhat
   - dtolnay
+  - ebnf
+  - EBNF
   - elems
   - enitrat
   - eprintln

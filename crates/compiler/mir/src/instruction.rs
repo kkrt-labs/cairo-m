@@ -295,12 +295,13 @@ pub enum InstructionKind {
         offset: Value,
     },
 
-    /// Cast/conversion: `dest = cast value as type`
-    /// For type conversions (to be expanded with type system)
+    /// Cast/conversion: `source as dest`
+    /// For type conversions between compatible types
     Cast {
         dest: ValueId,
         source: Value,
-        // target_type: TypeId, // TODO: Add when type system is integrated
+        source_type: MirType,
+        target_type: MirType,
     },
 
     /// Debug/diagnostic instruction
@@ -510,9 +511,19 @@ impl Instruction {
     }
 
     /// Creates a new cast instruction
-    pub const fn cast(dest: ValueId, source: Value) -> Self {
+    pub const fn cast(
+        dest: ValueId,
+        source: Value,
+        source_type: MirType,
+        target_type: MirType,
+    ) -> Self {
         Self {
-            kind: InstructionKind::Cast { dest, source },
+            kind: InstructionKind::Cast {
+                dest,
+                source,
+                source_type,
+                target_type,
+            },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -1284,11 +1295,18 @@ impl PrettyPrint for Instruction {
                 ));
             }
 
-            InstructionKind::Cast { dest, source } => {
+            InstructionKind::Cast {
+                dest,
+                source,
+                source_type,
+                target_type,
+            } => {
                 result.push_str(&format!(
-                    "{} = cast {}",
+                    "{} = cast {} from {} to {}",
                     dest.pretty_print(0),
-                    source.pretty_print(0)
+                    source.pretty_print(0),
+                    source_type,
+                    target_type
                 ));
             }
 

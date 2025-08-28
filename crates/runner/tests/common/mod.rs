@@ -87,19 +87,25 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
 
     // Execute Cairo-M program
     let cairo_output_info =
-        run_cairo_program(&compiled.program, &entry_point, &args, runner_options)
-            .map_err(|e| format!("Runtime error: {:?}", e))?;
+        match run_cairo_program(&compiled.program, &entry_point, &args, runner_options) {
+            Ok(output) => output,
+            Err(e) => {
+                if let Some(expected_error) = &test.metadata.expected_error {
+                    if format!("{:?}", e).contains(expected_error) {
+                        return Ok(());
+                    } else {
+                        return Err(format!(
+                            "Expected error to contain: {:?}, got: {:?}",
+                            expected_error, e
+                        ));
+                    }
+                }
+                return Err(format!("Runtime error: {:?}", e));
+            }
+        };
 
     // Format output
     let cairo_output = format_output(&cairo_output_info.return_values, &entrypoint_info.returns);
-
-    // Check if we expect a runtime error
-    if let Some(expected_error) = &test.metadata.expected_error {
-        return Err(format!(
-            "Expected compilation error '{}', but compilation succeeded",
-            expected_error
-        ));
-    }
 
     // Check expected output if specified
     if let Some(expected) = &test.metadata.expected_output {
@@ -113,17 +119,17 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
     }
 
     // Run differential testing with Rust
-    let converted_rust;
-    let rust_source = if let Some(rust) = &test.rust_source {
-        rust.as_str()
+    let (rust_source, rust_entry_point) = if let Some(rust) = &test.rust_source {
+        (rust.to_string(), entry_point.clone())
     } else {
-        converted_rust = convert_cairo_to_rust(&test.cairo_source);
-        &converted_rust
+        let converted_rust = convert_cairo_to_rust(&test.cairo_source);
+        let converted_entrypoint = convert_cairo_to_rust(&entry_point);
+        (converted_rust, converted_entrypoint)
     };
 
     let rust_output = run_rust_differential(
-        rust_source,
-        &entry_point,
+        &rust_source,
+        &rust_entry_point,
         &args,
         &entrypoint_info.params,
         &entrypoint_info.returns,
@@ -158,7 +164,11 @@ pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
 }
 
 fn sanitize_test_name(name: &str) -> String {
-    name.replace(" - ", "_").replace(" ", "_").replace("/", "_")
+    name.replace(" - ", "_")
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("`", "")
+        .replace("'", "")
 }
 
 fn find_test_function(cairo_source: &str) -> String {

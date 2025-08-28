@@ -2732,6 +2732,153 @@ impl CasmBuilder {
         Ok(())
     }
 
+    /// Generates code for type casting operations
+    pub fn generate_cast(
+        &mut self,
+        dest: ValueId,
+        source: Value,
+        source_type: &MirType,
+        target_type: &MirType,
+    ) -> CodegenResult<()> {
+        match (source_type, target_type) {
+            (MirType::U32, MirType::Felt) => {
+                // An M31 felt fits values in [0, P-1] with P = 2^31 - 1.
+                // Let u32 = hi * 2^16 + lo with 16-bit limbs.
+                // Rule:
+                //  - If hi == (2^15 - 1), require lo != (2^16 - 1)
+                //  - Else, require hi < (2^15 - 1)
+
+                const U32_HI_BOUND_EXCLUSIVE: i32 = 2i32.pow(15); // 32768 = 2^15
+                const U32_HI_BOUND_CHECK: i32 = U32_HI_BOUND_EXCLUSIVE - 1; // 32767 = 2^15 - 1
+                const U16_MAX_PLUS_ONE: i32 = 2i32.pow(16); // 65536 = 2^16
+                const U16_MAX: i32 = U16_MAX_PLUS_ONE - 1; // 65535 = 2^16 - 1
+
+                let src_off = match source {
+                    Value::Operand(id) => self.layout.get_offset(id)?,
+                    _ => {
+                        return Err(CodegenError::InvalidMir(
+                            "Cast source must be an operand".to_string(),
+                        ))
+                    }
+                };
+
+                let dest_off = self.layout.allocate_local(dest, 1)?;
+
+                // Compute hi < 32767 (fast path)
+                let hi_lt_32767 = self.layout.reserve_stack(1);
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_LOWER_THAN_FP_IMM)
+                        .with_operand(Operand::Literal(src_off + 1)) // hi limb
+                        .with_operand(Operand::Literal(U32_HI_BOUND_CHECK))
+                        .with_operand(Operand::Literal(hi_lt_32767))
+                        .with_comment(format!(
+                            "[fp + {hi_lt_32767}] = [fp + {}] < {U32_HI_BOUND_CHECK} // hi < 2^15 - 1",
+                            src_off + 1
+                        )),
+                );
+
+                // If hi < 32767, we're good
+                let ok_label = self.new_label_name("u32_cast_ok");
+                self.add_instruction(
+                    InstructionBuilder::new(JNZ_FP_IMM)
+                        .with_operand(Operand::Literal(hi_lt_32767))
+                        .with_operand(Operand::Label(ok_label.clone()))
+                        .with_comment(format!("if [fp + {hi_lt_32767}] != 0, jump to {ok_label}")),
+                );
+
+                // Else: hi >= 32767. Valid only if hi == 32767 and lo < 65535.
+                // Compute hi == 32767 using (hi < 32768) - (hi < 32767)
+                let hi_lt_32768 = self.layout.reserve_stack(1);
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_LOWER_THAN_FP_IMM)
+                        .with_operand(Operand::Literal(src_off + 1)) // hi limb
+                        .with_operand(Operand::Literal(U32_HI_BOUND_EXCLUSIVE))
+                        .with_operand(Operand::Literal(hi_lt_32768))
+                        .with_comment(format!(
+                            "[fp + {hi_lt_32768}] = [fp + {}] < {U32_HI_BOUND_EXCLUSIVE} // hi < 2^15",
+                            src_off + 1
+                        )),
+                );
+
+                let hi_eq_32767 = self.layout.reserve_stack(1);
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_SUB_FP_FP)
+                        .with_operand(Operand::Literal(hi_lt_32768))
+                        .with_operand(Operand::Literal(hi_lt_32767))
+                        .with_operand(Operand::Literal(hi_eq_32767))
+                        .with_comment(format!(
+                            "[fp + {hi_eq_32767}] = [fp + {hi_lt_32768}] - [fp + {hi_lt_32767}] // hi == 32767"
+                        )),
+                );
+
+                // lo < 65535
+                let lo_lt_65535 = self.layout.reserve_stack(1);
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_LOWER_THAN_FP_IMM)
+                        .with_operand(Operand::Literal(src_off)) // lo limb
+                        .with_operand(Operand::Literal(U16_MAX))
+                        .with_operand(Operand::Literal(lo_lt_65535))
+                        .with_comment(format!(
+                            "[fp + {lo_lt_65535}] = [fp + {}] < {U16_MAX} // lo < 2^16 - 1",
+                            src_off
+                        )),
+                );
+
+                // conj = (hi == 32767) * (lo < 65535)
+                let conj = self.layout.reserve_stack(1);
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_MUL_FP_FP)
+                        .with_operand(Operand::Literal(hi_eq_32767))
+                        .with_operand(Operand::Literal(lo_lt_65535))
+                        .with_operand(Operand::Literal(conj))
+                        .with_comment(format!(
+                            "[fp + {conj}] = [fp + {hi_eq_32767}] * [fp + {lo_lt_65535}] // hi==32767 && lo<65535"
+                        )),
+                );
+
+                // Require conj == 1
+                self.add_instruction(
+                    InstructionBuilder::new(ASSERT_EQ_FP_IMM)
+                        .with_operand(Operand::Literal(conj))
+                        .with_operand(Operand::Literal(1))
+                        .with_comment("assert(hi == 32767 && lo < 65535)".to_string()),
+                );
+
+                // Success path label
+                self.add_label(Label::new(ok_label));
+
+                // Convert to felt: lo + hi * 2^16
+                let temp_hi_shifted = self.layout.reserve_stack(1);
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_MUL_FP_IMM)
+                        .with_operand(Operand::Literal(src_off + 1)) // hi limb
+                        .with_operand(Operand::Literal(U16_MAX_PLUS_ONE)) // 2^16
+                        .with_operand(Operand::Literal(temp_hi_shifted))
+                        .with_comment(format!(
+                            "[fp + {temp_hi_shifted}] = [fp + {}] * {U16_MAX_PLUS_ONE} // hi * 2^16",
+                            src_off + 1
+                        )),
+                );
+
+                self.add_instruction(
+                    InstructionBuilder::new(STORE_ADD_FP_FP)
+                        .with_operand(Operand::Literal(src_off)) // lo limb
+                        .with_operand(Operand::Literal(temp_hi_shifted))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!(
+                            "[fp + {dest_off}] = [fp + {src_off}] + [fp + {temp_hi_shifted}] // Cast u32->felt"
+                        )),
+                );
+
+                Ok(())
+            }
+            _ => Err(CodegenError::UnsupportedInstruction(format!(
+                "Unsupported cast from {} to {}",
+                source_type, target_type
+            ))),
+        }
+    }
+
     /// Creates a tuple by allocating consecutive registers and copying element values
     pub fn make_tuple(
         &mut self,

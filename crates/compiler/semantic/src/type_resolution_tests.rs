@@ -255,6 +255,7 @@ fn test_expression_type_coverage() {
             Expression::Tuple(_) => "Tuple",
             Expression::ArrayLiteral(_) => "ArrayLiteral",
             Expression::TupleIndex { .. } => "TupleIndex",
+            Expression::Cast { .. } => "Cast",
         };
         expression_types_found.insert(variant_name);
 

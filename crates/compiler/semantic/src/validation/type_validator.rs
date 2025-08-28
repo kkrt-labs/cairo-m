@@ -234,6 +234,18 @@ impl TypeValidator {
                     db, crate_id, file, index, elements, expr_info, sink,
                 );
             }
+            Expression::Cast { expr, target_type } => {
+                self.check_cast_types(
+                    db,
+                    crate_id,
+                    file,
+                    index,
+                    expr,
+                    target_type,
+                    expr_info,
+                    sink,
+                );
+            }
             // Literals, identifiers, and tuples don't need additional type validation
             // beyond what's already done in type_resolution.rs
             _ => {}
@@ -927,6 +939,54 @@ impl TypeValidator {
                         ),
                     )
                     .with_location(file.file_path(db).to_string(), field_name.span()),
+                );
+            }
+        }
+    }
+
+    /// Validate cast type compatibility
+    #[allow(clippy::too_many_arguments)]
+    fn check_cast_types(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        expr: &Spanned<Expression>,
+        target_type: &Spanned<TypeExpr>,
+        expr_info: &ExpressionInfo,
+        sink: &dyn DiagnosticSink,
+    ) {
+        // Get the source expression type
+        if let Some(source_expr_id) = index.expression_id_by_span(expr.span()) {
+            let source_type = expression_semantic_type(db, crate_id, file, source_expr_id, None);
+
+            // Resolve the target type
+            let target_type_id =
+                resolve_ast_type(db, crate_id, file, target_type.clone(), expr_info.scope_id);
+
+            // Check if the cast is valid
+            let is_valid = match (source_type.data(db), target_type_id.data(db)) {
+                // Allow u32 to felt casting
+                (TypeData::U32, TypeData::Felt) => true,
+                // All other casts are invalid
+                _ => false,
+            };
+
+            if !is_valid {
+                let source_name = source_type.data(db).display_name(db);
+                let target_name = target_type_id.data(db).display_name(db);
+
+                sink.push(
+                    Diagnostic::error(
+                        DiagnosticCode::TypeMismatch,
+                        format!(
+                            "Invalid cast from '{}' to '{}'. Only u32 to felt casting is currently supported.",
+                            source_name,
+                            target_name
+                        ),
+                    )
+                    .with_location(file.file_path(db).to_string(), expr.span()),
                 );
             }
         }

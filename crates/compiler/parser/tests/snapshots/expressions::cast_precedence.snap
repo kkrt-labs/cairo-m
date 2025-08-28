@@ -1,0 +1,72 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Code ---
+fn test() { x as felt && y; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Expression(
+                            Spanned(
+                                BinaryOp {
+                                    op: And,
+                                    left: Spanned(
+                                        Cast {
+                                            expr: Spanned(
+                                                Identifier(
+                                                    Spanned(
+                                                        "x",
+                                                        12..13,
+                                                    ),
+                                                ),
+                                                12..13,
+                                            ),
+                                            target_type: Spanned(
+                                                Named(
+                                                    Spanned(
+                                                        Felt,
+                                                        17..21,
+                                                    ),
+                                                ),
+                                                17..21,
+                                            ),
+                                        },
+                                        12..21,
+                                    ),
+                                    right: Spanned(
+                                        Identifier(
+                                            Spanned(
+                                                "y",
+                                                25..26,
+                                            ),
+                                        ),
+                                        25..26,
+                                    ),
+                                },
+                                12..26,
+                            ),
+                        ),
+                        12..27,
+                    ),
+                ],
+            },
+            0..29,
+        ),
+    ),
+]
