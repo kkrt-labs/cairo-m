@@ -44,9 +44,11 @@ fn main() -> felt {
     let div2 = d / 4;
     d = d / 4;
 
-
     // StoreImm: [fp + off2] = imm (immediate store)
     let immediate = 42;
+
+    // U32StoreImm
+    let x_u32: u32 = 42u32;
 
     // JnzFpImm
     if (a != 5) {
