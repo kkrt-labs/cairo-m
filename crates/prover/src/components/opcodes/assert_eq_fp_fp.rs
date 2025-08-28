@@ -13,7 +13,7 @@
 //! - op0_prev_clock
 //! - op0_val
 //! - op1_prev_clock
-//! - op1_prev_val
+//! - op1_val
 //!
 //! # Constraints
 //!
@@ -99,7 +99,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreAddFpImm opcode.
+    /// Writes the trace for the AssertEqFpFp opcode.
     ///
     /// # Important
     /// This function filters the inputs and creates a local vector which is cleared after processing.
