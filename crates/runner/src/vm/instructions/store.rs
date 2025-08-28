@@ -169,9 +169,9 @@ impl_store_bin_op_fp_fp!(store_div_fp_fp, StoreDivFpFp, /);
 // -------------------------------------------------------------------------------------------------
 
 impl_store_bin_op_fp_imm!(store_add_fp_imm, StoreAddFpImm, +);
-impl_store_bin_op_fp_imm!(store_sub_fp_imm, StoreSubFpImm, -);
+// StoreSubFpImm removed - compiled as StoreAddFpImm with negated immediate
 impl_store_bin_op_fp_imm!(store_mul_fp_imm, StoreMulFpImm, *);
-impl_store_bin_op_fp_imm!(store_div_fp_imm, StoreDivFpImm, /);
+// StoreDivFpImm removed - compiled as StoreMulFpImm with inverse immediate
 
 /// CASM equivalent:
 /// ```casm
@@ -354,8 +354,7 @@ impl_u32_store_bin_op_fp_fp!(u32_store_div_fp_fp, U32StoreDivFpFp, |a, b| a / b)
 // -- FP-IMM variants ---------------------------------------------------------
 impl_u32_store_bin_op_fp_imm!(u32_store_add_fp_imm, U32StoreAddFpImm, |a, b| a
     .wrapping_add(b));
-impl_u32_store_bin_op_fp_imm!(u32_store_sub_fp_imm, U32StoreSubFpImm, |a, b| a
-    .wrapping_sub(b));
+// U32StoreSubFpImm removed - compiled as U32StoreAddFpImm with two's complement immediate
 impl_u32_store_bin_op_fp_imm!(u32_store_mul_fp_imm, U32StoreMulFpImm, |a, b| a
     .wrapping_mul(b));
 impl_u32_store_bin_op_fp_imm!(u32_store_div_fp_imm, U32StoreDivFpImm, |a, b| a / b);
@@ -500,21 +499,21 @@ macro_rules! impl_u32_cmp_op_fp_fp {
     };
 }
 
-// -- U32 Comparison FP-FP variants ------------------------------------------
+// -- U32 Comparison FP-FP variants (minimal set - others derived) -----------
 impl_u32_cmp_op_fp_fp!(u32_store_eq_fp_fp, U32StoreEqFpFp, |a, b| a == b);
-impl_u32_cmp_op_fp_fp!(u32_store_neq_fp_fp, U32StoreNeqFpFp, |a, b| a != b);
-impl_u32_cmp_op_fp_fp!(u32_store_gt_fp_fp, U32StoreGtFpFp, |a, b| a > b);
-impl_u32_cmp_op_fp_fp!(u32_store_ge_fp_fp, U32StoreGeFpFp, |a, b| a >= b);
+// U32StoreNeqFpFp removed - compiled as 1 - U32StoreEqFpFp
+// U32StoreGtFpFp removed - compiled as U32StoreLtFpFp with swapped operands
+// U32StoreGeFpFp removed - compiled as 1 - U32StoreLtFpFp
 impl_u32_cmp_op_fp_fp!(u32_store_lt_fp_fp, U32StoreLtFpFp, |a, b| a < b);
-impl_u32_cmp_op_fp_fp!(u32_store_le_fp_fp, U32StoreLeFpFp, |a, b| a <= b);
+// U32StoreLeFpFp removed - compiled as U32StoreGeFpFp with swapped operands
 
-// -- U32 Comparison FP-IMM variants ------------------------------------------
+// -- U32 Comparison FP-IMM variants (minimal set - others derived) ----------
 impl_u32_cmp_op_fp_imm!(u32_store_eq_fp_imm, U32StoreEqFpImm, |a, b| a == b);
-impl_u32_cmp_op_fp_imm!(u32_store_neq_fp_imm, U32StoreNeqFpImm, |a, b| a != b);
-impl_u32_cmp_op_fp_imm!(u32_store_gt_fp_imm, U32StoreGtFpImm, |a, b| a > b);
-impl_u32_cmp_op_fp_imm!(u32_store_ge_fp_imm, U32StoreGeFpImm, |a, b| a >= b);
+// U32StoreNeqFpImm removed - compiled as 1 - U32StoreEqFpImm
+// U32StoreGtFpImm removed - compiled as 1 - U32StoreLeFpImm
+// U32StoreGeFpImm removed - compiled as 1 - U32StoreLtFpImm
 impl_u32_cmp_op_fp_imm!(u32_store_lt_fp_imm, U32StoreLtFpImm, |a, b| a < b);
-impl_u32_cmp_op_fp_imm!(u32_store_le_fp_imm, U32StoreLeFpImm, |a, b| a <= b);
+// U32StoreLeFpImm removed - compiled as U32StoreLtFpImm with bias (x <= c → x < c+1)
 
 // -------------------------------------------------------------------------------------------------
 // U32 Bitwise operations

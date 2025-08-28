@@ -372,9 +372,11 @@ impl CasmBuilder {
     pub(crate) fn fp_imm_opcode_for_binary_op(&self, op: BinaryOp) -> CodegenResult<u32> {
         match op {
             BinaryOp::Add => Ok(STORE_ADD_FP_IMM),
-            BinaryOp::Sub => Ok(STORE_SUB_FP_IMM),
+            // Sub is compiled as Add with negated immediate
+            BinaryOp::Sub => Ok(STORE_ADD_FP_IMM),
             BinaryOp::Mul => Ok(STORE_MUL_FP_IMM),
-            BinaryOp::Div => Ok(STORE_DIV_FP_IMM),
+            // Div is compiled as Mul with inverse immediate
+            BinaryOp::Div => Ok(STORE_MUL_FP_IMM),
             _ => Err(CodegenError::UnsupportedInstruction(format!(
                 "Invalid binary operation: {op:?}"
             ))),
@@ -388,11 +390,15 @@ impl CasmBuilder {
             BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_FP),
             BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_FP),
             BinaryOp::U32Eq => Ok(U32_STORE_EQ_FP_FP),
-            BinaryOp::U32Neq => Ok(U32_STORE_NEQ_FP_FP),
-            BinaryOp::U32Greater => Ok(U32_STORE_GT_FP_FP),
-            BinaryOp::U32GreaterEqual => Ok(U32_STORE_GE_FP_FP),
+            // U32Neq compiled as (1 - eq) in generate_u32_comparison_op
+            BinaryOp::U32Neq => Ok(U32_STORE_EQ_FP_FP),
+            // U32Greater compiled as U32Less with swapped operands
+            BinaryOp::U32Greater => Ok(U32_STORE_LT_FP_FP),
+            // U32GreaterEqual compiled as (1 - lt)
+            BinaryOp::U32GreaterEqual => Ok(U32_STORE_LT_FP_FP),
             BinaryOp::U32Less => Ok(U32_STORE_LT_FP_FP),
-            BinaryOp::U32LessEqual => Ok(U32_STORE_LE_FP_FP),
+            // U32LessEqual compiled as ge with swapped operands = (1 - gt) = (1 - (lt with swapped))
+            BinaryOp::U32LessEqual => Ok(U32_STORE_LT_FP_FP),
             BinaryOp::U32BitwiseAnd => Ok(U32_STORE_AND_FP_FP),
             BinaryOp::U32BitwiseOr => Ok(U32_STORE_OR_FP_FP),
             BinaryOp::U32BitwiseXor => Ok(U32_STORE_XOR_FP_FP),
@@ -405,15 +411,20 @@ impl CasmBuilder {
     pub(crate) fn fp_imm_opcode_for_u32_op(&self, op: BinaryOp) -> CodegenResult<u32> {
         match op {
             BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_IMM),
-            BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_IMM),
+            // U32Sub compiled as U32Add with two's complement immediate
+            BinaryOp::U32Sub => Ok(U32_STORE_ADD_FP_IMM),
             BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_IMM),
             BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_IMM),
             BinaryOp::U32Eq => Ok(U32_STORE_EQ_FP_IMM),
-            BinaryOp::U32Neq => Ok(U32_STORE_NEQ_FP_IMM),
-            BinaryOp::U32Greater => Ok(U32_STORE_GT_FP_IMM),
-            BinaryOp::U32GreaterEqual => Ok(U32_STORE_GE_FP_IMM),
+            // U32Neq compiled as (1 - eq)
+            BinaryOp::U32Neq => Ok(U32_STORE_EQ_FP_IMM),
+            // U32Greater compiled as (1 - le) but le = lt with bias, so need lt
+            BinaryOp::U32Greater => Ok(U32_STORE_LT_FP_IMM),
+            // U32GreaterEqual compiled as (1 - lt)
+            BinaryOp::U32GreaterEqual => Ok(U32_STORE_LT_FP_IMM),
             BinaryOp::U32Less => Ok(U32_STORE_LT_FP_IMM),
-            BinaryOp::U32LessEqual => Ok(U32_STORE_LE_FP_IMM),
+            // U32LessEqual compiled as U32Less with biased immediate (x <= c → x < c+1)
+            BinaryOp::U32LessEqual => Ok(U32_STORE_LT_FP_IMM),
             BinaryOp::U32BitwiseAnd => Ok(U32_STORE_AND_FP_IMM),
             BinaryOp::U32BitwiseOr => Ok(U32_STORE_OR_FP_IMM),
             BinaryOp::U32BitwiseXor => Ok(U32_STORE_XOR_FP_IMM),
@@ -453,9 +464,26 @@ impl CasmBuilder {
             (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
                 let left_off = self.layout.get_offset(*left_id)?;
 
+                // Transform the immediate based on the operation
+                let transformed_imm = match op {
+                    BinaryOp::Sub => {
+                        // Sub: use negated immediate with Add opcode
+                        (M31::from(0) - M31::from(*imm)).0 as i32
+                    }
+                    BinaryOp::Div => {
+                        // Div: use inverse immediate with Mul opcode
+                        if *imm == 0 {
+                            0 // Division by zero - will produce 0
+                        } else {
+                            M31::from(*imm).inverse().0 as i32
+                        }
+                    }
+                    _ => *imm as i32,
+                };
+
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
                     .with_operand(Operand::Literal(left_off))
-                    .with_operand(Operand::Literal(*imm as i32))
+                    .with_operand(Operand::Literal(transformed_imm))
                     .with_operand(Operand::Literal(dest_off))
                     .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
 
@@ -837,8 +865,22 @@ impl CasmBuilder {
 
         match (&left, &right) {
             (Value::Operand(left_id), Value::Operand(right_id)) => {
-                let left_off = self.layout.get_offset(*left_id)?;
-                let right_off = self.layout.get_offset(*right_id)?;
+                let mut left_off = self.layout.get_offset(*left_id)?;
+                let mut right_off = self.layout.get_offset(*right_id)?;
+
+                // Handle comparison transformations
+                let (actual_op, needs_complement, swap_operands) = match op {
+                    BinaryOp::U32Neq => (BinaryOp::U32Eq, true, false), // neq = 1 - eq
+                    BinaryOp::U32Greater => (BinaryOp::U32Less, false, true), // gt = lt with swapped
+                    BinaryOp::U32GreaterEqual => (BinaryOp::U32Less, true, false), // ge = 1 - lt
+                    BinaryOp::U32LessEqual => (BinaryOp::U32Less, true, true), // le = 1 - gt = 1 - (lt with swapped)
+                    _ => (op, false, false),
+                };
+
+                // Swap operands if needed
+                if swap_operands {
+                    std::mem::swap(&mut left_off, &mut right_off);
+                }
 
                 let comment = if is_comparison {
                     format!(
@@ -855,7 +897,7 @@ impl CasmBuilder {
                     )
                 };
 
-                let instr = InstructionBuilder::new(self.fp_fp_opcode_for_u32_op(op)?)
+                let instr = InstructionBuilder::new(self.fp_fp_opcode_for_u32_op(actual_op)?)
                     .with_operand(Operand::Literal(left_off))
                     .with_operand(Operand::Literal(right_off))
                     .with_operand(Operand::Literal(dest_off))
@@ -863,13 +905,59 @@ impl CasmBuilder {
 
                 self.instructions.push(instr);
                 self.touch(dest_off, result_size);
+
+                // Apply complement if needed (1 - result)
+                if needs_complement {
+                    // Store 1 - [dest_off] back to dest_off
+                    // First store 1 in a temp location
+                    let temp_off = self.layout.reserve_stack(1);
+                    self.store_immediate(1, temp_off, format!("[fp + {temp_off}] = 1"));
+
+                    let complement_instr = InstructionBuilder::new(STORE_SUB_FP_FP)
+                        .with_operand(Operand::Literal(temp_off))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]"));
+
+                    self.instructions.push(complement_instr);
+                }
             }
 
             // Left is value, right is immediate: use fp_imm variant
             (Value::Operand(left_id), Value::Literal(Literal::Integer(imm))) => {
                 let left_off = self.layout.get_offset(*left_id)?;
 
-                let (imm_16b_low, imm_16b_high) = split_u32_i32(*imm as i32);
+                // Handle transformations for operations
+                let (transformed_imm, needs_complement) = match op {
+                    BinaryOp::U32Sub => {
+                        // Sub: use two's complement of immediate
+                        let neg = (-((*imm as i64) & 0xFFFFFFFF)) & 0xFFFFFFFF;
+                        (neg as u32, false)
+                    }
+                    BinaryOp::U32Neq => (*imm, true), // neq = 1 - eq
+                    BinaryOp::U32GreaterEqual => (*imm, true), // ge = 1 - lt
+                    BinaryOp::U32Greater => {
+                        // gt: x > c is equivalent to x >= c+1, which is 1 - (x < c+1)
+                        if *imm == 0xFFFFFFFF {
+                            // Special case: x > MAX is always false, return 0
+                            self.store_immediate(0, dest_off, format!("[fp + {dest_off}] = 0"));
+                            return Ok(());
+                        }
+                        (*imm + 1, true)
+                    }
+                    BinaryOp::U32LessEqual => {
+                        // le: x <= c is equivalent to x < c+1
+                        if *imm == 0xFFFFFFFF {
+                            // Special case: x <= MAX is always true, return 1
+                            self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
+                            return Ok(());
+                        }
+                        (*imm + 1, false)
+                    }
+                    _ => (*imm, false),
+                };
+
+                let (imm_16b_low, imm_16b_high) = split_u32_value(transformed_imm);
 
                 let comment = if is_comparison {
                     format!(
@@ -893,6 +981,20 @@ impl CasmBuilder {
                     .with_comment(comment);
                 self.instructions.push(instr);
                 self.touch(dest_off, result_size);
+
+                // Apply complement if needed (1 - result)
+                if needs_complement {
+                    let temp_off = self.layout.reserve_stack(1);
+                    self.store_immediate(1, temp_off, format!("[fp + {temp_off}] = 1"));
+
+                    let complement_instr = InstructionBuilder::new(STORE_SUB_FP_FP)
+                        .with_operand(Operand::Literal(temp_off))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_operand(Operand::Literal(dest_off))
+                        .with_comment(format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]"));
+
+                    self.instructions.push(complement_instr);
+                }
             }
 
             // Left is immediate, right is value: use fp_imm variant
@@ -1645,7 +1747,7 @@ impl CasmBuilder {
                     }
                     Self::handle_fp_fp_duplicates(instr, felt_temp1.unwrap(), felt_temp2.unwrap())
                 }
-                STORE_ADD_FP_IMM | STORE_SUB_FP_IMM | STORE_MUL_FP_IMM | STORE_DIV_FP_IMM => {
+                STORE_ADD_FP_IMM | STORE_MUL_FP_IMM => {
                     // Reserve temp variable on demand for felt operations with immediate (need 1 single-slot temp)
                     if felt_temp1.is_none() {
                         felt_temp1 = Some(self.layout.reserve_stack(1));
@@ -1663,8 +1765,7 @@ impl CasmBuilder {
                     Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 arithmetic operations with immediate operands
-                U32_STORE_ADD_FP_IMM | U32_STORE_SUB_FP_IMM | U32_STORE_MUL_FP_IMM
-                | U32_STORE_DIV_FP_IMM => {
+                U32_STORE_ADD_FP_IMM | U32_STORE_MUL_FP_IMM | U32_STORE_DIV_FP_IMM => {
                     // Reserve temp variable on demand for U32 operations (need 2 slots)
                     if u32_temp1.is_none() {
                         u32_temp1 = Some(self.layout.reserve_stack(2));
@@ -1672,8 +1773,7 @@ impl CasmBuilder {
                     Self::handle_u32_fp_imm_duplicates(instr, u32_temp1.unwrap())?
                 }
                 // U32 comparison operations with FP operands (result is felt, not u32)
-                U32_STORE_EQ_FP_FP | U32_STORE_NEQ_FP_FP | U32_STORE_GT_FP_FP
-                | U32_STORE_GE_FP_FP | U32_STORE_LT_FP_FP | U32_STORE_LE_FP_FP => {
+                U32_STORE_EQ_FP_FP | U32_STORE_LT_FP_FP => {
                     // Reserve temp variables on demand for U32 comparisons (need 2 slots each for operands)
                     if u32_temp1.is_none() || u32_temp2.is_none() {
                         u32_temp1 = Some(self.layout.reserve_stack(2));
@@ -1682,8 +1782,7 @@ impl CasmBuilder {
                     Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 comparison operations with immediate operands
-                U32_STORE_EQ_FP_IMM | U32_STORE_NEQ_FP_IMM | U32_STORE_GT_FP_IMM
-                | U32_STORE_GE_FP_IMM | U32_STORE_LT_FP_IMM | U32_STORE_LE_FP_IMM => {
+                U32_STORE_EQ_FP_IMM | U32_STORE_LT_FP_IMM => {
                     // Reserve temp variable on demand for U32 comparisons (need 2 slots)
                     if u32_temp1.is_none() {
                         u32_temp1 = Some(self.layout.reserve_stack(2));
@@ -1860,15 +1959,7 @@ impl CasmBuilder {
         let dst_off = instr.op2().unwrap();
 
         // Check if this is a comparison (result is felt) or arithmetic (result is u32)
-        let is_comparison = matches!(
-            instr.opcode,
-            U32_STORE_EQ_FP_FP
-                | U32_STORE_NEQ_FP_FP
-                | U32_STORE_GT_FP_FP
-                | U32_STORE_GE_FP_FP
-                | U32_STORE_LT_FP_FP
-                | U32_STORE_LE_FP_FP
-        );
+        let is_comparison = matches!(instr.opcode, U32_STORE_EQ_FP_FP | U32_STORE_LT_FP_FP);
 
         // For U32 values, we need to check overlaps considering 2-slot values
         // src0 uses [src0_off, src0_off+1], src1 uses [src1_off, src1_off+1]
@@ -2019,15 +2110,7 @@ impl CasmBuilder {
         };
 
         // Check if this is a comparison (result is felt) or arithmetic (result is u32)
-        let is_comparison = matches!(
-            instr.opcode,
-            U32_STORE_EQ_FP_IMM
-                | U32_STORE_NEQ_FP_IMM
-                | U32_STORE_GT_FP_IMM
-                | U32_STORE_GE_FP_IMM
-                | U32_STORE_LT_FP_IMM
-                | U32_STORE_LE_FP_IMM
-        );
+        let is_comparison = matches!(instr.opcode, U32_STORE_EQ_FP_IMM | U32_STORE_LT_FP_IMM);
 
         // Check for problematic overlap between source and destination
         // For fp+imm operations, in-place operations (src_off == dst_off) are fine!

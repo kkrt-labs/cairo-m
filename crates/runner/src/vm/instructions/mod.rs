@@ -149,7 +149,7 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         STORE_ADD_FP_FP => store_add_fp_fp,
         STORE_ADD_FP_IMM => store_add_fp_imm,
         STORE_SUB_FP_FP => store_sub_fp_fp,
-        STORE_SUB_FP_IMM => store_sub_fp_imm,
+        // STORE_SUB_FP_IMM removed - compiled as STORE_ADD_FP_IMM with negated immediate
         STORE_DOUBLE_DEREF_FP => store_double_deref_fp,
         STORE_DOUBLE_DEREF_FP_FP => store_double_deref_fp_fp,
         STORE_IMM => store_imm,
@@ -157,7 +157,7 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         STORE_MUL_FP_FP => store_mul_fp_fp,
         STORE_MUL_FP_IMM => store_mul_fp_imm,
         STORE_DIV_FP_FP => store_div_fp_fp,
-        STORE_DIV_FP_IMM => store_div_fp_imm,
+        // STORE_DIV_FP_IMM removed - compiled as STORE_MUL_FP_IMM with inverse immediate
         CALL_ABS_IMM => call_abs_imm,
         RET => ret,
         JMP_ABS_IMM => jmp_abs_imm,
@@ -168,22 +168,22 @@ pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionErr
         U32_STORE_MUL_FP_FP => u32_store_mul_fp_fp,
         U32_STORE_DIV_FP_FP => u32_store_div_fp_fp,
         U32_STORE_ADD_FP_IMM => u32_store_add_fp_imm,
-        U32_STORE_SUB_FP_IMM => u32_store_sub_fp_imm,
+        // U32_STORE_SUB_FP_IMM removed - compiled as U32_STORE_ADD_FP_IMM with two's complement
         U32_STORE_MUL_FP_IMM => u32_store_mul_fp_imm,
         U32_STORE_DIV_FP_IMM => u32_store_div_fp_imm,
         U32_STORE_IMM => u32_store_imm,
         U32_STORE_EQ_FP_FP => u32_store_eq_fp_fp,
-        U32_STORE_NEQ_FP_FP => u32_store_neq_fp_fp,
-        U32_STORE_GT_FP_FP => u32_store_gt_fp_fp,
-        U32_STORE_GE_FP_FP => u32_store_ge_fp_fp,
+        // U32_STORE_NEQ_FP_FP removed - compiled as 1 - U32_STORE_EQ_FP_FP
+        // U32_STORE_GT_FP_FP removed - compiled as U32_STORE_LT_FP_FP with swapped operands
+        // U32_STORE_GE_FP_FP removed - compiled as 1 - U32_STORE_LT_FP_FP
         U32_STORE_LT_FP_FP => u32_store_lt_fp_fp,
-        U32_STORE_LE_FP_FP => u32_store_le_fp_fp,
+        // U32_STORE_LE_FP_FP removed - compiled as U32_STORE_GE_FP_FP with swapped operands
         U32_STORE_EQ_FP_IMM => u32_store_eq_fp_imm,
-        U32_STORE_NEQ_FP_IMM => u32_store_neq_fp_imm,
-        U32_STORE_GT_FP_IMM => u32_store_gt_fp_imm,
-        U32_STORE_GE_FP_IMM => u32_store_ge_fp_imm,
+        // U32_STORE_NEQ_FP_IMM removed - compiled as 1 - U32_STORE_EQ_FP_IMM
+        // U32_STORE_GT_FP_IMM removed - compiled as 1 - U32_STORE_LE_FP_IMM
+        // U32_STORE_GE_FP_IMM removed - compiled as 1 - U32_STORE_LT_FP_IMM
         U32_STORE_LT_FP_IMM => u32_store_lt_fp_imm,
-        U32_STORE_LE_FP_IMM => u32_store_le_fp_imm,
+        // U32_STORE_LE_FP_IMM removed - compiled as U32_STORE_LT_FP_IMM with bias
         U32_STORE_AND_FP_FP => u32_store_and_fp_fp,
         U32_STORE_OR_FP_FP => u32_store_or_fp_fp,
         U32_STORE_XOR_FP_FP => u32_store_xor_fp_fp,

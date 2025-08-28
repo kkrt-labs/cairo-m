@@ -1,9 +1,9 @@
 //! This component is used to prove the StoreXFpImm opcodes.
 //!
 //! [fp + off2] = [fp + off0] + imm : StoreAddFpImm
-//! [fp + off2] = [fp + off0] - imm : StoreSubFpImm
+//! [fp + off2] = [fp + off0] - imm : StoreSubFpImm (deprecated - compiler uses Add with negated imm)
 //! [fp + off2] = [fp + off0] * imm : StoreMulFpImm
-//! [fp + off2] = [fp + off0] / imm : StoreDivFpImm
+//! [fp + off2] = [fp + off0] / imm : StoreDivFpImm (deprecated - compiler uses Mul with inverse imm)
 //!
 //! # Columns
 //!
