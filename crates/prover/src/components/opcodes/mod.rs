@@ -186,8 +186,6 @@ macro_rules! define_opcodes {
                     )*
                     // TODO: Add support for these opcodes
                     Instruction::StoreLowerThanFpImm { .. } => {},
-                    Instruction::AssertEqFpFp { .. } => {},
-                    Instruction::AssertEqFpImm { .. } => {},
                     Instruction::StoreFpImm { .. } => {},
                     Instruction::StoreDoubleDerefFpFp { .. } => {},
                     Instruction::U32StoreAddFpFp { .. } => {},
@@ -251,6 +249,8 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
+    ([AssertEqFpFp], assert_eq_fp_fp),
+    ([AssertEqFpImm], assert_eq_fp_imm),
     ([CallAbsImm], call_abs_imm),
     ([JmpAbsImm, JmpRelImm], jmp_imm),
     ([JnzFpImm], jnz_fp_imm),
