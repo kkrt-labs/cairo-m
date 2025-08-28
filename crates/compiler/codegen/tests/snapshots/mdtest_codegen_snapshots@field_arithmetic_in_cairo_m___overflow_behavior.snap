@@ -14,5 +14,5 @@ test_overflow:
 test_overflow:
 test_overflow_0:
    0: 9 2147483640 0 _     // [fp + 0] = 2147483640
-   1: 4 0 12 -3            // [fp + -3] = [fp + 0] op 12
+   1: 4 0 12 -3            // [fp + -3] = [fp + 0] + 12
    2: 11 _ _ _             // return

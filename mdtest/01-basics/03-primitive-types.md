@@ -72,16 +72,16 @@ fn test_u32_sub() -> u32 {
 
 ```cairo-m
 fn test_u32_sub_underflow() -> u32 {
-    let x: u32 = 0;
-    let y: u32 = 1;
+    let x: u32 = 4294967290;
+    let y: u32 = 4294967295;
     return x - y;
 }
 ```
 
 ```rust
 fn test_u32_sub_underflow() -> u32 {
-    let x: u32 = 0;
-    let y: u32 = 1;
+    let x: u32 = 4294967290;
+    let y: u32 = 4294967295;
     return x.wrapping_sub(y);
 }
 ```

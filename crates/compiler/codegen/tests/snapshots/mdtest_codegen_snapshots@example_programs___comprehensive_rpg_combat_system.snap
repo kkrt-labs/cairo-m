@@ -228,7 +228,7 @@ main_test_0:
   19: 4 15 0 41            // Arg 0 slot 9: [fp + 41] = [fp + 15] + 0
   20: 10 48 28 _           // call get_character_stats
   21: 15 28 46 22          // u32([fp + 22], [fp + 23]) = u32([fp + 28], [fp + 29]) U32Add u32([fp + 46], [fp + 47])
-  22: 22 44 10 0 24        // u32([fp + 24], [fp + 25]) = u32([fp + 44], [fp + 45]) U32Div u32(10, 0)
+  22: 22 44 10 0 24        // u32([fp + 24], [fp + 25]) = u32([fp + 44], [fp + 45]) U32Div u32(10, 0) /* imm = 0x0000000a */
   23: 15 22 24 26          // u32([fp + 26], [fp + 27]) = u32([fp + 22], [fp + 23]) U32Add u32([fp + 24], [fp + 25])
   24: 4 26 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 26] + 0
   25: 4 27 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 27] + 0
@@ -285,9 +285,9 @@ calculate_distance_squared_6:
 calculate_damage:
 calculate_damage_0:
   64: 23 10 0 0            // u32([fp + 0], [fp + 1]) = u32(10)
-  65: 21 -10 2 0 2         // u32([fp + 2], [fp + 3]) = u32([fp + -10], [fp + -9]) U32Mul u32(2, 0)
+  65: 21 -10 2 0 2         // u32([fp + 2], [fp + 3]) = u32([fp + -10], [fp + -9]) U32Mul u32(2, 0) /* imm = 0x00000002 */
   66: 23 0 0 4             // u32([fp + 4], [fp + 5]) = u32(0)
-  67: 34 -6 101 0 6        // [fp + 6] = u32([fp + -6], [fp + -5]) U32Greater u32(101, 0)
+  67: 34 -6 101 0 6        // [fp + 6] = u32([fp + -6], [fp + -5]) U32Greater u32(101, 0) /* imm = 0x00000065 */ (biased c' = 0x00000065; gt = 1 - lt)
   68: 9 1 21 _             // [fp + 21] = 1
 calculate_damage:
   69: 4 6 0 25             // [fp + 25] = [fp + 6] + 0
@@ -299,7 +299,7 @@ calculate_damage_1:
   74: 19 7 0 0 9           // u32([fp + 9], [fp + 10]) = u32([fp + 7], [fp + 8]) + u32(0, 0)
   75: 12 98 _ _            // jump abs calculate_damage_5
 calculate_damage_2:
-  76: 34 -6 51 0 11        // [fp + 11] = u32([fp + -6], [fp + -5]) U32Greater u32(51, 0)
+  76: 34 -6 51 0 11        // [fp + 11] = u32([fp + -6], [fp + -5]) U32Greater u32(51, 0) /* imm = 0x00000033 */ (biased c' = 0x00000033; gt = 1 - lt)
   77: 9 1 22 _             // [fp + 22] = 1
   78: 4 11 0 25            // [fp + 25] = [fp + 11] + 0
   79: 1 22 25 11           // [fp + 11] = [fp + 22] op [fp + 25]
@@ -345,9 +345,9 @@ perform_combat:
  110: 4 52 0 60            // Arg 2 slot 0: [fp + 60] = [fp + 52] + 0
  111: 4 53 0 61            // Arg 2 slot 1: [fp + 61] = [fp + 53] + 0
  112: 10 64 69 _           // call calculate_damage
- 113: 22 -25 10 0 18       // u32([fp + 18], [fp + 19]) = u32([fp + -25], [fp + -24]) U32Div u32(10, 0)
+ 113: 22 -25 10 0 18       // u32([fp + 18], [fp + 19]) = u32([fp + -25], [fp + -24]) U32Div u32(10, 0) /* imm = 0x0000000a */
  114: 9 0 20 _             // [fp + 20] = false
- 115: 34 18 6 0 21         // [fp + 21] = u32([fp + 18], [fp + 19]) U32Greater u32(6, 0)
+ 115: 34 18 6 0 21         // [fp + 21] = u32([fp + 18], [fp + 19]) U32Greater u32(6, 0) /* imm = 0x00000006 */ (biased c' = 0x00000006; gt = 1 - lt)
  116: 9 1 66 _             // [fp + 66] = 1
  117: 4 21 0 71            // [fp + 71] = [fp + 21] + 0
  118: 1 66 71 21           // [fp + 21] = [fp + 66] op [fp + 71]
@@ -357,7 +357,7 @@ perform_combat:
  122: 12 168 _ _           // jump abs perform_combat_6
 perform_combat_1:
  123: 9 1 25 _             // [fp + 25] = true
- 124: 21 62 2 0 26         // u32([fp + 26], [fp + 27]) = u32([fp + 62], [fp + 63]) U32Mul u32(2, 0)
+ 124: 21 62 2 0 26         // u32([fp + 26], [fp + 27]) = u32([fp + 62], [fp + 63]) U32Mul u32(2, 0) /* imm = 0x00000002 */
  125: 19 26 0 0 22         // u32([fp + 22], [fp + 23]) = u32([fp + 26], [fp + 27]) + u32(0, 0)
  126: 4 25 0 24            // [fp + 24] = [fp + 25] + 0
 perform_combat_2:
@@ -412,7 +412,7 @@ simulate_battle_round_0:
 simulate_battle_round:
  169: 4 -5 0 34            // Arg 1 slot 9: [fp + 34] = [fp + -5] + 0
  170: 10 40 109 _          // call perform_combat
- 171: 34 38 1 0 7          // [fp + 7] = u32([fp + 38], [fp + 39]) U32Greater u32(1, 0)
+ 171: 34 38 1 0 7          // [fp + 7] = u32([fp + 38], [fp + 39]) U32Greater u32(1, 0) /* imm = 0x00000001 */ (biased c' = 0x00000001; gt = 1 - lt)
  172: 9 1 45 _             // [fp + 45] = 1
  173: 4 7 0 79             // [fp + 79] = [fp + 7] + 0
  174: 1 45 79 7            // [fp + 7] = [fp + 45] op [fp + 79]
@@ -532,14 +532,14 @@ simulate_full_battle_4:
  275: 4 52 0 131           // Arg 1 slot 8: [fp + 131] = [fp + 52] + 0
  276: 4 53 0 132           // Arg 1 slot 9: [fp + 132] = [fp + 53] + 0
  277: 10 135 169 _         // call simulate_battle_round
- 278: 30 133 1 0 137       // [fp + 137] = u32([fp + 133], [fp + 134]) U32Eq u32(1, 0)
+ 278: 30 133 1 0 137       // [fp + 137] = u32([fp + 133], [fp + 134]) U32Eq u32(1, 0) /* imm = 0x00000001 */
  279: 14 137 2 _           // if [fp + 137] != 0 jmp rel simulate_full_battle_5
  280: 12 305 _ _           // jump abs simulate_full_battle_6
 simulate_full_battle_5:
  281: 23 1 0 -4            // Return value 0: [fp -4, fp -4 + 1] = u32(1)
  282: 11 _ _ _             // return
 simulate_full_battle_6:
- 283: 30 133 2 0 138       // [fp + 138] = u32([fp + 133], [fp + 134]) U32Eq u32(2, 0)
+ 283: 30 133 2 0 138       // [fp + 138] = u32([fp + 133], [fp + 134]) U32Eq u32(2, 0) /* imm = 0x00000002 */
  284: 14 138 2 _           // if [fp + 138] != 0 jmp rel simulate_full_battle_7
  285: 12 311 _ _           // jump abs simulate_full_battle_8
 simulate_full_battle_7:
@@ -547,7 +547,7 @@ simulate_full_battle_7:
  287: 11 _ _ _             // return
 simulate_full_battle_8:
 simulate_full_battle_9:
- 288: 34 32 11 0 59        // [fp + 59] = u32([fp + 32], [fp + 33]) U32Greater u32(11, 0)
+ 288: 34 32 11 0 59        // [fp + 59] = u32([fp + 32], [fp + 33]) U32Greater u32(11, 0) /* imm = 0x0000000b */ (biased c' = 0x0000000b; gt = 1 - lt)
  289: 9 1 139 _            // [fp + 139] = 1
  290: 4 59 0 148           // [fp + 148] = [fp + 59] + 0
  291: 1 139 148 59         // [fp + 59] = [fp + 139] op [fp + 148]
@@ -564,7 +564,7 @@ simulate_full_battle_9:
  302: 14 59 2 _            // if [fp + 59] != 0 jmp rel simulate_full_battle_10
  303: 12 398 _ _           // jump abs simulate_full_battle_14
 simulate_full_battle_10:
- 304: 19 32 65531 65535 72 // u32([fp + 72], [fp + 73]) = u32([fp + 32], [fp + 33]) U32Sub u32(65531, 65535)
+ 304: 19 32 65531 65535 72 // u32([fp + 72], [fp + 73]) = u32([fp + 32], [fp + 33]) U32Sub u32(65531, 65535) /* imm = 0xfffffffb */ (two's complement of 5 -> 4294967291)
  305: 4 72 0 32            // [fp + 32] = [fp + 72] + 0
  306: 4 73 0 33            // [fp + 33] = [fp + 73] + 0
  307: 4 32 0 60            // [fp + 60] = [fp + 32] + 0 (slot 1 of 10)
@@ -578,7 +578,7 @@ simulate_full_battle_10:
  315: 4 40 0 68            // [fp + 68] = [fp + 40] + 0 (slot 9 of 10)
  316: 4 41 0 69            // [fp + 69] = [fp + 41] + 0 (slot 10 of 10)
 simulate_full_battle_11:
- 317: 34 44 9 0 86         // [fp + 86] = u32([fp + 44], [fp + 45]) U32Greater u32(9, 0)
+ 317: 34 44 9 0 86         // [fp + 86] = u32([fp + 44], [fp + 45]) U32Greater u32(9, 0) /* imm = 0x00000009 */ (biased c' = 0x00000009; gt = 1 - lt)
  318: 9 1 140 _            // [fp + 140] = 1
  319: 4 86 0 148           // [fp + 148] = [fp + 86] + 0
  320: 1 140 148 86         // [fp + 86] = [fp + 140] op [fp + 148]
@@ -595,7 +595,7 @@ simulate_full_battle_11:
  331: 14 86 2 _            // if [fp + 86] != 0 jmp rel simulate_full_battle_12
  332: 12 399 _ _           // jump abs simulate_full_battle_15
 simulate_full_battle_12:
- 333: 19 44 65532 65535 99 // u32([fp + 99], [fp + 100]) = u32([fp + 44], [fp + 45]) U32Sub u32(65532, 65535)
+ 333: 19 44 65532 65535 99 // u32([fp + 99], [fp + 100]) = u32([fp + 44], [fp + 45]) U32Sub u32(65532, 65535) /* imm = 0xfffffffc */ (two's complement of 4 -> 4294967292)
  334: 4 99 0 44            // [fp + 44] = [fp + 99] + 0
  335: 4 100 0 45           // [fp + 45] = [fp + 100] + 0
  336: 4 44 0 87            // [fp + 87] = [fp + 44] + 0 (slot 1 of 10)
@@ -609,7 +609,7 @@ simulate_full_battle_12:
  344: 4 52 0 95            // [fp + 95] = [fp + 52] + 0 (slot 9 of 10)
  345: 4 53 0 96            // [fp + 96] = [fp + 53] + 0 (slot 10 of 10)
 simulate_full_battle_13:
- 346: 19 42 1 0 111        // u32([fp + 111], [fp + 112]) = u32([fp + 42], [fp + 43]) U32Add u32(1, 0)
+ 346: 19 42 1 0 111        // u32([fp + 111], [fp + 112]) = u32([fp + 42], [fp + 43]) U32Add u32(1, 0) /* imm = 0x00000001 */
  347: 4 60 0 32            // [fp + 32] = [fp + 60] + 0 (slot 1 of 10)
  348: 4 61 0 33            // [fp + 33] = [fp + 61] + 0 (slot 2 of 10)
  349: 4 62 0 34            // [fp + 34] = [fp + 62] + 0 (slot 3 of 10)

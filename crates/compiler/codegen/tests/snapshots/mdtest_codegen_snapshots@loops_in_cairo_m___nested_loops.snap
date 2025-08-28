@@ -23,7 +23,7 @@ multiply_table_0:
    2: 4 0 0 2              // [fp + 2] = [fp + 0] + 0
    3: 4 1 0 3              // [fp + 3] = [fp + 1] + 0
 multiply_table_1:
-   4: 4 3 2147483637 11    // [fp + 11] = [fp + 3] op 10
+   4: 4 3 2147483637 11    // [fp + 11] = [fp + 3] - 10 (-10 as M31 -> 2147483637 (=-10 mod M31))
    5: 14 11 2 _            // if [fp + 11] != 0 jmp rel multiply_table_2
    6: 12 15 _ _            // jump abs multiply_table_4
 multiply_table_2:
@@ -32,7 +32,7 @@ multiply_table_2:
    9: 4 2 0 6              // [fp + 6] = [fp + 2] + 0
   10: 12 17 _ _            // jump abs multiply_table_5
 multiply_table_3:
-  11: 4 3 1 7              // [fp + 7] = [fp + 3] op 1
+  11: 4 3 1 7              // [fp + 7] = [fp + 3] + 1
   12: 4 6 0 2              // [fp + 2] = [fp + 6] + 0
   13: 4 7 0 3              // [fp + 3] = [fp + 7] + 0
   14: 12 4 _ _             // jump abs multiply_table_1
@@ -40,14 +40,14 @@ multiply_table_4:
   15: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
   16: 11 _ _ _             // return
 multiply_table_5:
-  17: 4 5 2147483637 12    // [fp + 12] = [fp + 5] op 10
+  17: 4 5 2147483637 12    // [fp + 12] = [fp + 5] - 10 (-10 as M31 -> 2147483637 (=-10 mod M31))
   18: 14 12 2 _            // if [fp + 12] != 0 jmp rel multiply_table_6
   19: 12 26 _ _            // jump abs multiply_table_8
 multiply_table_6:
   20: 2 3 5 8              // [fp + 8] = [fp + 3] op [fp + 5]
   21: 0 6 8 9              // [fp + 9] = [fp + 6] op [fp + 8]
 multiply_table_7:
-  22: 4 5 1 10             // [fp + 10] = [fp + 5] op 1
+  22: 4 5 1 10             // [fp + 10] = [fp + 5] + 1
   23: 4 10 0 5             // [fp + 5] = [fp + 10] + 0
   24: 4 9 0 6              // [fp + 6] = [fp + 9] + 0
   25: 12 17 _ _            // jump abs multiply_table_5

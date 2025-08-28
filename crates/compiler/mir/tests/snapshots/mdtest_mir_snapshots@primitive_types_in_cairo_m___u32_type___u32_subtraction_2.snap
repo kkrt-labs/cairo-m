@@ -5,8 +5,8 @@ input_file: mdtest/01-basics/03-primitive-types.md
 ---
 Source:
 fn test_u32_sub_underflow() -> u32 {
-    let x: u32 = 0;
-    let y: u32 = 1;
+    let x: u32 = 4294967290;
+    let y: u32 = 4294967295;
     return x - y;
 }
 ============================================================
@@ -17,8 +17,8 @@ module {
     entry: 0
 
     0:
-      %0 = 0 (u32)
-      %1 = 1 (u32)
+      %0 = 4294967290 (u32)
+      %1 = 4294967295 (u32)
       %2 = %0 U32Sub %1
       return %2
 

@@ -12,6 +12,52 @@ use stwo_prover::core::fields::m31::M31;
 use crate::layout::ValueLayout;
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
 
+// --------------------------------------------------------------------------------
+// Small helpers to keep opcode selection and comment generation consistent
+// --------------------------------------------------------------------------------
+
+/// Compute the M31-representation of `-imm` (i.e. add with negated immediate).
+#[inline]
+fn m31_negate_imm(imm: u32) -> i32 {
+    (M31::from(0) - M31::from(imm)).0 as i32
+}
+
+/// Compute the M31-representation of `imm.inverse()` used to compile divisions
+/// by an immediate as a multiplication by the inverse. Returns an error for 0.
+#[inline]
+fn m31_inverse_imm(imm: u32) -> CodegenResult<i32> {
+    if imm == 0 {
+        return Err(CodegenError::InvalidMir(
+            "Division by zero with felt immediate".to_string(),
+        ));
+    }
+    Ok(M31::from(imm).inverse().0 as i32)
+}
+
+/// Pretty-print an M31 immediate showing both its raw value and signed view when helpful.
+/// Example: 2147483642 (= -5 mod M31)
+#[inline]
+fn fmt_m31_imm(raw: i32) -> String {
+    // M31 modulus
+    const P: i32 = 2147483647; // 2^31 - 1
+    if raw == 0 {
+        return "0".to_string();
+    }
+    // If this looks like a large positive close to P, show the negative representative too
+    // Threshold: values > P/2 are displayed as negatives for readability
+    if raw > P / 2 {
+        let neg = raw - P; // guaranteed negative
+        format!("{raw} (=-{:#} mod M31)", -neg)
+    } else {
+        raw.to_string()
+    }
+}
+
+/// Two's complement on 32-bit for u32 subtraction with an immediate
+#[inline]
+const fn twos_complement_u32(imm: u32) -> u32 {
+    (!imm).wrapping_add(1)
+}
 /// Helper to split a u32 value into low and high 16-bit parts
 #[inline]
 const fn split_u32_value(value: u32) -> (i32, i32) {
@@ -465,27 +511,36 @@ impl CasmBuilder {
                 let left_off = self.layout.get_offset(*left_id)?;
 
                 // Transform the immediate based on the operation
-                let transformed_imm = match op {
+                let (transformed_imm, comment_op_detail): (i32, Option<String>) = match op {
                     BinaryOp::Sub => {
                         // Sub: use negated immediate with Add opcode
-                        (M31::from(0) - M31::from(*imm)).0 as i32
+                        let neg = m31_negate_imm(*imm);
+                        (
+                            neg,
+                            Some(format!("(-{imm} as M31 -> {})", fmt_m31_imm(neg))),
+                        )
                     }
                     BinaryOp::Div => {
                         // Div: use inverse immediate with Mul opcode
-                        if *imm == 0 {
-                            0 // Division by zero - will produce 0
-                        } else {
-                            M31::from(*imm).inverse().0 as i32
-                        }
+                        let inv = m31_inverse_imm(*imm)?;
+                        (
+                            inv,
+                            Some(format!("(inv({imm}) as M31 -> {})", fmt_m31_imm(inv))),
+                        )
                     }
-                    _ => *imm as i32,
+                    _ => (*imm as i32, None),
                 };
 
                 let instr = InstructionBuilder::new(self.fp_imm_opcode_for_binary_op(op)?)
                     .with_operand(Operand::Literal(left_off))
                     .with_operand(Operand::Literal(transformed_imm))
                     .with_operand(Operand::Literal(dest_off))
-                    .with_comment(format!("[fp + {dest_off}] = [fp + {left_off}] op {imm}"));
+                    .with_comment(match comment_op_detail {
+                        Some(detail) => {
+                            format!("[fp + {dest_off}] = [fp + {left_off}] {op} {imm} {detail}")
+                        }
+                        None => format!("[fp + {dest_off}] = [fp + {left_off}] {op} {imm}"),
+                    });
 
                 self.instructions.push(instr);
                 self.touch(dest_off, 1);
@@ -928,14 +983,18 @@ impl CasmBuilder {
                 let left_off = self.layout.get_offset(*left_id)?;
 
                 // Handle transformations for operations
-                let (transformed_imm, needs_complement) = match op {
+                let (transformed_imm, needs_complement, comment_note) = match op {
                     BinaryOp::U32Sub => {
                         // Sub: use two's complement of immediate
-                        let neg = (-((*imm as i64) & 0xFFFFFFFF)) & 0xFFFFFFFF;
-                        (neg as u32, false)
+                        let neg = twos_complement_u32(*imm);
+                        (
+                            neg,
+                            false,
+                            Some(format!("(two's complement of {imm} -> {neg})")),
+                        )
                     }
-                    BinaryOp::U32Neq => (*imm, true), // neq = 1 - eq
-                    BinaryOp::U32GreaterEqual => (*imm, true), // ge = 1 - lt
+                    BinaryOp::U32Neq => (*imm, true, Some("(neq = 1 - eq)".to_string())),
+                    BinaryOp::U32GreaterEqual => (*imm, true, Some("(ge = 1 - lt)".to_string())),
                     BinaryOp::U32Greater => {
                         // gt: x > c is equivalent to x >= c+1, which is 1 - (x < c+1)
                         if *imm == 0xFFFFFFFF {
@@ -943,7 +1002,11 @@ impl CasmBuilder {
                             self.store_immediate(0, dest_off, format!("[fp + {dest_off}] = 0"));
                             return Ok(());
                         }
-                        (*imm + 1, true)
+                        (
+                            (*imm + 1),
+                            true,
+                            Some(format!("(biased c' = {:#010x}; gt = 1 - lt)", (*imm + 1))),
+                        )
                     }
                     BinaryOp::U32LessEqual => {
                         // le: x <= c is equivalent to x < c+1
@@ -952,24 +1015,42 @@ impl CasmBuilder {
                             self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
                             return Ok(());
                         }
-                        (*imm + 1, false)
+                        (
+                            (*imm + 1),
+                            false,
+                            Some(format!("(biased c' = {:#010x})", (*imm + 1))),
+                        )
                     }
-                    _ => (*imm, false),
+                    _ => (*imm, false, None),
                 };
 
                 let (imm_16b_low, imm_16b_high) = split_u32_value(transformed_imm);
 
+                let imm_display = format!("/* imm = {:#010x} */", transformed_imm);
                 let comment = if is_comparison {
-                    format!(
-                        "[fp + {dest_off}] = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high})",
-                        left_off + 1
-                    )
+                    match &comment_note {
+                        Some(note) => format!(
+                            "[fp + {dest_off}] = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high}) {imm_display} {note}",
+                            left_off + 1
+                        ),
+                        None => format!(
+                            "[fp + {dest_off}] = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high}) {imm_display}",
+                            left_off + 1
+                        ),
+                    }
                 } else {
-                    format!(
-                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high})",
-                        dest_off + 1,
-                        left_off + 1
-                    )
+                    match &comment_note {
+                        Some(note) => format!(
+                            "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high}) {imm_display} {note}",
+                            dest_off + 1,
+                            left_off + 1
+                        ),
+                        None => format!(
+                            "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {left_off}], [fp + {}]) {op} u32({imm_16b_low}, {imm_16b_high}) {imm_display}",
+                            dest_off + 1,
+                            left_off + 1
+                        ),
+                    }
                 };
 
                 // Use immediate versions
