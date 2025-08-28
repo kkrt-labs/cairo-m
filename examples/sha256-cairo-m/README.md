@@ -15,10 +15,11 @@ comprehensive Rust integration tests.
 
 ### macOS Users
 
-You need to have LLVM installed:
+You need to have LLVM and their LLD linker installed.
 
 ```bash
 brew install llvm
+brew install lld
 ```
 
 ## Common Commands
