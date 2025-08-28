@@ -224,8 +224,11 @@ pub fn definition_semantic_type<'db>(
             }
         }
         DefinitionKind::Const(const_ref) => {
-            // Constants must be initialized, so we infer from the value expression
-            if let Some(value_expr_id) = const_ref.value_expr_id {
+            // Check if there's an explicit type annotation
+            if let Some(type_ast) = &const_ref.type_ast {
+                resolve_ast_type(db, crate_id, file, type_ast.clone(), definition.scope_id)
+            } else if let Some(value_expr_id) = const_ref.value_expr_id {
+                // Infer from the value expression if no explicit type
                 expression_semantic_type(db, crate_id, file, value_expr_id, None)
             } else {
                 // Constants without initialization is an error in the language
