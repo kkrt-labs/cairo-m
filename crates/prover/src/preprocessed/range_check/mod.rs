@@ -7,7 +7,13 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::PreProcessedColumn;
 
+// Include the macro implementation
+#[macro_use]
+pub mod range_check_macro;
+
+pub mod range_check_16;
 pub mod range_check_20;
+pub mod range_check_8;
 
 pub struct RangeCheck {
     range: u32,

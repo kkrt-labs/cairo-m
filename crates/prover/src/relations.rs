@@ -1,6 +1,16 @@
 #![allow(non_camel_case_types)]
 use stwo_constraint_framework::relation;
 
+// 8-bit range check relation for field arithmetic bounds.
+// Ensures values are within the valid range [0, 2^8).
+// Structure: value (the field element to range check)
+relation!(RangeCheck8, 1);
+
+// 16-bit range check relation for field arithmetic bounds.
+// Ensures values are within the valid range [0, 2^16).
+// Structure: value (the field element to range check)
+relation!(RangeCheck16, 1);
+
 // 20-bit range check relation for field arithmetic bounds.
 // Ensures values are within the valid range [0, 2^20).
 // Structure: value (the field element to range check)

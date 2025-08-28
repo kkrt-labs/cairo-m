@@ -83,6 +83,14 @@ macro_rules! define_opcodes {
             pub fn range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
                 define_opcodes!(@range_check_20 self, $($opcode),*)
             }
+
+            pub fn range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
+                define_opcodes!(@range_check_16 self)
+            }
+
+            pub fn range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
+                define_opcodes!(@range_check_8 self)
+            }
         }
 
         // Implement InteractionClaim methods
@@ -157,6 +165,16 @@ macro_rules! define_opcodes {
         }
     };
 
+    // Helper rule for range_check_8 chaining
+    (@range_check_8 $self:ident) => {
+        rayon::iter::empty()
+    };
+
+    // Helper rule for range_check_16 chaining
+    (@range_check_16 $self:ident) => {
+        rayon::iter::empty()
+    };
+
     // Helper rule for range_check_20 chaining
     (@range_check_20 $self:ident, $first:ident $(, $rest:ident)*) => {
         $self.$first
@@ -224,6 +242,7 @@ macro_rules! define_opcodes {
             };
         };
     };
+
 }
 
 use cairo_m_common::instruction::*;
