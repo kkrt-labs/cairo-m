@@ -1,4 +1,4 @@
-//! This component is used to prove the U32StoreLtFpFp opcode.
+//! This component is used to prove the U32StoreLtFpImm opcode.
 //! [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
 //!
 //! # Columns

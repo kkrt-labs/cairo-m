@@ -39,7 +39,7 @@
 //! * read op1
 //!   * `- [fp + src1_off, op1_prev_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
 //!   * `- [fp + src1_off + 1, op1_prev_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
+//!   * `- [clk - op1_prev_clk - 1]` in `RangeCheck20` relation
 //! * perform u32 subtraction op1 - 1 - op0
 //!   * `- [op1_val_lo - 1 + borrow_lo * 2 ** 16 - op0_val_lo]` in `RangeCheck16` relation
 //!   * `- [op1_val_hi - borrow_lo + borrow_hi * 2 ** 16 - op0_val_hi]` in `RangeCheck16` relation
