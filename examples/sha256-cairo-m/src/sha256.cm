@@ -61,16 +61,13 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
     // Message schedule array
     let W: [u32; 64] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // Copy chunk into first 16 words of message schedule
-    let t = 0;
-    while t != 16 {
+    for (let t: felt = 0; t != 16; t = t + 1) {
         W[t] = chunk[t];
-        t = t + 1;
     } // Extend the message schedule
-    while t != 64 {
+    for (let t: felt = 16; t != 64; t = t + 1) {
         let s0 = small_sigma0(W[t - 15]);
         let s1 = small_sigma1(W[t - 2]);
         W[t] = W[t - 16] + s0 + W[t - 7] + s1;
-        t = t + 1;
     }
     let a = H[0];
     let b = H[1];
@@ -80,8 +77,7 @@ fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
     let f = H[5];
     let g = H[6];
     let h = H[7]; // Compression function main loop
-    t = 0;
-    while t != 64 {
+    for (let t: felt = 0; t != 64; t = t + 1) {
         let temp1 = h + big_sigma1(e) + ch(e, f, g) + K[t] + W[t];
         let temp2 = big_sigma0(a) + maj(a, b, c);
         h = g;
@@ -92,7 +88,6 @@ fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
         c = b;
         b = a;
         a = temp1 + temp2;
-        t = t + 1;
     }
     H[0] = H[0] + a;
     H[1] = H[1] + b;
@@ -125,16 +120,12 @@ fn sha256_hash(padded_message: [u32; 32], num_chunks: felt) -> [u32; 8] {
         1541459225
     ];
     
-    let chunk_index = 0;
-    while (chunk_index != num_chunks) {
+    for (let chunk_index: felt = 0; chunk_index != num_chunks; chunk_index = chunk_index + 1) {
         let current_chunk: [u32; 16] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-        let i = 0;
-        while (i != 16) {
+        for (let i: felt = 0; i != 16; i = i + 1) {
             current_chunk[i] = padded_message[chunk_index * 16 + i];
-            i = i + 1;
         }
         process_chunk(current_chunk, H);
-        chunk_index = chunk_index + 1;
     }
     return H;
 }
