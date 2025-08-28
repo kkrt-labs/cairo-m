@@ -302,12 +302,6 @@ proptest! {
 mod helpers {
     use super::*;
 
-    /// SHA-256 rotate right operation
-    #[inline]
-    fn rust_rotr(x: u32, n: u32) -> u32 {
-        x.rotate_right(n)
-    }
-
     /// SHA-256 Σ₀ (big sigma 0) function
     #[inline]
     fn rust_big_sigma0(x: u32) -> u32 {
@@ -364,7 +358,7 @@ mod helpers {
         #[test]
         fn test_rotr(x: u32, n in 0u32..32) {
             let args = vec![InputValue::Number(x as i64), InputValue::Number(n as i64)];
-            let expected = rust_rotr(x, n);
+            let expected = x.rotate_right(n);
             assert_cairo_u32_result!(&COMPILED_PROGRAM, "rotr", args, expected);
         }
 
