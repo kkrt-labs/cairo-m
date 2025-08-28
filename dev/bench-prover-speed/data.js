@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756368327468,
+  "lastUpdate": 1756369941931,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1199,6 +1199,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6008057661,
             "range": "± 24549326",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f74c42057d81ae44442b9508cbe3184e12dd5740",
+          "message": "refacto: remove unused opcodes (#262)",
+          "timestamp": "2025-08-28T11:17:43+03:00",
+          "tree_id": "2ceb4fb97e1dfc5b84d9ce3f697d9effc435acda",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/f74c42057d81ae44442b9508cbe3184e12dd5740"
+        },
+        "date": 1756369940875,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6018943853,
+            "range": "± 35618530",
             "unit": "ns/iter"
           }
         ]
