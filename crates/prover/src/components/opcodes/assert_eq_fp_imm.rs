@@ -17,6 +17,8 @@
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * assert [fp + src0_off] == imm
+//!   * `op0_val - imm`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory

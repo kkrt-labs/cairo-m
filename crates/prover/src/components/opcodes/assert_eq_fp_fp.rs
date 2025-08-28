@@ -19,6 +19,8 @@
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * assert [fp + src0_off] == [fp + src1_off]
+//!   * `op0_val - op1_val`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
