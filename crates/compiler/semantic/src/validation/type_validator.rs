@@ -169,9 +169,6 @@ impl TypeValidator {
                     Some("Tuples cannot be used directly in arithmetic operations".to_string())
                 }
             }
-            (TypeData::Pointer(_), TypeData::Felt) => {
-                Some("Dereference the pointer to access its value".to_string())
-            }
             (TypeData::Bool, TypeData::Felt) => {
                 Some("Cannot use bool in arithmetic operations. Consider using logical operators (&&, ||) instead.".to_string())
             }
@@ -646,28 +643,6 @@ impl TypeValidator {
                     .with_location(file.file_path(db).to_string(), array.span()),
                 );
             }
-            // Pointer indexing is still allowed, keep previous checks
-            TypeData::Pointer(_) => {
-                // Check if the index expression is an integer type
-                let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
-                    return;
-                };
-                let index_type_id = expression_semantic_type(db, crate_id, file, index_id, None);
-                let index_type = index_type_id.data(db);
-
-                if !matches!(index_type, TypeData::Felt) {
-                    sink.push(
-                        Diagnostic::error(
-                            DiagnosticCode::InvalidIndexType,
-                            format!(
-                                "Index expression must be of type felt, found `{}`",
-                                index_type_id.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), index_expr.span()),
-                    );
-                }
-            }
             TypeData::Error => {
                 // Skip validation for error types
             }
@@ -778,34 +753,6 @@ impl TypeValidator {
                                 "no field `{}` on type `{}`",
                                 tuple_index,
                                 tuple_type_id.data(db).display_name(db)
-                            ),
-                        )
-                        .with_location(file.file_path(db).to_string(), tuple.span()),
-                    );
-                }
-            }
-            TypeData::Pointer(inner) => {
-                if let TypeData::Tuple(elements) = inner.data(db) {
-                    if tuple_index >= elements.len() {
-                        sink.push(
-                            Diagnostic::error(
-                                DiagnosticCode::TupleIndexOutOfBounds,
-                                format!(
-                                    "no field `{}` on type `{}`",
-                                    tuple_index,
-                                    tuple_type_id.data(db).display_name(db)
-                                ),
-                            )
-                            .with_location(file.file_path(db).to_string(), tuple.span()),
-                        );
-                    }
-                } else {
-                    sink.push(
-                        Diagnostic::error(
-                            DiagnosticCode::InvalidTupleIndexAccess,
-                            format!(
-                                "Cannot index into pointer to non-tuple type `{}`",
-                                inner.data(db).display_name(db)
                             ),
                         )
                         .with_location(file.file_path(db).to_string(), tuple.span()),

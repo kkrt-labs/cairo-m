@@ -71,16 +71,7 @@ pub fn resolve_ast_type<'db>(
                 }
             }
         }
-        AstTypeExpr::Pointer(inner_ast_expr) => {
-            let inner_type_id = resolve_ast_type(
-                db,
-                crate_id,
-                file,
-                (**inner_ast_expr).clone(),
-                context_scope_id,
-            );
-            TypeId::new(db, TypeData::Pointer(inner_type_id))
-        }
+        AstTypeExpr::Pointer(_) => TypeId::new(db, TypeData::Error),
         AstTypeExpr::Tuple(inner_ast_exprs) => {
             let collected_type_ids: Vec<TypeId> = inner_ast_exprs
                 .iter()
@@ -569,17 +560,6 @@ pub fn expression_semantic_type<'db>(
                         .field_type(db, field.value())
                         .unwrap_or_else(|| TypeId::new(db, TypeData::Error))
                 }
-                TypeData::Pointer(inner_type) => {
-                    // Pointer to struct field access - automatic dereference
-                    if let TypeData::Struct(struct_id) = inner_type.data(db) {
-                        struct_id
-                            .field_type(db, field.value())
-                            .unwrap_or_else(|| TypeId::new(db, TypeData::Error))
-                    } else {
-                        // Pointer to non-struct type
-                        TypeId::new(db, TypeData::Error)
-                    }
-                }
                 _ => {
                     // Field access on non-struct, non-pointer type
                     TypeId::new(db, TypeData::Error)
@@ -667,8 +647,6 @@ pub fn expression_semantic_type<'db>(
                 }
 
                 match array_type.data(db) {
-                    // For pointer types, return the dereferenced type
-                    TypeData::Pointer(inner_type) => inner_type,
                     // For fixed-size arrays, return the element type
                     TypeData::FixedArray { element_type, .. } => element_type,
                     // TODO: For tuple types, we could return the element type if all elements are the same
@@ -726,13 +704,6 @@ pub fn expression_semantic_type<'db>(
                     .get(*index)
                     .copied()
                     .unwrap_or_else(|| TypeId::new(db, TypeData::Error)),
-                TypeData::Pointer(inner) => match inner.data(db) {
-                    TypeData::Tuple(elems) => elems
-                        .get(*index)
-                        .copied()
-                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error)),
-                    _ => TypeId::new(db, TypeData::Error),
-                },
                 _ => TypeId::new(db, TypeData::Error),
             }
         }
@@ -949,11 +920,6 @@ pub fn are_types_compatible<'db>(
                     .all(|(a, e)| are_types_compatible(db, *a, *e))
         }
 
-        // Pointer compatibility
-        (TypeData::Pointer(actual_inner), TypeData::Pointer(expected_inner)) => {
-            are_types_compatible(db, actual_inner, expected_inner)
-        }
-
         // Fixed-size array compatibility
         (
             TypeData::FixedArray {
@@ -986,7 +952,7 @@ pub struct UnaryOpSignature<'db> {
     pub result: TypeId<'db>,
 }
 
-pub fn get_unary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<UnaryOpSignature<'db>> {
+pub(crate) fn get_unary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<UnaryOpSignature<'db>> {
     let felt = TypeId::new(db, TypeData::Felt);
     let u32 = TypeId::new(db, TypeData::U32);
     let bool = TypeId::new(db, TypeData::Bool);
@@ -1022,7 +988,9 @@ pub struct OperatorSignature<'db> {
 }
 
 // A function to get all valid signatures
-pub fn get_binary_op_signatures<'db>(db: &'db dyn SemanticDb) -> Vec<OperatorSignature<'db>> {
+pub(crate) fn get_binary_op_signatures<'db>(
+    db: &'db dyn SemanticDb,
+) -> Vec<OperatorSignature<'db>> {
     let felt = TypeId::new(db, TypeData::Felt);
     let u32 = TypeId::new(db, TypeData::U32);
     let bool = TypeId::new(db, TypeData::Bool);

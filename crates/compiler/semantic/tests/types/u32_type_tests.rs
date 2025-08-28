@@ -9,7 +9,7 @@ use cairo_m_compiler_semantic::type_resolution::{are_types_compatible, expressio
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 
 use super::*;
-use crate::{crate_from_program, get_main_semantic_index, named_type, pointer_type};
+use crate::{crate_from_program, get_main_semantic_index, named_type};
 
 #[test]
 fn test_u32_type_resolution() {
@@ -22,21 +22,6 @@ fn test_u32_type_resolution() {
     // Test resolving "u32" as a type name
     let u32_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::U32), root_scope);
     assert!(matches!(u32_type.data(&db), TypeData::U32));
-
-    // Test resolving "u32*" (pointer to u32)
-    let u32_pointer_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        pointer_type(named_type(NamedType::U32)),
-        root_scope,
-    );
-    match u32_pointer_type.data(&db) {
-        TypeData::Pointer(inner_type) => {
-            assert!(matches!(inner_type.data(&db), TypeData::U32));
-        }
-        _ => panic!("Expected pointer to u32"),
-    }
 }
 
 #[test]

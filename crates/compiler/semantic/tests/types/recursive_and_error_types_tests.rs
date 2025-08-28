@@ -6,56 +6,9 @@
 //! - Type system robustness under error conditions
 
 use cairo_m_compiler_semantic::project_semantic_index;
-use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 use super::*;
-use crate::{crate_from_program, get_main_semantic_index};
-
-#[test]
-#[ignore] // TODO: Enable when pointer types are supported
-fn test_recursive_struct_with_pointers() {
-    // This is the classic recursive type test case
-    let db = test_db();
-    let program = r#"
-        struct Node {
-            value: felt,
-            next: Node*,
-        }
-    "#;
-    let crate_id = crate_from_program(&db, program);
-    let file = *crate_id.modules(&db).values().next().unwrap();
-    let semantic_index = get_main_semantic_index(&db, crate_id);
-    let root_scope = semantic_index.root_scope().unwrap();
-
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Node", root_scope)
-        .unwrap();
-    let def_id = DefinitionId::new(&db, file, def_idx);
-    let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
-
-    assert_eq!(struct_data.name(&db), "Node");
-
-    let fields = struct_data.fields(&db);
-    assert_eq!(fields.len(), 2);
-
-    // Check value field
-    let (value_name, value_type) = &fields[0];
-    assert_eq!(value_name, "value");
-    assert!(matches!(value_type.data(&db), TypeData::Felt));
-
-    // Check next field (should be *Node)
-    let (next_name, next_type) = &fields[1];
-    assert_eq!(next_name, "next");
-    match next_type.data(&db) {
-        TypeData::Pointer(inner) => match inner.data(&db) {
-            TypeData::Struct(struct_id) => {
-                assert_eq!(struct_id.name(&db), "Node");
-            }
-            other => panic!("Expected pointer to Node struct, got {other:?}"),
-        },
-        other => panic!("Expected pointer type, got {other:?}"),
-    }
-}
+use crate::crate_from_program;
 
 #[test]
 fn test_error_type_propagation() {

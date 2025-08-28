@@ -225,7 +225,7 @@ fn generate_random_value(ty: &AbiType, rng: &mut StdRng, depth: u32) -> InputVal
     }
 
     match ty {
-        AbiType::Felt | AbiType::Pointer(_) => {
+        AbiType::Felt => {
             // Random positive value in a safe range
             let value: u32 = rng.gen_range(0..(1u32 << 31) - 1);
             InputValue::Number(value as i64)

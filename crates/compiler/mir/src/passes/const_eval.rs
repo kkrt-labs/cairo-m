@@ -21,7 +21,12 @@ impl ConstEvaluator {
     ///
     /// Returns None if the operation cannot be evaluated at compile time
     /// or would result in undefined behavior (e.g., division by zero)
-    pub fn eval_binary_op(&self, op: BinaryOp, left: Literal, right: Literal) -> Option<Literal> {
+    pub(crate) fn eval_binary_op(
+        &self,
+        op: BinaryOp,
+        left: Literal,
+        right: Literal,
+    ) -> Option<Literal> {
         match (op, left, right) {
             // Felt arithmetic - uses M31 field operations
             (BinaryOp::Add, Literal::Integer(a), Literal::Integer(b)) => {
@@ -128,7 +133,7 @@ impl ConstEvaluator {
     }
 
     /// Evaluate a unary operation on a literal value
-    pub fn eval_unary_op(&self, op: UnaryOp, operand: Literal) -> Option<Literal> {
+    pub(crate) fn eval_unary_op(&self, op: UnaryOp, operand: Literal) -> Option<Literal> {
         match (op, operand) {
             (UnaryOp::Not, Literal::Boolean(b)) => Some(Literal::Boolean(!b)),
             (UnaryOp::Neg, Literal::Integer(i)) => {

@@ -45,7 +45,7 @@ impl Upcast<dyn ParserDb> for TestDb {
     }
 }
 
-pub fn test_db() -> TestDb {
+pub(crate) fn test_db() -> TestDb {
     TestDb::default()
 }
 
@@ -66,7 +66,10 @@ pub enum TestProject {
 }
 
 /// A helper to conveniently create a multi-file test project.
-pub fn multi_file<'a>(main_module: &'a str, modules: &'a [(&'a str, &'a str)]) -> TestProject {
+pub(crate) fn multi_file<'a>(
+    main_module: &'a str,
+    modules: &'a [(&'a str, &'a str)],
+) -> TestProject {
     TestProject::Multi {
         main_module: main_module.to_string(),
         modules: modules
@@ -97,7 +100,7 @@ impl From<String> for TestProject {
 
 // ===== Crate Creation Utilities =====
 
-pub fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
+pub(crate) fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
     let mut modules = HashMap::new();
     modules.insert("main".to_string(), file);
     Crate::new(
@@ -109,12 +112,12 @@ pub fn single_file_crate(db: &dyn SemanticDb, file: File) -> Crate {
     )
 }
 
-pub fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
+pub(crate) fn crate_from_program(db: &dyn SemanticDb, program: &str) -> Crate {
     let file = File::new(db, program.to_string(), "test.cm".to_string());
     single_file_crate(db, file)
 }
 
-pub fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
+pub(crate) fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> SemanticIndex {
     let semantic_index = project_semantic_index(db, crate_id).unwrap();
     semantic_index.modules().values().next().unwrap().clone()
 }
@@ -122,7 +125,7 @@ pub fn get_main_semantic_index(db: &dyn SemanticDb, crate_id: Crate) -> Semantic
 // ===== Validation and Diagnostic Utilities =====
 
 /// Run semantic validation on source code
-pub fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
+pub(crate) fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
     let db = test_db();
     let source_program = SourceFile::new(&db, source.to_string(), file_name.to_string());
     let crate_id = single_file_crate(&db, source_program);
@@ -130,7 +133,7 @@ pub fn run_validation(source: &str, file_name: &str) -> DiagnosticCollection {
 }
 
 // Format diagnostics for snapshot testing using ariadne for beautiful error reports
-pub fn format_diagnostics_for_snapshot(
+pub(crate) fn format_diagnostics_for_snapshot(
     diagnostics: &DiagnosticCollection,
     source: &str,
     fixture_name: &str,
@@ -170,14 +173,14 @@ pub fn format_diagnostics_for_snapshot(
 /// Assert that inline code validates successfully without any diagnostics
 /// Similar to parser's assert_parses_ok! but for semantic validation
 #[track_caller]
-pub fn assert_semantic_ok_impl(code: &str, test_name: &str) {
+pub(crate) fn assert_semantic_ok_impl(code: &str, test_name: &str) {
     assert_semantic_ok_impl_with_options(code, test_name, false)
 }
 
 /// Assert that inline code validates successfully without any diagnostics
 /// with option to mute unused variable warnings
 #[track_caller]
-pub fn assert_semantic_ok_impl_with_options(
+pub(crate) fn assert_semantic_ok_impl_with_options(
     code: &str,
     test_name: &str,
     show_unused_warnings: bool,
@@ -198,14 +201,14 @@ pub fn assert_semantic_ok_impl_with_options(
 /// Assert that inline code fails semantic validation and produces diagnostics
 /// Similar to parser's assert_parses_err! but for semantic validation
 #[track_caller]
-pub fn assert_semantic_err_impl(code: &str, test_name: &str) {
+pub(crate) fn assert_semantic_err_impl(code: &str, test_name: &str) {
     assert_semantic_err_impl_with_options(code, test_name, false)
 }
 
 /// Assert that inline code fails semantic validation and produces diagnostics
 /// with option to mute unused variable warnings
 #[track_caller]
-pub fn assert_semantic_err_impl_with_options(
+pub(crate) fn assert_semantic_err_impl_with_options(
     code: &str,
     test_name: &str,
     show_unused_warnings: bool,
@@ -238,12 +241,14 @@ pub fn assert_semantic_err_impl_with_options(
 }
 
 /// Helper to wrap statement code inside a function, since most statements are not top-level.
-pub fn in_function(code: &str) -> String {
+pub(crate) fn in_function(code: &str) -> String {
     format!("fn test() {{ {code} return; }}")
 }
 
 /// Filter out unused variable warnings from diagnostics
-pub fn filter_unused_variable_warnings(diagnostics: &DiagnosticCollection) -> DiagnosticCollection {
+pub(crate) fn filter_unused_variable_warnings(
+    diagnostics: &DiagnosticCollection,
+) -> DiagnosticCollection {
     let filtered: Vec<_> = diagnostics
         .all()
         .iter()
@@ -294,7 +299,7 @@ impl std::fmt::Display for ParameterizedSemanticResults {
 
 /// Assert that multiple code snippets validate with expected results
 #[track_caller]
-pub fn assert_semantic_parameterized_impl(
+pub(crate) fn assert_semantic_parameterized_impl(
     inputs: &[(TestProject, bool)], // (project, should_succeed)
     test_name: &str,
     show_unused_warnings: bool,

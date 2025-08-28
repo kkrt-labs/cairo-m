@@ -26,9 +26,9 @@
 use std::collections::HashMap;
 
 use cairo_m_compiler_diagnostics::DiagnosticCollection;
-use tracing::{debug, info};
+use tracing::debug;
 
-use crate::db::{module_all_diagnostics, module_parse_diagnostics, Crate, SemanticDb};
+use crate::db::{module_all_diagnostics, Crate, SemanticDb};
 
 /// Tracks the revision state for delta-based diagnostics computation
 #[derive(Debug, Clone)]
@@ -114,46 +114,6 @@ impl DeltaDiagnosticsTracker {
         total_diagnostics
     }
 
-    /// Get parse diagnostics only for changed modules
-    pub fn get_project_parse_diagnostics(
-        &mut self,
-        db: &dyn SemanticDb,
-        crate_id: Crate,
-    ) -> DiagnosticCollection {
-        let _current_revision = db.zalsa().current_revision();
-        let modules = crate_id.modules(db);
-        let mut total_diagnostics = DiagnosticCollection::default();
-
-        for (module_name, _file) in modules.iter() {
-            let module_changed = self.has_module_changed(db, crate_id, module_name.clone());
-
-            if module_changed || !self.cached_diagnostics.contains_key(module_name) {
-                let module_diagnostics =
-                    module_parse_diagnostics(db, crate_id, module_name.clone());
-                total_diagnostics.extend(module_diagnostics.all().iter().cloned());
-            } else if let Some(cached_diag) = self.cached_diagnostics.get(module_name) {
-                // For parse diagnostics, we can reuse the parse portion of cached diagnostics
-                total_diagnostics.extend(cached_diag.all().iter().cloned());
-            }
-        }
-
-        total_diagnostics
-    }
-
-    /// Get the list of modules that have changed since the last computation
-    pub fn get_changed_modules(&self, db: &dyn SemanticDb, crate_id: Crate) -> Vec<String> {
-        let modules = crate_id.modules(db);
-        let mut changed_modules = Vec::new();
-
-        for (module_name, _file) in modules.iter() {
-            if self.has_module_changed(db, crate_id, module_name.clone()) {
-                changed_modules.push(module_name.clone());
-            }
-        }
-
-        changed_modules
-    }
-
     /// Check if a specific module has changed since our last tracking
     fn has_module_changed(
         &self,
@@ -194,29 +154,6 @@ impl DeltaDiagnosticsTracker {
 
         total_diagnostics
     }
-
-    /// Mark the current revision as processed (call after handling diagnostics)
-    pub fn mark_revision(&mut self, db: &dyn SemanticDb) {
-        let current_revision = db.zalsa().current_revision();
-        self.last_project_revision = Some(current_revision);
-    }
-
-    /// Clear all cached diagnostics (useful when major changes occur)
-    pub fn clear_cache(&mut self) {
-        self.module_revisions.clear();
-        self.cached_diagnostics.clear();
-        self.last_project_revision = None;
-        info!("[DELTA] Cleared all cached diagnostics");
-    }
-
-    /// Get statistics about the current cache state
-    pub fn get_cache_stats(&self) -> DeltaCacheStats {
-        DeltaCacheStats {
-            modules_tracked: self.module_revisions.len(),
-            cached_diagnostics: self.cached_diagnostics.len(),
-            last_revision: self.last_project_revision,
-        }
-    }
 }
 
 impl Default for DeltaDiagnosticsTracker {
@@ -240,57 +177,5 @@ impl DeltaCacheStats {
     /// Check if the cache is healthy (all tracked modules have cached diagnostics)
     pub const fn is_healthy(&self) -> bool {
         self.modules_tracked == self.cached_diagnostics
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::db::tests::{crate_from_program, test_db};
-
-    #[test]
-    fn test_delta_tracker_initialization() {
-        let tracker = DeltaDiagnosticsTracker::new();
-        let stats = tracker.get_cache_stats();
-
-        assert_eq!(stats.modules_tracked, 0);
-        assert_eq!(stats.cached_diagnostics, 0);
-        assert!(stats.last_revision.is_none());
-        assert!(stats.is_healthy());
-    }
-
-    #[test]
-    fn test_first_computation_recomputes_all() {
-        let db = test_db();
-        let crate_id = crate_from_program(&db, "fn main() { let x = 42; }");
-        let mut tracker = DeltaDiagnosticsTracker::new();
-
-        let _diagnostics = tracker.get_project_diagnostics(&db, crate_id);
-        let stats = tracker.get_cache_stats();
-
-        // First computation should process all modules
-        assert_eq!(stats.modules_tracked, 1); // "main" module
-        assert_eq!(stats.cached_diagnostics, 1);
-        assert!(stats.last_revision.is_some());
-        assert!(stats.is_healthy());
-    }
-
-    #[test]
-    fn test_unchanged_modules_use_cache() {
-        let db = test_db();
-        let crate_id = crate_from_program(&db, "fn main() { let x = 42; }");
-        let mut tracker = DeltaDiagnosticsTracker::new();
-
-        // First computation
-        let _diagnostics1 = tracker.get_project_diagnostics(&db, crate_id);
-        let stats1 = tracker.get_cache_stats();
-
-        // Second computation without changes
-        let _diagnostics2 = tracker.get_project_diagnostics(&db, crate_id);
-        let stats2 = tracker.get_cache_stats();
-
-        // Should have the same stats (using cache)
-        assert_eq!(stats1.modules_tracked, stats2.modules_tracked);
-        assert_eq!(stats1.cached_diagnostics, stats2.cached_diagnostics);
     }
 }

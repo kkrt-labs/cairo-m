@@ -9,7 +9,7 @@ use cairo_m_compiler_parser::parser::{Parameter, Pattern, Spanned, StructDef};
 use rustc_hash::{FxBuildHasher, FxHashSet};
 
 /// Check for duplicate parameter names in a function or method
-pub fn check_duplicate_parameter_names(
+pub(crate) fn check_duplicate_parameter_names(
     params: &[Parameter],
     file_path: &str,
     sink: &dyn DiagnosticSink,
@@ -36,7 +36,7 @@ pub fn check_duplicate_parameter_names(
 }
 
 /// Check for duplicate identifiers in a pattern (e.g., in tuple destructuring)
-pub fn check_duplicate_pattern_identifiers(
+pub(crate) fn check_duplicate_pattern_identifiers(
     pattern: &Pattern,
     file_path: &str,
     sink: &dyn DiagnosticSink,
@@ -75,7 +75,7 @@ pub fn check_duplicate_pattern_identifiers(
 }
 
 /// Check for duplicate field names in a struct definition
-pub fn check_duplicate_struct_fields(
+pub(crate) fn check_duplicate_struct_fields(
     struct_def: &Spanned<StructDef>,
     file_path: &str,
     sink: &dyn DiagnosticSink,

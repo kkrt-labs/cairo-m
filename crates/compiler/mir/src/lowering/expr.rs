@@ -7,9 +7,7 @@ use cairo_m_compiler_parser::parser::{BinaryOp, Expression, Spanned, UnaryOp};
 use cairo_m_compiler_semantic::definition::DefinitionKind;
 use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId};
-use cairo_m_compiler_semantic::type_resolution::{
-    definition_semantic_type, expression_semantic_type,
-};
+use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
@@ -108,39 +106,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
             // Look up the MIR value for this definition (for variables, not constants)
             if let Ok(var_value) = self.read_variable(name.value(), name.span()) {
-                // Get the type to check if this is an array pointer
-                let value_type = self.state.mir_function.get_value_type(var_value);
-
-                // Arrays are stored as pointers and need to be loaded
-                // All other types (primitives, structs, tuples) are stored as values
-                if let Some(MirType::Pointer(inner_type)) = value_type {
-                    if matches!(**inner_type, MirType::FixedArray { .. }) {
-                        // Array pointer - load the array value
-                        let semantic_type =
-                            definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                        let var_type = MirType::from_semantic_type(self.ctx.db, semantic_type);
-                        let loaded_value =
-                            self.state.mir_function.new_typed_value_id(var_type.clone());
-
-                        self.instr().load_with(
-                            var_type,
-                            loaded_value,
-                            Value::operand(var_value),
-                            format!("Load array variable {}", name.value()),
-                        );
-                        return Ok(Value::operand(loaded_value));
-                    }
-                    // Non-array pointers should not exist in value-first approach
-                    // This is likely an error in the lowering
-                    return Err(format!(
-                        "Unexpected pointer type for variable '{}': {:?}. Only arrays should use pointers.",
-                        name.value(),
-                        value_type
-                    ));
-                } else {
-                    // It's a value (primitive, struct, tuple) - use directly
-                    return Ok(Value::operand(var_value));
-                }
+                // It's a value (primitive, struct, tuple) - use directly
+                return Ok(Value::operand(var_value));
+            } else {
+                panic!("Unexpected error: could not read variable {}", name.value());
             }
         }
 

@@ -175,14 +175,6 @@ fn encode_input(dst: &mut Vec<M31>, ty: &AbiType, val: &InputValue) -> Result<()
             dst.push(M31::from(if *b { 1u32 } else { 0u32 }));
             Ok(())
         }
-        (AbiType::Pointer(_), _) => {
-            // Pointers are internal-only and cannot be provided as CLI arguments
-            // They're only used for decoding values from program memory
-            Err(AbiCodecError::TypeMismatch(
-                "Pointer types are internal-only and cannot be provided as input.".to_string(),
-            ))
-        }
-
         // Collections
         (AbiType::Tuple(types), InputValue::List(values)) => {
             if types.len() != values.len() {
@@ -272,12 +264,6 @@ fn decode_one(
                 )));
             }
             Ok((CairoMValue::U32(lo | (hi << 16)), start + 2))
-        }
-        AbiType::Pointer(_) => {
-            if start + 1 > src.len() {
-                return Err(AbiCodecError::InsufficientData);
-            }
-            Ok((CairoMValue::Pointer(src[start]), start + 1))
         }
         AbiType::Tuple(elems) => {
             let mut cur = start;
@@ -660,13 +646,7 @@ mod tests {
                             size: 2,
                         },
                     ),
-                    (
-                        "c".into(),
-                        AbiType::Tuple(vec![
-                            AbiType::Bool,
-                            AbiType::Pointer(Box::new(AbiType::Unit)),
-                        ]),
-                    ),
+                    ("c".into(), AbiType::Tuple(vec![AbiType::Bool])),
                 ],
             };
             let s = json::to_string(&ty).unwrap();

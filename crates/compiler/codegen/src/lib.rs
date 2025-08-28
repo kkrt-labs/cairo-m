@@ -79,7 +79,7 @@ impl InstructionBuilder {
         }
     }
 
-    pub fn build(&self) -> Instruction {
+    pub(crate) fn build(&self) -> Instruction {
         // For now, we'll panic if we can't convert operands to literals
         // This should only happen for unresolved labels, which should be resolved by this point
         let mut values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
@@ -107,13 +107,13 @@ impl InstructionBuilder {
     }
 
     /// Set a comment
-    pub fn with_comment(mut self, comment: String) -> Self {
+    pub(crate) fn with_comment(mut self, comment: String) -> Self {
         self.comment = Some(comment);
         self
     }
 
     /// Get the first operand
-    pub fn op0(&self) -> Option<i32> {
+    pub(crate) fn op0(&self) -> Option<i32> {
         self.operands.first().and_then(|op| match op {
             Operand::Literal(value) => Some(*value),
             _ => None,
@@ -121,7 +121,7 @@ impl InstructionBuilder {
     }
 
     /// Get the second operand
-    pub fn op1(&self) -> Option<i32> {
+    pub(crate) fn op1(&self) -> Option<i32> {
         self.operands.get(1).and_then(|op| match op {
             Operand::Literal(value) => Some(*value),
             _ => None,
@@ -129,7 +129,7 @@ impl InstructionBuilder {
     }
 
     /// Get the third operand
-    pub fn op2(&self) -> Option<i32> {
+    pub(crate) fn op2(&self) -> Option<i32> {
         self.operands.get(2).and_then(|op| match op {
             Operand::Literal(value) => Some(*value),
             _ => None,
@@ -137,7 +137,7 @@ impl InstructionBuilder {
     }
 
     /// Convert to CASM assembly string
-    pub fn to_asm(&self) -> String {
+    pub(crate) fn to_asm(&self) -> String {
         let mut parts = vec![self.opcode.to_string()];
 
         // Add operands to the string
@@ -161,26 +161,6 @@ impl InstructionBuilder {
             instruction
         }
     }
-
-    /// Convert asm instruction to a vector of hex strings
-    /// Signed offsets are encoded as M31 before being converted to hex.
-    pub fn to_hex(&self) -> Vec<String> {
-        let mut hex_parts = vec![format!("{:#02x}", self.opcode)];
-
-        for operand in &self.operands {
-            match operand {
-                Operand::Literal(val) => hex_parts.push(format!("{val:#02x}")),
-                Operand::Label(label) => hex_parts.push(format!("@{}", label)),
-            }
-        }
-
-        // Pad with zeros if needed
-        while hex_parts.len() < 4 {
-            hex_parts.push("0x00".to_string());
-        }
-
-        hex_parts
-    }
 }
 
 /// Represents a label in the generated code
@@ -202,12 +182,12 @@ impl Label {
     }
 
     /// Create a label for a basic block
-    pub fn for_block(function_name: &str, block_id: BasicBlockId) -> Self {
+    pub(crate) fn for_block(function_name: &str, block_id: BasicBlockId) -> Self {
         Self::new(format!("{function_name}_{block_id:?}"))
     }
 
     /// Create a label for a function
-    pub fn for_function(function_name: &str) -> Self {
+    pub(crate) fn for_function(function_name: &str) -> Self {
         Self::new(function_name.to_string())
     }
 }

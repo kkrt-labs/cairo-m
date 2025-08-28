@@ -96,12 +96,12 @@ pub struct PlaceTable {
 }
 
 impl PlaceTable {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Add a new place to this scope
-    pub fn add_place(&mut self, name: String, flags: PlaceFlags) -> ScopedPlaceId {
+    pub(crate) fn add_place(&mut self, name: String, flags: PlaceFlags) -> ScopedPlaceId {
         let place_id = ScopedPlaceId::new(self.places.len());
         let place = Place::new(name.clone(), flags);
 
@@ -131,12 +131,12 @@ impl PlaceTable {
     }
 
     /// Get a mutable reference to a place by its ID
-    pub fn place_mut(&mut self, id: ScopedPlaceId) -> Option<&mut Place> {
+    pub(crate) fn place_mut(&mut self, id: ScopedPlaceId) -> Option<&mut Place> {
         self.places.get_mut(id)
     }
 
     /// Mark a place as used
-    pub fn mark_as_used(&mut self, id: ScopedPlaceId) {
+    pub(crate) fn mark_as_used(&mut self, id: ScopedPlaceId) {
         if let Some(place) = self.place_mut(id) {
             place.flags.insert(PlaceFlags::USED);
         }
@@ -148,16 +148,6 @@ impl PlaceTable {
             .iter()
             .enumerate()
             .map(|(i, place)| (ScopedPlaceId::new(i), place))
-    }
-
-    /// Get the number of places in this scope
-    pub fn len(&self) -> usize {
-        self.places.len()
-    }
-
-    /// Check if this scope has no places
-    pub fn is_empty(&self) -> bool {
-        self.places.is_empty()
     }
 }
 

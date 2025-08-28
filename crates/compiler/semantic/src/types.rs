@@ -36,7 +36,6 @@ impl<'db> TypeId<'db> {
             TypeData::Felt => "felt".to_string(),
             TypeData::U32 => "u32".to_string(),
             TypeData::Bool => "bool".to_string(),
-            TypeData::Pointer(inner) => format!("{}*", Self::format_type(db, inner)),
             TypeData::Tuple(types) => {
                 if types.is_empty() {
                     "()".to_string()
@@ -87,9 +86,6 @@ pub enum TypeData<'db> {
         element_type: TypeId<'db>,
         size: usize,
     },
-
-    /// A pointer type pointing to another type
-    Pointer(TypeId<'db>),
 
     /// A function type with its signature
     Function(FunctionSignatureId<'db>),
@@ -186,7 +182,7 @@ impl<'db> TypeData<'db> {
     }
 
     /// Get a human-readable display name for this type
-    pub fn display_name(&self, db: &dyn SemanticDb) -> String {
+    pub(crate) fn display_name(&self, db: &dyn SemanticDb) -> String {
         match self {
             TypeData::Felt => "felt".to_string(),
             TypeData::Bool => "bool".to_string(),
@@ -201,9 +197,6 @@ impl<'db> TypeData<'db> {
                     format!("({})", type_names.join(", "))
                 }
             }
-            TypeData::Pointer(inner) => {
-                format!("{}*", inner.data(db).display_name(db))
-            }
             TypeData::FixedArray { element_type, size } => {
                 format!("[{}; {}]", element_type.data(db).display_name(db), size)
             }
@@ -216,52 +209,15 @@ impl<'db> TypeData<'db> {
 
 impl<'db> StructTypeId<'db> {
     /// Get the type of a specific field by name
-    pub fn field_type(&self, db: &'db dyn SemanticDb, field_name: &str) -> Option<TypeId<'db>> {
+    pub(crate) fn field_type(
+        &self,
+        db: &'db dyn SemanticDb,
+        field_name: &str,
+    ) -> Option<TypeId<'db>> {
         self.fields(db)
             .iter()
             .find(|(name, _)| name == field_name)
             .map(|(_, type_id)| *type_id)
-    }
-
-    /// Check if this struct has a field with the given name
-    pub fn has_field(&self, db: &dyn SemanticDb, field_name: &str) -> bool {
-        self.fields(db).iter().any(|(name, _)| name == field_name)
-    }
-
-    /// Get all field names in declaration order
-    pub fn field_names(&self, db: &'db dyn SemanticDb) -> Vec<String> {
-        self.fields(db)
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect()
-    }
-}
-
-impl<'db> FunctionSignatureId<'db> {
-    /// Get the type of a specific parameter by name
-    pub fn param_type(&self, db: &'db dyn SemanticDb, param_name: &str) -> Option<TypeId<'db>> {
-        self.params(db)
-            .iter()
-            .find(|(name, _)| name == param_name)
-            .map(|(_, type_id)| *type_id)
-    }
-
-    /// Check if this function has a parameter with the given name
-    pub fn has_param(&self, db: &dyn SemanticDb, param_name: &str) -> bool {
-        self.params(db).iter().any(|(name, _)| name == param_name)
-    }
-
-    /// Get all parameter names in declaration order
-    pub fn param_names(&self, db: &'db dyn SemanticDb) -> Vec<String> {
-        self.params(db)
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect()
-    }
-
-    /// Get the number of parameters
-    pub fn param_count(&self, db: &dyn SemanticDb) -> usize {
-        self.params(db).len()
     }
 }
 

@@ -3,29 +3,9 @@
 //! This module implements various optimization passes that can be applied to MIR functions
 //! to improve code quality and remove dead code.
 
-use crate::{InstructionKind, MirFunction};
+use crate::MirFunction;
 
 pub mod const_eval;
-
-/// Analyzes a MIR function to determine if it uses memory operations
-/// that require SROA/Mem2Reg optimization passes.
-pub fn function_uses_memory(function: &MirFunction) -> bool {
-    for block in function.basic_blocks.iter() {
-        for instruction in &block.instructions {
-            match &instruction.kind {
-                InstructionKind::FrameAlloc { .. }
-                | InstructionKind::Load { .. }
-                | InstructionKind::Store { .. }
-                | InstructionKind::GetElementPtr { .. }
-                | InstructionKind::AddressOf { .. } => {
-                    return true;
-                }
-                _ => continue,
-            }
-        }
-    }
-    false
-}
 
 /// A trait for MIR optimization passes
 pub trait MirPass {
@@ -35,37 +15,6 @@ pub trait MirPass {
 
     /// Get the name of this pass for debugging
     fn name(&self) -> &'static str;
-}
-
-/// A wrapper for conditional pass execution
-///
-/// This allows passes to be skipped based on function characteristics,
-/// improving compilation performance for functions that don't need certain optimizations.
-pub struct ConditionalPass {
-    pass: Box<dyn MirPass>,
-    condition: fn(&MirFunction) -> bool,
-}
-
-impl ConditionalPass {
-    /// Create a new conditional pass
-    pub fn new(pass: Box<dyn MirPass>, condition: fn(&MirFunction) -> bool) -> Self {
-        Self { pass, condition }
-    }
-}
-
-impl MirPass for ConditionalPass {
-    fn run(&mut self, function: &mut MirFunction) -> bool {
-        if (self.condition)(function) {
-            self.pass.run(function)
-        } else {
-            // Skip the pass - no changes needed
-            false
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        self.pass.name()
-    }
 }
 
 pub mod arithmetic_simplify;
@@ -110,18 +59,6 @@ impl PassManager {
     /// Add a pass to the manager
     pub fn add_pass<P: MirPass + 'static>(mut self, pass: P) -> Self {
         self.passes.push(Box::new(pass));
-        self
-    }
-
-    /// Add a conditional pass to the manager
-    /// The pass will only run if the condition function returns true
-    pub fn add_conditional_pass<P: MirPass + 'static>(
-        mut self,
-        pass: P,
-        condition: fn(&MirFunction) -> bool,
-    ) -> Self {
-        self.passes
-            .push(Box::new(ConditionalPass::new(Box::new(pass), condition)));
         self
     }
 

@@ -15,10 +15,6 @@ fn named_type(name: NamedType) -> Spanned<AstTypeExpr> {
     spanned(AstTypeExpr::Named(spanned(name)))
 }
 
-fn pointer_type(inner: Spanned<AstTypeExpr>) -> Spanned<AstTypeExpr> {
-    spanned(AstTypeExpr::Pointer(Box::new(inner)))
-}
-
 fn tuple_type(elements: Vec<Spanned<AstTypeExpr>>) -> Spanned<AstTypeExpr> {
     spanned(AstTypeExpr::Tuple(elements))
 }
@@ -47,31 +43,6 @@ fn test_resolve_u32_type() {
     let u32_data = u32_type.data(&db);
 
     assert!(matches!(u32_data, TypeData::U32));
-}
-
-#[test]
-fn test_resolve_pointer_type() {
-    let db = test_db();
-    let crate_id = crate_from_program(&db, "");
-    let file = *crate_id.modules(&db).values().next().unwrap();
-    let scope_id = FileScopeId::new(0);
-
-    let pointer_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        pointer_type(named_type(NamedType::Felt)),
-        scope_id,
-    );
-    let pointer_data = pointer_type.data(&db);
-
-    match pointer_data {
-        TypeData::Pointer(inner) => {
-            let inner_data = inner.data(&db);
-            assert!(matches!(inner_data, TypeData::Felt));
-        }
-        _ => panic!("Expected pointer type"),
-    }
 }
 
 #[test]
@@ -348,42 +319,6 @@ fn test_member_access_edge_cases() {
             }
         }
     }
-}
-
-#[test]
-fn test_pointer_to_struct_field_access() {
-    let db = test_db();
-    let program = r#"
-            struct Point { x: felt, y: felt }
-
-            fn test(ptr: Point*) -> felt {
-                let x = ptr.x;  // Should automatically dereference
-                return x;
-            }
-        "#;
-    let crate_id = crate_from_program(&db, program);
-    let file = *crate_id.modules(&db).values().next().unwrap();
-    let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
-
-    // Find the ptr.x expression
-    let mut found_ptr_access = false;
-    for expr_id in semantic_index.span_to_expression_id.values() {
-        let expr_info = semantic_index.expression(*expr_id).unwrap();
-
-        if let Expression::MemberAccess { object, field } = &expr_info.ast_node
-            && let Expression::Identifier(ident) = object.value()
-            && ident.value() == "ptr"
-            && field.value() == "x"
-        {
-            let expr_type = expression_semantic_type(&db, crate_id, file, *expr_id, None);
-            assert!(
-                matches!(expr_type.data(&db), TypeData::Felt),
-                "ptr.x should have felt type through automatic dereference"
-            );
-            found_ptr_access = true;
-        }
-    }
-    assert!(found_ptr_access, "Should have found ptr.x expression");
 }
 
 #[test]

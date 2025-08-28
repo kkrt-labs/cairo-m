@@ -72,14 +72,14 @@ impl CasmBuilder {
         }
     }
 
-    pub fn new_label_name(&mut self, prefix: &str) -> String {
+    pub(crate) fn new_label_name(&mut self, prefix: &str) -> String {
         let label_id = self.label_counter;
         self.label_counter += 1;
         format!("{}_{}", prefix, label_id)
     }
 
     /// Add a label at the current position
-    pub fn add_label(&mut self, label: Label) {
+    pub(crate) fn add_label(&mut self, label: Label) {
         let mut label = label;
         label.address = Some(self.instructions.len());
         self.labels.push(label);
@@ -129,191 +129,10 @@ impl CasmBuilder {
         self.touch(offset, 2); // u32 takes 2 slots
     }
 
-    /// Store immediate value at a specific offset (public version)
-    pub fn store_immediate_at(
-        &mut self,
-        value: u32,
-        offset: i32,
-        comment: String,
-    ) -> CodegenResult<()> {
-        self.store_immediate(value, offset, comment);
-        Ok(())
-    }
-
-    /// Store u32 immediate value at a specific offset (public version)
-    pub fn store_u32_immediate_at(
-        &mut self,
-        value: u32,
-        offset: i32,
-        comment: String,
-    ) -> CodegenResult<()> {
-        self.store_u32_immediate(value, offset, comment);
-        Ok(())
-    }
-
-    /// Store a value at a specific offset
-    ///
-    /// The dest_id is used to map the destination in the layout, but the size
-    /// is determined by the value being stored, not the destination.
-    pub fn store_at(&mut self, dest_id: ValueId, offset: i32, value: Value) -> CodegenResult<()> {
-        // Map the destination to the specific offset
-        self.layout.map_value(dest_id, offset);
-
-        match value {
-            Value::Literal(Literal::Integer(imm)) => {
-                self.store_immediate(imm, offset, format!("[fp + {}] = {}", offset, imm));
-            }
-            Value::Operand(src_id) => {
-                let src_off = self.layout.get_offset(src_id)?;
-                // Get the size of the value being stored
-                let size = self.layout.get_value_size(src_id);
-
-                // For multi-slot values, copy each slot
-                for i in 0..size {
-                    let slot_src_off = src_off + i as i32;
-                    let slot_dest_off = offset + i as i32;
-                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-                        .with_operand(Operand::Literal(slot_src_off))
-                        .with_operand(Operand::Literal(0))
-                        .with_operand(Operand::Literal(slot_dest_off))
-                        .with_comment(format!(
-                            "[fp + {}] = [fp + {}] + 0",
-                            slot_dest_off, slot_src_off
-                        ));
-                    self.instructions.push(instr);
-                }
-                self.touch(offset, size);
-            }
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(format!(
-                    "Unsupported store value type: {:?}",
-                    value
-                )));
-            }
-        }
-        Ok(())
-    }
-
-    /// Store u32 value at a specific offset
-    pub fn store_u32_at(
-        &mut self,
-        dest_id: ValueId,
-        offset: i32,
-        value: Value,
-    ) -> CodegenResult<()> {
-        self.layout.map_value(dest_id, offset);
-
-        match value {
-            Value::Literal(Literal::Integer(imm)) => {
-                let value = imm;
-                self.store_u32_immediate(
-                    value,
-                    offset,
-                    format!("u32([fp + {}, fp + {}]) = u32({})", offset, offset + 1, imm),
-                );
-            }
-            Value::Operand(src_id) => {
-                let src_off = self.layout.get_offset(src_id)?;
-                let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_off))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(offset))
-                    .with_comment(format!(
-                        "u32([fp + {}], [fp + {}]) = u32([fp + {}], [fp + {}]) + u32(0, 0)",
-                        offset,
-                        offset + 1,
-                        src_off,
-                        src_off + 1
-                    ));
-                self.instructions.push(instr);
-                self.touch(offset, 2);
-            }
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(format!(
-                    "Unsupported store value type: {:?}",
-                    value
-                )));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Generate assignment instruction with optional target offset
-    ///
-    /// If target_offset is provided, writes directly to that location.
-    /// Otherwise, allocates a new local variable.
-    pub fn assign_with_target(
-        &mut self,
-        dest: ValueId,
-        source: Value,
-        target_offset: Option<i32>,
-    ) -> CodegenResult<()> {
-        let dest_off = if let Some(offset) = target_offset {
-            // Use the provided target offset and map the ValueId to it
-            self.layout.map_value(dest, offset);
-            offset
-        } else {
-            // Get the pre-allocated offset from the layout, or allocate on demand
-            match self.layout.get_offset(dest) {
-                Ok(offset) => offset,
-                Err(_) => {
-                    // Value wasn't pre-allocated (likely an immediate assignment from SSA form)
-                    // Allocate it now
-                    self.layout.allocate_local(dest, 1)?
-                }
-            }
-        };
-
-        match source {
-            Value::Literal(Literal::Integer(imm)) => {
-                // Store immediate value
-                self.store_immediate(imm, dest_off, format!("[fp + {dest_off}] = {imm}"));
-                self.touch(dest_off, 1);
-            }
-            Value::Literal(Literal::Boolean(b)) => {
-                // Store immediate value
-                self.store_immediate(b as u32, dest_off, format!("[fp + {dest_off}] = {b}"));
-                self.touch(dest_off, 1);
-            }
-
-            Value::Operand(src_id) => {
-                // Copy from another value using StoreAddFpImm with imm=0
-                let src_off = self.layout.get_offset(src_id)?;
-
-                let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
-                    .with_operand(Operand::Literal(src_off))
-                    .with_operand(Operand::Literal(0))
-                    .with_operand(Operand::Literal(dest_off))
-                    .with_comment(format!("[fp + {dest_off}] = [fp + {src_off}] + 0"));
-
-                self.instructions.push(instr);
-                self.touch(dest_off, 1);
-            }
-
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(format!(
-                    "Unsupported assignment source: {:?}",
-                    source
-                )));
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Generate assignment instruction
-    ///
-    /// Handles simple value assignments: dest = source
-    pub fn assign(&mut self, dest: ValueId, source: Value) -> CodegenResult<()> {
-        self.assign_with_target(dest, source, None)
-    }
-
     /// Generate type-aware assignment instruction
     ///
     /// Handles assignments for all types including aggregates (structs, tuples)
-    pub fn assign_typed(
+    pub(crate) fn assign(
         &mut self,
         dest: ValueId,
         source: Value,
@@ -448,79 +267,8 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate u32 assignment instruction with optional target offset
-    ///
-    /// If target_offset is provided, writes directly to that location.
-    /// Otherwise, allocates a new local variable.
-    pub fn assign_u32_with_target(
-        &mut self,
-        dest: ValueId,
-        source: Value,
-        target_offset: Option<i32>,
-    ) -> CodegenResult<()> {
-        let dest_off = if let Some(offset) = target_offset {
-            // Use the provided target offset and map the ValueId to it
-            self.layout.map_value(dest, offset);
-            offset
-        } else {
-            // Get the pre-allocated offset from the layout, or allocate on demand
-            match self.layout.get_offset(dest) {
-                Ok(offset) => offset,
-                Err(_) => {
-                    // Value wasn't pre-allocated (likely an immediate assignment from SSA form)
-                    // Allocate it now (U32 needs 2 slots)
-                    self.layout.allocate_local(dest, 2)?
-                }
-            }
-        };
-
-        match source {
-            Value::Literal(Literal::Integer(imm)) => {
-                // Store as u32 immediate
-                let value = imm;
-                self.store_u32_immediate(
-                    value,
-                    dest_off,
-                    format!(
-                        "u32([fp + {dest_off}, fp + {}]) = u32({value})",
-                        dest_off + 1
-                    ),
-                );
-            }
-
-            Value::Operand(src_id) => {
-                // Copy from another value using U32_STORE_ADD_FP_IMM with zero immediates
-                let src_off = self.layout.get_offset(src_id)?;
-
-                let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_off))
-                    .with_operand(Operand::Literal(0))  // imm_lo
-                    .with_operand(Operand::Literal(0))  // imm_hi
-                    .with_operand(Operand::Literal(dest_off))
-                    .with_comment(format!(
-                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src_off}], [fp + {}]) + u32(0, 0)",
-                        dest_off + 1, src_off + 1
-                    ));
-                self.instructions.push(instr);
-
-                self.touch(dest_off, 2);
-            }
-
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Unsupported assignment source for u32".to_string(),
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn unary_op(&mut self, op: UnaryOp, dest: ValueId, source: Value) -> CodegenResult<()> {
-        self.unary_op_with_target(op, dest, source, None)
-    }
-
-    pub fn unary_op_with_target(
+    /// Generate unary operation instruction
+    pub(crate) fn unary_op(
         &mut self,
         op: UnaryOp,
         dest: ValueId,
@@ -553,11 +301,11 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate binary operation instruction with optional target offset
+    /// Generate a binary operation instruction
     ///
     /// If target_offset is provided, writes directly to that location.
     /// Otherwise, allocates a new local variable.
-    pub fn binary_op_with_target(
+    pub(crate) fn binary_op(
         &mut self,
         op: BinaryOp,
         dest: ValueId,
@@ -609,23 +357,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate a binary operation instruction
-    ///
-    /// Handles all arithmetic and comparison operations needed for fibonacci:
-    /// - Addition: a + b
-    /// - Subtraction: a - b
-    /// - Equality: a == b
-    pub fn binary_op(
-        &mut self,
-        op: BinaryOp,
-        dest: ValueId,
-        left: Value,
-        right: Value,
-    ) -> CodegenResult<()> {
-        self.binary_op_with_target(op, dest, left, right, None)
-    }
-
-    pub fn fp_fp_opcode_for_binary_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+    pub(crate) fn fp_fp_opcode_for_binary_op(&self, op: BinaryOp) -> CodegenResult<u32> {
         match op {
             BinaryOp::Add => Ok(STORE_ADD_FP_FP),
             BinaryOp::Sub => Ok(STORE_SUB_FP_FP),
@@ -637,7 +369,7 @@ impl CasmBuilder {
         }
     }
 
-    pub fn fp_imm_opcode_for_binary_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+    pub(crate) fn fp_imm_opcode_for_binary_op(&self, op: BinaryOp) -> CodegenResult<u32> {
         match op {
             BinaryOp::Add => Ok(STORE_ADD_FP_IMM),
             BinaryOp::Sub => Ok(STORE_SUB_FP_IMM),
@@ -649,7 +381,7 @@ impl CasmBuilder {
         }
     }
 
-    pub fn fp_fp_opcode_for_u32_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+    pub(crate) fn fp_fp_opcode_for_u32_op(&self, op: BinaryOp) -> CodegenResult<u32> {
         match op {
             BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_FP),
             BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_FP),
@@ -670,7 +402,7 @@ impl CasmBuilder {
         }
     }
 
-    pub fn fp_imm_opcode_for_u32_op(&mut self, op: BinaryOp) -> CodegenResult<u32> {
+    pub(crate) fn fp_imm_opcode_for_u32_op(&self, op: BinaryOp) -> CodegenResult<u32> {
         match op {
             BinaryOp::U32Add => Ok(U32_STORE_ADD_FP_IMM),
             BinaryOp::U32Sub => Ok(U32_STORE_SUB_FP_IMM),
@@ -692,7 +424,7 @@ impl CasmBuilder {
     }
 
     /// Generate arithmetic operation (add, sub, mul, div)
-    pub fn generate_arithmetic_op(
+    pub(crate) fn generate_arithmetic_op(
         &mut self,
         op: BinaryOp,
         dest_off: i32,
@@ -809,7 +541,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    pub fn generate_equals_op(
+    pub(crate) fn generate_equals_op(
         &mut self,
         dest_off: i32,
         left: Value,
@@ -854,7 +586,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    pub fn generate_neq_op(
+    pub(crate) fn generate_neq_op(
         &mut self,
         dest_off: i32,
         left: Value,
@@ -899,7 +631,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    pub fn generate_and_op(
+    pub(crate) fn generate_and_op(
         &mut self,
         dest_off: i32,
         left: Value,
@@ -944,7 +676,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    pub fn generate_or_op(
+    pub(crate) fn generate_or_op(
         &mut self,
         dest_off: i32,
         left: Value,
@@ -1031,7 +763,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    pub fn generate_not_op(&mut self, dest_off: i32, source: Value) -> CodegenResult<()> {
+    pub(crate) fn generate_not_op(&mut self, dest_off: i32, source: Value) -> CodegenResult<()> {
         let set_zero_label = self.new_label_name("not_zero");
         let end_label = self.new_label_name("not_end");
 
@@ -1084,7 +816,7 @@ impl CasmBuilder {
     }
 
     /// Generate U32 operation
-    pub fn generate_u32_op(
+    pub(crate) fn generate_u32_op(
         &mut self,
         op: BinaryOp,
         dest_off: i32,
@@ -1385,7 +1117,7 @@ impl CasmBuilder {
     }
 
     /// Generate a function call that returns a value.
-    pub fn call(
+    pub(crate) fn call(
         &mut self,
         dest: ValueId,
         callee_name: &str,
@@ -1435,7 +1167,7 @@ impl CasmBuilder {
     }
 
     /// Generate a function call that returns multiple values.
-    pub fn call_multiple(
+    pub(crate) fn call_multiple(
         &mut self,
         dests: &[ValueId],
         callee_name: &str,
@@ -1486,7 +1218,7 @@ impl CasmBuilder {
     }
 
     /// Generate a function call that does not return a value.
-    pub fn void_call(
+    pub(crate) fn void_call(
         &mut self,
         callee_name: &str,
         args: &[Value],
@@ -1718,7 +1450,7 @@ impl CasmBuilder {
     }
 
     /// Generate `return` instruction with multiple return values.
-    pub fn return_values(
+    pub(crate) fn return_values(
         &mut self,
         values: &[Value],
         return_types: &[MirType],
@@ -1824,102 +1556,8 @@ impl CasmBuilder {
         Ok(())
     }
 
-    /// Generate a load instruction
-    ///
-    /// Translates `dest = *address` to a **stack-to-stack copy** from the source slots
-    /// starting at `addr_off` into the destination slots starting at `dest_off`.
-    /// In the flattened pointer model, `address` is a compile-time-known fp-relative slot,
-    /// so a load is implemented as one or more `STORE_ADD_FP_IMM` copies.
-    ///
-    /// For multi-slot aggregates (e.g., structs/arrays), this copies **all slots**
-    /// corresponding to the destination's size in the current function layout.
-    pub fn load(&mut self, dest: ValueId, address: Value) -> CodegenResult<()> {
-        match address {
-            Value::Operand(addr_id) => {
-                // The address operand represents a compile-time-known stack slot
-                // computed via stackalloc/getelementptr.
-                let src_offset = self.layout.get_offset(addr_id)?;
-                let dest_offset = self.layout.get_offset(dest)?;
-                let size = self.layout.get_value_size(dest).max(1);
-
-                // Copy each slot (handles both single-slot and multi-slot aggregates)
-                for i in 0..size {
-                    let slot_src_off = src_offset + i as i32;
-                    let slot_dest_off = dest_offset + i as i32;
-
-                    let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-                        .with_operand(Operand::Literal(slot_src_off))
-                        .with_operand(Operand::Literal(0))
-                        .with_operand(Operand::Literal(slot_dest_off))
-                        .with_comment(format!(
-                            "Load: [fp + {slot_dest_off}] = [fp + {slot_src_off}] + 0"
-                        ));
-                    self.instructions.push(instr);
-                }
-
-                // Track writes for the whole aggregate
-                self.touch(dest_offset, size);
-                Ok(())
-            }
-            _ => Err(CodegenError::UnsupportedInstruction(format!(
-                "Load from non-operand address not supported: {:?}",
-                address
-            ))),
-        }
-    }
-
-    pub fn load_u32(&mut self, dest: ValueId, address: Value) -> CodegenResult<()> {
-        match address {
-            Value::Operand(addr_id) => {
-                let src_offset = self.layout.get_offset(addr_id)?;
-                let dest_offset = self.layout.get_offset(dest)?;
-
-                let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
-                    .with_operand(Operand::Literal(src_offset))
-                    .with_operand(Operand::Literal(0))  // imm_lo
-                    .with_operand(Operand::Literal(0))  // imm_hi
-                    .with_operand(Operand::Literal(dest_offset))
-                    .with_comment(format!("LoadU32: [fp + {dest_offset}, fp + {dest_offset} + 1] = [fp + {src_offset}, fp + {src_offset} + 1] + 0"));
-                self.instructions.push(instr);
-                self.touch(dest_offset, 2);
-                Ok(())
-            }
-            _ => Err(CodegenError::UnsupportedInstruction(format!(
-                "LoadU32 from non-operand address not supported: {:?}",
-                address
-            ))),
-        }
-    }
-
-    /// Generate a get element pointer instruction
-    ///
-    /// **IMPORTANT: Compile-Time Offset Calculation**
-    ///
-    /// In our flattened pointer model, `getelementptr` is purely a compile-time
-    /// operation. It doesn't generate ANY runtime code! The FunctionLayout phase
-    /// pre-calculates all offsets when building the stack frame layout.
-    ///
-    /// What happens:
-    /// 1. During MIR lowering: `%ptr = getelementptr %base, offset`
-    /// 2. During layout calculation: FunctionLayout computes `fp_offset(%ptr) = fp_offset(%base) + offset`
-    /// 3. During codegen: This function is called but generates NO instructions
-    /// 4. Later uses of %ptr will use the pre-calculated offset
-    ///
-    /// This works because all struct layouts and array indices are known at compile time.
-    /// For dynamic indexing or heap pointers, this model would need to be completely redesigned.
-    pub const fn get_element_ptr(
-        &mut self,
-        _dest: ValueId,
-        _base: Value,
-        _offset: Value,
-    ) -> CodegenResult<()> {
-        // The FunctionLayout has already calculated the offset for dest
-        // This instruction doesn't generate any CASM code - it's purely compile-time
-        Ok(())
-    }
-
     /// Generate unconditional jump
-    pub fn jump(&mut self, target_label: &str) -> CodegenResult<()> {
+    pub(crate) fn jump(&mut self, target_label: &str) -> CodegenResult<()> {
         let instr = InstructionBuilder::new(JMP_ABS_IMM)
             .with_operand(Operand::Label(target_label.to_string()))
             .with_comment(format!("jump abs {target_label}"));
@@ -1930,7 +1568,7 @@ impl CasmBuilder {
 
     /// Generates a conditional jump instruction that triggers if the value at `cond_off` is non-zero.
     /// The `target_label` is a placeholder that will be resolved to a relative offset later.
-    pub fn jnz(&mut self, condition: Value, target_label: &str) -> CodegenResult<()> {
+    pub(crate) fn jnz(&mut self, condition: Value, target_label: &str) -> CodegenResult<()> {
         // Get the condition value offset
         let cond_off = match condition {
             Value::Operand(cond_id) => self.layout.get_offset(cond_id)?,
@@ -1945,7 +1583,7 @@ impl CasmBuilder {
     }
 
     /// Generates a conditional jump based on a direct fp-relative offset.
-    pub fn jnz_offset(&mut self, cond_off: i32, target_label: &str) -> CodegenResult<()> {
+    pub(crate) fn jnz_offset(&mut self, cond_off: i32, target_label: &str) -> CodegenResult<()> {
         let instr = InstructionBuilder::new(JNZ_FP_IMM)
             .with_operand(Operand::Literal(cond_off))
             .with_operand(Operand::Label(target_label.to_string()))
@@ -1954,32 +1592,18 @@ impl CasmBuilder {
         self.instructions.push(instr);
         Ok(())
     }
-
-    /// Allocate stack space for StackAlloc instruction
-    ///
-    /// This allocates the requested number of slots for the destination. This is a no-op, it just increases
-    /// the current frame usage.
-    pub fn allocate_frame_slots(&mut self, dest: ValueId, size: usize) -> CodegenResult<()> {
-        // Allocate the requested size
-        let _dest_off = self.layout.allocate_local(dest, size)?;
-
-        // FrameAlloc doesn't generate actual instructions, it just reserves space
-        // The allocation is tracked in the layout for later use
-        Ok(())
-    }
-
     /// Add a raw CASM instruction
-    pub fn add_instruction(&mut self, instruction: InstructionBuilder) {
+    pub(crate) fn add_instruction(&mut self, instruction: InstructionBuilder) {
         self.instructions.push(instruction);
     }
 
     /// Get the generated instructions
-    pub fn instructions(&self) -> &[InstructionBuilder] {
+    pub(crate) fn instructions(&self) -> &[InstructionBuilder] {
         &self.instructions
     }
 
     /// Get the labels
-    pub fn labels(&self) -> &[Label] {
+    pub(crate) fn labels(&self) -> &[Label] {
         &self.labels
     }
 
@@ -1992,138 +1616,12 @@ impl CasmBuilder {
     pub const fn label_counter(&self) -> usize {
         self.label_counter
     }
-    /// Take ownership of the generated instructions
-    pub fn into_instructions(self) -> Vec<InstructionBuilder> {
-        self.instructions
-    }
 
-    /// Take ownership of the labels
-    pub fn into_labels(self) -> Vec<Label> {
-        self.labels
-    }
-
-    /// Generate a store instruction
-    ///
-    /// Handles stores to stackalloc addresses (common for parameter copying)
-    /// Since we don't have indirect store in the ISA, we treat stackalloc
-    /// addresses as direct local variable slots
-    pub fn store(&mut self, address: Value, value: Value) -> CodegenResult<()> {
-        match address {
-            Value::Operand(addr_id) => {
-                // The address is actually the location where we want to store
-                let dest_offset = self.layout.get_offset(addr_id)?;
-
-                match value {
-                    Value::Literal(inner) => {
-                        let imm = match inner {
-                            Literal::Integer(imm) => imm,
-                            Literal::Boolean(imm) => imm as u32,
-                            _ => {
-                                return Err(CodegenError::UnsupportedInstruction(format!(
-                                    "Unsupported store value type: {:?}",
-                                    value
-                                )));
-                            }
-                        };
-
-                        self.store_immediate(
-                            imm,
-                            dest_offset,
-                            format!("Store immediate: [fp + {dest_offset}] = {imm}"),
-                        );
-                    }
-
-                    Value::Operand(val_id) => {
-                        let val_offset = self.layout.get_offset(val_id)?;
-                        // Get the size of the value being stored
-                        let size = self.layout.get_value_size(val_id);
-
-                        // For multi-slot values, copy each slot
-                        for i in 0..size {
-                            let slot_src_off = val_offset + i as i32;
-                            let slot_dest_off = dest_offset + i as i32;
-                            let instr = InstructionBuilder::new(STORE_ADD_FP_IMM) // StoreAddFpImm
-                                .with_operand(Operand::Literal(slot_src_off))
-                                .with_operand(Operand::Literal(0))
-                                .with_operand(Operand::Literal(slot_dest_off))
-                                .with_comment(format!(
-                                    "Store: [fp + {slot_dest_off}] = [fp + {slot_src_off}] + 0"
-                                ));
-
-                            self.instructions.push(instr);
-                        }
-                        self.touch(dest_offset, size);
-                    }
-
-                    _ => {
-                        return Err(CodegenError::UnsupportedInstruction(format!(
-                            "Unsupported store value type: {:?}",
-                            value
-                        )));
-                    }
-                }
-            }
-
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Store to non-operand address not supported".to_string(),
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn store_u32(&mut self, address: Value, value: Value) -> CodegenResult<()> {
-        match address {
-            Value::Operand(addr_id) => {
-                let dest_offset = self.layout.get_offset(addr_id)?;
-
-                match value {
-                    Value::Literal(Literal::Integer(imm)) => {
-                        self.store_u32_immediate(
-                            imm,
-                            dest_offset,
-                            format!(
-                                "[fp + {}, fp + {}] = u32({imm})",
-                                dest_offset,
-                                dest_offset + 1
-                            ),
-                        );
-                    }
-                    Value::Operand(val_id) => {
-                        let val_offset = self.layout.get_offset(val_id)?;
-
-                        let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
-                            .with_operand(Operand::Literal(val_offset))
-                            .with_operand(Operand::Literal(0))
-                            .with_operand(Operand::Literal(0))
-                            .with_operand(Operand::Literal(dest_offset))
-                            .with_comment(format!("[fp + {dest_offset}], [fp + {dest_offset} + 1] = [fp + {val_offset}], [fp + {val_offset}  +1] + 0"));
-                        self.instructions.push(instr);
-                        self.touch(dest_offset, 2);
-                    }
-                    _ => {
-                        return Err(CodegenError::UnsupportedInstruction(
-                            "Unsupported store value type".to_string(),
-                        ));
-                    }
-                }
-            }
-            _ => {
-                return Err(CodegenError::UnsupportedInstruction(
-                    "Store to non-operand address not supported".to_string(),
-                ));
-            }
-        }
-
-        Ok(())
-    }
-
+    // TODO: this should be done in a system similar to MIR's `passes`.
     /// Removes any occurrences of instructions where two or more offsets are the same.
     /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
     /// This fix was designed to be as non-invasive as possible to be reverted easily in case of design changes in the prover.
-    pub fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
+    pub(crate) fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
         let mut new_instructions = Vec::new();
         // Track how instruction indices change: original_index -> new_index_range
         let mut index_mapping: Vec<Option<std::ops::Range<usize>>> = Vec::new();
@@ -2237,6 +1735,7 @@ impl CasmBuilder {
 
     /// Handles duplicate offsets in fp+fp binary operations.
     /// Expands in-place operations using temporary variables to avoid undefined behavior.
+    // TODO: this should be done in a system similar to MIR's `passes`.
     fn handle_fp_fp_duplicates(
         instr: &InstructionBuilder,
         temp_var_offset: i32,
@@ -2308,6 +1807,7 @@ impl CasmBuilder {
 
     /// Handles duplicate offsets in fp+immediate binary operations.
     /// Expands in-place operations using a temporary variable when source equals destination.
+    // TODO: this should be done in a system similar to MIR's `passes`.
     fn handle_fp_imm_duplicates(
         instr: &InstructionBuilder,
         temp_var_offset: i32,
@@ -2348,6 +1848,7 @@ impl CasmBuilder {
     /// Handles duplicate offsets in U32 fp+fp operations.
     /// Similar to handle_fp_fp_duplicates but needs to handle 2-slot U32 values.
     /// For U32 comparisons, only the destination is 1 slot (felt result).
+    // TODO: this should be done in a system similar to MIR's `passes`.
     fn handle_u32_fp_fp_duplicates(
         instr: &InstructionBuilder,
         temp_var_offset: i32,
@@ -2485,6 +1986,7 @@ impl CasmBuilder {
 
     /// Handles duplicate offsets in U32 fp+immediate operations.
     /// Similar to handle_fp_imm_duplicates but needs to handle 2-slot U32 values.
+    // TODO: this should be done in a system similar to MIR's `passes`.
     fn handle_u32_fp_imm_duplicates(
         instr: &InstructionBuilder,
         temp_var_offset: i32,
@@ -2576,7 +2078,7 @@ impl CasmBuilder {
     // ===== Aggregate Operations =====
 
     /// Creates a struct by allocating consecutive registers and copying field values
-    pub fn make_struct(
+    pub(crate) fn make_struct(
         &mut self,
         dest: ValueId,
         fields: &[(String, Value)],
@@ -2615,7 +2117,7 @@ impl CasmBuilder {
     }
 
     /// Extracts a field from a struct by mapping the destination to the field's offset
-    pub fn extract_struct_field(
+    pub(crate) fn extract_struct_field(
         &mut self,
         dest: ValueId,
         struct_val: Value,
@@ -2672,7 +2174,7 @@ impl CasmBuilder {
     }
 
     /// Inserts a new value into a struct field (in-place update)
-    pub fn insert_struct_field(
+    pub(crate) fn insert_struct_field(
         &mut self,
         dest: ValueId,
         struct_val: Value,
@@ -2733,7 +2235,7 @@ impl CasmBuilder {
     }
 
     /// Generates code for type casting operations
-    pub fn generate_cast(
+    pub(crate) fn generate_cast(
         &mut self,
         dest: ValueId,
         source: Value,
@@ -2880,7 +2382,7 @@ impl CasmBuilder {
     }
 
     /// Creates a tuple by allocating consecutive registers and copying element values
-    pub fn make_tuple(
+    pub(crate) fn make_tuple(
         &mut self,
         dest: ValueId,
         elements: &[Value],
@@ -2930,7 +2432,7 @@ impl CasmBuilder {
     }
 
     /// Extracts an element from a tuple by mapping the destination to the element's offset
-    pub fn extract_tuple_element(
+    pub(crate) fn extract_tuple_element(
         &mut self,
         dest: ValueId,
         tuple: Value,
@@ -2987,7 +2489,7 @@ impl CasmBuilder {
     }
 
     /// Inserts a new value into a tuple element (in-place update)
-    pub fn insert_tuple_element(
+    pub(crate) fn insert_tuple_element(
         &mut self,
         dest: ValueId,
         tuple_val: Value,
@@ -3129,7 +2631,7 @@ impl CasmBuilder {
 
     /// Create a fixed-size array from elements
     /// Materializes elements in contiguous locals and returns a pointer (fp + base)
-    pub fn make_fixed_array(
+    pub(crate) fn make_fixed_array(
         &mut self,
         dest: ValueId,
         elements: &[Value],
@@ -3171,7 +2673,7 @@ impl CasmBuilder {
     // ===== Unified Array Operations =====
 
     /// Unified array operation handler that dispatches based on index type and operation
-    pub fn array_operation(
+    pub(crate) fn array_operation(
         &mut self,
         array: Value,
         index: Value,

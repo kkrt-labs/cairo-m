@@ -7,7 +7,7 @@ use crate::{Value, ValueId};
 
 /// Visit a single value and apply a closure if it's an operand
 #[inline]
-pub fn visit_value<F>(value: &Value, mut visitor: F)
+pub(crate) fn visit_value<F>(value: &Value, mut visitor: F)
 where
     F: FnMut(ValueId),
 {
@@ -18,7 +18,7 @@ where
 
 /// Visit multiple values and apply a closure to each operand
 #[inline]
-pub fn visit_values<'a, I, F>(values: I, mut visitor: F)
+pub(crate) fn visit_values<'a, I, F>(values: I, mut visitor: F)
 where
     I: IntoIterator<Item = &'a Value>,
     F: FnMut(ValueId),
@@ -30,7 +30,7 @@ where
 
 /// Replace a value ID in a mutable value reference
 #[inline]
-pub fn replace_value_id(value: &mut Value, from: ValueId, to: ValueId) {
+pub(crate) fn replace_value_id(value: &mut Value, from: ValueId, to: ValueId) {
     if let Value::Operand(id) = value {
         if *id == from {
             *id = to;
@@ -40,7 +40,7 @@ pub fn replace_value_id(value: &mut Value, from: ValueId, to: ValueId) {
 
 /// Replace value IDs in multiple mutable value references
 #[inline]
-pub fn replace_value_ids<'a, I>(values: I, from: ValueId, to: ValueId)
+pub(crate) fn replace_value_ids<'a, I>(values: I, from: ValueId, to: ValueId)
 where
     I: IntoIterator<Item = &'a mut Value>,
 {

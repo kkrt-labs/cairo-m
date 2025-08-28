@@ -11,7 +11,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{Instruction, MirType, Terminator, Value};
+use crate::{Instruction, MirType, Terminator, Value, ValueId};
 
 use super::builder::MirBuilder;
 use super::expr::LowerExpr;
@@ -216,9 +216,15 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Standard assignment
         let rhs_type = self.expr_mir_type(rhs.span())?;
-        let lhs_address = self.lower_expression(lhs)?;
+        let lhs_address = match self.lower_expression(lhs)? {
+            Value::Literal(_) => {
+                return Err("Literal LHS not supported for assignment".to_string());
+            }
+            Value::Operand(id) => Result::<ValueId, String>::Ok(id),
+            Value::Error => return Err("Invalid LHS type for assignment".to_string()),
+        }?;
         let rhs_value = self.lower_expression(rhs)?;
-        self.instr().store(lhs_address, rhs_value, rhs_type);
+        self.instr().assign(lhs_address, rhs_value, rhs_type);
 
         Ok(())
     }

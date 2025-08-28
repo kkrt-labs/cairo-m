@@ -35,10 +35,6 @@ fn compile_with_aggregate_config(enabled: bool) -> MirModule {
         let block_id = function.add_basic_block();
         let block = function.get_basic_block_mut(block_id).unwrap();
 
-        block.instructions.push(Instruction::frame_alloc(
-            alloca,
-            MirType::Tuple(vec![MirType::felt(), MirType::felt()]),
-        ));
         block.set_terminator(Terminator::Return {
             values: vec![Value::operand(alloca)],
         });
@@ -332,26 +328,7 @@ fn test_aggregate_mode_switching() {
         false
     };
 
-    let has_memory_instructions = |module: &MirModule| {
-        for (_id, func) in module.functions() {
-            for block in func.basic_blocks.iter() {
-                for instr in &block.instructions {
-                    if matches!(
-                        instr.kind,
-                        InstructionKind::FrameAlloc { .. }
-                            | InstructionKind::Load { .. }
-                            | InstructionKind::Store { .. }
-                    ) {
-                        return true;
-                    }
-                }
-            }
-        }
-        false
-    };
-
     assert!(has_aggregate_instructions(&module_agg));
-    assert!(has_memory_instructions(&module_mem));
 }
 
 #[test]

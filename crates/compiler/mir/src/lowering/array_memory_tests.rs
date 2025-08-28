@@ -101,7 +101,6 @@ mod tests {
         let felt = MirType::felt();
         let bool_type = MirType::bool();
         let u32 = MirType::u32();
-        let pointer = MirType::pointer(MirType::felt());
 
         assert!(!felt.requires_memory_path());
         assert!(!felt.uses_value_aggregates());
@@ -111,9 +110,6 @@ mod tests {
 
         assert!(!u32.requires_memory_path());
         assert!(!u32.uses_value_aggregates());
-
-        assert!(!pointer.requires_memory_path());
-        assert!(!pointer.uses_value_aggregates());
     }
 
     #[test]

@@ -114,7 +114,7 @@ impl Terminator {
     /// Returns all basic block targets of this terminator
     ///
     /// This is used for CFG construction and analysis.
-    pub fn target_blocks(&self) -> Vec<BasicBlockId> {
+    pub(crate) fn target_blocks(&self) -> Vec<BasicBlockId> {
         match self {
             Self::Jump { target } => vec![*target],
             Self::If {
@@ -133,7 +133,7 @@ impl Terminator {
     }
 
     /// Returns all values used by this terminator
-    pub fn used_values(&self) -> HashSet<crate::ValueId> {
+    pub(crate) fn used_values(&self) -> HashSet<crate::ValueId> {
         let mut used = HashSet::new();
 
         match self {
@@ -171,7 +171,7 @@ impl Terminator {
     }
 
     /// Replace all occurrences of `from` value with `to` value in this terminator
-    pub fn replace_value_uses(&mut self, from: crate::ValueId, to: crate::ValueId) {
+    pub(crate) fn replace_value_uses(&mut self, from: crate::ValueId, to: crate::ValueId) {
         if from == to {
             return; // No-op
         }
@@ -243,7 +243,7 @@ impl Terminator {
     /// Replaces all occurrences of `old_block` with `new_block` in targets
     ///
     /// This is useful for CFG transformations and optimization passes.
-    pub fn replace_target(&mut self, old_block: BasicBlockId, new_block: BasicBlockId) {
+    pub(crate) fn replace_target(&mut self, old_block: BasicBlockId, new_block: BasicBlockId) {
         match self {
             Self::Jump { target } => {
                 if *target == old_block {

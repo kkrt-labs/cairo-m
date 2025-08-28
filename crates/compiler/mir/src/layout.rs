@@ -32,7 +32,7 @@ impl DataLayout {
     /// the given type.
     pub fn value_size_of(ty: &MirType) -> usize {
         match ty {
-            MirType::Felt | MirType::Bool | MirType::Pointer(_) => 1,
+            MirType::Felt | MirType::Bool => 1,
             MirType::U32 => 2, // U32 takes 2 field elements (low, high)
             MirType::Tuple(types) => {
                 // Sum of all element sizes
@@ -61,7 +61,7 @@ impl DataLayout {
     /// See `value_size_of` for the value size of the data.
     pub fn memory_size_of(ty: &MirType) -> usize {
         match ty {
-            MirType::Felt | MirType::Bool | MirType::Pointer(_) => 1,
+            MirType::Felt | MirType::Bool => 1,
             MirType::U32 => 2,
             MirType::Tuple(ts) => ts.iter().map(Self::memory_size_of).sum(),
             MirType::Struct { fields, .. } => {
@@ -125,7 +125,7 @@ impl DataLayout {
     pub fn is_promotable(ty: &MirType) -> bool {
         match ty {
             // Single-slot types are always promotable
-            MirType::Felt | MirType::Bool | MirType::Pointer(_) => true,
+            MirType::Felt | MirType::Bool => true,
             // U32 is promotable as a 2-slot aggregate
             MirType::U32 => true,
             // Small tuples could be promotable with proper multi-slot phi support
@@ -152,10 +152,7 @@ impl DataLayout {
         LayoutInfo {
             size: Self::memory_size_of(ty),
             is_aggregate: matches!(ty, MirType::Struct { .. } | MirType::Tuple(_)),
-            is_scalar: matches!(
-                ty,
-                MirType::Felt | MirType::Bool | MirType::U32 | MirType::Pointer(_)
-            ),
+            is_scalar: matches!(ty, MirType::Felt | MirType::Bool | MirType::U32),
         }
     }
 }
@@ -183,10 +180,6 @@ mod tests {
         assert_eq!(DataLayout::value_size_of(&MirType::Bool), 1);
         assert_eq!(DataLayout::value_size_of(&MirType::U32), 2);
         assert_eq!(DataLayout::value_size_of(&MirType::Unit), 0);
-        assert_eq!(
-            DataLayout::value_size_of(&MirType::pointer(MirType::Felt)),
-            1
-        );
     }
 
     #[test]

@@ -25,7 +25,7 @@ impl SemanticSyntaxChecker {
 
     /// Check for duplicate top-level items - this is a must-have check
     /// because duplicate definitions in the same scope would corrupt the index
-    pub fn check_top_level_items<Ctx: SemanticSyntaxContext>(
+    pub(crate) fn check_top_level_items<Ctx: SemanticSyntaxContext>(
         &self,
         context: &Ctx,
         items: &[TopLevelItem],

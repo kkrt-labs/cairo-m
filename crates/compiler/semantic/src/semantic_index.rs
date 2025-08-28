@@ -310,7 +310,7 @@ pub struct SemanticIndex {
 }
 
 impl SemanticIndex {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             place_tables: IndexVec::new(),
             scopes: IndexVec::new(),
@@ -328,7 +328,7 @@ impl SemanticIndex {
     }
 
     /// Add a new scope and return its ID
-    pub fn add_scope(&mut self, scope: Scope) -> FileScopeId {
+    pub(crate) fn add_scope(&mut self, scope: Scope) -> FileScopeId {
         let scope_id = FileScopeId::new(self.scopes.len());
         self.scopes.push(scope);
         self.place_tables.push(PlaceTable::new());
@@ -346,7 +346,7 @@ impl SemanticIndex {
     }
 
     /// Get a mutable reference to the place table for a scope
-    pub fn place_table_mut(&mut self, scope_id: FileScopeId) -> Option<&mut PlaceTable> {
+    pub(crate) fn place_table_mut(&mut self, scope_id: FileScopeId) -> Option<&mut PlaceTable> {
         self.place_tables.get_mut(scope_id.as_usize())
     }
 
@@ -362,7 +362,7 @@ impl SemanticIndex {
     /// let func_scope_id = builder.push_scope(ScopeKind::Function);
     /// builder.index.set_scope_for_span(func_span, func_scope_id);
     /// ```
-    pub fn set_scope_for_span(&mut self, span: SimpleSpan<usize>, scope_id: FileScopeId) {
+    pub(crate) fn set_scope_for_span(&mut self, span: SimpleSpan<usize>, scope_id: FileScopeId) {
         self.span_to_scope_id.insert(span, scope_id);
     }
 
@@ -504,7 +504,7 @@ impl SemanticIndex {
     }
 
     /// Get imports visible from a specific scope
-    pub fn get_imports_in_scope(&self, scope_id: FileScopeId) -> Vec<&UseDefRef> {
+    pub(crate) fn get_imports_in_scope(&self, scope_id: FileScopeId) -> Vec<&UseDefRef> {
         // Get all imports in the current scope and parent scopes
         let mut imports = Vec::new();
         let mut current_scope = Some(scope_id);
@@ -525,7 +525,7 @@ impl SemanticIndex {
     }
 
     /// Add a definition to the index
-    pub fn add_definition(&mut self, definition: Definition) -> DefinitionIndex {
+    pub(crate) fn add_definition(&mut self, definition: Definition) -> DefinitionIndex {
         self.definitions.push(definition)
     }
 
@@ -545,12 +545,12 @@ impl SemanticIndex {
     }
 
     /// Find definition by ID
-    pub fn definition(&self, id: DefinitionIndex) -> Option<&Definition> {
+    pub(crate) fn definition(&self, id: DefinitionIndex) -> Option<&Definition> {
         self.definitions.get(id)
     }
 
     /// Find definition by place
-    pub fn definition_for_place(
+    pub(crate) fn definition_for_place(
         &self,
         scope_id: FileScopeId,
         place_id: crate::place::ScopedPlaceId,
@@ -561,26 +561,26 @@ impl SemanticIndex {
     }
 
     /// Add an identifier usage
-    pub fn add_identifier_usage(&mut self, usage: IdentifierUsage) -> usize {
+    pub(crate) fn add_identifier_usage(&mut self, usage: IdentifierUsage) -> usize {
         let index = self.identifier_usages.len();
         self.identifier_usages.push(usage);
         index
     }
 
     /// Add a type usage
-    pub fn add_type_usage(&mut self, usage: TypeUsage) -> usize {
+    pub(crate) fn add_type_usage(&mut self, usage: TypeUsage) -> usize {
         let index = self.type_usages.len();
         self.type_usages.push(usage);
         index
     }
 
     /// Add a use-def relationship
-    pub fn add_use(&mut self, usage_index: usize, definition_id: DefinitionIndex) {
+    pub(crate) fn add_use(&mut self, usage_index: usize, definition_id: DefinitionIndex) {
         self.uses.insert(usage_index, definition_id);
     }
 
     /// Add a type usage to definition relationship
-    pub fn add_type_usage_to_definition(
+    pub(crate) fn add_type_usage_to_definition(
         &mut self,
         usage_index: usize,
         definition_id: DefinitionIndex,
@@ -595,7 +595,7 @@ impl SemanticIndex {
     }
 
     /// Get all type usages
-    pub fn type_usages(&self) -> &[TypeUsage] {
+    pub(crate) fn type_usages(&self) -> &[TypeUsage] {
         &self.type_usages
     }
 
@@ -605,7 +605,7 @@ impl SemanticIndex {
     }
 
     /// Check if a type usage has a corresponding definition
-    pub fn is_type_usage_resolved(&self, usage_index: usize) -> bool {
+    pub(crate) fn is_type_usage_resolved(&self, usage_index: usize) -> bool {
         self.type_usage_to_definition.contains_key(&usage_index)
     }
 
@@ -617,7 +617,7 @@ impl SemanticIndex {
     }
 
     /// Add an expression and return its ID
-    pub fn add_expression(&mut self, expression_info: ExpressionInfo) -> ExpressionId {
+    pub(crate) fn add_expression(&mut self, expression_info: ExpressionInfo) -> ExpressionId {
         let expr_id = self.expressions.push(expression_info.clone());
         self.span_to_expression_id
             .insert(expression_info.ast_span, expr_id);
@@ -627,10 +627,6 @@ impl SemanticIndex {
     /// Get expression info by ID
     pub fn expression(&self, id: ExpressionId) -> Option<&ExpressionInfo> {
         self.expressions.get(id)
-    }
-
-    pub fn expression_mut(&mut self, id: ExpressionId) -> Option<&mut ExpressionInfo> {
-        self.expressions.get_mut(id)
     }
 
     /// Get expression ID by span
@@ -716,7 +712,7 @@ impl<'db, 'sink> SemanticSyntaxContext for SemanticIndexBuilder<'db, 'sink> {
 }
 
 impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
-    pub fn new(
+    pub(crate) fn new(
         db: &'db dyn SemanticDb,
         file: File,
         module: &'db ParsedModule,
@@ -746,7 +742,7 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
 
     /// Build the semantic index from the module.
     /// Processes recursively all items from the root scope.
-    pub fn build(mut self) -> SemanticIndex {
+    pub(crate) fn build(mut self) -> SemanticIndex {
         // Pass 1: Declare functions and structs for forward references
         // Only functions and structs need forward declarations
         {

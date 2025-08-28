@@ -15,7 +15,7 @@ use cairo_m_compiler_semantic::validation::validator::Validator;
 use cairo_m_compiler_semantic::{module_semantic_index, validation, File, FileScopeId, SemanticDb};
 
 use crate::common::*;
-use crate::{named_type, pointer_type};
+use crate::named_type;
 
 fn get_root_scope(db: &dyn SemanticDb, crate_id: Crate) -> FileScopeId {
     module_semantic_index(db, crate_id, "main".to_string())
@@ -33,17 +33,6 @@ fn test_resolve_primitive_types() {
 
     let felt_type = resolve_ast_type(&db, crate_id, file, named_type(NamedType::Felt), root_scope);
     assert!(matches!(felt_type.data(&db), TypeData::Felt));
-
-    let pointer_felt_type = resolve_ast_type(
-        &db,
-        crate_id,
-        file,
-        pointer_type(named_type(NamedType::Felt)),
-        root_scope,
-    );
-    assert!(
-        matches!(pointer_felt_type.data(&db), TypeData::Pointer(t) if matches!(t.data(&db), TypeData::Felt))
-    );
 }
 
 #[test]
