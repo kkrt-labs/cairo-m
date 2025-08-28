@@ -75,11 +75,11 @@ fn get_value() -> felt { 42 } fn test() { let x = 10; get_value() = x; }
 fn test() { let x = 10; (x + 5) = 20; return; }
 --- Diagnostics ---
 [2010] Error: Invalid assignment target - must be a variable, field, or array element
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:26 ]
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:25 ]
    │
  1 │ fn test() { let x = 10; (x + 5) = 20; return; }
-   │                          ──┬──  
-   │                            ╰──── Invalid assignment target - must be a variable, field, or array element
+   │                         ───┬───  
+   │                            ╰───── Invalid assignment target - must be a variable, field, or array element
 ───╯
 
 ============================================================
@@ -88,11 +88,11 @@ fn test() { let x = 10; (x + 5) = 20; return; }
 fn test() { let x = 10; (10 + 20) = x; return; }
 --- Diagnostics ---
 [2010] Error: Invalid assignment target - must be a variable, field, or array element
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:26 ]
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:25 ]
    │
  1 │ fn test() { let x = 10; (10 + 20) = x; return; }
-   │                          ───┬───  
-   │                             ╰───── Invalid assignment target - must be a variable, field, or array element
+   │                         ────┬────  
+   │                             ╰────── Invalid assignment target - must be a variable, field, or array element
 ───╯
 
 ============================================================
@@ -140,11 +140,11 @@ fn get_tuple() -> (felt, u32, bool) { return (42, 100, true); } fn test() { let 
 fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return; }
 --- Diagnostics ---
 [2001] Error: Type mismatch for let statement `z`. Expected `felt`, found `bool`
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:65 ]
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:64 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return; }
-   │                                                                 ───┬──  
-   │                                                                    ╰──── Type mismatch for let statement `z`. Expected `felt`, found `bool`
+   │                                                                ────┬───  
+   │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯
 
 ============================================================
@@ -153,11 +153,11 @@ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x == y); return;
 fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return; }
 --- Diagnostics ---
 [2001] Error: Type mismatch for let statement `z`. Expected `felt`, found `bool`
-   ╭─[ semantic_tests::statements::assignments::test_assignments:1:65 ]
+   ╭─[ semantic_tests::statements::assignments::test_assignments:1:64 ]
    │
  1 │ fn test() { let x: felt = 42; let y: felt = 100; let z: felt = (x != y); return; }
-   │                                                                 ───┬──  
-   │                                                                    ╰──── Type mismatch for let statement `z`. Expected `felt`, found `bool`
+   │                                                                ────┬───  
+   │                                                                    ╰───── Type mismatch for let statement `z`. Expected `felt`, found `bool`
 ───╯
 
 ============================================================

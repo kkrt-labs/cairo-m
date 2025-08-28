@@ -95,6 +95,7 @@ impl Format for Expression {
                 Doc::text(" as "),
                 target_type.value().format(ctx),
             ]),
+            Self::Parenthesized(inner) => parens(inner.value().format(ctx)),
         }
     }
 }

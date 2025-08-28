@@ -202,6 +202,9 @@ fn collect_expression_spans(
                 collect_expression_spans(elem, spans);
             }
         }
+        Expression::Parenthesized(inner) => {
+            collect_expression_spans(inner, spans);
+        }
         Expression::StructLiteral { fields, .. } => {
             for (_, value) in fields {
                 collect_expression_spans(value, spans);

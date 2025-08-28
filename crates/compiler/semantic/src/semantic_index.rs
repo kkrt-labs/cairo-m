@@ -1033,6 +1033,9 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
             Expression::UnaryOp { expr, .. } => {
                 self.visit_expr(expr);
             }
+            Expression::Parenthesized(inner) => {
+                self.visit_expr(inner);
+            }
             Expression::FunctionCall { callee, args } => {
                 self.visit_expr(callee);
                 // Get the callee expression ID for context

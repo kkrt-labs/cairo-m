@@ -43,6 +43,7 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::BinaryOp { op, left, right } => {
                 self.lower_binary_op(*op, left, right, expr_id)
             }
+            Expression::Parenthesized(inner) => self.lower_expression(inner),
             Expression::FunctionCall { callee, args } => {
                 self.lower_function_call_expr(callee, args, expr_id)
             }

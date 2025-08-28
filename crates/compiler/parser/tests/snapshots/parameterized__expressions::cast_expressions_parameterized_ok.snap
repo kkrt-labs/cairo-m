@@ -136,28 +136,33 @@ fn test() { (x + y) as felt; }
                             Spanned(
                                 Cast {
                                     expr: Spanned(
-                                        BinaryOp {
-                                            op: Add,
-                                            left: Spanned(
-                                                Identifier(
-                                                    Spanned(
-                                                        "x",
+                                        Parenthesized(
+                                            Spanned(
+                                                BinaryOp {
+                                                    op: Add,
+                                                    left: Spanned(
+                                                        Identifier(
+                                                            Spanned(
+                                                                "x",
+                                                                13..14,
+                                                            ),
+                                                        ),
                                                         13..14,
                                                     ),
-                                                ),
-                                                13..14,
-                                            ),
-                                            right: Spanned(
-                                                Identifier(
-                                                    Spanned(
-                                                        "y",
+                                                    right: Spanned(
+                                                        Identifier(
+                                                            Spanned(
+                                                                "y",
+                                                                17..18,
+                                                            ),
+                                                        ),
                                                         17..18,
                                                     ),
-                                                ),
-                                                17..18,
+                                                },
+                                                13..18,
                                             ),
-                                        },
-                                        13..18,
+                                        ),
+                                        12..19,
                                     ),
                                     target_type: Spanned(
                                         Named(
@@ -169,7 +174,7 @@ fn test() { (x + y) as felt; }
                                         23..27,
                                     ),
                                 },
-                                13..27,
+                                12..27,
                             ),
                         ),
                         12..28,
@@ -274,28 +279,33 @@ fn test() { (x * 2u32) as felt; }
                             Spanned(
                                 Cast {
                                     expr: Spanned(
-                                        BinaryOp {
-                                            op: Mul,
-                                            left: Spanned(
-                                                Identifier(
-                                                    Spanned(
-                                                        "x",
+                                        Parenthesized(
+                                            Spanned(
+                                                BinaryOp {
+                                                    op: Mul,
+                                                    left: Spanned(
+                                                        Identifier(
+                                                            Spanned(
+                                                                "x",
+                                                                13..14,
+                                                            ),
+                                                        ),
                                                         13..14,
                                                     ),
-                                                ),
-                                                13..14,
-                                            ),
-                                            right: Spanned(
-                                                Literal(
-                                                    2,
-                                                    Some(
-                                                        "u32",
+                                                    right: Spanned(
+                                                        Literal(
+                                                            2,
+                                                            Some(
+                                                                "u32",
+                                                            ),
+                                                        ),
+                                                        17..21,
                                                     ),
-                                                ),
-                                                17..21,
+                                                },
+                                                13..21,
                                             ),
-                                        },
-                                        13..21,
+                                        ),
+                                        12..22,
                                     ),
                                     target_type: Spanned(
                                         Named(
@@ -307,7 +317,7 @@ fn test() { (x * 2u32) as felt; }
                                         26..30,
                                     ),
                                 },
-                                13..30,
+                                12..30,
                             ),
                         ),
                         12..31,

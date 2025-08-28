@@ -294,7 +294,7 @@ fn tuple_indexing_parameterized() {
 fn parenthesized_expr_parameterized() {
     assert_parses_parameterized! {
         ok: [
-            // in_function("(a + b);"),
+            in_function("(a + b);"),
             in_function("((((((a + b) * c) - d) / e) == f) && g);"),
         ]
     }
