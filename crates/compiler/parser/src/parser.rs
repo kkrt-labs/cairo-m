@@ -310,6 +310,11 @@ pub enum Expression {
     /// This node preserves source parentheses for the formatter while being a no-op
     /// for semantic analysis and code generation.
     Parenthesized(Box<Spanned<Expression>>),
+    /// Range expression (e.g., `0..10`, `start..end`)
+    Range {
+        start: Box<Spanned<Expression>>,
+        end: Box<Spanned<Expression>>,
+    },
 }
 
 /// Represents a function parameter with its name and type.
@@ -380,6 +385,15 @@ pub enum Statement {
         condition: Spanned<Expression>,
         /// Step part executed after each iteration (usually an assignment or expression statement)
         step: Box<Spanned<Statement>>,
+        /// Loop body
+        body: Box<Spanned<Statement>>,
+    },
+    /// Range-based for loop (e.g., `for (i in 0..10) { ... }`)
+    ForIn {
+        /// Iterator variable
+        variable: Spanned<String>,
+        /// Range or iterable expression
+        iterable: Spanned<Expression>,
         /// Loop body
         body: Box<Spanned<Statement>>,
     },
@@ -1110,13 +1124,32 @@ where
             },
         );
 
+        // Range operator: .. (left-associative)
+        let range = bitwise.clone().foldl(
+            just(TokenType::DotDot)
+                .ignore_then(bitwise.clone())
+                .repeated(),
+            |start, end| {
+                let span_start = start.span();
+                let span_end = end.span();
+                let span = SimpleSpan::from(span_start.start..span_end.end);
+                Spanned::new(
+                    Expression::Range {
+                        start: Box::new(start),
+                        end: Box::new(end),
+                    },
+                    span,
+                )
+            },
+        );
+
         // Logical operators: &&, || (left-associative)
-        bitwise.clone().foldl(
+        range.clone().foldl(
             choice((
                 op(TokenType::AndAnd, BinaryOp::And),
                 op(TokenType::OrOr, BinaryOp::Or),
             ))
-            .then(bitwise.clone())
+            .then(range.clone())
             .repeated(),
             |lhs, (op, rhs)| {
                 let span_lhs = lhs.span();
@@ -1313,6 +1346,23 @@ where
             })
             .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
 
+        // ForIn statement: for (variable in iterable) body
+        let for_in_stmt = just(TokenType::For)
+            .ignore_then(
+                spanned_ident
+                    .clone()
+                    .then_ignore(just(TokenType::In))
+                    .then(expr.clone())
+                    .delimited_by(just(TokenType::LParen), just(TokenType::RParen)),
+            )
+            .then(statement.clone()) // body
+            .map(|((variable, iterable), body)| Statement::ForIn {
+                variable,
+                iterable,
+                body: Box::new(body),
+            })
+            .map_with(|stmt, extra| Spanned::new(stmt, extra.span()));
+
         // For statement (C-style): for (init; condition; step) body
         let for_stmt = just(TokenType::For)
             .ignore_then(
@@ -1358,6 +1408,7 @@ where
             .or(if_stmt)
             .or(loop_stmt)
             .or(while_stmt)
+            .or(for_in_stmt)
             .or(for_stmt)
             .or(break_stmt)
             .or(continue_stmt)

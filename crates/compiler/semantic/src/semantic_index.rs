@@ -1233,6 +1233,11 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                 // Visit the expression being cast
                 self.visit_expr(expr);
             }
+            Expression::Range { start, end } => {
+                // Visit both range bounds
+                self.visit_expr(start);
+                self.visit_expr(end);
+            }
             Expression::Literal(_, _) | Expression::BooleanLiteral(_) => {
                 // Leaf nodes - no sub-expressions
             }
@@ -1504,6 +1509,35 @@ where
             }
             Statement::Expression(spanned) => {
                 self.visit_expr(spanned);
+            }
+            Statement::ForIn {
+                variable: _,
+                iterable,
+                body,
+            } => {
+                // Create a new loop scope for ForIn loops, similar to regular For loops
+                self.with_new_scope(
+                    crate::place::ScopeKind::Loop {
+                        depth: self.loop_depth,
+                    },
+                    |builder| {
+                        let current_scope = builder.current_scope();
+                        builder.index.set_scope_for_span(stmt.span(), current_scope);
+
+                        // Visit the iterable expression
+                        builder.visit_expr_with_origin(
+                            iterable,
+                            Origin::Condition {
+                                kind: ConditionKind::For,
+                            },
+                        );
+
+                        // Visit the body (inside loop, so break/continue are valid)
+                        builder.loop_depth += 1;
+                        builder.visit_stmt(body);
+                        builder.loop_depth -= 1;
+                    },
+                );
             }
         }
     }

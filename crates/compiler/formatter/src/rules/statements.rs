@@ -145,6 +145,23 @@ impl Format for Statement {
 
                 Doc::concat(parts)
             }
+            Self::ForIn {
+                variable,
+                iterable,
+                body,
+            } => {
+                let mut parts = vec![Doc::text("for"), Doc::text(" "), Doc::text("(")];
+                
+                parts.push(Doc::text(variable.value()));
+                parts.push(Doc::text(" in "));
+                parts.push(iterable.value().format(ctx));
+                
+                parts.push(Doc::text(")"));
+                parts.push(Doc::text(" "));
+                parts.push(body.value().format(ctx));
+
+                Doc::concat(parts)
+            }
             Self::Break => Doc::text("break;"),
             Self::Continue => Doc::text("continue;"),
         }

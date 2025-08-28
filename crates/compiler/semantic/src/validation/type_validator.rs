@@ -1272,6 +1272,17 @@ impl TypeValidator {
                 // 4. Step statement
                 self.check_statement_type(db, crate_id, file, index, function_def, step, sink);
             }
+            Statement::ForIn {
+                variable: _,
+                iterable: _,
+                body,
+            } => {
+                // For now, we'll implement basic ForIn loop validation
+                // The iterable expression type checking will be handled by expression validation
+                
+                // Check the body
+                self.check_statement_type(db, crate_id, file, index, function_def, body, sink);
+            }
             Statement::Break | Statement::Continue => {
                 // No types to check for break/continue
             }

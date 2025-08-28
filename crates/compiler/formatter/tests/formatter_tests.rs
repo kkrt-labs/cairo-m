@@ -81,3 +81,24 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 "#;
     assert_eq!(format_code(input), expected);
 }
+
+#[test]
+fn test_for_in_loop_parentheses_preserved() {
+    let input = r#"fn test() -> () { for (i in 0..10) { let x = i; } }"#;
+    let expected = "fn test() -> () {\n    for (i in 0..10) {\n        let x = i;\n    }\n}\n";
+    assert_eq!(format_code(input), expected);
+}
+
+#[test]
+fn test_for_in_loop_parentheses_preserved_nested() {
+    let input = r#"fn test() -> () { for (i in 0..10) { for (j in 0..5) { let x = i + j; } } }"#;
+    let expected = "fn test() -> () {\n    for (i in 0..10) {\n        for (j in 0..5) {\n            let x = i + j;\n        }\n    }\n}\n";
+    assert_eq!(format_code(input), expected);
+}
+
+#[test]
+fn test_classic_for_loop_parentheses_preserved() {
+    let input = r#"fn test() -> () { for (let i = 0; i < 10; i = i + 1) { let x = i; } }"#;
+    let expected = "fn test() -> () {\n    for (let i = 0; i < 10; i = i + 1;) {\n        let x = i;\n    }\n}\n";
+    assert_eq!(format_code(input), expected);
+}

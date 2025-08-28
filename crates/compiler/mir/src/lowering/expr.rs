@@ -63,6 +63,11 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
                 expr,
                 target_type: _,
             } => self.lower_cast(expr, expr_id),
+            Expression::Range { start: _, end: _ } => {
+                // For now, range expressions are not fully supported in MIR lowering
+                // This is a placeholder implementation
+                Err("Range expressions are not yet supported in MIR lowering".to_string())
+            }
         }
     }
 }

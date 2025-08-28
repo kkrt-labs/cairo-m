@@ -260,6 +260,8 @@ pub enum TokenType<'a> {
     Colon,
     #[token("::")]
     ColonColon,
+    #[token("..")]
+    DotDot,
     #[token(".")]
     Dot,
 }
@@ -319,6 +321,7 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Semicolon => write!(f, ";"),
             TokenType::Colon => write!(f, ":"),
             TokenType::ColonColon => write!(f, "::"),
+            TokenType::DotDot => write!(f, ".."),
             TokenType::Dot => write!(f, "."),
             TokenType::Use => write!(f, "use"),
         }

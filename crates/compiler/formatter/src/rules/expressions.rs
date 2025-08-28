@@ -95,6 +95,11 @@ impl Format for Expression {
                 Doc::text(" as "),
                 target_type.value().format(ctx),
             ]),
+            Self::Range { start, end } => Doc::concat(vec![
+                start.value().format(ctx),
+                Doc::text(".."),
+                end.value().format(ctx),
+            ]),
             Self::Parenthesized(inner) => parens(inner.value().format(ctx)),
         }
     }

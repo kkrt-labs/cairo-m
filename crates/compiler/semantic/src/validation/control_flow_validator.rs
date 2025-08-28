@@ -228,6 +228,23 @@ impl ControlFlowValidator {
                 // For loops might not execute at all, so they don't guarantee termination
                 false
             }
+            Statement::ForIn {
+                variable: _,
+                iterable: _,
+                body,
+            } => {
+                // ForIn loops analyze the body similar to other loops
+                Self::analyze_for_unreachable_code_in_statement(
+                    db,
+                    file,
+                    body,
+                    loop_depth + 1,
+                    sink,
+                );
+
+                // ForIn loops might not execute at all, so they don't guarantee termination
+                false
+            }
             Statement::Break => {
                 // Check if break is inside a loop
                 if loop_depth == 0 {
@@ -306,6 +323,10 @@ impl ControlFlowValidator {
                 // For loops might not execute, so they can't guarantee a return
                 false
             }
+            Statement::ForIn { .. } => {
+                // ForIn loops might not execute, so they can't guarantee a return
+                false
+            }
             _ => false, // `let`, `const`, `assign`, `expression`, `break`, and `continue` do not provide return values.
         }
     }
@@ -334,8 +355,8 @@ impl ControlFlowValidator {
                 // Check if the loop body has a hard return
                 Self::statement_guarantees_hard_return(body)
             }
-            Statement::While { .. } | Statement::For { .. } => {
-                // While and for loops might not execute, so they don't guarantee hard returns
+            Statement::While { .. } | Statement::For { .. } | Statement::ForIn { .. } => {
+                // While, for, and for-in loops might not execute, so they don't guarantee hard returns
                 false
             }
             _ => false, // let, const, assign, expression, break, and continue are not hard returns.
@@ -359,7 +380,8 @@ impl ControlFlowValidator {
             }
             Statement::Loop { body: _ }
             | Statement::While { body: _, .. }
-            | Statement::For { body: _, .. } => {
+            | Statement::For { body: _, .. } 
+            | Statement::ForIn { body: _, .. } => {
                 // Don't look inside nested loops - their breaks don't affect the outer loop
                 false
             }
@@ -380,6 +402,7 @@ impl ControlFlowValidator {
             Statement::Loop { .. } => "loop statement",
             Statement::While { .. } => "while loop",
             Statement::For { .. } => "for loop",
+            Statement::ForIn { .. } => "for-in loop",
             Statement::Break => "break statement",
             Statement::Continue => "continue statement",
         }

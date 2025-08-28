@@ -47,6 +47,15 @@ impl<'a, 'db> LowerStmt<'a> for MirBuilder<'a, 'db> {
             Statement::Break => self.lower_break_statement(),
             Statement::Continue => self.lower_continue_statement(),
             Statement::Const(_) => self.lower_const_statement(),
+            Statement::ForIn {
+                variable: _,
+                iterable: _,
+                body: _,
+            } => {
+                // For now, ForIn statements are not fully supported in MIR lowering
+                // This is a placeholder implementation
+                Err("ForIn statements are not yet supported in MIR lowering".to_string())
+            }
         }
     }
 }

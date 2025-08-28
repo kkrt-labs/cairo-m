@@ -825,6 +825,12 @@ pub fn expression_semantic_type<'db>(
                 }
             }
         }
+        Expression::Range { start: _, end: _ } => {
+            // For now, ranges have an abstract Range type. 
+            // This would need to be implemented properly based on the language specification.
+            // For the current implementation, we'll return Error to indicate this is not yet supported.
+            TypeId::new(db, TypeData::Error)
+        }
     }
 }
 
