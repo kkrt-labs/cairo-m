@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756369942939,
+  "lastUpdate": 1756372774718,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1188,6 +1188,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2415357506,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "72acbfb169187277ce4ec12fa4c6b80fc0362c10",
+          "message": "feat(prover): add assert_eq components (#263)\n\n* feat: add assert_eq opcodes (un-tested)\n\n* doc: fixed comments\n\n* typo: fix copy pasting typos",
+          "timestamp": "2025-08-28T12:04:22+03:00",
+          "tree_id": "43bc5a2184b26e8fb708713aeb013c0012c9fa34",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/72acbfb169187277ce4ec12fa4c6b80fc0362c10"
+        },
+        "date": 1756372774655,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2415412896,
             "unit": "bytes"
           }
         ]
