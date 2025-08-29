@@ -274,11 +274,11 @@ define_instruction!(
     // U32 Memory operations
     U32StoreImm = 23, 2, fields: [imm_lo, imm_hi, dst_off], size: 4, operands: [U32, U32];                             // u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
 
-    // U32 Comparison operations (minimal set - others derived via swaps/complements)
+    // U32 Comparison operations
     U32StoreEqFpFp = 24, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) == u32([fp + src1_off], [fp + src1_off + 1])
     U32StoreLtFpFp = 28, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
 
-    // U32 Comparison operations with immediate (minimal set - others derived)
+    // U32 Comparison operations with immediate
     U32StoreEqFpImm = 30, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
     U32StoreLtFpImm = 34, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
 

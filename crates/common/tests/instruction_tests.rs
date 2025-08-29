@@ -1,4 +1,7 @@
-use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, MAX_OPCODE};
+#![feature(variant_count)]
+use std::mem;
+
+use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 use cairo_m_common::{Instruction, InstructionError};
 use smallvec::{smallvec, SmallVec};
 use stwo_prover::core::fields::m31::M31;
@@ -103,28 +106,12 @@ fn test_opcode_values() {
             4,
         ),
         (
-            Instruction::StoreSubFpImm {
-                src_off: M31::from(0),
-                imm: M31::from(0),
-                dst_off: M31::from(0),
-            },
-            5,
-        ),
-        (
             Instruction::StoreMulFpImm {
                 src_off: M31::from(0),
                 imm: M31::from(0),
                 dst_off: M31::from(0),
             },
             6,
-        ),
-        (
-            Instruction::StoreDivFpImm {
-                src_off: M31::from(0),
-                imm: M31::from(0),
-                dst_off: M31::from(0),
-            },
-            7,
         ),
         (
             Instruction::StoreDoubleDerefFp {
@@ -208,15 +195,6 @@ fn test_opcode_values() {
                 dst_off: M31::from(0),
             },
             19,
-        ),
-        (
-            Instruction::U32StoreSubFpImm {
-                src_off: M31::from(0),
-                imm_hi: M31::from(0),
-                imm_lo: M31::from(0),
-                dst_off: M31::from(0),
-            },
-            20,
         ),
         (
             Instruction::U32StoreMulFpImm {
@@ -410,15 +388,6 @@ fn test_try_from_smallvec() {
             "StoreAddFpImm instruction",
         ),
         (
-            smallvec![M31::from(5), M31::from(2), M31::from(200), M31::from(4)],
-            Instruction::StoreSubFpImm {
-                src_off: M31::from(2),
-                imm: M31::from(200),
-                dst_off: M31::from(4),
-            },
-            "StoreSubFpImm instruction",
-        ),
-        (
             smallvec![M31::from(6), M31::from(3), M31::from(300), M31::from(5)],
             Instruction::StoreMulFpImm {
                 src_off: M31::from(3),
@@ -426,15 +395,6 @@ fn test_try_from_smallvec() {
                 dst_off: M31::from(5),
             },
             "StoreMulFpImm instruction",
-        ),
-        (
-            smallvec![M31::from(7), M31::from(4), M31::from(400), M31::from(6)],
-            Instruction::StoreDivFpImm {
-                src_off: M31::from(4),
-                imm: M31::from(400),
-                dst_off: M31::from(6),
-            },
-            "StoreDivFpImm instruction",
         ),
         // U32 arithmetic operations
         (
@@ -554,22 +514,6 @@ fn test_try_from_smallvec() {
         ),
         (
             smallvec![
-                M31::from(20),
-                M31::from(2),
-                M31::from(0xabcd),
-                M31::from(0xef01),
-                M31::from(5)
-            ],
-            Instruction::U32StoreSubFpImm {
-                src_off: M31::from(2),
-                imm_lo: M31::from(0xabcd),
-                imm_hi: M31::from(0xef01),
-                dst_off: M31::from(5),
-            },
-            "U32StoreSubFpImm instruction",
-        ),
-        (
-            smallvec![
                 M31::from(21),
                 M31::from(3),
                 M31::from(0x2345),
@@ -626,51 +570,6 @@ fn test_try_from_smallvec() {
             "U32StoreEqFpFp instruction",
         ),
         (
-            smallvec![M31::from(25), M31::from(1), M31::from(2), M31::from(3)],
-            Instruction::U32StoreNeqFpFp {
-                src0_off: M31::from(1),
-                src1_off: M31::from(2),
-                dst_off: M31::from(3),
-            },
-            "U32StoreNeqFpFp instruction",
-        ),
-        (
-            smallvec![M31::from(26), M31::from(1), M31::from(2), M31::from(3)],
-            Instruction::U32StoreGtFpFp {
-                src0_off: M31::from(1),
-                src1_off: M31::from(2),
-                dst_off: M31::from(3),
-            },
-            "U32StoreGtFpFp instruction",
-        ),
-        (
-            smallvec![M31::from(27), M31::from(1), M31::from(2), M31::from(3)],
-            Instruction::U32StoreGeFpFp {
-                src0_off: M31::from(1),
-                src1_off: M31::from(2),
-                dst_off: M31::from(3),
-            },
-            "U32StoreGeFpFp instruction",
-        ),
-        (
-            smallvec![M31::from(28), M31::from(1), M31::from(2), M31::from(3)],
-            Instruction::U32StoreLtFpFp {
-                src0_off: M31::from(1),
-                src1_off: M31::from(2),
-                dst_off: M31::from(3),
-            },
-            "U32StoreLtFpFp instruction",
-        ),
-        (
-            smallvec![M31::from(29), M31::from(1), M31::from(2), M31::from(3)],
-            Instruction::U32StoreLeFpFp {
-                src0_off: M31::from(1),
-                src1_off: M31::from(2),
-                dst_off: M31::from(3),
-            },
-            "U32StoreLeFpFp instruction",
-        ),
-        (
             smallvec![
                 M31::from(30),
                 M31::from(1),
@@ -687,52 +586,13 @@ fn test_try_from_smallvec() {
             "U32StoreEqFpImm instruction",
         ),
         (
-            smallvec![
-                M31::from(31),
-                M31::from(1),
-                M31::from(0x1234),
-                M31::from(0x5678),
-                M31::from(3)
-            ],
-            Instruction::U32StoreNeqFpImm {
-                src_off: M31::from(1),
-                imm_lo: M31::from(0x1234),
-                imm_hi: M31::from(0x5678),
+            smallvec![M31::from(28), M31::from(1), M31::from(2), M31::from(3)],
+            Instruction::U32StoreLtFpFp {
+                src0_off: M31::from(1),
+                src1_off: M31::from(2),
                 dst_off: M31::from(3),
             },
-            "U32StoreNeqFpImm instruction",
-        ),
-        (
-            smallvec![
-                M31::from(32),
-                M31::from(1),
-                M31::from(0x1234),
-                M31::from(0x5678),
-                M31::from(3)
-            ],
-            Instruction::U32StoreGtFpImm {
-                src_off: M31::from(1),
-                imm_lo: M31::from(0x1234),
-                imm_hi: M31::from(0x5678),
-                dst_off: M31::from(3),
-            },
-            "U32StoreGtFpImm instruction",
-        ),
-        (
-            smallvec![
-                M31::from(33),
-                M31::from(1),
-                M31::from(0x1234),
-                M31::from(0x5678),
-                M31::from(3)
-            ],
-            Instruction::U32StoreGeFpImm {
-                src_off: M31::from(1),
-                imm_lo: M31::from(0x1234),
-                imm_hi: M31::from(0x5678),
-                dst_off: M31::from(3),
-            },
-            "U32StoreGeFpImm instruction",
+            "U32StoreLtFpFp instruction",
         ),
         (
             smallvec![
@@ -749,22 +609,6 @@ fn test_try_from_smallvec() {
                 dst_off: M31::from(3),
             },
             "U32StoreLtFpImm instruction",
-        ),
-        (
-            smallvec![
-                M31::from(35),
-                M31::from(1),
-                M31::from(0x1234),
-                M31::from(0x5678),
-                M31::from(3)
-            ],
-            Instruction::U32StoreLeFpImm {
-                src_off: M31::from(1),
-                imm_lo: M31::from(0x1234),
-                imm_hi: M31::from(0x5678),
-                dst_off: M31::from(3),
-            },
-            "U32StoreLeFpImm instruction",
         ),
         // U32 Bitwise operations
         (
@@ -910,7 +754,7 @@ fn test_try_from_smallvec() {
         ),
     ];
 
-    assert_eq!(test_cases.len(), MAX_OPCODE as usize + 1);
+    assert_eq!(test_cases.len(), { mem::variant_count::<Instruction>() });
 
     for (values, expected_instruction, description) in test_cases {
         let instruction = Instruction::try_from(values)
@@ -1089,11 +933,6 @@ fn test_roundtrip_all_instructions() {
             src1_off: M31::from(5),
             dst_off: M31::from(6),
         },
-        Instruction::StoreSubFpImm {
-            src_off: M31::from(4),
-            imm: M31::from(200),
-            dst_off: M31::from(6),
-        },
         Instruction::StoreDoubleDerefFp {
             base_off: M31::from(9),
             imm: M31::from(10),
@@ -1121,11 +960,6 @@ fn test_roundtrip_all_instructions() {
         Instruction::StoreDivFpFp {
             src0_off: M31::from(16),
             src1_off: M31::from(17),
-            dst_off: M31::from(18),
-        },
-        Instruction::StoreDivFpImm {
-            src_off: M31::from(16),
-            imm: M31::from(500),
             dst_off: M31::from(18),
         },
         Instruction::CallAbsImm {
