@@ -33,14 +33,14 @@ variable_index_access_0:
   10: 4 2 0 3              // [fp + 3] = [fp + 2] + 0 (copy array pointer)
   11: 9 30 15 _            // [fp + 15] = 30
   12: 44 15 2 2            // [[fp + 2] + 2] = [fp + 15]
-  13: 4 -4 0 4             // [fp + 4] = [fp + -4] + (-0) (-0 as M31 -> 0)
+  13: 4 2147483643 0 4     // [fp + 4] = [fp + -4] + (-0) (-0 as M31 -> 0)
   14: 14 4 3 _             // if [fp + 4] != 0 jmp rel not_zero_0
   15: 9 1 4 _              // [fp + 4] = 1
   16: 12 18 _ _            // jump abs end_1
 not_zero_0:
   17: 9 0 4 _              // [fp + 4] = 0
 end_1:
-  18: 4 -4 2147483646 5    // [fp + 5] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+  18: 4 2147483643 2147483646 5 // [fp + 5] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
   19: 14 5 3 _             // if [fp + 5] != 0 jmp rel not_zero_2
   20: 9 1 5 _              // [fp + 5] = 1
   21: 12 23 _ _            // jump abs end_3
@@ -54,7 +54,7 @@ end_3:
 or_true_4:
   27: 9 1 6 _              // [fp + 6] = 1
 or_end_5:
-  28: 4 -4 2147483645 7    // [fp + 7] = [fp + -4] + (-2) (-2 as M31 -> 2147483645 (=-2 mod M31))
+  28: 4 2147483643 2147483645 7 // [fp + 7] = [fp + -4] + (-2) (-2 as M31 -> 2147483645 (=-2 mod M31))
   29: 14 7 3 _             // if [fp + 7] != 0 jmp rel not_zero_6
   30: 9 1 7 _              // [fp + 7] = 1
   31: 12 33 _ _            // jump abs end_7
@@ -71,9 +71,9 @@ or_end_9:
   38: 14 8 2 _             // if [fp + 8] != 0 jmp rel variable_index_access_1
   39: 12 43 _ _            // jump abs variable_index_access_2
 variable_index_access_1:
-  40: 42 3 -4 9            // [fp + 9] = [[fp + 3] + [fp + -4]]
-  41: 4 9 0 -3             // Return value 0: [fp -3] = [fp + 9] + 0
+  40: 42 3 2147483643 9    // [fp + 9] = [[fp + 3] + [fp + -4]]
+  41: 4 9 0 2147483644     // Return value 0: [fp -3] = [fp + 9] + 0
   42: 11 _ _ _             // return
 variable_index_access_2:
-  43: 9 0 -3 _             // Return value 0: [fp -3] = 0
+  43: 9 0 2147483644 _     // Return value 0: [fp -3] = 0
   44: 11 _ _ _             // return

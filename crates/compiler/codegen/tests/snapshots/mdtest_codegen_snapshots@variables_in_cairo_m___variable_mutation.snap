@@ -15,5 +15,5 @@ test_mutation:
 test_mutation:
 test_mutation_0:
    0: 9 5 0 _              // [fp + 0] = 5
-   1: 4 0 1 -3             // [fp + -3] = [fp + 0] + 1
+   1: 4 0 1 2147483644     // [fp + -3] = [fp + 0] + 1
    2: 11 _ _ _             // return

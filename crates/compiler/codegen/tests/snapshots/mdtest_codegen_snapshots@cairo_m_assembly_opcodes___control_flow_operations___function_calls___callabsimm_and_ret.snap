@@ -20,10 +20,10 @@ test_function_calls:
 test_function_calls:
 test_function_calls_0:
    0: 10 2 3 _             // call helper_function
-   1: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+   1: 4 1 0 2147483644     // Return value 0: [fp -3] = [fp + 1] + 0
    2: 11 _ _ _             // return
 helper_function:
 helper_function:
 helper_function_0:
-   3: 9 42 -3 _            // Return value 0: [fp -3] = 42
+   3: 9 42 2147483644 _    // Return value 0: [fp -3] = 42
    4: 11 _ _ _             // return

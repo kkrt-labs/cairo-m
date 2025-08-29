@@ -19,8 +19,8 @@ u32_overflow_0:
    0: 23 65535 65535 0     // u32([fp + 0], [fp + 1]) = u32(4294967295)
    1: 19 0 1 0 2           // u32([fp + 2], [fp + 3]) = u32([fp + 0], [fp + 1]) U32Add u32(1, 0) /* imm = 0x00000001 */
    2: 23 0 0 4             // u32([fp + 4], [fp + 5]) = u32(0)
-   3: 19 4 65535 65535 6   // u32([fp + 6], [fp + 7]) = u32([fp + 4], [fp + 5]) U32Sub u32(65535, 65535) /* imm = 0xffffffff */ (two's complement of 1 -> 4294967295)
+   3: 19 4 65535 65535 6   // u32([fp + 6], [fp + 7]) = u32([fp + 4], [fp + 5]) U32Sub u32(65535, 65535) (two's complement of 1 -> 4294967295)
    4: 15 2 6 8             // u32([fp + 8], [fp + 9]) = u32([fp + 2], [fp + 3]) U32Add u32([fp + 6], [fp + 7])
-   5: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
-   6: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
+   5: 4 8 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
+   6: 4 9 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
    7: 11 _ _ _             // return

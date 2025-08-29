@@ -6,10 +6,46 @@
 //!   trailing comment `/* imm = 0x........ */`.
 //! - For `Sub` with an immediate, we bias using two's complement and note the
 //!   original vs encoded value in the comment.
-use super::opcodes::{u32_fp_fp, u32_fp_imm};
-use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
+use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
+use stwo_prover::core::fields::m31::M31;
 
+macro_rules! u32_fp_fp_op {
+    ($name:ident, $instr:ident) => {
+        pub(crate) fn $name(
+            &mut self,
+            src0_off: i32,
+            src1_off: i32,
+            dst_off: i32,
+            comment: String,
+        ) {
+            let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::$instr {
+                src0_off: M31::from(src0_off),
+                src1_off: M31::from(src1_off),
+                dst_off: M31::from(dst_off),
+            })
+            .with_comment(comment);
+            self.emit_push(instr);
+        }
+    };
+}
+
+macro_rules! u32_fp_imm_op {
+    ($name:ident, $instr:ident) => {
+        pub(crate) fn $name(&mut self, src0_off: i32, imm: u32, dst_off: i32, comment: String) {
+            let (imm_lo, imm_hi) = super::split_u32_value(imm);
+            let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::$instr {
+                src_off: M31::from(src0_off),
+                imm_lo: M31::from(imm_lo),
+                imm_hi: M31::from(imm_hi),
+                dst_off: M31::from(dst_off),
+            })
+            .with_comment(comment);
+            self.emit_push(instr);
+        }
+    };
+}
 // No local is_u32_cmp_op: comparisons are restricted by design to U32Eq|U32Less.
 
 fn check_op(op: BinaryOp) -> CodegenResult<()> {
@@ -60,73 +96,26 @@ impl super::CasmBuilder {
             (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
                 let lo = self.layout.get_offset(*lid)?;
 
-                let orig_imm = { *imm };
-
-                let mut extra_note: Option<String> = None;
-                // For arithmetic sub with immediate we encode as add with two's complement
-                let encoded_imm = match op {
-                    BinaryOp::U32Sub => {
-                        let neg = twos_complement_u32(orig_imm);
-                        extra_note = Some(format!(
-                            " (two's complement of {orig} -> {neg})",
-                            orig = orig_imm,
-                            neg = neg
-                        ));
-                        neg
-                    }
-                    _ => orig_imm,
-                };
-
-                let (low, high) = super::split_u32_value(encoded_imm);
-                // Show the encoded immediate in hex (matches actual operands)
-                let imm_hex = format!("{:#010x}", encoded_imm);
-
-                let base = if is_cmp_op {
-                    format!(
-                        "[fp + {dest_off}] = u32([fp + {lo}], [fp + {}]) {op} u32({low}, {high})",
-                        lo + 1
-                    )
-                } else {
-                    format!(
-                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {lo}], [fp + {}]) {op} u32({low}, {high})",
-                        dest_off + 1,
-                        lo + 1
-                    )
-                };
-                let comment = format!(
-                    "{base} /* imm = {imm_hex} */{}",
-                    extra_note.unwrap_or_default()
-                );
-
                 if matches!(op, BinaryOp::U32Div) && *imm == 0 {
                     return Err(CodegenError::InvalidMir("Division by zero".into()));
                 }
-
-                self.u32_fp_imm_op(op, lo, low, high, dest_off, comment)?;
+                self.u32_fp_imm_op(op, lo, *imm, dest_off)?;
             }
 
             (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
                 let ro = self.layout.get_offset(*rid)?;
                 match op {
-                    BinaryOp::U32Add | BinaryOp::U32Mul => {
-                        let (lo, hi) = super::split_u32_value(*imm);
-                        let comment = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {ro}], [fp + {}]) {op} u32({lo}, {hi})", dest_off+1, ro+1);
-                        self.u32_fp_imm_op(op, ro, lo, hi, dest_off, comment)?;
-                    }
-                    BinaryOp::U32Sub | BinaryOp::U32Div => {
-                        let tmp = self.layout.reserve_stack(2);
-                        self.store_u32_immediate(
-                            *imm,
-                            tmp,
-                            format!("[fp + {}], [fp + {}] = u32({imm})", tmp, tmp + 1),
-                        );
-                        self.u32_fp_fp_op(op, tmp, ro, dest_off)?;
-                    }
-                    BinaryOp::U32Eq
-                    | BinaryOp::U32Less
+                    // Commutative operations
+                    BinaryOp::U32Add
+                    | BinaryOp::U32Mul
+                    | BinaryOp::U32Eq
                     | BinaryOp::U32BitwiseAnd
                     | BinaryOp::U32BitwiseOr
                     | BinaryOp::U32BitwiseXor => {
+                        self.u32_fp_imm_op(op, ro, *imm, dest_off)?;
+                    }
+                    // Non-commutative operations - store imm in tmp
+                    BinaryOp::U32Sub | BinaryOp::U32Div | BinaryOp::U32Less => {
                         let tmp = self.layout.reserve_stack(2);
                         self.store_u32_immediate(
                             *imm,
@@ -207,13 +196,25 @@ impl super::CasmBuilder {
         src1_off: i32,
         dest_off: i32,
     ) -> CodegenResult<()> {
-        let op_opcode = u32_fp_fp(op)?;
         let comment = format!("[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])", src0_off + 1, src1_off + 1);
-        let instr = InstructionBuilder::new(op_opcode)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(src1_off))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(comment);
+        let instr: InstructionBuilder = match op {
+            BinaryOp::U32Eq => InstructionBuilder::from(CasmInstr::U32StoreEqFpFp {
+                src0_off: M31::from(src0_off),
+                src1_off: M31::from(src1_off),
+                dst_off: M31::from(dest_off),
+            }),
+            BinaryOp::U32Less => InstructionBuilder::from(CasmInstr::U32StoreLtFpFp {
+                src0_off: M31::from(src0_off),
+                src1_off: M31::from(src1_off),
+                dst_off: M31::from(dest_off),
+            }),
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported u32 cmp op".into(),
+                ))
+            }
+        }
+        .with_comment(comment);
         self.emit_push(instr);
         Ok(())
     }
@@ -225,15 +226,21 @@ impl super::CasmBuilder {
         src1_off: i32,
         dest_off: i32,
     ) -> CodegenResult<()> {
-        let op_opcode = u32_fp_fp(op)?;
         let comment = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])", dest_off + 1, src0_off + 1, src1_off + 1);
-        let instr = InstructionBuilder::new(op_opcode)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(src1_off))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(comment);
-        self.emit_push(instr);
-        // Arithmetic u32 result spans 2 slots
+        match op {
+            BinaryOp::U32Add => self.u32_add_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32Sub => self.u32_sub_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32Mul => self.u32_mul_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32Div => self.u32_div_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32BitwiseAnd => self.u32_and_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32BitwiseOr => self.u32_or_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32BitwiseXor => self.u32_xor_fp_fp(src0_off, src1_off, dest_off, comment),
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported u32 fp-fp op".into(),
+                ))
+            }
+        };
         Ok(())
     }
 
@@ -241,20 +248,74 @@ impl super::CasmBuilder {
         &mut self,
         op: BinaryOp,
         src0_off: i32,
-        imm_lo: i32,
-        imm_hi: i32,
+        imm: u32,
         dest_off: i32,
-        comment: String,
     ) -> CodegenResult<()> {
-        let op_opcode = u32_fp_imm(op)?;
-        let instr = InstructionBuilder::new(op_opcode)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(imm_lo))
-            .with_operand(Operand::Literal(imm_hi))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(comment);
-        self.emit_push(instr);
+        let (imm_lo, imm_hi) = super::split_u32_value(imm);
+        let is_cmp_op = matches!(op, BinaryOp::U32Eq | BinaryOp::U32Less);
+        let imm_hex = format!("{:#010x}", imm);
+        let comment = if is_cmp_op {
+            let base = format!("[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32({imm_lo}, {imm_hi})", src0_off + 1);
+            format!("{base} /* imm = {imm_hex} */")
+        } else {
+            let base = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32({imm_lo}, {imm_hi})", dest_off + 1, src0_off + 1);
+            format!("{base} /* imm = {imm_hex} */")
+        };
+        match op {
+            BinaryOp::U32Add => self.u32_add_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Sub => self.u32_sub_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Mul => self.u32_mul_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Div => self.u32_div_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Eq => self.u32_eq_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Less => self.u32_less_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32BitwiseAnd => self.u32_and_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32BitwiseOr => self.u32_or_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32BitwiseXor => self.u32_xor_fp_imm(src0_off, imm, dest_off, comment),
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Unsupported u32 fp-imm op".into(),
+                ))
+            }
+        }
         Ok(())
+    }
+
+    u32_fp_fp_op!(u32_add_fp_fp, U32StoreAddFpFp);
+    u32_fp_fp_op!(u32_sub_fp_fp, U32StoreSubFpFp);
+    u32_fp_fp_op!(u32_mul_fp_fp, U32StoreMulFpFp);
+    u32_fp_fp_op!(u32_div_fp_fp, U32StoreDivFpFp);
+    u32_fp_fp_op!(u32_and_fp_fp, U32StoreAndFpFp);
+    u32_fp_fp_op!(u32_or_fp_fp, U32StoreOrFpFp);
+    u32_fp_fp_op!(u32_xor_fp_fp, U32StoreXorFpFp);
+
+    u32_fp_imm_op!(u32_add_fp_imm, U32StoreAddFpImm);
+    u32_fp_imm_op!(u32_mul_fp_imm, U32StoreMulFpImm);
+    u32_fp_imm_op!(u32_div_fp_imm, U32StoreDivFpImm);
+    u32_fp_imm_op!(u32_eq_fp_imm, U32StoreEqFpImm);
+    u32_fp_imm_op!(u32_less_fp_imm, U32StoreLtFpImm);
+    u32_fp_imm_op!(u32_and_fp_imm, U32StoreAndFpImm);
+    u32_fp_imm_op!(u32_or_fp_imm, U32StoreOrFpImm);
+    u32_fp_imm_op!(u32_xor_fp_imm, U32StoreXorFpImm);
+
+    pub(crate) fn u32_sub_fp_imm(
+        &mut self,
+        src0_off: i32,
+        imm: u32,
+        dst_off: i32,
+        _comment: String,
+    ) {
+        // Use U32StoreAddFpImm with two's complement of imm
+        let neg = twos_complement_u32(imm);
+        let (low, high) = super::split_u32_value(neg);
+        let comment = format!("u32([fp + {dst_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) U32Sub u32({low}, {high}) (two's complement of {imm} -> {neg})", dst_off + 1, src0_off + 1, imm = imm, neg = neg);
+        let instr = InstructionBuilder::from(CasmInstr::U32StoreAddFpImm {
+            src_off: M31::from(src0_off),
+            imm_lo: M31::from(low),
+            imm_hi: M31::from(high),
+            dst_off: M31::from(dst_off),
+        })
+        .with_comment(comment);
+        self.emit_push(instr);
     }
 }
 
@@ -274,9 +335,7 @@ mod tests {
     use super::*;
     use crate::test_support::{exec, ExecutionError, Mem};
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::{
-        U32_STORE_ADD_FP_FP, U32_STORE_ADD_FP_IMM, U32_STORE_EQ_FP_IMM,
-    };
+
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
 
     // Helper to create a builder with two u32 operands
@@ -295,10 +354,14 @@ mod tests {
         b.u32_op(BinaryOp::U32Add, 8, Value::operand(a), Value::operand(c))
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, U32_STORE_ADD_FP_FP);
-        assert_eq!(b.instructions[0].op0(), Some(0));
-        assert_eq!(b.instructions[0].op1(), Some(2));
-        assert_eq!(b.instructions[0].op2(), Some(8));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::U32StoreAddFpFp {
+                src0_off: M31::from(0),
+                src1_off: M31::from(2),
+                dst_off: M31::from(8),
+            })
+        );
     }
 
     #[test]
@@ -306,18 +369,19 @@ mod tests {
         let (mut b, a, _) = mk_builder_two_ops();
         b.u32_op(BinaryOp::U32Sub, 5, Value::operand(a), Value::integer(7))
             .unwrap();
+        let expected_imm = twos_complement_u32(7);
+        let expected_imm_lo = expected_imm as i32 & 0xFFFF;
+        let expected_imm_hi = (expected_imm >> 16) as i32;
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, U32_STORE_ADD_FP_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(0));
-        // op1/op2 contain lo/hi parts of two's complement, non-zero expected
-        assert!(b.instructions[0].op1().unwrap() != 0 || b.instructions[0].op2().unwrap() != 0);
-        // dest off
-        let last = &b.instructions[0].operands[3];
-        if let Operand::Literal(v) = last {
-            assert_eq!(*v, 5);
-        } else {
-            panic!()
-        }
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::U32StoreAddFpImm {
+                src_off: M31::from(0),
+                imm_lo: M31::from(expected_imm_lo),
+                imm_hi: M31::from(expected_imm_hi),
+                dst_off: M31::from(5),
+            })
+        );
     }
 
     #[test]
@@ -326,16 +390,15 @@ mod tests {
         b.u32_op(BinaryOp::U32Eq, 3, Value::operand(a), Value::integer(42))
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, U32_STORE_EQ_FP_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(0));
-        assert!(b.instructions[0].op2().is_some()); // hi part present
-                                                    // dest
-        let last = &b.instructions[0].operands[3];
-        if let Operand::Literal(v) = last {
-            assert_eq!(*v, 3);
-        } else {
-            panic!()
-        }
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::U32StoreEqFpImm {
+                src_off: M31::from(0),
+                imm_lo: M31::from(42u32 as i32 & 0xFFFF),
+                imm_hi: M31::from(0),
+                dst_off: M31::from(3),
+            })
+        );
     }
 
     #[test]
@@ -373,18 +436,15 @@ mod tests {
         .unwrap();
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
-        assert_eq!(i.opcode, cairo_m_common::instruction::U32_STORE_AND_FP_IMM);
-        assert_eq!(i.op0(), Some(0)); // src operand offset
-                                      // Check encoded imm split
-        assert_eq!(i.op1(), Some(0xF0F0_F0F0u32 as i32 & 0xFFFF));
-        assert_eq!(i.op2(), Some(((0xF0F0_F0F0u32 >> 16) & 0xFFFF) as i32));
-        // dest
-        let last = &i.operands[3];
-        if let Operand::Literal(v) = last {
-            assert_eq!(*v, 6);
-        } else {
-            panic!("expected literal dest off")
-        }
+        assert_eq!(
+            i.get_typed_instruction(),
+            Some(&CasmInstr::U32StoreAndFpImm {
+                src_off: M31::from(0),
+                imm_lo: M31::from(0xF0F0_F0F0u32 as i32 & 0xFFFF),
+                imm_hi: M31::from(((0xF0F0_F0F0u32 >> 16) & 0xFFFF) as i32),
+                dst_off: M31::from(6),
+            })
+        );
     }
 
     #[test]
@@ -399,15 +459,15 @@ mod tests {
         .unwrap();
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
-        assert_eq!(i.opcode, cairo_m_common::instruction::U32_STORE_OR_FP_IMM);
-        assert_eq!(i.op0(), Some(0));
-        assert_eq!(i.op2(), Some(0x0000));
-        let last = &i.operands[3];
-        if let Operand::Literal(v) = last {
-            assert_eq!(*v, 7);
-        } else {
-            panic!("expected literal dest off")
-        }
+        assert_eq!(
+            i.get_typed_instruction(),
+            Some(&CasmInstr::U32StoreOrFpImm {
+                src_off: M31::from(0),
+                imm_lo: M31::from(0x0000_FFFFu32 as i32 & 0xFFFF),
+                imm_hi: M31::from(0),
+                dst_off: M31::from(7),
+            })
+        );
     }
 
     #[test]
@@ -417,14 +477,15 @@ mod tests {
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
-        assert_eq!(i.opcode, U32_STORE_EQ_FP_IMM);
-        assert_eq!(i.op0(), Some(0)); // src operand offset
-        let last = &i.operands[3];
-        if let Operand::Literal(v) = last {
-            assert_eq!(*v, 2);
-        } else {
-            panic!("expected literal dest off")
-        }
+        assert_eq!(
+            i.get_typed_instruction(),
+            Some(&CasmInstr::U32StoreEqFpImm {
+                src_off: M31::from(0),
+                imm_lo: M31::from(12345u32 as i32 & 0xFFFF),
+                imm_hi: M31::from(0),
+                dst_off: M31::from(2),
+            })
+        );
     }
 
     // -------------------------

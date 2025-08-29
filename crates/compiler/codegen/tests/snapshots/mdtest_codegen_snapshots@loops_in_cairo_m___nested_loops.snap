@@ -37,7 +37,7 @@ multiply_table_3:
   13: 4 7 0 3              // [fp + 3] = [fp + 7] + 0
   14: 12 4 _ _             // jump abs multiply_table_1
 multiply_table_4:
-  15: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  15: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
   16: 11 _ _ _             // return
 multiply_table_5:
   17: 4 5 2147483637 12    // [fp + 12] = [fp + 5] + (-10) (-10 as M31 -> 2147483637 (=-10 mod M31))

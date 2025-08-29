@@ -46,7 +46,7 @@ or_end_5:
   17: 14 4 4 _             // if [fp + 4] != 0 jmp rel loop_with_break_3
   18: 12 22 _ _            // jump abs loop_with_break_4
 loop_with_break_2:
-  19: 4 1 0 -3             // Return value 0: [fp -3] = [fp + 1] + 0
+  19: 4 1 0 2147483644     // Return value 0: [fp -3] = [fp + 1] + 0
   20: 11 _ _ _             // return
 loop_with_break_3:
   21: 12 19 _ _            // jump abs loop_with_break_2

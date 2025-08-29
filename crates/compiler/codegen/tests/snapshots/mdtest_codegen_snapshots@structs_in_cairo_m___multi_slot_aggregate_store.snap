@@ -24,6 +24,6 @@ test_multi_slot_store_0:
    0: 23 100 0 0           // u32([fp + 0], [fp + 1]) = u32(100)
    1: 23 200 0 2           // u32([fp + 2], [fp + 3]) = u32(200)
    2: 15 0 2 4             // u32([fp + 4], [fp + 5]) = u32([fp + 0], [fp + 1]) U32Add u32([fp + 2], [fp + 3])
-   3: 4 4 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
-   4: 4 5 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+   3: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+   4: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
    5: 11 _ _ _             // return

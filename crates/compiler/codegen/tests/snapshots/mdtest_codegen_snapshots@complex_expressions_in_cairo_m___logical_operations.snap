@@ -157,7 +157,7 @@ test_logical_ops_7:
   84: 4 20 1 23            // [fp + 23] = [fp + 20] + 1
   85: 4 23 0 22            // [fp + 22] = [fp + 23] + 0
 test_logical_ops_8:
-  86: 4 22 0 -3            // Return value 0: [fp -3] = [fp + 22] + 0
+  86: 4 22 0 2147483644    // Return value 0: [fp -3] = [fp + 22] + 0
   87: 11 _ _ _             // return
 test_logical_ops_9:
   88: 12 71 _ _            // jump abs test_logical_ops_2
