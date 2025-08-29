@@ -20,7 +20,7 @@ module {
 
     0:
       %2 = 1 (u32)
-      %3 = %2 U32GreaterEqual %0
+      %3 = %0 U32LessEqual %2
       if %3 then jump 3 else jump 1
 
     1:

@@ -43,9 +43,9 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | **Comparison Operations** |           |                                              |
 | `i32.eq`                  | ✅        | Maps to `BinaryOp::U32Eq`                    |
 | `i32.ne`                  | ✅        | Maps to `BinaryOp::U32Neq`                   |
-| `i32.lt_u`                | ✅        | Maps to `BinaryOp::U32Greater`               |
+| `i32.lt_u`                | ✅        | Maps to `BinaryOp::U32Less`                  |
 | `i32.gt_u`                | ✅        | Maps to `BinaryOp::U32Greater`               |
-| `i32.le_u`                | ✅        | Maps to `BinaryOp::U32GreaterEqual`          |
+| `i32.le_u`                | ✅        | Maps to `BinaryOp::U32LessEqual`             |
 | `i32.ge_u`                | ✅        | Maps to `BinaryOp::U32GreaterEqual`          |
 | `i32.lt_s`                | ✅        | Maps to 3 opcodes                            |
 | `i32.gt_s`                | ✅        | Maps to 3 opcodes                            |

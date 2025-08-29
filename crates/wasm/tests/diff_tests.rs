@@ -159,6 +159,17 @@ proptest! {
             vec![a],
         );
     }
+
+    #[test]
+    fn run_ackermann_from_rust(m in 0..3u32, n in 0..3u32) {
+        let case_dir = format!("{}/sample-programs/ackermann", env!("CARGO_MANIFEST_DIR"));
+        build_wasm(&PathBuf::from(&case_dir));
+        test_program(
+            &format!("{}/target/wasm32-unknown-unknown/release/ackermann.wasm", case_dir),
+            "ackermann",
+            vec![m, n],
+        );
+    }
 }
 
 #[test]

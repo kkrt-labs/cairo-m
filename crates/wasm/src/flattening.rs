@@ -620,6 +620,8 @@ impl DagToMir {
             Op::I32Ne => Ok(BinaryOp::U32Neq),
             Op::I32GtU => Ok(BinaryOp::U32Greater),
             Op::I32GeU => Ok(BinaryOp::U32GreaterEqual),
+            Op::I32LtU => Ok(BinaryOp::U32Less),
+            Op::I32LeU => Ok(BinaryOp::U32LessEqual),
             Op::I32And => Ok(BinaryOp::U32BitwiseAnd),
             Op::I32Or => Ok(BinaryOp::U32BitwiseOr),
             Op::I32Xor => Ok(BinaryOp::U32BitwiseXor),
@@ -683,28 +685,15 @@ impl DagToMir {
             // For comparisons, we produce a boolean result
             // This is not WASM compliant, but works if these values are only used in conditional branches
             // TODO : cast everything correctly or sync with VM so that comparisons between u32 produce u32 booleans
-            Op::I32Eq | Op::I32Ne | Op::I32GtU | Op::I32GeU => self.convert_wasm_binop_to_mir(
-                node_idx,
-                wasm_op,
-                inputs[0],
-                inputs[1],
-                MirType::Bool,
-                context,
-            ),
-
-            // For lower than and lower than or equal to, we use the greater than and greater than or equal to opcodes
-            Op::I32LtU | Op::I32LeU => self.convert_wasm_binop_to_mir(
-                node_idx,
-                match wasm_op {
-                    Op::I32LtU => &Op::I32GtU,
-                    Op::I32LeU => &Op::I32GeU,
-                    _ => unreachable!(),
-                },
-                inputs[1],
-                inputs[0],
-                MirType::Bool,
-                context,
-            ),
+            Op::I32Eq | Op::I32Ne | Op::I32GtU | Op::I32GeU | Op::I32LtU | Op::I32LeU => self
+                .convert_wasm_binop_to_mir(
+                    node_idx,
+                    wasm_op,
+                    inputs[0],
+                    inputs[1],
+                    MirType::Bool,
+                    context,
+                ),
 
             // Signed comparison instructions, constructed by shifting the inputs by 2^31 and then comparing the results with unsigned opcodes
             Op::I32LtS | Op::I32GtS | Op::I32LeS | Op::I32GeS => {
@@ -723,33 +712,19 @@ impl DagToMir {
                     Value::integer(0x80000000),
                 );
                 let result_id = context.mir_function.new_typed_value_id(MirType::Bool);
-                let instruction3 = match wasm_op {
-                    Op::I32LtS => Instruction::binary_op(
-                        BinaryOp::U32Greater,
-                        result_id,
-                        Value::operand(temp2),
-                        Value::operand(temp1),
-                    ),
-                    Op::I32GtS => Instruction::binary_op(
-                        BinaryOp::U32Greater,
-                        result_id,
-                        Value::operand(temp1),
-                        Value::operand(temp2),
-                    ),
-                    Op::I32LeS => Instruction::binary_op(
-                        BinaryOp::U32GreaterEqual,
-                        result_id,
-                        Value::operand(temp2),
-                        Value::operand(temp1),
-                    ),
-                    Op::I32GeS => Instruction::binary_op(
-                        BinaryOp::U32GreaterEqual,
-                        result_id,
-                        Value::operand(temp1),
-                        Value::operand(temp2),
-                    ),
+                let op = match wasm_op {
+                    Op::I32LtS => BinaryOp::U32Less,
+                    Op::I32GtS => BinaryOp::U32Greater,
+                    Op::I32LeS => BinaryOp::U32LessEqual,
+                    Op::I32GeS => BinaryOp::U32GreaterEqual,
                     _ => unreachable!(),
                 };
+                let instruction3 = Instruction::binary_op(
+                    op,
+                    result_id,
+                    Value::operand(temp1),
+                    Value::operand(temp2),
+                );
                 context.get_current_block()?.push_instruction(instruction1);
                 context.get_current_block()?.push_instruction(instruction2);
                 context.get_current_block()?.push_instruction(instruction3);
