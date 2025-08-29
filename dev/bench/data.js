@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756409807053,
+  "lastUpdate": 1756485024582,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2023,6 +2023,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 335244541,
             "range": "± 2040349",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "80b8e1ee10ce6591ddf6117a64b5f307656ce24d",
+          "message": "feat(compiler-runner): simplify instruction set by removing redundant opcodes (#265)\n\n* refactor: simplify instruction set by removing redundant opcodes\n\n- Remove felt arithmetic immediate opcodes that can be derived:\n  - StoreSubFpImm -> StoreAddFpImm with negated immediate\n  - StoreDivFpImm -> StoreMulFpImm with inverse immediate\n\n- Remove U32 arithmetic immediate opcodes:\n  - U32StoreSubFpImm -> U32StoreAddFpImm with two's complement\n\n- Remove U32 comparison opcodes that can be derived:\n  - U32StoreNeqFpFp -> 1 - U32StoreEqFpFp\n  - U32StoreGtFpFp -> U32StoreLtFpFp with swapped operands\n  - U32StoreGeFpFp -> 1 - U32StoreLtFpFp\n  - U32StoreLeFpFp -> U32StoreGeFpFp with swapped operands\n\n- Remove U32 comparison immediate opcodes that can be derived:\n  - U32StoreNeqFpImm -> 1 - U32StoreEqFpImm\n  - U32StoreGtFpImm -> 1 - U32StoreLeFpImm\n  - U32StoreGeFpImm -> 1 - U32StoreLtFpImm\n  - U32StoreLeFpImm -> U32StoreLtFpImm with biased immediate\n\nUpdate codegen to compile removed opcodes into optimized sequences\n\n* update tests\n\n* make better comments for CASM instrs\n\n* fmt\n\n* refactor(codegen): modularize CasmBuilder into focused submodules\n\nSplit the monolithic builder.rs (2933 LOC) into specialized modules:\n- aggregates: struct/tuple operations (855 LOC)\n- calls: function call handling (427 LOC)\n- felt: field arithmetic operations (372 LOC)\n- u32_ops: unsigned integer operations (379 LOC)\n- store: memory/register operations (302 LOC)\n- ctrlflow: control flow constructs (277 LOC)\n- normalize: value normalization (156 LOC)\n- opcodes: instruction emission (115 LOC)\n- emit: label/touch utilities (36 LOC)\n- asserts: assertion helpers (22 LOC)\n\nThis improves code organization, maintainability, and compile times\nwhile preserving all existing functionality.\n\n* refactor(mir): remove broken optimization passes and simplify MIR pipeline\n\n      - Remove broken mem2reg passes: const_fold, ssa_destruction, var_ssa, lower_aggregates\n      - Simplify passes.rs by removing ~3000 lines of unused optimization code\n      - Update test infrastructure and snapshots to match simplified pipeline\n      - Clean up aggregate instruction tests and lowering logic\n      - Remove associated test files for deleted passes\n\n      This continues the MIR refactoring to focus on stable, working functionality\n      while removing complex optimization passes that were causing correctness issues.\n\n* test(codegen): add comprehensive property-based testing for CasmBuilder\n\n- Add test_support module with simple execution model for validating generated CASM\n- Implement property-based tests for all builder modules (aggregates, felt, store, u32_ops)\n- Test edge cases including overflow, division by zero, and boundary conditions\n- Add proptest regression files to catch future regressions\n- Update test snapshots to reflect improved codegen output\n- Remove obsolete WORK_PLAN.md documentation\n\nThis ensures CasmBuilder generates correct CASM instructions across all operations\nand edge cases, significantly improving codegen reliability.\n\n* restore instruction tests\n\n* cleanup\n\n* add legalize pass on MIR rather than in-place replacing instructions\n\n* code cleanup\n\n* some more factorization\n\n* update comments",
+          "timestamp": "2025-08-29T18:25:03+02:00",
+          "tree_id": "07b3a1670c48e54b0f10aa0ce943b0ee6f280390",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/80b8e1ee10ce6591ddf6117a64b5f307656ce24d"
+        },
+        "date": 1756485024145,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 337796972,
+            "range": "± 2518336",
             "unit": "ns/iter"
           }
         ]
