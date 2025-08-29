@@ -326,6 +326,7 @@ mod tests {
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_common::instruction::CALL_ABS_IMM;
     use cairo_m_compiler_mir::{MirType, Value, ValueId};
+    use stwo_prover::core::fields::m31::M31;
 
     #[test]
     fn test_call_single_emits_call_and_maps_dest() {
@@ -425,7 +426,7 @@ mod tests {
             .expect("missing STORE_ADD_FP_IMM copy");
         let copy = &b.instructions[pos];
         assert_eq!(copy.op0(), Some(0));
-        assert_eq!(copy.op2(), Some(-2));
+        assert_eq!(copy.op2(), Some(M31::from(-2).0 as i32));
         // And ensure the last instruction is RET
         assert_eq!(
             b.instructions.last().unwrap().opcode,

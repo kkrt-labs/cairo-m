@@ -32,5 +32,5 @@ count_down_2:
    9: 4 4 0 3              // [fp + 3] = [fp + 4] + 0
   10: 12 4 _ _             // jump abs count_down_1
 count_down_3:
-  11: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+  11: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
   12: 11 _ _ _             // return

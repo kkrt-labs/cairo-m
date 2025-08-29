@@ -2,12 +2,10 @@
 //!
 //! Centralizes STORE opcodes: immediates, single-slot and multi-slot copies, and u32 copies.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
-use cairo_m_common::instruction::{
-    STORE_DOUBLE_DEREF_FP, STORE_DOUBLE_DEREF_FP_FP, STORE_FP_IMM, STORE_IMM,
-    STORE_TO_DOUBLE_DEREF_FP_FP, STORE_TO_DOUBLE_DEREF_FP_IMM, U32_STORE_ADD_FP_IMM, U32_STORE_IMM,
-};
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
+use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{Literal, Value};
+use stwo_prover::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Store copy of an M31 from src to dest with an exact comment string.
@@ -17,10 +15,11 @@ impl super::CasmBuilder {
 
     /// Store `fp + base_off` into `[fp + dest_off]` with provided comment.
     pub(super) fn store_fp_plus_imm(&mut self, base_off: i32, dest_off: i32, comment: String) {
-        let instr = InstructionBuilder::new(STORE_FP_IMM)
-            .with_operand(Operand::Literal(base_off))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(comment);
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreFpImm {
+            imm: M31::from(base_off),
+            dst_off: M31::from(dest_off),
+        })
+        .with_comment(comment);
         self.emit_push(instr);
     }
 
@@ -32,11 +31,12 @@ impl super::CasmBuilder {
         dest_off: i32,
         comment: String,
     ) {
-        let instr = InstructionBuilder::new(STORE_DOUBLE_DEREF_FP)
-            .with_operand(Operand::Literal(base_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(comment);
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreDoubleDerefFp {
+            base_off: M31::from(base_off),
+            imm: M31::from(imm),
+            dst_off: M31::from(dest_off),
+        })
+        .with_comment(comment);
         self.emit_push(instr);
     }
 
@@ -48,21 +48,23 @@ impl super::CasmBuilder {
         dest_off: i32,
         comment: String,
     ) {
-        let instr = InstructionBuilder::new(STORE_DOUBLE_DEREF_FP_FP)
-            .with_operand(Operand::Literal(base_off))
-            .with_operand(Operand::Literal(idx_off))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(comment);
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreDoubleDerefFpFp {
+            base_off: M31::from(base_off),
+            offset_off: M31::from(idx_off),
+            dst_off: M31::from(dest_off),
+        })
+        .with_comment(comment);
         self.emit_push(instr);
     }
     /// Copy a u32 value (2 slots) from `src_off` to `dest_off` using the dedicated opcode.
     pub(super) fn store_copy_u32(&mut self, src_off: i32, dest_off: i32, comment_prefix: &str) {
-        let instr = InstructionBuilder::new(U32_STORE_ADD_FP_IMM)
-            .with_operand(Operand::Literal(src_off))
-            .with_operand(Operand::Literal(0))
-            .with_operand(Operand::Literal(0))
-            .with_operand(Operand::Literal(dest_off))
-            .with_comment(format!(
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::U32StoreAddFpImm {
+            src_off: M31::from(src_off),
+            imm_lo: M31::from(0),
+            imm_hi: M31::from(0),
+            dst_off: M31::from(dest_off),
+        })
+        .with_comment(format!(
                 "{comment_prefix}u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src_off}], [fp + {}]) + u32(0, 0)",
                 dest_off + 1,
                 src_off + 1
@@ -72,21 +74,23 @@ impl super::CasmBuilder {
 
     /// Store a felt/boolean/pointer immediate and track the write.
     pub(super) fn store_immediate(&mut self, value: u32, offset: i32, comment: String) {
-        let instr = InstructionBuilder::new(STORE_IMM)
-            .with_operand(Operand::Literal(value as i32))
-            .with_operand(Operand::Literal(offset))
-            .with_comment(comment);
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreImm {
+            imm: M31::from(value),
+            dst_off: M31::from(offset),
+        })
+        .with_comment(comment);
         self.emit_push(instr);
     }
 
     /// Store a u32 immediate split into two slots and track the write.
     pub(super) fn store_u32_immediate(&mut self, value: u32, offset: i32, comment: String) {
         let (lo, hi) = super::split_u32_value(value);
-        let instr = InstructionBuilder::new(U32_STORE_IMM)
-            .with_operand(Operand::Literal(lo))
-            .with_operand(Operand::Literal(hi))
-            .with_operand(Operand::Literal(offset))
-            .with_comment(comment);
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::U32StoreImm {
+            imm_lo: M31::from(lo),
+            imm_hi: M31::from(hi),
+            dst_off: M31::from(offset),
+        })
+        .with_comment(comment);
         self.emit_push(instr);
     }
 
@@ -119,10 +123,12 @@ impl super::CasmBuilder {
         imm: i32,
         comment: String,
     ) {
-        let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
-            .with_operand(Operand::Literal(src_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(base_off))
+        let instr: InstructionBuilder =
+            InstructionBuilder::from(CasmInstr::StoreToDoubleDerefFpImm {
+                src_off: M31::from(src_off),
+                imm: M31::from(imm),
+                base_off: M31::from(base_off),
+            })
             .with_comment(comment);
         self.emit_push(instr);
     }
@@ -134,10 +140,12 @@ impl super::CasmBuilder {
         src_off: i32,
         comment: String,
     ) {
-        let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_FP)
-            .with_operand(Operand::Literal(src_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(base_off))
+        let instr: InstructionBuilder =
+            InstructionBuilder::from(CasmInstr::StoreToDoubleDerefFpFp {
+                src_off: M31::from(src_off),
+                base_off: M31::from(base_off),
+                offset_off: M31::from(imm),
+            })
             .with_comment(comment);
         self.emit_push(instr);
     }
@@ -223,11 +231,6 @@ mod tests {
     use crate::builder::CasmBuilder;
     use crate::layout::FunctionLayout;
     use crate::test_support::{exec, Mem};
-    use cairo_m_common::instruction::{
-        STORE_ADD_FP_IMM, STORE_DOUBLE_DEREF_FP, STORE_DOUBLE_DEREF_FP_FP, STORE_FP_IMM, STORE_IMM,
-        STORE_TO_DOUBLE_DEREF_FP_FP, STORE_TO_DOUBLE_DEREF_FP_IMM, U32_STORE_ADD_FP_IMM,
-        U32_STORE_IMM,
-    };
     use cairo_m_compiler_mir::{Literal, Value, ValueId};
     use proptest::prelude::*;
     use proptest::strategy::{Just, Strategy};
@@ -254,9 +257,13 @@ mod tests {
         b.store_fp_plus_imm(3, 7, "[fp + 7] = fp + 3".into());
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_FP_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(3));
-        assert_eq!(b.instructions[0].op1(), Some(7));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreFpImm {
+                imm: M31::from(3),
+                dst_off: M31::from(7),
+            })
+        );
     }
 
     #[test]
@@ -266,10 +273,14 @@ mod tests {
         b.copy_slots(3, 7, 1, "T:");
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
-        assert_eq!(i.opcode, STORE_ADD_FP_IMM);
-        assert_eq!(i.op0(), Some(3));
-        assert_eq!(i.op1(), Some(0));
-        assert_eq!(i.op2(), Some(7));
+        assert_eq!(
+            i.get_typed_instruction(),
+            Some(&CasmInstr::StoreAddFpImm {
+                src_off: M31::from(3),
+                imm: M31::from(0),
+                dst_off: M31::from(7),
+            })
+        );
     }
 
     #[test]
@@ -291,23 +302,15 @@ mod tests {
         b.store_copy_u32(5, 12, "U32:");
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
-        assert_eq!(i.opcode, U32_STORE_ADD_FP_IMM);
-        assert_eq!(i.op0(), Some(5));
-        // imm lo/hi zeros
-        assert_eq!(i.op1(), Some(0));
-        assert_eq!(i.op2(), Some(0));
-        // dest offset
         assert_eq!(
-            i.operands
-                .get(3)
-                .and_then(|o| if let Operand::Literal(v) = o {
-                    Some(*v)
-                } else {
-                    None
-                }),
-            Some(12)
+            i.get_typed_instruction(),
+            Some(&CasmInstr::U32StoreAddFpImm {
+                src_off: M31::from(5),
+                imm_lo: M31::from(0),
+                imm_hi: M31::from(0),
+                dst_off: M31::from(12),
+            })
         );
-
         // Test execution
         let mut mem = Mem::new(64);
         mem.set_u32(5, 0xDEAD_BEEF);
@@ -321,10 +324,14 @@ mod tests {
         b.store_from_double_deref_fp_imm(2, 5, 8, "[[fp + 2] + 5] -> [fp + 8]".into());
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_DOUBLE_DEREF_FP);
-        assert_eq!(b.instructions[0].op0(), Some(2));
-        assert_eq!(b.instructions[0].op1(), Some(5));
-        assert_eq!(b.instructions[0].op2(), Some(8));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreDoubleDerefFp {
+                base_off: M31::from(2),
+                imm: M31::from(5),
+                dst_off: M31::from(8),
+            })
+        );
     }
 
     #[test]
@@ -333,10 +340,14 @@ mod tests {
         b.store_from_double_deref_fp_fp(2, 3, 8, "[[fp + 2] + [fp + 3]] -> [fp + 8]".into());
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_DOUBLE_DEREF_FP_FP);
-        assert_eq!(b.instructions[0].op0(), Some(2));
-        assert_eq!(b.instructions[0].op1(), Some(3));
-        assert_eq!(b.instructions[0].op2(), Some(8));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreDoubleDerefFpFp {
+                base_off: M31::from(2),
+                offset_off: M31::from(3),
+                dst_off: M31::from(8),
+            })
+        );
     }
 
     #[test]
@@ -345,10 +356,14 @@ mod tests {
         b.store_to_double_deref_fp_imm(8, 2, 5, "[fp + 8] -> [[fp + 2] + 5]".into());
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_TO_DOUBLE_DEREF_FP_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(8));
-        assert_eq!(b.instructions[0].op1(), Some(5));
-        assert_eq!(b.instructions[0].op2(), Some(2));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreToDoubleDerefFpImm {
+                src_off: M31::from(8),
+                imm: M31::from(5),
+                base_off: M31::from(2),
+            })
+        );
     }
 
     #[test]
@@ -357,10 +372,14 @@ mod tests {
         b.store_to_double_deref_fp_fp(2, 3, 8, "[fp + 8] -> [[fp + 2] + [fp + 3]]".into());
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_TO_DOUBLE_DEREF_FP_FP);
-        assert_eq!(b.instructions[0].op0(), Some(8));
-        assert_eq!(b.instructions[0].op1(), Some(3));
-        assert_eq!(b.instructions[0].op2(), Some(2));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreToDoubleDerefFpFp {
+                src_off: M31::from(8),
+                base_off: M31::from(2),
+                offset_off: M31::from(3),
+            })
+        );
     }
 
     // -------------------------
@@ -374,9 +393,13 @@ mod tests {
         b.copy_value_to_offset(&value, 5, 1).unwrap();
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(42));
-        assert_eq!(b.instructions[0].op1(), Some(5));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreImm {
+                imm: M31::from(42),
+                dst_off: M31::from(5),
+            })
+        );
     }
 
     #[test]
@@ -386,10 +409,14 @@ mod tests {
         b.copy_value_to_offset(&value, 10, 2).unwrap();
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, U32_STORE_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(0x1234)); // Low
-        assert_eq!(b.instructions[0].op1(), Some(0xABCD)); // High
-        assert_eq!(b.instructions[0].op2(), Some(10));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::U32StoreImm {
+                imm_lo: M31::from(0x1234),
+                imm_hi: M31::from(0xABCD),
+                dst_off: M31::from(10),
+            })
+        );
     }
 
     #[test]
@@ -400,16 +427,26 @@ mod tests {
         b.copy_value_to_offset(&Value::Literal(Literal::Boolean(true)), 3, 1)
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(1));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreImm {
+                imm: M31::from(1),
+                dst_off: M31::from(3),
+            })
+        );
 
         // Test false
         b.instructions.clear();
         b.copy_value_to_offset(&Value::Literal(Literal::Boolean(false)), 4, 1)
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(0));
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreImm {
+                imm: M31::from(0),
+                dst_off: M31::from(4),
+            })
+        );
     }
 
     #[test]
@@ -429,10 +466,14 @@ mod tests {
         b.copy_value_to_offset(&value, 10, 1).unwrap();
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, STORE_ADD_FP_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(0)); // Source offset
-        assert_eq!(b.instructions[0].op1(), Some(0)); // Add 0
-        assert_eq!(b.instructions[0].op2(), Some(10)); // Dest offset
+        assert_eq!(
+            b.instructions[0].get_typed_instruction(),
+            Some(&CasmInstr::StoreAddFpImm {
+                src_off: M31::from(0),
+                imm: M31::from(0),
+                dst_off: M31::from(10),
+            })
+        );
     }
 
     /// Strategy for various immediate values to test

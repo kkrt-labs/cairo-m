@@ -45,7 +45,7 @@ test_conditional_jumps_4:
   12: 4 2 50 6             // [fp + 6] = [fp + 2] + 50
   13: 4 6 0 5              // [fp + 5] = [fp + 6] + 0
 test_conditional_jumps_5:
-  14: 4 5 0 -3             // Return value 0: [fp -3] = [fp + 5] + 0
+  14: 4 5 0 2147483644     // Return value 0: [fp -3] = [fp + 5] + 0
   15: 11 _ _ _             // return
 test_conditional_jumps_6:
   16: 12 7 _ _             // jump abs test_conditional_jumps_2

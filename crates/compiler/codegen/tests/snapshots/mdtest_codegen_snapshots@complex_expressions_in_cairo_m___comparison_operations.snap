@@ -112,8 +112,8 @@ test_comparisons_11:
   50: 19 33 1 0 39         // u32([fp + 39], [fp + 40]) = u32([fp + 33], [fp + 34]) U32Add u32(1, 0) /* imm = 0x00000001 */
   51: 19 39 0 0 37         // u32([fp + 37], [fp + 38]) = u32([fp + 39], [fp + 40]) + u32(0, 0)
 test_comparisons_12:
-  52: 4 37 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 37] + 0
-  53: 4 38 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 38] + 0
+  52: 4 37 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 37] + 0
+  53: 4 38 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 38] + 0
   54: 11 _ _ _             // return
 test_comparisons_13:
   55: 12 30 _ _            // jump abs test_comparisons_2

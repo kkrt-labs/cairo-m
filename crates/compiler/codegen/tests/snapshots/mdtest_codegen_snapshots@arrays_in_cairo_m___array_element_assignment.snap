@@ -15,5 +15,5 @@ Generated CASM:
 assign_array_element:
 assign_array_element:
 assign_array_element_0:
-   0: 9 42 -3 _            // [fp + -3] = 42
+   0: 9 42 2147483644 _    // [fp + -3] = 42
    1: 11 _ _ _             // return

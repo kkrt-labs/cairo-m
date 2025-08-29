@@ -13,5 +13,5 @@ Generated CASM:
 test_bitwise_xor:
 test_bitwise_xor:
 test_bitwise_xor_0:
-   0: 38 -8 -6 -4          // u32([fp + -4], [fp + -3]) = u32([fp + -8], [fp + -7]) ^ (u32) u32([fp + -6], [fp + -5])
+   0: 38 2147483639 2147483641 2147483643 // u32([fp + -4], [fp + -3]) = u32([fp + -8], [fp + -7]) ^ (u32) u32([fp + -6], [fp + -5])
    1: 11 _ _ _             // return

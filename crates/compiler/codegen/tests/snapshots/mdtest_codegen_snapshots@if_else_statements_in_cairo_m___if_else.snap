@@ -17,8 +17,8 @@ choose:
    0: 14 -4 4 _            // if [fp + -4] != 0 jmp rel choose_2
    1: 12 2 _ _             // jump abs choose_1
 choose_1:
-   2: 9 10 -3 _            // Return value 0: [fp -3] = 10
+   2: 9 10 2147483644 _    // Return value 0: [fp -3] = 10
    3: 11 _ _ _             // return
 choose_2:
-   4: 9 20 -3 _            // Return value 0: [fp -3] = 20
+   4: 9 20 2147483644 _    // Return value 0: [fp -3] = 20
    5: 11 _ _ _             // return

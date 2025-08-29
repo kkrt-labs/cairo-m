@@ -48,6 +48,6 @@ calculate_area_u32_2:
   19: 4 3 0 21             //  slot 3: [fp + 21] = [fp + 3] + 0
 calculate_area_u32_3:
   20: 17 18 20 32          // u32([fp + 32], [fp + 33]) = u32([fp + 18], [fp + 19]) U32Mul u32([fp + 20], [fp + 21])
-  21: 4 32 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 32] + 0
-  22: 4 33 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 33] + 0
+  21: 4 32 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 32] + 0
+  22: 4 33 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 33] + 0
   23: 11 _ _ _             // return
