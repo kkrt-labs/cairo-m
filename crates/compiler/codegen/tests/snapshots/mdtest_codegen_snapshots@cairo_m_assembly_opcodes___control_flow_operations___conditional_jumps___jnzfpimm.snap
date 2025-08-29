@@ -35,7 +35,7 @@ test_conditional_jumps_1:
    5: 9 100 3 _            // [fp + 3] = 100
    6: 4 3 0 2              // [fp + 2] = [fp + 3] + 0
 test_conditional_jumps_2:
-   7: 4 0 2147483642 7     // [fp + 7] = [fp + 0] - 5 (-5 as M31 -> 2147483642 (=-5 mod M31))
+   7: 4 0 2147483642 7     // [fp + 7] = [fp + 0] + (-5) (-5 as M31 -> 2147483642 (=-5 mod M31))
    8: 14 7 4 _             // if [fp + 7] != 0 jmp rel test_conditional_jumps_4
 test_conditional_jumps_3:
    9: 9 200 4 _            // [fp + 4] = 200

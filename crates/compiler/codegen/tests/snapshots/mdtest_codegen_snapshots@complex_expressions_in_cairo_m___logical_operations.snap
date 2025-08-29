@@ -40,14 +40,14 @@ test_logical_ops_0:
    0: 9 5 0 _              // [fp + 0] = 5
    1: 9 0 1 _              // [fp + 1] = 0
    2: 9 3 2 _              // [fp + 2] = 3
-   3: 4 0 0 3              // [fp + 3] = [fp + 0] - 0 (-0 as M31 -> 0)
+   3: 4 0 0 3              // [fp + 3] = [fp + 0] + (-0) (-0 as M31 -> 0)
    4: 14 3 3 _             // if [fp + 3] != 0 jmp rel neq_non_zero_0
    5: 9 0 3 _              // [fp + 3] = 0
    6: 12 8 _ _             // jump abs neq_end_1
 neq_non_zero_0:
    7: 9 1 3 _              // [fp + 3] = 1
 neq_end_1:
-   8: 4 2 0 4              // [fp + 4] = [fp + 2] - 0 (-0 as M31 -> 0)
+   8: 4 2 0 4              // [fp + 4] = [fp + 2] + (-0) (-0 as M31 -> 0)
    9: 14 4 3 _             // if [fp + 4] != 0 jmp rel neq_non_zero_2
   10: 9 0 4 _              // [fp + 4] = 0
   11: 12 13 _ _            // jump abs neq_end_3
@@ -63,14 +63,14 @@ and_check_right_4:
 and_true_5:
   18: 9 1 5 _              // [fp + 5] = 1
 and_end_6:
-  19: 4 0 0 6              // [fp + 6] = [fp + 0] - 0 (-0 as M31 -> 0)
+  19: 4 0 0 6              // [fp + 6] = [fp + 0] + (-0) (-0 as M31 -> 0)
   20: 14 6 3 _             // if [fp + 6] != 0 jmp rel neq_non_zero_7
   21: 9 0 6 _              // [fp + 6] = 0
   22: 12 24 _ _            // jump abs neq_end_8
 neq_non_zero_7:
   23: 9 1 6 _              // [fp + 6] = 1
 neq_end_8:
-  24: 4 1 0 7              // [fp + 7] = [fp + 1] - 0 (-0 as M31 -> 0)
+  24: 4 1 0 7              // [fp + 7] = [fp + 1] + (-0) (-0 as M31 -> 0)
   25: 14 7 3 _             // if [fp + 7] != 0 jmp rel neq_non_zero_9
   26: 9 0 7 _              // [fp + 7] = 0
   27: 12 29 _ _            // jump abs neq_end_10
@@ -86,14 +86,14 @@ and_check_right_11:
 and_true_12:
   34: 9 1 8 _              // [fp + 8] = 1
 and_end_13:
-  35: 4 0 0 9              // [fp + 9] = [fp + 0] - 0 (-0 as M31 -> 0)
+  35: 4 0 0 9              // [fp + 9] = [fp + 0] + (-0) (-0 as M31 -> 0)
   36: 14 9 3 _             // if [fp + 9] != 0 jmp rel neq_non_zero_14
   37: 9 0 9 _              // [fp + 9] = 0
   38: 12 40 _ _            // jump abs neq_end_15
 neq_non_zero_14:
   39: 9 1 9 _              // [fp + 9] = 1
 neq_end_15:
-  40: 4 1 0 10             // [fp + 10] = [fp + 1] - 0 (-0 as M31 -> 0)
+  40: 4 1 0 10             // [fp + 10] = [fp + 1] + (-0) (-0 as M31 -> 0)
   41: 14 10 3 _            // if [fp + 10] != 0 jmp rel neq_non_zero_16
   42: 9 0 10 _             // [fp + 10] = 0
   43: 12 45 _ _            // jump abs neq_end_17
@@ -107,14 +107,14 @@ neq_end_17:
 or_true_18:
   49: 9 1 11 _             // [fp + 11] = 1
 or_end_19:
-  50: 4 1 0 12             // [fp + 12] = [fp + 1] - 0 (-0 as M31 -> 0)
+  50: 4 1 0 12             // [fp + 12] = [fp + 1] + (-0) (-0 as M31 -> 0)
   51: 14 12 3 _            // if [fp + 12] != 0 jmp rel neq_non_zero_20
   52: 9 0 12 _             // [fp + 12] = 0
   53: 12 55 _ _            // jump abs neq_end_21
 neq_non_zero_20:
   54: 9 1 12 _             // [fp + 12] = 1
 neq_end_21:
-  55: 4 1 0 13             // [fp + 13] = [fp + 1] - 0 (-0 as M31 -> 0)
+  55: 4 1 0 13             // [fp + 13] = [fp + 1] + (-0) (-0 as M31 -> 0)
   56: 14 13 3 _            // if [fp + 13] != 0 jmp rel neq_non_zero_22
   57: 9 0 13 _             // [fp + 13] = 0
   58: 12 60 _ _            // jump abs neq_end_23

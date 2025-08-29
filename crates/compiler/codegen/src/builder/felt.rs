@@ -6,7 +6,7 @@ use cairo_m_common::instruction::*;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 use stwo_prover::core::fields::m31::M31;
 
-use super::opcodes::felt_fp_fp;
+use super::opcodes::{felt_fp_fp, felt_fp_imm};
 
 impl super::CasmBuilder {
     pub(super) fn felt_arith(
@@ -16,8 +16,6 @@ impl super::CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        use super::opcodes::{felt_fp_fp, felt_fp_imm};
-
         // Normalize commutative immediate-left cases to immediate-right
         let (left, right) = super::normalize::canonicalize_commutative_felt(op, left, right);
 
@@ -32,47 +30,33 @@ impl super::CasmBuilder {
 
                 // a - imm = a + (-imm)
                 // a / imm = a * inv(imm)
-                let (opcode, imm_enc) = match op {
-                    BinaryOp::Sub => (felt_fp_imm(BinaryOp::Add)?, m31_negate_imm(*imm)),
-                    BinaryOp::Div => (felt_fp_imm(BinaryOp::Mul)?, m31_inverse_imm(*imm)?),
-                    _ => (felt_fp_imm(op)?, *imm as i32),
+                let imm_enc = match op {
+                    BinaryOp::Sub => m31_negate_imm(*imm),
+                    BinaryOp::Div => m31_inverse_imm(*imm)?,
+                    _ => *imm as i32,
                 };
                 let comment = match op {
                     BinaryOp::Add => format!("[fp + {dest_off}] = [fp + {lo}] + {imm}"),
                     BinaryOp::Sub => format!(
-                        "[fp + {dest_off}] = [fp + {lo}] - {imm} (-{imm} as M31 -> {})",
+                        "[fp + {dest_off}] = [fp + {lo}] + (-{imm}) (-{imm} as M31 -> {})",
                         fmt_m31_imm(imm_enc)
                     ),
                     BinaryOp::Mul => format!("[fp + {dest_off}] = [fp + {lo}] * {imm}"),
                     BinaryOp::Div => format!(
-                        "[fp + {dest_off}] = [fp + {lo}] / {imm} (inv({imm}) as M31 -> {})",
+                        "[fp + {dest_off}] = [fp + {lo}] * (1/{imm}) (inv({imm}) as M31 -> {})",
                         fmt_m31_imm(imm_enc)
                     ),
                     _ => unreachable!(),
                 };
-                let instr = InstructionBuilder::new(opcode)
-                    .with_operand(Operand::Literal(lo))
-                    .with_operand(Operand::Literal(imm_enc))
-                    .with_operand(Operand::Literal(dest_off))
-                    .with_comment(comment);
-                self.emit_push(instr);
+                self.felt_fp_imm_op(op, lo, imm_enc, dest_off, comment)?;
             }
             (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
                 // Only add/mul are commutative; for sub/div use a temp
                 match op {
                     BinaryOp::Add | BinaryOp::Mul => {
                         let ro = self.layout.get_offset(*rid)?;
-                        let comment = match op {
-                            BinaryOp::Add => format!("[fp + {dest_off}] = [fp + {ro}] + {imm}"),
-                            BinaryOp::Mul => format!("[fp + {dest_off}] = [fp + {ro}] * {imm}"),
-                            _ => format!("[fp + {dest_off}] = [fp + {ro}] {op} {imm}"),
-                        };
-                        let instr = InstructionBuilder::new(super::opcodes::felt_fp_imm(op)?)
-                            .with_operand(Operand::Literal(ro))
-                            .with_operand(Operand::Literal(*imm as i32))
-                            .with_operand(Operand::Literal(dest_off))
-                            .with_comment(comment);
-                        self.emit_push(instr);
+                        let comment = format!("[fp + {dest_off}] = [fp + {ro}] {op} {imm}");
+                        self.felt_fp_imm_op(op, ro, *imm as i32, dest_off, comment)?;
                     }
                     BinaryOp::Sub | BinaryOp::Div => {
                         // Stage immediate then use fp-fp form
@@ -179,6 +163,24 @@ impl super::CasmBuilder {
         let instr = InstructionBuilder::new(op_opcode)
             .with_operand(Operand::Literal(src0_off))
             .with_operand(Operand::Literal(src1_off))
+            .with_operand(Operand::Literal(dst_off))
+            .with_comment(comment);
+        self.emit_push(instr);
+        Ok(())
+    }
+
+    pub(crate) fn felt_fp_imm_op(
+        &mut self,
+        op: BinaryOp,
+        src0_off: i32,
+        imm: i32,
+        dst_off: i32,
+        comment: String,
+    ) -> CodegenResult<()> {
+        let op_opcode = felt_fp_imm(op)?;
+        let instr = InstructionBuilder::new(op_opcode)
+            .with_operand(Operand::Literal(src0_off))
+            .with_operand(Operand::Literal(imm))
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
