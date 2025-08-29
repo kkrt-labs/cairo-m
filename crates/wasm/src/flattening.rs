@@ -757,8 +757,9 @@ impl DagToMir {
             }
 
             // Zero comparison instruction, constructed by comparing the input to 0
+            // TODO : fix type of result_id
             Op::I32Eqz => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
+                let result_id = context.mir_function.new_typed_value_id(MirType::Bool);
                 let instruction = Instruction::binary_op(
                     BinaryOp::U32Eq,
                     result_id,
