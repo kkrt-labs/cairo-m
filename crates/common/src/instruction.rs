@@ -122,6 +122,7 @@ macro_rules! instructions {
             /// Get the number of memory accesses (as limbs) for this instruction's operands
             pub const fn memory_accesses(&self) -> usize {
                 match self {
+                    Self::Ret { .. } => 2usize,
                     $(
                         Self::$variant { .. } => {
                             0usize
@@ -399,6 +400,7 @@ instructions! {
         target: (OperandType::Immediate),
     };
     // ret
+    // Ret is a special case, it accesses `pc` and `fp` - which is hardcoded in the macro.
     Ret = 11 {};
 
     // Jump operations
