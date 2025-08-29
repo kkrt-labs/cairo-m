@@ -1,0 +1,15 @@
+[package]
+name = "sha256-cairo-m"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+cairo-m-common = { path = "../../crates/common" }
+cairo-m-runner = { path = "../../crates/runner" }
+cairo-m-compiler = { path = "../../crates/compiler" }
+anyhow = "1.0"
+proptest = "1.0"
+sha2 = "0.10.9"
+once_cell = "1.21.3"

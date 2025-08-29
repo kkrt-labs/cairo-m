@@ -1,0 +1,130 @@
+// SHA-256 cryptographic hash function implementation in Cairo-M.
+// This implementation follows NIST FIPS 180-4 specification.
+// It operates on pre-padded messages represented as arrays of u32 words.
+
+// Pre-computed powers of 2 for n = 0 to 31
+const POW2 = [1u32, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456, 536870912, 1073741824, 2147483648];
+
+// SHA-256 round constants (first 32 bits of fractional parts of cube roots of first 64 primes)
+const K = [1116352408u32, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221, 3624381080, 310598401, 607225278, 1426881987, 1925078388, 2162078206, 2614888103, 3248222580, 3835390401, 4022224774, 264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986, 2554220882, 2821834349, 2952996808, 3210313671, 3336571891, 3584528711, 113926993, 338241895, 666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, 2177026350, 2456956037, 2730485921, 2820302411, 3259730800, 3345764771, 3516065817, 3600352804, 4094571909, 275423344, 430227734, 506948616, 659060556, 883997877, 958139571, 1322822218, 1537002063, 1747873779, 1955562222, 2024104815, 2227730452, 2361852424, 2428436474, 2756734187, 3204031479, 3329325298];
+
+// Maximum value for 32-bit unsigned integer
+const U32_MAX = 4294967295u32;
+
+/// Rotate right operation: rotates bits of x right by n positions.
+fn rotr(x: u32, n: felt) -> u32 {
+    // No need to check n bounds - all calls in SHA-256 use constants in range [2, 25]
+    if n == 0 {
+        return x;
+    }
+    let pow2_n = POW2[n];
+    let complement_n = 32 - n;
+    let pow2_complement = POW2[complement_n];
+    let shr_part = x / pow2_n;
+    let shl_part = x * pow2_complement;
+    return shl_part | shr_part;
+}
+
+/// SHA-256 Σ₀ function used in the compression function.
+fn big_sigma0(x: u32) -> u32 {
+    return rotr(x, 2) ^ rotr(x, 13) ^ rotr(x, 22);
+}
+
+/// SHA-256 Σ₁ function used in the compression function.
+fn big_sigma1(x: u32) -> u32 {
+    return rotr(x, 6) ^ rotr(x, 11) ^ rotr(x, 25);
+}
+
+/// SHA-256 σ₀ function used in message scheduling.
+fn small_sigma0(x: u32) -> u32 {
+    return rotr(x, 7) ^ rotr(x, 18) ^ (x / 8);
+}
+
+/// SHA-256 σ₁ function used in message scheduling.
+fn small_sigma1(x: u32) -> u32 {
+    return rotr(x, 17) ^ rotr(x, 19) ^ (x / 1024);
+}
+
+/// SHA-256 Ch (choice) function: if x then y else z.
+fn ch(x: u32, y: u32, z: u32) -> u32 {
+    return (x & y) ^ ((U32_MAX - x) & z);
+}
+
+/// SHA-256 Maj (majority) function: majority vote of x, y, z.
+fn maj(x: u32, y: u32, z: u32) -> u32 {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+
+/// Processes a single 512-bit (16-word) chunk of the message.
+/// Updates the hash state H in-place.
+fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
+    // Message schedule array
+    let W: [u32; 64] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // Copy chunk into first 16 words of message schedule
+    for (let t: felt = 0; t != 16; t = t + 1) {
+        W[t] = chunk[t];
+    } // Extend the message schedule
+    for (let t: felt = 16; t != 64; t = t + 1) {
+        let s0 = small_sigma0(W[t - 15]);
+        let s1 = small_sigma1(W[t - 2]);
+        W[t] = W[t - 16] + s0 + W[t - 7] + s1;
+    }
+    let a = H[0];
+    let b = H[1];
+    let c = H[2];
+    let d = H[3];
+    let e = H[4];
+    let f = H[5];
+    let g = H[6];
+    let h = H[7]; // Compression function main loop
+    for (let t: felt = 0; t != 64; t = t + 1) {
+        let temp1 = h + big_sigma1(e) + ch(e, f, g) + K[t] + W[t];
+        let temp2 = big_sigma0(a) + maj(a, b, c);
+        h = g;
+        g = f;
+        f = e;
+        e = d + temp1;
+        d = c;
+        c = b;
+        b = a;
+        a = temp1 + temp2;
+    }
+    H[0] = H[0] + a;
+    H[1] = H[1] + b;
+    H[2] = H[2] + c;
+    H[3] = H[3] + d;
+    H[4] = H[4] + e;
+    H[5] = H[5] + f;
+    H[6] = H[6] + g;
+    H[7] = H[7] + h;
+    return ();
+}
+
+/// Computes SHA-256 hash of a pre-padded message.
+/// 
+/// ## Arguments
+/// * `padded_message` - A buffer of 32 u32 words (128 bytes)
+/// * `num_chunks` - The number of 16-word (64-byte) chunks to process
+/// 
+/// ## Returns
+/// The SHA-256 hash as an array of 8 u32 words
+fn sha256_hash(padded_message: [u32; 32], num_chunks: felt) -> [u32; 8] {
+    let H: [u32; 8] = [
+        1779033703,
+        3144134277,
+        1013904242,
+        2773480762,
+        1359893119,
+        2600822924,
+        528734635,
+        1541459225
+    ];
+    
+    for (let chunk_index: felt = 0; chunk_index != num_chunks; chunk_index = chunk_index + 1) {
+        let current_chunk: [u32; 16] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        for (let i: felt = 0; i != 16; i = i + 1) {
+            current_chunk[i] = padded_message[chunk_index * 16 + i];
+        }
+        process_chunk(current_chunk, H);
+    }
+    return H;
+}

@@ -1,0 +1,45 @@
+name: Examples Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions: read-all
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  test:
+    name: ${{ matrix.example }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [sha256-cairo-m]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Rust toolchain
+        run: rustup show
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: "true"
+
+      - name: Build ${{ matrix.example }}
+        run: |
+          cd examples/${{ matrix.example }}
+          cargo build --release
+
+      - name: Run tests for ${{ matrix.example }}
+        run: |
+          cd examples/${{ matrix.example }}
+          cargo test --release
