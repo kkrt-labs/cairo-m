@@ -228,9 +228,42 @@ mod tests {
     use super::*;
     use crate::builder::CasmBuilder;
     use crate::layout::FunctionLayout;
+    use crate::test_support::{exec, Mem};
     use cairo_m_common::instruction::{
-        STORE_ADD_FP_IMM, STORE_IMM, U32_STORE_ADD_FP_IMM, U32_STORE_IMM,
+        STORE_ADD_FP_IMM, STORE_DOUBLE_DEREF_FP, STORE_DOUBLE_DEREF_FP_FP, STORE_FP_IMM, STORE_IMM,
+        STORE_TO_DOUBLE_DEREF_FP_FP, STORE_TO_DOUBLE_DEREF_FP_IMM, U32_STORE_ADD_FP_IMM,
+        U32_STORE_IMM,
     };
+    use cairo_m_compiler_mir::{Literal, Value, ValueId};
+    use proptest::prelude::*;
+    use proptest::strategy::{Just, Strategy};
+    use stwo_prover::core::fields::m31::M31;
+
+    // -------------------------
+    // Test setup helpers
+    // -------------------------
+
+    fn mk_builder_with_value() -> (CasmBuilder, ValueId) {
+        let mut layout = FunctionLayout::new_for_test();
+        let a = ValueId::from_raw(1);
+        layout.allocate_value(a, 1).unwrap();
+        (CasmBuilder::new(layout, 0), a)
+    }
+
+    // -------------------------
+    // Basic store operation tests
+    // -------------------------
+
+    #[test]
+    fn test_store_fp_plus_imm() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        b.store_fp_plus_imm(3, 7, "[fp + 7] = fp + 3".into());
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_FP_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(3));
+        assert_eq!(b.instructions[0].op1(), Some(7));
+    }
 
     #[test]
     fn test_copy_slots_single() {
@@ -246,18 +279,15 @@ mod tests {
     }
 
     #[test]
-    fn test_copy_slots_multi() {
+    fn test_copy_slots_zero_size() {
         let layout = FunctionLayout::new_for_test();
         let mut b = CasmBuilder::new(layout, 0);
-        b.copy_slots(10, 20, 3, "C:");
-        assert_eq!(b.instructions.len(), 3);
-        for k in 0..3 {
-            let i = &b.instructions[k];
-            assert_eq!(i.opcode, STORE_ADD_FP_IMM);
-            assert_eq!(i.op0(), Some(10 + k as i32));
-            assert_eq!(i.op1(), Some(0));
-            assert_eq!(i.op2(), Some(20 + k as i32));
-        }
+        b.copy_slots(10, 20, 0, "Empty:");
+        assert_eq!(
+            b.instructions.len(),
+            0,
+            "Zero-size copy should generate no instructions"
+        );
     }
 
     #[test]
@@ -283,20 +313,204 @@ mod tests {
                 }),
             Some(12)
         );
+
+        // Test execution
+        let mut mem = Mem::new(64);
+        mem.set_u32(5, 0xDEAD_BEEF);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get_u32(12), 0xDEAD_BEEF);
     }
 
     #[test]
-    fn test_store_immediates() {
-        let layout = FunctionLayout::new_for_test();
-        let mut b = CasmBuilder::new(layout, 0);
-        b.store_immediate(7, 3, "X".into());
-        b.store_u32_immediate(0x0102_0304, 10, "Y".into());
-        assert_eq!(b.instructions[0].opcode, STORE_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(7));
+    fn test_store_from_double_deref_fp_imm() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        b.store_from_double_deref_fp_imm(2, 5, 8, "[[fp + 2] + 5] -> [fp + 8]".into());
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_DOUBLE_DEREF_FP);
+        assert_eq!(b.instructions[0].op0(), Some(2));
+        assert_eq!(b.instructions[0].op1(), Some(5));
+        assert_eq!(b.instructions[0].op2(), Some(8));
+    }
+
+    #[test]
+    fn test_store_from_double_deref_fp_fp() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        b.store_from_double_deref_fp_fp(2, 3, 8, "[[fp + 2] + [fp + 3]] -> [fp + 8]".into());
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_DOUBLE_DEREF_FP_FP);
+        assert_eq!(b.instructions[0].op0(), Some(2));
         assert_eq!(b.instructions[0].op1(), Some(3));
-        assert_eq!(b.instructions[1].opcode, U32_STORE_IMM);
-        assert_eq!(b.instructions[1].op0(), Some(0x0304));
-        assert_eq!(b.instructions[1].op1(), Some(0x0102));
-        assert_eq!(b.instructions[1].op2(), Some(10));
+        assert_eq!(b.instructions[0].op2(), Some(8));
+    }
+
+    #[test]
+    fn test_store_to_double_deref_fp_imm() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        b.store_to_double_deref_fp_imm(2, 5, 8, "[fp + 8] -> [[fp + 2] + 5]".into());
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_TO_DOUBLE_DEREF_FP_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(2));
+        assert_eq!(b.instructions[0].op1(), Some(5));
+        assert_eq!(b.instructions[0].op2(), Some(8));
+    }
+
+    #[test]
+    fn test_store_to_double_deref_fp_fp() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        b.store_to_double_deref_fp_fp(2, 3, 8, "[fp + 8] -> [[fp + 2] + [fp + 3]]".into());
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_TO_DOUBLE_DEREF_FP_FP);
+        assert_eq!(b.instructions[0].op0(), Some(2));
+        assert_eq!(b.instructions[0].op1(), Some(3));
+        assert_eq!(b.instructions[0].op2(), Some(8));
+    }
+
+    // -------------------------
+    // Copy value to offset tests
+    // -------------------------
+
+    #[test]
+    fn test_copy_value_to_offset_literal_felt() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        let value = Value::Literal(Literal::Integer(42));
+        b.copy_value_to_offset(&value, 5, 1).unwrap();
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(42));
+        assert_eq!(b.instructions[0].op1(), Some(5));
+    }
+
+    #[test]
+    fn test_copy_value_to_offset_literal_u32() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        let value = Value::Literal(Literal::Integer(0xABCD_1234));
+        b.copy_value_to_offset(&value, 10, 2).unwrap();
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, U32_STORE_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(0x1234)); // Low
+        assert_eq!(b.instructions[0].op1(), Some(0xABCD)); // High
+        assert_eq!(b.instructions[0].op2(), Some(10));
+    }
+
+    #[test]
+    fn test_copy_value_to_offset_boolean() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+
+        // Test true
+        b.copy_value_to_offset(&Value::Literal(Literal::Boolean(true)), 3, 1)
+            .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(1));
+
+        // Test false
+        b.instructions.clear();
+        b.copy_value_to_offset(&Value::Literal(Literal::Boolean(false)), 4, 1)
+            .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(0));
+    }
+
+    #[test]
+    fn test_copy_value_to_offset_unit() {
+        let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+        let value = Value::Literal(Literal::Unit);
+        b.copy_value_to_offset(&value, 5, 0).unwrap();
+
+        // Unit type has size 0, should generate no instructions
+        assert_eq!(b.instructions.len(), 0);
+    }
+
+    #[test]
+    fn test_copy_value_to_offset_operand() {
+        let (mut b, a) = mk_builder_with_value();
+        let value = Value::Operand(a);
+        b.copy_value_to_offset(&value, 10, 1).unwrap();
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, STORE_ADD_FP_IMM);
+        assert_eq!(b.instructions[0].op0(), Some(0)); // Source offset
+        assert_eq!(b.instructions[0].op1(), Some(0)); // Add 0
+        assert_eq!(b.instructions[0].op2(), Some(10)); // Dest offset
+    }
+
+    /// Strategy for various immediate values to test
+    fn immediate_value_strategy() -> impl Strategy<Value = u32> {
+        prop_oneof![
+            Just(0u32),     // Zero
+            Just(1u32),     // One
+            Just(u32::MAX), // Maximum
+            Just(0xFFFF),   // 16-bit boundary
+            Just(0x10000),  // Just over 16-bit
+            any::<u32>(),   // Random values
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn property_store_immediate_roundtrip(
+            value in immediate_value_strategy(),
+            offset in 0i32..50,
+        ) {
+            let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+            b.store_immediate(value, offset, format!("[fp + {offset}] = {value}"));
+
+            let mut mem = Mem::new(64);
+            exec(&mut mem, &b.instructions).unwrap();
+
+            let stored = mem.get(offset).0;
+            // Values stored are M31
+            let expected = M31::from(value).0;
+            prop_assert_eq!(stored, expected, "Value {} at offset {}", value, offset);
+        }
+
+        #[test]
+        fn property_store_u32_immediate_roundtrip(
+            value in any::<u32>(),
+            offset in 0i32..50,
+        ) {
+            let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+            b.store_u32_immediate(value, offset, format!("u32 at {offset}"));
+
+            let mut mem = Mem::new(64);
+            exec(&mut mem, &b.instructions).unwrap();
+
+            let stored = mem.get_u32(offset);
+            prop_assert_eq!(stored, value, "U32 value {} at offset {}", value, offset);
+        }
+
+        #[test]
+        fn property_copy_slots_preserves_values(
+            src_offset in 0i32..20,
+            dst_offset in 32i32..54,
+            num_slots in 0usize..10,
+        ) {
+            let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
+            let mut mem = Mem::new(64);
+
+            // Initialize source values
+            let values: Vec<u32> = (0..num_slots).map(|i| (i as u32 + 100) * 11).collect();
+            for (i, &val) in values.iter().enumerate() {
+                mem.set(src_offset + i as i32, M31::from(val));
+            }
+
+            // Copy slots
+            b.copy_slots(src_offset, dst_offset, num_slots, "Copy:");
+            exec(&mut mem, &b.instructions).unwrap();
+
+            // Verify all values copied correctly
+            for (i, &expected) in values.iter().enumerate() {
+                let actual = mem.get(dst_offset + i as i32).0;
+                prop_assert_eq!(actual, M31::from(expected).0,
+                    "Slot {} mismatch", i);
+            }
+        }
     }
 }

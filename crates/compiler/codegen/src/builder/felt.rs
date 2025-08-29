@@ -40,20 +40,20 @@ impl super::CasmBuilder {
                 // a - imm = a + (-imm)
                 // a / imm = a * inv(imm)
                 let (opcode, imm_enc) = match op {
-                    BinaryOp::Sub => (felt_fp_imm(BinaryOp::Add)?, super::m31_negate_imm(*imm)),
-                    BinaryOp::Div => (felt_fp_imm(BinaryOp::Mul)?, super::m31_inverse_imm(*imm)?),
+                    BinaryOp::Sub => (felt_fp_imm(BinaryOp::Add)?, m31_negate_imm(*imm)),
+                    BinaryOp::Div => (felt_fp_imm(BinaryOp::Mul)?, m31_inverse_imm(*imm)?),
                     _ => (felt_fp_imm(op)?, *imm as i32),
                 };
                 let comment = match op {
                     BinaryOp::Add => format!("[fp + {dest_off}] = [fp + {lo}] + {imm}"),
                     BinaryOp::Sub => format!(
                         "[fp + {dest_off}] = [fp + {lo}] - {imm} (-{imm} as M31 -> {})",
-                        super::fmt_m31_imm(imm_enc)
+                        fmt_m31_imm(imm_enc)
                     ),
                     BinaryOp::Mul => format!("[fp + {dest_off}] = [fp + {lo}] * {imm}"),
                     BinaryOp::Div => format!(
                         "[fp + {dest_off}] = [fp + {lo}] / {imm} (inv({imm}) as M31 -> {})",
-                        super::fmt_m31_imm(imm_enc)
+                        fmt_m31_imm(imm_enc)
                     ),
                     _ => unreachable!(),
                 };
@@ -110,7 +110,8 @@ impl super::CasmBuilder {
                     BinaryOp::Sub => l_m31 - r_m31,
                     BinaryOp::Mul => l_m31 * r_m31,
                     BinaryOp::Div => {
-                        if *r == 0 {
+                        // Reject division by zero in the field (including values congruent to 0 mod M31)
+                        if r_m31.0 == 0 {
                             return Err(CodegenError::InvalidMir("Division by zero".into()));
                         }
                         l_m31 * r_m31.inverse()
@@ -319,118 +320,323 @@ impl super::CasmBuilder {
             tmp_a,
             tmp_b,
             dest_off,
-            format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]")
+            format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]"),
         );
+    }
+}
+
+/// Compute the M31-representation of `-imm` (i.e. add with negated immediate).
+#[inline]
+pub(super) fn m31_negate_imm(imm: u32) -> i32 {
+    (M31::from(0) - M31::from(imm)).0 as i32
+}
+
+/// Compute the M31-representation of `imm.inverse()` used to compile divisions
+/// by an immediate as a multiplication by the inverse. Returns an error for 0.
+#[inline]
+pub(super) fn m31_inverse_imm(imm: u32) -> CodegenResult<i32> {
+    // Treat values congruent to 0 mod M31 as zero (e.g., 2147483647)
+    if imm == 0 || M31::from(imm).0 == 0 {
+        return Err(CodegenError::InvalidMir(
+            "Division by zero with felt immediate".to_string(),
+        ));
+    }
+    Ok(M31::from(imm).inverse().0 as i32)
+}
+
+/// Pretty-print an M31 immediate showing both its raw value and signed view when helpful.
+/// Example: 2147483642 (= -5 mod M31)
+#[inline]
+pub(super) fn fmt_m31_imm(raw: i32) -> String {
+    // M31 modulus
+    const P: i32 = 2147483647; // 2^31 - 1
+    if raw == 0 {
+        return "0".to_string();
+    }
+    // If this looks like a large positive close to P, show the negative representative too
+    // Threshold: values > P/2 are displayed as negatives for readability
+    if raw > P / 2 {
+        let neg = raw - P; // guaranteed negative
+        format!("{raw} (=-{:#} mod M31)", -neg)
+    } else {
+        raw.to_string()
     }
 }
 
 #[cfg(test)]
 mod tests {
-
+    use super::*;
+    use crate::test_support::{exec, ExecutionError, Mem};
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::{STORE_ADD_FP_IMM, STORE_MUL_FP_IMM};
+    use cairo_m_common::instruction::{STORE_ADD_FP_IMM, STORE_IMM, STORE_MUL_FP_IMM};
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
-    use stwo_prover::core::fields::m31::M31;
+    use proptest::prelude::*;
+    use stwo_prover::core::fields::m31::{self, M31};
 
-    fn mk_builder_with_left_at(off: i32) -> (CasmBuilder, ValueId) {
+    // =========================================================================
+    // Test Setup Helpers
+    // =========================================================================
+
+    fn mk_builder_with_value(val: u32) -> (CasmBuilder, ValueId) {
         let mut layout = FunctionLayout::new_for_test();
-        let left = ValueId::from_raw(1);
-        layout.allocate_value(left, 1).unwrap(); // fp + 0
-                                                 // We want left at specific off: reserve stack if needed
-        if off > 0 {
-            // Allocate dummy to move current offset
-            // Since allocate_value above placed at 0, for testing we will shift by copying
-            // Alternatively, we pass the offset literals directly in checks.
-        }
-        (CasmBuilder::new(layout, 0), left)
+        let a = ValueId::from_raw(1);
+        layout.allocate_value(a, 1).unwrap();
+        let mut builder = CasmBuilder::new(layout, 0);
+        // Store initial value at fp+0
+        builder.store_immediate(val, 0, format!("[fp + 0] = {val}"));
+        (builder, a)
     }
+
+    // Edge case value generation for property tests
+    fn felt_value_strategy() -> impl Strategy<Value = u32> {
+        prop_oneof![
+            Just(0u32),          // Zero
+            Just(1u32),          // One
+            Just(2147483646u32), // M31 - 1 (max value in field)
+            Just(2147483647u32), // M31 itself (becomes 0 in field)
+            Just(1073741823u32), // (M31 - 1) / 2
+            Just(2u32),          // Small prime
+            Just(3u32),          // Small prime
+            Just(5u32),          // Small prime
+            Just(7u32),          // Small prime
+            (0u32..m31::P - 1),  // Valid M31 range
+        ]
+    }
+
+    // =========================================================================
+    // Immediate Operation Structure Checks
+    // =========================================================================
 
     #[test]
     fn test_felt_sub_immediate_uses_add_with_negated_imm() {
-        let (mut b, left) = mk_builder_with_left_at(0);
-        let dest_off = 10;
-        let imm = 5u32;
-        b.felt_arith(
-            BinaryOp::Sub,
-            dest_off,
-            Value::operand(left),
-            Value::integer(imm),
-        )
-        .unwrap();
-        assert_eq!(b.instructions.len(), 1);
-        let i = &b.instructions[0];
-        assert_eq!(i.opcode, STORE_ADD_FP_IMM);
-        assert_eq!(i.op0(), Some(0)); // left at fp+0
-        let neg = (M31::from(0) - M31::from(imm)).0 as i32;
-        assert_eq!(i.op1(), Some(neg));
-        assert_eq!(i.op2(), Some(dest_off));
+        let (mut b, left) = mk_builder_with_value(100);
+        let imm = 30u32;
+        b.felt_arith(BinaryOp::Sub, 5, Value::operand(left), Value::integer(imm))
+            .unwrap();
+
+        // Should use ADD with negated immediate
+        assert_eq!(b.instructions[1].opcode, STORE_ADD_FP_IMM);
+        let neg_imm = m31_negate_imm(imm);
+        assert_eq!(b.instructions[1].op1(), Some(neg_imm));
+
+        let mut mem = Mem::new(10);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(5), M31::from(70));
     }
 
     #[test]
     fn test_felt_div_immediate_uses_mul_by_inverse() {
-        let (mut b, left) = mk_builder_with_left_at(0);
-        let dest_off = 7;
-        let imm = 3u32;
-        b.felt_arith(
-            BinaryOp::Div,
-            dest_off,
-            Value::operand(left),
-            Value::integer(imm),
-        )
-        .unwrap();
-        assert_eq!(b.instructions.len(), 1);
-        let i = &b.instructions[0];
-        assert_eq!(i.opcode, STORE_MUL_FP_IMM);
-        assert_eq!(i.op0(), Some(0));
-        let inv = M31::from(imm).inverse().0 as i32;
-        assert_eq!(i.op1(), Some(inv));
-        assert_eq!(i.op2(), Some(dest_off));
+        let (mut b, left) = mk_builder_with_value(21);
+        let imm = 7u32;
+        b.felt_arith(BinaryOp::Div, 5, Value::operand(left), Value::integer(imm))
+            .unwrap();
+
+        // Should use MUL with inverse
+        assert_eq!(b.instructions[1].opcode, STORE_MUL_FP_IMM);
+        let inv = m31_inverse_imm(imm).unwrap();
+        assert_eq!(b.instructions[1].op1(), Some(inv));
     }
 
     #[test]
     fn test_felt_div_by_zero_immediate_errors() {
-        let (mut b, left) = mk_builder_with_left_at(0);
+        let (mut b, left) = mk_builder_with_value(100);
         let err = b.felt_arith(BinaryOp::Div, 3, Value::operand(left), Value::integer(0));
         assert!(err.is_err());
     }
 
+    // =========================================================================
+    // Commutative Operations (imm on left) structure
+    // =========================================================================
     #[test]
-    fn test_felt_add_immediate_left_normalized() {
-        let (mut b, right) = mk_builder_with_left_at(0);
-        let dest_off = 11;
-        let imm = 9u32;
-        b.felt_arith(
-            BinaryOp::Add,
-            dest_off,
-            Value::integer(imm),
-            Value::operand(right),
-        )
-        .unwrap();
-        assert_eq!(b.instructions.len(), 1);
-        let i = &b.instructions[0];
-        assert_eq!(i.opcode, STORE_ADD_FP_IMM);
-        assert_eq!(i.op0(), Some(0)); // right at fp+0
-        assert_eq!(i.op1(), Some(imm as i32));
-        assert_eq!(i.op2(), Some(dest_off));
+    fn test_felt_add_imm_left_normalized() {
+        let (mut b, right) = mk_builder_with_value(50);
+        b.felt_arith(BinaryOp::Add, 5, Value::integer(100), Value::operand(right))
+            .unwrap();
+
+        // Should normalize to fp+imm form
+        assert_eq!(b.instructions[1].opcode, STORE_ADD_FP_IMM);
+
+        let mut mem = Mem::new(10);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(5), M31::from(150));
     }
 
     #[test]
-    fn test_felt_mul_immediate_left_normalized() {
-        let (mut b, right) = mk_builder_with_left_at(0);
-        let dest_off = 12;
-        let imm = 7u32;
-        b.felt_arith(
-            BinaryOp::Mul,
-            dest_off,
-            Value::integer(imm),
-            Value::operand(right),
-        )
-        .unwrap();
-        assert_eq!(b.instructions.len(), 1);
-        let i = &b.instructions[0];
-        assert_eq!(i.opcode, STORE_MUL_FP_IMM);
-        assert_eq!(i.op0(), Some(0));
-        assert_eq!(i.op1(), Some(imm as i32));
-        assert_eq!(i.op2(), Some(dest_off));
+    fn test_felt_mul_imm_left_normalized() {
+        let (mut b, right) = mk_builder_with_value(7);
+        b.felt_arith(BinaryOp::Mul, 5, Value::integer(11), Value::operand(right))
+            .unwrap();
+
+        // Should normalize to fp*imm form
+        assert_eq!(b.instructions[1].opcode, STORE_MUL_FP_IMM);
+
+        let mut mem = Mem::new(10);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(5), M31::from(77));
+    }
+
+    // =========================================================================
+    // Constant Folding
+    // =========================================================================
+
+    proptest! {
+        #[test]
+        fn test_felt_const_fold_add(lhs in felt_value_strategy(), rhs in felt_value_strategy()) {
+            let layout = FunctionLayout::new_for_test();
+            let mut b = CasmBuilder::new(layout, 0);
+
+            b.felt_arith(BinaryOp::Add, 5, Value::integer(lhs), Value::integer(rhs))
+                .unwrap();
+
+            // Should fold to single store_imm
+            assert_eq!(b.instructions.len(), 1);
+            assert_eq!(b.instructions[0].opcode, STORE_IMM);
+            let expected = (M31::from(lhs) + M31::from(rhs)).0;
+            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+        }
+
+        #[test]
+        fn test_felt_const_fold_sub(lhs in felt_value_strategy(), rhs in felt_value_strategy()) {
+            let layout = FunctionLayout::new_for_test();
+            let mut b = CasmBuilder::new(layout, 0);
+
+            b.felt_arith(BinaryOp::Sub, 5, Value::integer(lhs), Value::integer(rhs))
+                .unwrap();
+
+            assert_eq!(b.instructions.len(), 1);
+            assert_eq!(b.instructions[0].opcode, STORE_IMM);
+            let expected = (M31::from(lhs) - M31::from(rhs)).0;
+            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+        }
+
+        #[test]
+        fn test_felt_const_fold_mul(lhs in felt_value_strategy(), rhs in felt_value_strategy()) {
+            let layout = FunctionLayout::new_for_test();
+            let mut b = CasmBuilder::new(layout, 0);
+
+            b.felt_arith(BinaryOp::Mul, 5, Value::integer(lhs), Value::integer(rhs))
+                .unwrap();
+
+            assert_eq!(b.instructions.len(), 1);
+            assert_eq!(b.instructions[0].opcode, STORE_IMM);
+            let expected = (M31::from(lhs) * M31::from(rhs)).0;
+            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+        }
+
+        #[test]
+        fn test_felt_const_fold_div_by_zero_errors(lhs in felt_value_strategy()) {
+            let layout = FunctionLayout::new_for_test();
+            let mut b = CasmBuilder::new(layout, 0);
+
+            let err = b.felt_arith(BinaryOp::Div, 5, Value::integer(lhs), Value::integer(0));
+            assert!(err.is_err());
+        }
+    }
+
+    // =========================================================================
+    // Execution Tests
+    // =========================================================================
+
+    proptest! {
+        #[test]
+        fn prop_felt_arith_proptest(
+            a in felt_value_strategy(),
+            b in felt_value_strategy(),
+            left_reg: bool,
+            right_reg: bool,
+        ) {
+            use BinaryOp::*;
+            let ops = [Add, Sub, Mul, Div];
+            for &op in &ops {
+                let got = run_felt_op_generic(op, left_reg, a, right_reg, b);
+                // In M31 field, values congruent to 0 (e.g., 0 and 2147483647) have no inverse
+                let b_is_zero_mod_p = M31::from(b).0 == 0;
+                if matches!(op, Div) && b_is_zero_mod_p && !right_reg {
+                    // Division by immediate zero (mod P) is rejected at codegen time
+                    prop_assert!(matches!(got.unwrap_err(), ExecutionError::InvalidOperands));
+                    continue;
+                }
+                if matches!(op, Div) && b_is_zero_mod_p && right_reg {
+                    // Division by zero (mod P) register is a runtime error in executor
+                    prop_assert!(matches!(got.unwrap_err(), ExecutionError::DivisionByZero));
+                    continue;
+                }
+                let exp = match op {
+                    Add => (M31::from(a) + M31::from(b)).0,
+                    Sub => (M31::from(a) - M31::from(b)).0,
+                    Mul => (M31::from(a) * M31::from(b)).0,
+                    Div => (M31::from(a) * M31::from(b).inverse()).0,
+                    _ => unreachable!(),
+                };
+                prop_assert_eq!(got.unwrap(), exp, "op={:?} a={} b={} left_reg={} right_reg={}",
+                    op, a, b, left_reg, right_reg);
+            }
+        }
+
+        #[test]
+        fn prop_complement_involution(val in 0u32..2) {
+            // Boolean values: 0 or 1
+            let (mut b, _) = mk_builder_with_value(val);
+            b.complement_felt_in_place(0);
+            b.complement_felt_in_place(0);
+
+            let mut mem = Mem::new(10);
+            exec(&mut mem, &b.instructions).unwrap();
+            // Double complement should give original value
+            prop_assert_eq!(mem.get(0), M31::from(val));
+        }
+    }
+
+    // Generic runner for felt arithmetic operations used in property tests
+    fn run_felt_op_generic(
+        op: BinaryOp,
+        left_reg: bool,
+        a: u32,
+        right_reg: bool,
+        b: u32,
+    ) -> Result<u32, ExecutionError> {
+        let mut layout = FunctionLayout::new_for_test();
+        let left_id = ValueId::from_raw(1);
+        let right_id = ValueId::from_raw(2);
+        if left_reg {
+            layout.allocate_value(left_id, 1).unwrap();
+        }
+        if right_reg {
+            layout.allocate_value(right_id, 1).unwrap();
+        }
+
+        let mut bld = CasmBuilder::new(layout, 0);
+        let mut next_off = 0;
+        if left_reg {
+            bld.store_immediate(a, next_off, "a".into());
+            next_off += 1;
+        }
+        if right_reg {
+            bld.store_immediate(b, next_off, "b".into());
+        }
+
+        let left = if left_reg {
+            Value::operand(left_id)
+        } else {
+            Value::integer(a)
+        };
+        let right = if right_reg {
+            Value::operand(right_id)
+        } else {
+            Value::integer(b)
+        };
+
+        const DEST_OFF: i32 = 10;
+        match bld.felt_arith(op, DEST_OFF, left, right) {
+            Ok(()) => {}
+            Err(CodegenError::InvalidMir(msg)) if msg.contains("Division by zero") => {
+                return Err(ExecutionError::InvalidOperands)
+            }
+            Err(e) => panic!("Unexpected codegen error: {:?}", e),
+        }
+
+        let mut mem = Mem::new(64);
+        exec(&mut mem, &bld.instructions)?;
+        Ok(mem.get(DEST_OFF).0)
     }
 }

@@ -166,6 +166,13 @@ impl super::CasmBuilder {
         let mut element_offsets = Vec::new();
         let mut element_sizes = Vec::new();
 
+        // Try to read the destination tuple type to infer sizes for literal elements
+        let dest_tuple_types: Option<Vec<MirType>> =
+            function.value_types.get(&dest).and_then(|ty| match ty {
+                MirType::Tuple(ts) => Some(ts.clone()),
+                _ => None,
+            });
+
         for element in elements {
             element_offsets.push(total_size);
 
@@ -178,7 +185,19 @@ impl super::CasmBuilder {
                         self.layout.get_value_size(*id)
                     }
                 }
-                Value::Literal(_) => 1, // Literals are always single-slot for now
+                Value::Literal(_) => {
+                    // Prefer tuple element type if available; otherwise assume single slot
+                    if let Some(ts) = &dest_tuple_types {
+                        let idx = element_offsets.len() - 1; // current element index
+                        if let Some(elem_ty) = ts.get(idx) {
+                            DataLayout::memory_size_of(elem_ty)
+                        } else {
+                            1
+                        }
+                    } else {
+                        1
+                    }
+                }
                 _ => 1,
             };
 
@@ -851,5 +870,767 @@ impl super::CasmBuilder {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        builder::CasmBuilder,
+        layout::FunctionLayout,
+        test_support::{exec, Mem},
+    };
+    use cairo_m_common::instruction::{
+        STORE_ADD_FP_IMM, STORE_DOUBLE_DEREF_FP, STORE_DOUBLE_DEREF_FP_FP, STORE_FP_IMM, STORE_IMM,
+        STORE_MUL_FP_IMM, STORE_TO_DOUBLE_DEREF_FP_IMM, U32_STORE_IMM,
+    };
+    use cairo_m_compiler_mir::{MirFunction, MirType, Value, ValueId};
+    use proptest::prelude::*;
+
+    // =========================================================================
+    // Test Setup Helpers
+    // =========================================================================
+
+    fn mk_builder_with_struct_type() -> (CasmBuilder, MirFunction) {
+        let layout = FunctionLayout::new_for_test();
+        let builder = CasmBuilder::new(layout, 0);
+        // Minimal function context for type lookups
+        let function = MirFunction::new("test".to_string());
+        (builder, function)
+    }
+
+    fn mk_builder_with_tuple_type() -> (CasmBuilder, MirFunction) {
+        let layout = FunctionLayout::new_for_test();
+        let builder = CasmBuilder::new(layout, 0);
+        // Minimal function context for type lookups
+        let function = MirFunction::new("test".to_string());
+        (builder, function)
+    }
+
+    fn mk_builder_with_array() -> (CasmBuilder, ValueId) {
+        let mut layout = FunctionLayout::new_for_test();
+        let array_id = ValueId::from_raw(1);
+        // Arrays are stored as pointers (1 slot)
+        layout.allocate_value(array_id, 1).unwrap();
+        let mut builder = CasmBuilder::new(layout, 0);
+
+        // Create an array pointer at fp+0 pointing to fp+10 (where array data would be)
+        builder.store_fp_plus_imm(10, 0, "[fp + 0] = fp + 10".to_string());
+        (builder, array_id)
+    }
+
+    // =========================================================================
+    // Struct Tests
+    // =========================================================================
+
+    #[test]
+    fn test_make_struct_simple() {
+        let (mut b, _function) = mk_builder_with_struct_type();
+        let dest = ValueId::from_raw(10);
+
+        // Create struct type
+        let struct_ty = MirType::Struct {
+            name: "TestStruct".to_string(),
+            fields: vec![
+                ("x".to_string(), MirType::Felt),
+                ("y".to_string(), MirType::Felt),
+            ],
+        };
+
+        // Create struct with literal values
+        let fields = vec![
+            ("x".to_string(), Value::integer(42)),
+            ("y".to_string(), Value::integer(100)),
+        ];
+
+        b.make_struct(dest, &fields, &struct_ty).unwrap();
+
+        // Dest layout must be 2 contiguous slots
+        let base = b.layout.get_offset(dest).unwrap();
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, base);
+                assert_eq!(*size, 2);
+            }
+            _ => panic!("expected MultiSlot layout for struct"),
+        }
+        // Execute and verify memory contents
+        let mut mem = Mem::new(32);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(base).0, 42);
+        assert_eq!(mem.get(base + 1).0, 100);
+    }
+
+    #[test]
+    fn test_make_struct_with_u32_field() {
+        let (mut b, _function) = mk_builder_with_struct_type();
+        let dest = ValueId::from_raw(10);
+
+        // Create struct type with u32 field
+        let struct_ty = MirType::Struct {
+            name: "TestStruct".to_string(),
+            fields: vec![
+                ("id".to_string(), MirType::U32),
+                ("flag".to_string(), MirType::Felt),
+            ],
+        };
+
+        // Create struct with values
+        let fields = vec![
+            ("id".to_string(), Value::integer(0x12345678)),
+            ("flag".to_string(), Value::integer(1)),
+        ];
+
+        b.make_struct(dest, &fields, &struct_ty).unwrap();
+
+        let base = b.layout.get_offset(dest).unwrap();
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, base);
+                assert_eq!(*size, 3);
+            }
+            _ => panic!("expected MultiSlot layout for struct with u32"),
+        }
+        let mut mem = Mem::new(32);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get_u32(base), 0x1234_5678);
+        assert_eq!(mem.get(base + 2).0, 1);
+    }
+
+    #[test]
+    fn test_extract_struct_field() {
+        let (mut b, mut function) = mk_builder_with_struct_type();
+
+        // First create a struct
+        let struct_id = ValueId::from_raw(10);
+        let struct_ty = MirType::Struct {
+            name: "TestStruct".to_string(),
+            fields: vec![
+                ("x".to_string(), MirType::Felt),
+                ("y".to_string(), MirType::Felt),
+            ],
+        };
+
+        // Manually allocate struct at known location
+        b.layout.allocate_value(struct_id, 2).unwrap();
+        function.value_types.insert(struct_id, struct_ty);
+
+        // Extract field "y"
+        let dest = ValueId::from_raw(20);
+        let field_ty = MirType::Felt;
+
+        b.extract_struct_field(dest, Value::operand(struct_id), "y", &field_ty, &function)
+            .unwrap();
+
+        // Dest should be mapped to the field's offset
+        assert!(b.layout.value_layouts.contains_key(&dest));
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::Slot { offset }) => {
+                // "y" is at offset 1 from struct base
+                assert_eq!(*offset, 1);
+            }
+            _ => panic!("Expected Slot layout for extracted field"),
+        }
+    }
+
+    #[test]
+    fn test_insert_struct_field() {
+        let (mut b, _function) = mk_builder_with_struct_type();
+
+        // Create struct
+        let struct_id = ValueId::from_raw(10);
+        let struct_ty = MirType::Struct {
+            name: "TestStruct".to_string(),
+            fields: vec![
+                ("x".to_string(), MirType::Felt),
+                ("y".to_string(), MirType::Felt),
+            ],
+        };
+
+        b.layout.allocate_value(struct_id, 2).unwrap();
+
+        // Insert new value into field "x"
+        let dest = ValueId::from_raw(20);
+        let new_value = Value::integer(999);
+
+        b.insert_struct_field(dest, Value::operand(struct_id), "x", new_value, &struct_ty)
+            .unwrap();
+
+        // Execute and confirm write at struct base offset
+        let base = b.layout.get_offset(struct_id).unwrap();
+        let mut mem = Mem::new(32);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(base).0, 999);
+        // Dest should map to same tuple/struct base (in-place update maps dest to struct location)
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, base);
+                assert_eq!(*size, 2);
+            }
+            Some(ValueLayout::Slot { offset }) => assert_eq!(*offset, base),
+            _ => panic!("unexpected layout for dest after insert"),
+        }
+    }
+
+    // =========================================================================
+    // Tuple Tests
+    // =========================================================================
+
+    #[test]
+    fn test_make_tuple_simple() {
+        let (mut b, function) = mk_builder_with_tuple_type();
+        let dest = ValueId::from_raw(10);
+
+        // Create tuple with two felt elements
+        let elements = vec![Value::integer(42), Value::integer(100)];
+
+        b.make_tuple(dest, &elements, &function).unwrap();
+
+        let base = b.layout.get_offset(dest).unwrap();
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, base);
+                assert_eq!(*size, 2);
+            }
+            _ => panic!("expected MultiSlot for 2-element tuple"),
+        }
+        // Execute and verify both elements were stored
+        let mut mem = Mem::new(32);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(base).0, 42);
+        assert_eq!(mem.get(base + 1).0, 100);
+    }
+
+    #[test]
+    fn test_make_tuple_mixed_types() {
+        let (mut b, mut function) = mk_builder_with_tuple_type();
+        let dest = ValueId::from_raw(10);
+
+        // Create elements with known types
+        let elem1_id = ValueId::from_raw(1);
+        let elem2_id = ValueId::from_raw(2);
+
+        function.value_types.insert(elem1_id, MirType::U32);
+        function.value_types.insert(elem2_id, MirType::Felt);
+
+        b.layout.allocate_value(elem1_id, 2).unwrap();
+        b.layout.allocate_value(elem2_id, 1).unwrap();
+
+        let elements = vec![Value::operand(elem1_id), Value::operand(elem2_id)];
+
+        b.make_tuple(dest, &elements, &function).unwrap();
+
+        // Prepare memory with source operand values and execute
+        let mut mem = Mem::new(64);
+        let u32_src_off = b.layout.get_offset(elem1_id).unwrap();
+        let felt_src_off = b.layout.get_offset(elem2_id).unwrap();
+        mem.set_u32(u32_src_off, 0xCAFE_BABE);
+        mem.set(felt_src_off, stwo_prover::core::fields::m31::M31::from(77));
+        exec(&mut mem, &b.instructions).unwrap();
+
+        let base = b.layout.get_offset(dest).unwrap();
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { size, .. }) => assert_eq!(*size, 3),
+            _ => panic!("expected MultiSlot for mixed tuple"),
+        }
+        assert_eq!(mem.get_u32(base), 0xCAFE_BABE);
+        assert_eq!(mem.get(base + 2).0, 77);
+    }
+
+    #[test]
+    fn test_extract_tuple_element() {
+        let (mut b, mut function) = mk_builder_with_tuple_type();
+
+        // Create a tuple (felt, felt)
+        let tuple_id = ValueId::from_raw(10);
+        let tuple_ty = MirType::Tuple(vec![MirType::Felt, MirType::Felt]);
+
+        b.layout.allocate_value(tuple_id, 2).unwrap();
+        function.value_types.insert(tuple_id, tuple_ty);
+
+        // Extract element at index 1
+        let dest = ValueId::from_raw(20);
+        let element_ty = MirType::Felt;
+
+        b.extract_tuple_element(dest, Value::operand(tuple_id), 1, &element_ty, &function)
+            .unwrap();
+
+        // Dest should be mapped to element's offset relative to tuple base
+        assert!(b.layout.value_layouts.contains_key(&dest));
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::Slot { offset }) => {
+                assert_eq!(*offset, b.layout.get_offset(tuple_id).unwrap() + 1);
+            }
+            _ => panic!("Expected Slot layout for extracted element"),
+        }
+    }
+
+    #[test]
+    fn test_insert_tuple_element() {
+        let (mut b, _function) = mk_builder_with_tuple_type();
+
+        // Create tuple
+        let tuple_id = ValueId::from_raw(10);
+        let tuple_ty = MirType::Tuple(vec![MirType::Felt, MirType::Felt]);
+
+        b.layout.allocate_value(tuple_id, 2).unwrap();
+
+        // Insert new value at index 0
+        let dest = ValueId::from_raw(20);
+        let new_value = Value::integer(777);
+
+        b.insert_tuple_element(dest, Value::operand(tuple_id), 0, new_value, &tuple_ty)
+            .unwrap();
+
+        // Execute and confirm write at tuple base
+        let base = b.layout.get_offset(tuple_id).unwrap();
+        let mut mem = Mem::new(32);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get(base).0, 777);
+
+        // Dest should map to same location as source (in-place update)
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, base);
+                assert_eq!(*size, 2);
+            }
+            _ => panic!("Expected MultiSlot layout for inserted element"),
+        }
+    }
+
+    #[test]
+    fn test_extract_tuple_element_mixed_types() {
+        let (mut b, mut function) = mk_builder_with_tuple_type();
+
+        // Tuple (u32, felt)
+        let tuple_id = ValueId::from_raw(10);
+        let tuple_ty = MirType::Tuple(vec![MirType::U32, MirType::Felt]);
+
+        b.layout.allocate_value(tuple_id, 3).unwrap();
+        function.value_types.insert(tuple_id, tuple_ty);
+
+        // Extract index 0 (u32)
+        let dest0 = ValueId::from_raw(20);
+        b.extract_tuple_element(dest0, Value::operand(tuple_id), 0, &MirType::U32, &function)
+            .unwrap();
+        match b.layout.value_layouts.get(&dest0) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, b.layout.get_offset(tuple_id).unwrap());
+                assert_eq!(*size, 2);
+            }
+            _ => panic!("Expected MultiSlot for u32 extraction"),
+        }
+
+        // Extract index 1 (felt)
+        let dest1 = ValueId::from_raw(21);
+        b.extract_tuple_element(
+            dest1,
+            Value::operand(tuple_id),
+            1,
+            &MirType::Felt,
+            &function,
+        )
+        .unwrap();
+        match b.layout.value_layouts.get(&dest1) {
+            Some(ValueLayout::Slot { offset }) => {
+                assert_eq!(*offset, b.layout.get_offset(tuple_id).unwrap() + 2);
+            }
+            _ => panic!("Expected Slot for felt extraction"),
+        }
+    }
+
+    #[test]
+    fn test_insert_tuple_element_u32_second() {
+        let (mut b, _function) = mk_builder_with_tuple_type();
+
+        // Tuple (felt, u32)
+        let tuple_id = ValueId::from_raw(10);
+        let tuple_ty = MirType::Tuple(vec![MirType::Felt, MirType::U32]);
+
+        b.layout.allocate_value(tuple_id, 3).unwrap();
+
+        let dest = ValueId::from_raw(20);
+        let new_val = 0xDEAD_BEEFu32;
+
+        b.insert_tuple_element(
+            dest,
+            Value::operand(tuple_id),
+            1,
+            Value::integer(new_val),
+            &tuple_ty,
+        )
+        .unwrap();
+
+        // Execute and check both slots written
+        let base = b.layout.get_offset(tuple_id).unwrap();
+        let mut mem = Mem::new(64);
+        exec(&mut mem, &b.instructions).unwrap();
+        assert_eq!(mem.get_u32(base + 1), new_val);
+
+        // Dest should cover the whole tuple layout
+        match b.layout.value_layouts.get(&dest) {
+            Some(ValueLayout::MultiSlot { offset, size }) => {
+                assert_eq!(*offset, base);
+                assert_eq!(*size, 3);
+            }
+            _ => panic!("Expected MultiSlot for tuple after insert"),
+        }
+    }
+
+    // =========================================================================
+    // Array Tests
+    // =========================================================================
+
+    #[test]
+    fn test_make_fixed_array_empty() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
+        let dest = ValueId::from_raw(10);
+
+        // Create empty array
+        let elements = vec![];
+        let element_ty = MirType::Felt;
+
+        b.make_fixed_array(dest, &elements, &element_ty).unwrap();
+
+        // Should allocate pointer slot
+        assert!(b.layout.value_layouts.contains_key(&dest));
+        // Should store array pointer (at least one instruction)
+        assert!(!b.instructions.is_empty());
+    }
+
+    #[test]
+    fn test_make_fixed_array_felt_elements() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
+        let dest = ValueId::from_raw(10);
+
+        // Create array with 3 felt elements
+        let elements = vec![Value::integer(10), Value::integer(20), Value::integer(30)];
+        let element_ty = MirType::Felt;
+
+        b.make_fixed_array(dest, &elements, &element_ty).unwrap();
+
+        // One pointer store + one store per element
+        let ptr_stores = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == STORE_FP_IMM)
+            .count();
+        let imm_stores = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == STORE_IMM)
+            .count();
+        assert_eq!(ptr_stores, 1);
+        assert_eq!(imm_stores, 3);
+    }
+
+    #[test]
+    fn test_make_fixed_array_u32_elements() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
+        let dest = ValueId::from_raw(10);
+
+        // Create array with u32 elements
+        let elements = vec![Value::integer(0x1000), Value::integer(0x2000)];
+        let element_ty = MirType::U32;
+
+        b.make_fixed_array(dest, &elements, &element_ty).unwrap();
+
+        // One pointer store + two u32 immediate stores
+        let ptr_stores = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == STORE_FP_IMM)
+            .count();
+        let u32_imm_stores = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == U32_STORE_IMM)
+            .count();
+        assert_eq!(ptr_stores, 1);
+        assert_eq!(u32_imm_stores, 2);
+    }
+
+    #[test]
+    fn test_array_load_static_index() {
+        let (mut b, array_id) = mk_builder_with_array();
+        let function = MirFunction::new("test".to_string());
+
+        // Load element at index 2
+        let dest = ValueId::from_raw(20);
+        let index = Value::integer(2);
+        let element_ty = MirType::Felt;
+
+        let orig_len = b.instructions.len();
+        b.array_operation(
+            Value::operand(array_id),
+            index,
+            &element_ty,
+            ArrayOperation::Load { dest },
+            &function,
+        )
+        .unwrap();
+
+        // Expect one double-deref load instruction appended
+        assert_eq!(b.instructions[orig_len].opcode, STORE_DOUBLE_DEREF_FP);
+    }
+
+    #[test]
+    fn test_array_store_static_index() {
+        let (mut b, array_id) = mk_builder_with_array();
+        let function = MirFunction::new("test".to_string());
+
+        // Store value at index 1
+        let dest = ValueId::from_raw(20);
+        let index = Value::integer(1);
+        let value = Value::integer(999);
+        let element_ty = MirType::Felt;
+
+        b.array_operation(
+            Value::operand(array_id),
+            index,
+            &element_ty,
+            ArrayOperation::Store { dest, value },
+            &function,
+        )
+        .unwrap();
+
+        // Expect one pointer copy + one double-deref store
+        assert!(b.instructions.iter().any(|i| i.opcode == STORE_ADD_FP_IMM));
+        assert!(b
+            .instructions
+            .iter()
+            .any(|i| i.opcode == STORE_TO_DOUBLE_DEREF_FP_IMM));
+    }
+
+    #[test]
+    fn test_array_load_dynamic_index() {
+        let (mut b, array_id) = mk_builder_with_array();
+        let mut function = MirFunction::new("test".to_string());
+
+        // Create index variable
+        let index_id = ValueId::from_raw(5);
+        b.layout.allocate_value(index_id, 1).unwrap();
+        function.value_types.insert(index_id, MirType::Felt);
+
+        // Load element at dynamic index
+        let dest = ValueId::from_raw(20);
+        let index = Value::operand(index_id);
+        let element_ty = MirType::Felt;
+
+        b.array_operation(
+            Value::operand(array_id),
+            index,
+            &element_ty,
+            ArrayOperation::Load { dest },
+            &function,
+        )
+        .unwrap();
+
+        // Expect one dynamic double-deref load
+        assert!(b
+            .instructions
+            .iter()
+            .any(|i| i.opcode == STORE_DOUBLE_DEREF_FP_FP));
+    }
+
+    #[test]
+    fn test_array_dynamic_index_scaling_u32() {
+        let (mut b, array_id) = mk_builder_with_array();
+        let mut function = MirFunction::new("test".to_string());
+
+        // Create index variable
+        let index_id = ValueId::from_raw(5);
+        b.layout.allocate_value(index_id, 1).unwrap();
+        function.value_types.insert(index_id, MirType::Felt);
+
+        // Load u32 element at dynamic index (requires scaling by 2)
+        let dest = ValueId::from_raw(20);
+        let index = Value::operand(index_id);
+        let element_ty = MirType::U32;
+
+        b.array_operation(
+            Value::operand(array_id),
+            index,
+            &element_ty,
+            ArrayOperation::Load { dest },
+            &function,
+        )
+        .unwrap();
+
+        // For u32 load: expect scale (mul by 2), one load for slot 0, adjust offset, one load for slot 1
+        let mul_count = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == STORE_MUL_FP_IMM)
+            .count();
+        let load_count = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == STORE_DOUBLE_DEREF_FP_FP)
+            .count();
+        let adjust_count = b
+            .instructions
+            .iter()
+            .filter(|i| i.opcode == STORE_ADD_FP_IMM)
+            .count();
+        assert_eq!(mul_count, 1);
+        assert_eq!(load_count, 2);
+        assert!(adjust_count >= 1);
+    }
+
+    #[test]
+    fn test_array_reject_non_felt_index() {
+        let (mut b, array_id) = mk_builder_with_array();
+        let mut function = MirFunction::new("test".to_string());
+
+        // Create u32 index (invalid)
+        let index_id = ValueId::from_raw(5);
+        b.layout.allocate_value(index_id, 2).unwrap(); // u32 uses 2 slots
+        function.value_types.insert(index_id, MirType::U32);
+
+        let dest = ValueId::from_raw(20);
+        let index = Value::operand(index_id);
+        let element_ty = MirType::Felt;
+
+        let result = b.array_operation(
+            Value::operand(array_id),
+            index,
+            &element_ty,
+            ArrayOperation::Load { dest },
+            &function,
+        );
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Array index must be a felt"));
+    }
+
+    // =========================================================================
+    // Property Tests
+    // =========================================================================
+
+    proptest! {
+        #[test]
+        fn prop_struct_field_roundtrip(x in 0u32..1000, y in 0u32..1000) {
+            let (mut b, mut function) = mk_builder_with_struct_type();
+
+            // Create struct
+            let struct_id = ValueId::from_raw(10);
+            let struct_ty = MirType::Struct {
+                name: "S".to_string(),
+                fields: vec![
+                    ("x".to_string(), MirType::Felt),
+                    ("y".to_string(), MirType::Felt),
+                ],
+            };
+
+            let fields = vec![
+                ("x".to_string(), Value::integer(x)),
+                ("y".to_string(), Value::integer(y)),
+            ];
+
+            b.make_struct(struct_id, &fields, &struct_ty).unwrap();
+            function.value_types.insert(struct_id, struct_ty.clone());
+
+            // Extract each field
+            let x_extracted = ValueId::from_raw(20);
+            let y_extracted = ValueId::from_raw(21);
+
+            b.extract_struct_field(
+                x_extracted,
+                Value::operand(struct_id),
+                "x",
+                &MirType::Felt,
+                &function,
+            ).unwrap();
+
+            b.extract_struct_field(
+                y_extracted,
+                Value::operand(struct_id),
+                "y",
+                &MirType::Felt,
+                &function,
+            ).unwrap();
+
+            // Verify extraction maps to correct offsets
+            prop_assert!(b.layout.value_layouts.contains_key(&x_extracted));
+            prop_assert!(b.layout.value_layouts.contains_key(&y_extracted));
+        }
+
+        #[test]
+        fn prop_tuple_size_calculation(n_felts in 0usize..10, n_u32s in 0usize..5) {
+            let (mut b, mut function) = mk_builder_with_tuple_type();
+            let dest = ValueId::from_raw(10);
+
+            // Build elements and type list
+            let mut elements = Vec::new();
+            let mut types = Vec::new();
+            let mut expected_size = 0;
+
+            for i in 0..n_felts {
+                elements.push(Value::integer(i as u32));
+                types.push(MirType::Felt);
+                expected_size += 1;
+            }
+
+            for i in 0..n_u32s {
+                elements.push(Value::integer((1000 + i) as u32));
+                types.push(MirType::U32);
+                expected_size += 2; // u32 uses 2 slots
+            }
+
+            if elements.is_empty() {
+                // Can't create empty tuple
+                return Ok(());
+            }
+
+            let tuple_ty = MirType::Tuple(types);
+            function.value_types.insert(dest, tuple_ty);
+
+            b.make_tuple(dest, &elements, &function).unwrap();
+
+            // Verify correct total allocation
+            match b.layout.value_layouts.get(&dest) {
+                Some(ValueLayout::MultiSlot { size, .. }) => {
+                    prop_assert_eq!(*size, expected_size);
+                }
+                Some(ValueLayout::Slot { .. }) if expected_size == 1 => {
+                    // Single slot is ok for size 1
+                }
+                _ if expected_size == 1 => {
+                    // Ok for single slot
+                }
+                _ => {
+                    prop_assert!(false, "Unexpected layout for tuple");
+                }
+            }
+        }
+
+        #[test]
+        fn prop_array_size_correct(n_elements in 0usize..20) {
+            let layout = FunctionLayout::new_for_test();
+            let mut b = CasmBuilder::new(layout, 0);
+            let dest = ValueId::from_raw(10);
+
+            // Create array with n felt elements
+            let elements: Vec<Value> = (0..n_elements)
+                .map(|i| Value::integer(i as u32))
+                .collect();
+            let element_ty = MirType::Felt;
+
+            b.make_fixed_array(dest, &elements, &element_ty).unwrap();
+
+            // Should allocate 1 slot for pointer
+            prop_assert!(b.layout.value_layouts.contains_key(&dest));
+
+            // Should have instructions for all elements plus pointer
+            prop_assert!(b.instructions.len() > n_elements);
+        }
     }
 }

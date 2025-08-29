@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 59
 description: "Codegen snapshot for mdtest: Complex Expressions in Cairo-M - Comparison Operations"
 input_file: mdtest/01-basics/06-expressions.md
 ---
@@ -48,18 +49,18 @@ test_comparisons_0:
    3: 24 0 4 6             // [fp + 6] = u32([fp + 0], [fp + 1]) U32Eq u32([fp + 4], [fp + 5])
    4: 24 0 2 7             // [fp + 7] = u32([fp + 0], [fp + 1]) U32Neq u32([fp + 2], [fp + 3])
    5: 9 1 38 _             // [fp + 38] = 1
-   6: 4 7 0 45             // [fp + 45] = [fp + 7] + 0
-   7: 1 38 45 7            // [fp + 7] = [fp + 38] op [fp + 45]
+   6: 4 7 0 39             // [fp + 39] = [fp + 7] + 0
+   7: 1 38 39 7            // [fp + 7] = 1 - [fp + 7]
    8: 28 2 0 8             // [fp + 8] = u32([fp + 2], [fp + 3]) U32Less u32([fp + 0], [fp + 1])
    9: 28 4 0 9             // [fp + 9] = u32([fp + 4], [fp + 5]) U32LessEqual u32([fp + 0], [fp + 1])
-  10: 9 1 39 _             // [fp + 39] = 1
-  11: 4 9 0 45             // [fp + 45] = [fp + 9] + 0
-  12: 1 39 45 9            // [fp + 9] = [fp + 39] op [fp + 45]
+  10: 9 1 40 _             // [fp + 40] = 1
+  11: 4 9 0 41             // [fp + 41] = [fp + 9] + 0
+  12: 1 40 41 9            // [fp + 9] = 1 - [fp + 9]
   13: 28 2 0 10            // [fp + 10] = u32([fp + 2], [fp + 3]) U32Greater u32([fp + 0], [fp + 1])
   14: 28 4 0 11            // [fp + 11] = u32([fp + 4], [fp + 5]) U32GreaterEqual u32([fp + 0], [fp + 1])
-  15: 9 1 40 _             // [fp + 40] = 1
-  16: 4 11 0 45            // [fp + 45] = [fp + 11] + 0
-  17: 1 40 45 11           // [fp + 11] = [fp + 40] op [fp + 45]
+  15: 9 1 42 _             // [fp + 42] = 1
+  16: 4 11 0 43            // [fp + 43] = [fp + 11] + 0
+  17: 1 42 43 11           // [fp + 11] = 1 - [fp + 11]
   18: 23 0 0 12            // u32([fp + 12], [fp + 13]) = u32(0)
   19: 19 12 0 0 14         // u32([fp + 14], [fp + 15]) = u32([fp + 12], [fp + 13]) + u32(0, 0)
   20: 14 6 2 _             // if [fp + 6] != 0 jmp rel test_comparisons_1

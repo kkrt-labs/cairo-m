@@ -111,7 +111,11 @@ pub const fn is_commutative_u32(op: BinaryOp) -> bool {
 }
 
 /// If op is commutative and the shape is (imm, operand), swap to (operand, imm).
-pub fn canonicalize_commutative_felt(op: BinaryOp, left: Value, right: Value) -> (Value, Value) {
+pub const fn canonicalize_commutative_felt(
+    op: BinaryOp,
+    left: Value,
+    right: Value,
+) -> (Value, Value) {
     if is_commutative_felt(op) {
         match (&left, &right) {
             (Value::Literal(Literal::Integer(_)), Value::Operand(_)) => (right, left),
@@ -123,7 +127,11 @@ pub fn canonicalize_commutative_felt(op: BinaryOp, left: Value, right: Value) ->
 }
 
 /// If op is commutative and the shape is (imm, operand), swap to (operand, imm).
-pub fn canonicalize_commutative_u32(op: BinaryOp, left: Value, right: Value) -> (Value, Value) {
+pub const fn canonicalize_commutative_u32(
+    op: BinaryOp,
+    left: Value,
+    right: Value,
+) -> (Value, Value) {
     if is_commutative_u32(op) {
         match (&left, &right) {
             (Value::Literal(Literal::Integer(_)), Value::Operand(_)) => (right, left),

@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 59
 description: "Codegen snapshot for mdtest: Multiple Functions in Cairo-M - Complex Call Patterns"
 input_file: mdtest/04-advanced/02-multiple-functions.md
 ---
@@ -59,23 +60,23 @@ calculate_multiplier:
 calculate_multiplier_0:
    8: 34 -6 11 0 0         // [fp + 0] = u32([fp + -6], [fp + -5]) U32Greater u32(11, 0) /* imm = 0x0000000b */ (biased c' = 0x0000000b; gt = 1 - lt)
    9: 9 1 5 _              // [fp + 5] = 1
-  10: 4 0 0 20             // [fp + 20] = [fp + 0] + 0
-  11: 1 5 20 0             // [fp + 0] = [fp + 5] op [fp + 20]
+  10: 4 0 0 6              // [fp + 6] = [fp + 0] + 0
+  11: 1 5 6 0              // [fp + 0] = 1 - [fp + 0]
   12: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
   13: 12 21 _ _            // jump abs calculate_multiplier_2
 calculate_multiplier_1:
-  14: 4 -6 0 6             // Arg 0 slot 0: [fp + 6] = [fp + -6] + 0
-  15: 4 -5 0 7             // Arg 0 slot 1: [fp + 7] = [fp + -5] + 0
-  16: 10 10 27 _           // call process_large
-  17: 4 8 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 8] + 0
-  18: 4 9 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 9] + 0
+  14: 4 -6 0 7             // Arg 0 slot 0: [fp + 7] = [fp + -6] + 0
+  15: 4 -5 0 8             // Arg 0 slot 1: [fp + 8] = [fp + -5] + 0
+  16: 10 11 27 _           // call process_large
+  17: 4 9 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 9] + 0
+  18: 4 10 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 10] + 0
   19: 11 _ _ _             // return
 calculate_multiplier_2:
-  20: 4 -6 0 12            // Arg 0 slot 0: [fp + 12] = [fp + -6] + 0
-  21: 4 -5 0 13            // Arg 0 slot 1: [fp + 13] = [fp + -5] + 0
-  22: 10 16 32 _           // call process_small
-  23: 4 14 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 14] + 0
-  24: 4 15 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 15] + 0
+  20: 4 -6 0 13            // Arg 0 slot 0: [fp + 13] = [fp + -6] + 0
+  21: 4 -5 0 14            // Arg 0 slot 1: [fp + 14] = [fp + -5] + 0
+  22: 10 17 32 _           // call process_small
+  23: 4 15 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 15] + 0
+  24: 4 16 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 16] + 0
   25: 11 _ _ _             // return
 process_large:
 process_large_0:

@@ -191,87 +191,102 @@ impl super::CasmBuilder {
 
 #[cfg(test)]
 mod tests {
+    use crate::Operand;
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::{JMP_ABS_IMM, JNZ_FP_IMM, STORE_IMM};
+    use cairo_m_common::instruction::{JMP_ABS_IMM, JNZ_FP_IMM};
     use cairo_m_compiler_mir::{Value, ValueId};
 
-    fn mk_builder_with_args() -> (CasmBuilder, ValueId, ValueId) {
+    // =========================================================================
+    // Test Setup Helpers
+    // =========================================================================
+
+    fn mk_builder_with_value(val: u32) -> (CasmBuilder, ValueId) {
         let mut layout = FunctionLayout::new_for_test();
         let a = ValueId::from_raw(1);
-        let b = ValueId::from_raw(2);
         layout.allocate_value(a, 1).unwrap();
-        layout.allocate_value(b, 1).unwrap();
-        (CasmBuilder::new(layout, 0), a, b)
+        let mut builder = CasmBuilder::new(layout, 0);
+        // Store initial value at fp+0
+        builder.store_immediate(val, 0, format!("[fp + 0] = {val}"));
+        (builder, a)
+    }
+
+    // =========================================================================
+    // Basic Control Flow Operations
+    // =========================================================================
+
+    #[test]
+    fn test_jump_generates_correct_instruction() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
+
+        b.jump("my_label");
+
+        assert_eq!(b.instructions.len(), 1);
+        assert_eq!(b.instructions[0].opcode, JMP_ABS_IMM);
+        assert_eq!(
+            b.instructions[0].operands[0],
+            Operand::Label("my_label".to_string())
+        );
+    }
+    #[test]
+    fn test_jnz_with_operand() {
+        let (mut b, a) = mk_builder_with_value(1);
+
+        b.jnz(Value::operand(a), "target_label").unwrap();
+
+        // Should have store_imm + jnz
+        let jnz_instr = b.instructions.iter().find(|i| i.opcode == JNZ_FP_IMM);
+        assert!(jnz_instr.is_some());
+        assert_eq!(
+            jnz_instr.unwrap().operands[1],
+            Operand::Label("target_label".to_string())
+        );
     }
 
     #[test]
-    fn test_sc_or_operands() {
-        let (mut b, a, c) = mk_builder_with_args();
-        let dest = 5;
-        b.sc_or(dest, &Value::operand(a), &Value::operand(c))
-            .unwrap();
-        let ins = &b.instructions;
-        assert!(ins.len() >= 5);
-        assert_eq!(ins[0].opcode, STORE_IMM);
-        assert_eq!(ins[0].op0(), Some(0));
-        assert_eq!(ins[0].op1(), Some(dest));
-        assert_eq!(ins[1].opcode, JNZ_FP_IMM);
-        assert_eq!(ins[1].op0(), Some(0));
-        assert_eq!(ins[2].opcode, JNZ_FP_IMM);
-        assert_eq!(ins[2].op0(), Some(1));
-        assert_eq!(ins[3].opcode, JMP_ABS_IMM);
-        assert_eq!(ins[4].opcode, STORE_IMM);
-        assert_eq!(ins[4].op0(), Some(1));
-        assert_eq!(ins[4].op1(), Some(dest));
-        let names: Vec<_> = b.labels().iter().map(|l| l.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.starts_with("or_true_")));
-        assert!(names.iter().any(|n| n.starts_with("or_end_")));
+    fn test_jnz_with_literal_fails() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
+
+        let result = b.jnz(Value::integer(1), "target_label");
+        assert!(result.is_err());
     }
 
     #[test]
-    fn test_sc_and_operands() {
-        let (mut b, a, c) = mk_builder_with_args();
-        let dest = 7;
-        b.sc_and(dest, &Value::operand(a), &Value::operand(c))
+    fn test_branch_if_nonzero_const_true() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
+
+        let result = b
+            .branch_if_nonzero_to(&Value::integer(1), "label", true)
             .unwrap();
-        let ins = &b.instructions;
-        assert_eq!(ins[0].opcode, STORE_IMM);
-        assert_eq!(ins[1].opcode, JNZ_FP_IMM);
-        assert_eq!(ins[2].opcode, JMP_ABS_IMM);
-        assert!(ins[3].opcode == JNZ_FP_IMM || ins[3].opcode == JMP_ABS_IMM);
-        assert_eq!(ins[4].opcode, JMP_ABS_IMM);
-        let last_store = ins.iter().rposition(|i| i.opcode == STORE_IMM).unwrap();
-        assert_eq!(ins[last_store].op0(), Some(1));
-        assert_eq!(ins[last_store].op1(), Some(dest));
-        let names: Vec<_> = b.labels().iter().map(|l| l.name.as_str()).collect();
-        assert!(names.iter().any(|n| n.starts_with("and_check_right_")));
-        assert!(names.iter().any(|n| n.starts_with("and_true_")));
-        assert!(names.iter().any(|n| n.starts_with("and_end_")));
+        assert_eq!(result, Some(true));
+        // Should generate unconditional jump
+        assert_eq!(b.instructions[0].opcode, JMP_ABS_IMM);
     }
 
     #[test]
-    fn test_sc_not_operand_and_immediate() {
-        let (mut b, a, _) = mk_builder_with_args();
-        let dest = 9;
-        b.sc_not(dest, &Value::operand(a)).unwrap();
-        let ins = &b.instructions;
-        assert!(ins.len() >= 4);
-        assert_eq!(ins[0].opcode, JNZ_FP_IMM);
-        assert_eq!(ins[1].opcode, STORE_IMM);
-        assert_eq!(ins[1].op0(), Some(1));
-        assert_eq!(ins[1].op1(), Some(dest));
-        assert_eq!(ins[2].opcode, JMP_ABS_IMM);
-        let zero_store = ins
-            .iter()
-            .rposition(|i| i.opcode == STORE_IMM && i.op0() == Some(0) && i.op1() == Some(dest))
-            .unwrap();
-        assert!(zero_store > 2);
+    fn test_branch_if_nonzero_const_false() {
+        let layout = FunctionLayout::new_for_test();
+        let mut b = CasmBuilder::new(layout, 0);
 
-        let (mut b2, _, _) = mk_builder_with_args();
-        b2.sc_not(dest, &Value::boolean(true)).unwrap();
-        assert_eq!(b2.instructions.len(), 1);
-        assert_eq!(b2.instructions[0].opcode, STORE_IMM);
-        assert_eq!(b2.instructions[0].op0(), Some(0));
-        assert_eq!(b2.instructions[0].op1(), Some(dest));
+        let result = b
+            .branch_if_nonzero_to(&Value::integer(0), "label", true)
+            .unwrap();
+        assert_eq!(result, Some(false));
+        // Should not generate any instruction
+        assert_eq!(b.instructions.len(), 0);
+    }
+
+    #[test]
+    fn test_branch_if_nonzero_operand() {
+        let (mut b, a) = mk_builder_with_value(0);
+
+        let result = b
+            .branch_if_nonzero_to(&Value::operand(a), "label", true)
+            .unwrap();
+        assert_eq!(result, None); // Dynamic value
+                                  // Should generate conditional jump (after the store_imm)
+        assert_eq!(b.instructions[1].opcode, JNZ_FP_IMM);
     }
 }

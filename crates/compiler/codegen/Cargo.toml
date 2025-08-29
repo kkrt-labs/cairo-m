@@ -35,3 +35,4 @@ stwo-prover.workspace = true
 [dev-dependencies]
 insta = { version = "1.43.1", features = ["glob"] }
 cairo-m-test-utils.workspace = true
+proptest = "1.7.0"

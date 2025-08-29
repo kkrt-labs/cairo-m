@@ -27,6 +27,10 @@ pub mod db;
 pub mod generator;
 pub mod layout;
 
+// Test support utilities (only compiled for tests)
+#[cfg(test)]
+pub mod test_support;
+
 // Re-export main components
 pub use backend::{compile_module, validate_for_casm};
 pub use builder::CasmBuilder;

@@ -6,9 +6,7 @@
 use cairo_m_common::instruction::*;
 use cairo_m_compiler_mir::{BinaryOp, DataLayout, Literal, MirType, Value, ValueId};
 use cairo_m_compiler_parser::parser::UnaryOp;
-use stwo_prover::core::fields::m31::M31;
 
-use crate::layout::ValueLayout;
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
 
 // Centralized emission helpers for instruction/label/touch routing.
@@ -23,63 +21,10 @@ mod opcodes;
 mod store;
 mod u32_ops;
 
-// --------------------------------------------------------------------------------
-// Small helpers to keep opcode selection and comment generation consistent
-// --------------------------------------------------------------------------------
-
-/// Compute the M31-representation of `-imm` (i.e. add with negated immediate).
-#[inline]
-pub(super) fn m31_negate_imm(imm: u32) -> i32 {
-    (M31::from(0) - M31::from(imm)).0 as i32
-}
-
-/// Compute the M31-representation of `imm.inverse()` used to compile divisions
-/// by an immediate as a multiplication by the inverse. Returns an error for 0.
-#[inline]
-pub(super) fn m31_inverse_imm(imm: u32) -> CodegenResult<i32> {
-    if imm == 0 {
-        return Err(CodegenError::InvalidMir(
-            "Division by zero with felt immediate".to_string(),
-        ));
-    }
-    Ok(M31::from(imm).inverse().0 as i32)
-}
-
-/// Pretty-print an M31 immediate showing both its raw value and signed view when helpful.
-/// Example: 2147483642 (= -5 mod M31)
-#[inline]
-pub(super) fn fmt_m31_imm(raw: i32) -> String {
-    // M31 modulus
-    const P: i32 = 2147483647; // 2^31 - 1
-    if raw == 0 {
-        return "0".to_string();
-    }
-    // If this looks like a large positive close to P, show the negative representative too
-    // Threshold: values > P/2 are displayed as negatives for readability
-    if raw > P / 2 {
-        let neg = raw - P; // guaranteed negative
-        format!("{raw} (=-{:#} mod M31)", -neg)
-    } else {
-        raw.to_string()
-    }
-}
-
-/// Two's complement on 32-bit for u32 subtraction with an immediate
-#[inline]
-pub(super) const fn twos_complement_u32(imm: u32) -> u32 {
-    (!imm).wrapping_add(1)
-}
 /// Helper to split a u32 value into low and high 16-bit parts
 #[inline]
 pub(super) const fn split_u32_value(value: u32) -> (i32, i32) {
     ((value & 0xFFFF) as i32, ((value >> 16) & 0xFFFF) as i32)
-}
-
-/// Helper to split an i32 value (interpreted as u32) into low and high 16-bit parts
-#[inline]
-pub(super) const fn split_u32_i32(value: i32) -> (i32, i32) {
-    let u = value as u32;
-    ((u & 0xFFFF) as i32, ((u >> 16) & 0xFFFF) as i32)
 }
 
 /// Builder for generating CASM instructions
@@ -955,6 +900,7 @@ impl CasmBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use cairo_m_compiler_mir::instruction::CalleeSignature;
     use cairo_m_compiler_mir::MirType;
 

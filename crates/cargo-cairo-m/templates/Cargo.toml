@@ -10,4 +10,4 @@ cairo-m-common = { git = "https://github.com/kkrt-labs/cairo-m" }
 cairo-m-runner = { git = "https://github.com/kkrt-labs/cairo-m" }
 cairo-m-compiler = { git = "https://github.com/kkrt-labs/cairo-m" }
 anyhow = "1.0"
-proptest = "1.0"
+proptest = "1.7.0"

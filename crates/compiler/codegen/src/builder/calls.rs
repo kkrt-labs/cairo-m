@@ -428,6 +428,9 @@ mod tests {
         assert_eq!(copy.op0(), Some(0));
         assert_eq!(copy.op2(), Some(-2));
         // And ensure the last instruction is RET
-        assert_eq!(b.instructions.last().unwrap().opcode, cairo_m_common::instruction::RET);
+        assert_eq!(
+            b.instructions.last().unwrap().opcode,
+            cairo_m_common::instruction::RET
+        );
     }
 }
