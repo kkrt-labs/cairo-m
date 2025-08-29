@@ -6,6 +6,10 @@
 //! - (Optionally) canonicalize commutative u32 ops to put immediates on the right.
 //!
 //! This pass runs inside `codegen` so MIR remains target-agnostic.
+//!
+//! Performance note: some rewrites (e.g., `<=, >=, !=`) expand to one compare
+//! plus a boolean `Not`, increasing instruction count. We choose to fuse them into independent instructions
+//! to reduce the amount of columns in the prover.
 
 use cairo_m_compiler_mir::{
     instruction::InstructionKind, BinaryOp, MirFunction, MirModule, MirType, Value,

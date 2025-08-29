@@ -50,8 +50,8 @@ impl super::CasmBuilder {
     ) -> CodegenResult<()> {
         // Initialize result to 0
         self.store_immediate(0, dest_off, "Initialize OR result to 0".to_string());
-        let set_true = self.new_label_name("or_true");
-        let end = self.new_label_name("or_end");
+        let set_true = self.emit_new_label_name("or_true");
+        let end = self.emit_new_label_name("or_end");
 
         // Check left and right
         self.branch_if_nonzero_to(left, &set_true, true)?;
@@ -59,9 +59,9 @@ impl super::CasmBuilder {
 
         // End sequence
         self.jump(&end);
-        self.add_label(crate::Label::new(set_true));
+        self.emit_add_label(crate::Label::new(set_true));
         self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
-        self.add_label(crate::Label::new(end));
+        self.emit_add_label(crate::Label::new(end));
         Ok(())
     }
 
@@ -74,14 +74,14 @@ impl super::CasmBuilder {
     ) -> CodegenResult<()> {
         // Default to 0
         self.store_immediate(0, dest_off, format!("[fp + {dest_off}] = 0"));
-        let check_right = self.new_label_name("and_check_right");
-        let set_true = self.new_label_name("and_true");
-        let end = self.new_label_name("and_end");
+        let check_right = self.emit_new_label_name("and_check_right");
+        let set_true = self.emit_new_label_name("and_true");
+        let end = self.emit_new_label_name("and_end");
 
         // Check left: if zero -> end; else -> check right
         match Self::const_truthiness(left) {
             Some(false) => {
-                self.add_label(crate::Label::new(end.clone()));
+                self.emit_add_label(crate::Label::new(end.clone()));
                 return Ok(());
             }
             Some(true) => { /* fallthrough to check_right */ }
@@ -100,25 +100,25 @@ impl super::CasmBuilder {
         }
 
         // check_right label
-        self.add_label(crate::Label::new(check_right));
+        self.emit_add_label(crate::Label::new(check_right));
         // Right: branch to set_true on non-zero. If const true, emit JMP; const false, no-op.
         self.branch_if_nonzero_to(right, &set_true, true)?;
 
         // Done: both were zero at some point
         self.jump(&end);
         // set_true: set dest 1
-        self.add_label(crate::Label::new(set_true));
+        self.emit_add_label(crate::Label::new(set_true));
         self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
 
         // end
-        self.add_label(crate::Label::new(end));
+        self.emit_add_label(crate::Label::new(end));
         Ok(())
     }
 
     /// NOT: dest = ([source] == 0)
     pub(super) fn sc_not(&mut self, dest_off: i32, source: &Value) -> CodegenResult<()> {
-        let set_zero = self.new_label_name("not_zero");
-        let end = self.new_label_name("not_end");
+        let set_zero = self.emit_new_label_name("not_zero");
+        let end = self.emit_new_label_name("not_end");
         match source {
             Value::Operand(id) => {
                 let off = self.layout.get_offset(*id)?;
@@ -144,9 +144,9 @@ impl super::CasmBuilder {
         }
         self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
         self.jump(&end);
-        self.add_label(crate::Label::new(set_zero));
+        self.emit_add_label(crate::Label::new(set_zero));
         self.store_immediate(0, dest_off, format!("[fp + {dest_off}] = 0"));
-        self.add_label(crate::Label::new(end));
+        self.emit_add_label(crate::Label::new(end));
         Ok(())
     }
 

@@ -1,4 +1,11 @@
 //! u32 operations: arithmetic, comparisons, bitwise, immediate transforms.
+//!
+//! Comment conventions for immediates:
+//! - We split 32-bit immediates into 16-bit limbs passed as operands (lo, hi).
+//! - For readability, we also include the full 32-bit immediate in hex in a
+//!   trailing comment `/* imm = 0x........ */`.
+//! - For `Sub` with an immediate, we bias using two's complement and note the
+//!   original vs encoded value in the comment.
 use super::opcodes::{u32_fp_fp, u32_fp_imm};
 use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
@@ -278,6 +285,12 @@ pub(super) const fn split_u32_i32(value: i32) -> (i32, i32) {
 pub(super) const fn twos_complement_u32(imm: u32) -> u32 {
     (!imm).wrapping_add(1)
 }
+
+// Notes on edge cases for immediate biasing:
+// - When `imm == 0`, two's complement is also `0`, so `x - 0` becomes
+//   `x + 0` and the encoded immediate stays zero — no special case needed.
+// - Wrapping semantics apply (as everywhere in u32 ops), so behavior is
+//   consistent with hardware-like u32 arithmetic.
 #[cfg(test)]
 mod tests {
     use super::*;

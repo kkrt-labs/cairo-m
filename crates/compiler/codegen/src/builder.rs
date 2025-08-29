@@ -82,21 +82,6 @@ impl CasmBuilder {
         }
     }
 
-    pub(crate) fn new_label_name(&mut self, prefix: &str) -> String {
-        self.emit_new_label_name(prefix)
-    }
-
-    /// Add a label at the current position
-    pub(crate) fn add_label(&mut self, label: Label) {
-        self.emit_add_label(label);
-    }
-
-    /// Track that we've written to a memory location
-    /// Updates the high-water mark for written offsets
-    fn touch(&mut self, offset: i32, size: usize) {
-        self.emit_touch(offset, size);
-    }
-
     /// Get the current "live" frame usage based on what's actually been written
     pub const fn live_frame_usage(&self) -> i32 {
         self.max_written_offset + 1 // Convert from 0-based offset to size
@@ -241,7 +226,7 @@ impl CasmBuilder {
                 self.bool_not(dest_off, source)?;
             }
         }
-        self.touch(dest_off, 1);
+        self.emit_touch(dest_off, 1);
         Ok(())
     }
 
@@ -275,7 +260,9 @@ impl CasmBuilder {
             BinaryOp::And => self.bool_and(dest_off, left, right)?,
             BinaryOp::Or => self.bool_or(dest_off, left, right)?,
             BinaryOp::Less | BinaryOp::Greater | BinaryOp::LessEqual | BinaryOp::GreaterEqual => {
-                todo!("Comparison opcodes not supported on felt type");
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Felt comparisons beyond Eq/Neq are unsupported".into(),
+                ));
             }
             BinaryOp::U32Add
             | BinaryOp::U32Sub
@@ -355,10 +342,12 @@ impl CasmBuilder {
         self.label_counter
     }
 
-    // TODO: this should be done in a system similar to MIR's `passes`.
+    // TODO: This should be modeled as a MIR-like pre-pass.
     /// Removes any occurrences of instructions where two or more offsets are the same.
-    /// This is required by the prover, which does not currently support memory operations on the same memory location in a single instruction.
-    /// This fix was designed to be as non-invasive as possible to be reverted easily in case of design changes in the prover.
+    ///
+    /// - Rationale: the prover cannot handle multiple accesses to the same memory
+    ///   location within one instruction (read-after-write hazards). We conservatively
+    ///   expand such instructions using temporaries.
     pub(crate) fn resolve_duplicate_offsets(&mut self) -> CodegenResult<()> {
         let mut new_instructions = Vec::new();
         // Track how instruction indices change: original_index -> new_index_range
@@ -841,7 +830,7 @@ impl CasmBuilder {
                 );
 
                 // If hi < 32767, we're good
-                let ok_label = self.new_label_name("u32_cast_ok");
+                let ok_label = self.emit_new_label_name("u32_cast_ok");
                 self.jnz_offset(hi_lt_32767, &ok_label);
 
                 // Else: hi >= 32767. Valid only if hi == 32767 and lo < 65535.
@@ -880,7 +869,7 @@ impl CasmBuilder {
                 self.assert_eq_fp_imm(conj, 1, "assert(hi == 32767 && lo < 65535)".to_string());
 
                 // Success path label
-                self.add_label(Label::new(ok_label));
+                self.emit_add_label(Label::new(ok_label));
 
                 // Convert to felt: lo + hi * 2^16
                 let temp_hi_shifted = self.layout.reserve_stack(1);

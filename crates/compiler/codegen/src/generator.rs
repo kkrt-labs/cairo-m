@@ -184,7 +184,7 @@ impl CodeGenerator {
         self.function_entrypoints
             .insert(function.name.clone(), entrypoint_info);
 
-        builder.add_label(func_label);
+        builder.emit_add_label(func_label);
 
         // Generate code for all basic blocks
         self.generate_basic_blocks(function, module, &mut builder)?;
@@ -223,7 +223,7 @@ impl CodeGenerator {
         for (block_id, block) in function.basic_blocks.iter_enumerated() {
             // Add block label
             let block_label = Label::for_block(&function.name, block_id);
-            builder.add_label(block_label);
+            builder.emit_add_label(block_label);
 
             for (idx, instruction) in block.instructions.iter().enumerate() {
                 self.generate_instruction(

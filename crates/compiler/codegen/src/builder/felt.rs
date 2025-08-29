@@ -140,8 +140,8 @@ impl super::CasmBuilder {
     ) -> CodegenResult<()> {
         // Compute left - right, then set 1 if zero else 0
         self.felt_arith(BinaryOp::Sub, dest_off, left, right)?;
-        let non_zero = self.new_label_name("not_zero");
-        let end = self.new_label_name("end");
+        let non_zero = self.emit_new_label_name("not_zero");
+        let end = self.emit_new_label_name("end");
         self.emit_branch_on_nonzero_set_bool(dest_off, true, non_zero, end);
         Ok(())
     }
@@ -153,8 +153,8 @@ impl super::CasmBuilder {
         right: Value,
     ) -> CodegenResult<()> {
         self.felt_arith(BinaryOp::Sub, dest_off, left, right)?;
-        let non_zero = self.new_label_name("neq_non_zero");
-        let end = self.new_label_name("neq_end");
+        let non_zero = self.emit_new_label_name("neq_non_zero");
+        let end = self.emit_new_label_name("neq_end");
         self.emit_branch_on_nonzero_set_bool(dest_off, false, non_zero, end);
         Ok(())
     }
@@ -176,13 +176,13 @@ impl super::CasmBuilder {
 
         self.jump(&end_label);
 
-        self.add_label(crate::Label::new(non_zero_label));
+        self.emit_add_label(crate::Label::new(non_zero_label));
         if true_on_zero {
             self.store_immediate(0, dest_off, format!("[fp + {dest_off}] = 0"));
         } else {
             self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
         }
-        self.add_label(crate::Label::new(end_label));
+        self.emit_add_label(crate::Label::new(end_label));
     }
 
     pub(crate) fn felt_add_fp_fp(
@@ -311,7 +311,13 @@ pub(super) fn m31_negate_imm(imm: u32) -> i32 {
 }
 
 /// Compute the M31-representation of `imm.inverse()` used to compile divisions
-/// by an immediate as a multiplication by the inverse. Returns an error for 0.
+/// by an immediate as a multiplication by the inverse.
+///
+/// Notes:
+/// - Rejects all immediates that are zero in the M31 field.
+///   For example `2147483647 (== 0 mod M31)` has no inverse and is rejected.
+/// - This mirrors constant-folding behavior above and ensures consistent
+///   division-by-zero detection at codegen time.
 #[inline]
 pub(super) fn m31_inverse_imm(imm: u32) -> CodegenResult<i32> {
     // Treat values congruent to 0 mod M31 as zero (e.g., 2147483647)
@@ -421,6 +427,17 @@ mod tests {
         let (mut b, left) = mk_builder_with_value(100);
         let err = b.felt_arith(BinaryOp::Div, 3, Value::operand(left), Value::integer(0));
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_m31_inverse_imm_rejects_p_equiv_zero() {
+        // M31 modulus (2^31 - 1) maps to zero in the field and must be rejected
+        let p = 2147483647u32;
+        let inv = m31_inverse_imm(p);
+        assert!(
+            inv.is_err(),
+            "expected division-by-zero error for P ≡ 0 mod M31"
+        );
     }
 
     // =========================================================================
