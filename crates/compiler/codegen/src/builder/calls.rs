@@ -417,11 +417,17 @@ mod tests {
         b.return_values(&[Value::operand(v)], &[MirType::Felt])
             .unwrap();
 
-        assert!(b.instructions.len() >= 2);
-        // Last should be STORE_ADD_FP_IMM copying from fp+0 to fp-2
-        let last = b.instructions.last().unwrap();
-        assert_eq!(last.opcode, cairo_m_common::instruction::STORE_ADD_FP_IMM);
-        assert_eq!(last.op0(), Some(0));
-        assert_eq!(last.op2(), Some(-2));
+        assert!(b.instructions.len() >= 3);
+        // Find the last STORE_ADD_FP_IMM (copy) before the final RET
+        let pos = b
+            .instructions
+            .iter()
+            .rposition(|i| i.opcode == cairo_m_common::instruction::STORE_ADD_FP_IMM)
+            .expect("missing STORE_ADD_FP_IMM copy");
+        let copy = &b.instructions[pos];
+        assert_eq!(copy.op0(), Some(0));
+        assert_eq!(copy.op2(), Some(-2));
+        // And ensure the last instruction is RET
+        assert_eq!(b.instructions.last().unwrap().opcode, cairo_m_common::instruction::RET);
     }
 }

@@ -3,7 +3,7 @@
 //! Canonicalizes shapes and records transformations (swap/complement/bias) so
 //! selection and emission remain simple and uniform.
 
-use cairo_m_compiler_mir::BinaryOp;
+use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct CmpNorm {
@@ -88,6 +88,49 @@ pub const fn normalize_u32_cmp_fp_imm(op: BinaryOp, imm: u32) -> ImmNorm {
             complement: false,
             biased_imm: None,
         },
+    }
+}
+
+/// Returns true if the felt binary op is commutative.
+pub const fn is_commutative_felt(op: BinaryOp) -> bool {
+    matches!(op, BinaryOp::Add | BinaryOp::Mul)
+}
+
+/// Returns true if the u32 binary op is commutative.
+pub const fn is_commutative_u32(op: BinaryOp) -> bool {
+    matches!(
+        op,
+        BinaryOp::U32Add
+            | BinaryOp::U32Mul
+            | BinaryOp::U32BitwiseAnd
+            | BinaryOp::U32BitwiseOr
+            | BinaryOp::U32BitwiseXor
+            | BinaryOp::U32Eq
+            | BinaryOp::U32Neq
+    )
+}
+
+/// If op is commutative and the shape is (imm, operand), swap to (operand, imm).
+pub fn canonicalize_commutative_felt(op: BinaryOp, left: Value, right: Value) -> (Value, Value) {
+    if is_commutative_felt(op) {
+        match (&left, &right) {
+            (Value::Literal(Literal::Integer(_)), Value::Operand(_)) => (right, left),
+            _ => (left, right),
+        }
+    } else {
+        (left, right)
+    }
+}
+
+/// If op is commutative and the shape is (imm, operand), swap to (operand, imm).
+pub fn canonicalize_commutative_u32(op: BinaryOp, left: Value, right: Value) -> (Value, Value) {
+    if is_commutative_u32(op) {
+        match (&left, &right) {
+            (Value::Literal(Literal::Integer(_)), Value::Operand(_)) => (right, left),
+            _ => (left, right),
+        }
+    } else {
+        (left, right)
     }
 }
 

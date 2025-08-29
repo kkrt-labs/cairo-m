@@ -16,6 +16,9 @@ impl super::CasmBuilder {
     ) -> CodegenResult<()> {
         use super::opcodes::{felt_fp_fp, felt_fp_imm};
 
+        // Normalize commutative immediate-left cases to immediate-right
+        let (left, right) = super::normalize::canonicalize_commutative_felt(op, left, right);
+
         match (&left, &right) {
             (Value::Operand(lid), Value::Operand(rid)) => {
                 let l_operand = self.layout.get_offset(*lid)?;
@@ -298,6 +301,27 @@ impl super::CasmBuilder {
     pub(super) fn bool_not(&mut self, dest_off: i32, source: Value) -> CodegenResult<()> {
         self.sc_not(dest_off, &source)
     }
+
+    /// Compute boolean complement in place: dest = 1 - dest, alias-safe.
+    pub(crate) fn complement_felt_in_place(&mut self, dest_off: i32) {
+        // Stage 1 in tmp_a
+        let tmp_a = self.layout.reserve_stack(1);
+        self.store_immediate(1, tmp_a, format!("[fp + {tmp_a}] = 1"));
+        // Copy current dest to tmp_b to avoid src/dst alias
+        let tmp_b = self.layout.reserve_stack(1);
+        self.store_copy_single(
+            dest_off,
+            tmp_b,
+            format!("[fp + {tmp_b}] = [fp + {dest_off}] + 0"),
+        );
+        // Perform subtraction: dest = 1 - old_dest
+        self.felt_sub_fp_fp(
+            tmp_a,
+            tmp_b,
+            dest_off,
+            format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]")
+        );
+    }
 }
 
 #[cfg(test)]
@@ -368,5 +392,45 @@ mod tests {
         let (mut b, left) = mk_builder_with_left_at(0);
         let err = b.felt_arith(BinaryOp::Div, 3, Value::operand(left), Value::integer(0));
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_felt_add_immediate_left_normalized() {
+        let (mut b, right) = mk_builder_with_left_at(0);
+        let dest_off = 11;
+        let imm = 9u32;
+        b.felt_arith(
+            BinaryOp::Add,
+            dest_off,
+            Value::integer(imm),
+            Value::operand(right),
+        )
+        .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        let i = &b.instructions[0];
+        assert_eq!(i.opcode, STORE_ADD_FP_IMM);
+        assert_eq!(i.op0(), Some(0)); // right at fp+0
+        assert_eq!(i.op1(), Some(imm as i32));
+        assert_eq!(i.op2(), Some(dest_off));
+    }
+
+    #[test]
+    fn test_felt_mul_immediate_left_normalized() {
+        let (mut b, right) = mk_builder_with_left_at(0);
+        let dest_off = 12;
+        let imm = 7u32;
+        b.felt_arith(
+            BinaryOp::Mul,
+            dest_off,
+            Value::integer(imm),
+            Value::operand(right),
+        )
+        .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        let i = &b.instructions[0];
+        assert_eq!(i.opcode, STORE_MUL_FP_IMM);
+        assert_eq!(i.op0(), Some(0));
+        assert_eq!(i.op1(), Some(imm as i32));
+        assert_eq!(i.op2(), Some(dest_off));
     }
 }

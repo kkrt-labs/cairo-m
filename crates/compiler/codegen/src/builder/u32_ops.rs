@@ -24,6 +24,9 @@ impl super::CasmBuilder {
         );
         let result_size = if is_cmp { 1 } else { 2 };
 
+        // Normalize commutative immediate-left cases to immediate-right
+        let (left, right) = super::normalize::canonicalize_commutative_u32(op, left, right);
+
         match (&left, &right) {
             (Value::Operand(lid), Value::Operand(rid)) => {
                 let mut lo = self.layout.get_offset(*lid)?;
@@ -66,15 +69,7 @@ impl super::CasmBuilder {
                 self.emit_touch(dest_off, result_size);
 
                 if norm.complement {
-                    // Compute 1 - [dest_off]
-                    let tmp = self.layout.reserve_stack(1);
-                    self.store_immediate(1, tmp, format!("[fp + {tmp}] = 1"));
-                    self.felt_sub_fp_fp(
-                        tmp,
-                        dest_off,
-                        dest_off,
-                        format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]"),
-                    );
+                    self.complement_felt_in_place(dest_off);
                 }
             }
 
@@ -174,14 +169,7 @@ impl super::CasmBuilder {
                 self.emit_touch(dest_off, result_size);
 
                 if complement_after {
-                    let tmp = self.layout.reserve_stack(1);
-                    self.store_immediate(1, tmp, format!("[fp + {tmp}] = 1"));
-                    self.felt_sub_fp_fp(
-                        tmp,
-                        dest_off,
-                        dest_off,
-                        format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]"),
-                    );
+                    self.complement_felt_in_place(dest_off);
                 }
             }
 
@@ -219,12 +207,24 @@ impl super::CasmBuilder {
                     | BinaryOp::U32Greater
                     | BinaryOp::U32GreaterEqual
                     | BinaryOp::U32Less
-                    | BinaryOp::U32LessEqual => {
+                    | BinaryOp::U32LessEqual
+                    | BinaryOp::U32BitwiseAnd
+                    | BinaryOp::U32BitwiseOr
+                    | BinaryOp::U32BitwiseXor => {
                         let tmp = self.layout.reserve_stack(2);
                         self.store_u32_immediate(
                             *imm,
                             tmp,
                             format!("[fp + {}], [fp + {}] = u32({imm})", tmp, tmp + 1),
+                        );
+                        let is_cmp = matches!(
+                            op,
+                            BinaryOp::U32Eq
+                                | BinaryOp::U32Neq
+                                | BinaryOp::U32Greater
+                                | BinaryOp::U32GreaterEqual
+                                | BinaryOp::U32Less
+                                | BinaryOp::U32LessEqual
                         );
                         let instr = InstructionBuilder::new(u32_fp_fp(op)?)
                             .with_operand(Operand::Literal(tmp))
@@ -371,9 +371,78 @@ mod tests {
             Value::integer(10),
         )
         .unwrap();
-        // Should emit compare (lt with bias) + complement (STORE_SUB_FP_FP)
-        assert_eq!(b.instructions.len(), 2);
+        // Should emit compare (lt with bias) + complement (STORE_IMM, copy, STORE_SUB_FP_FP)
+        assert_eq!(b.instructions.len(), 4);
         assert_eq!(b.instructions[0].opcode, U32_STORE_LT_FP_IMM);
-        assert_eq!(b.instructions[1].opcode, STORE_SUB_FP_FP);
+        assert_eq!(b.instructions[1].opcode, cairo_m_common::instruction::STORE_IMM);
+        assert_eq!(b.instructions[2].opcode, cairo_m_common::instruction::STORE_ADD_FP_IMM);
+        assert_eq!(b.instructions[3].opcode, STORE_SUB_FP_FP);
+    }
+
+    #[test]
+    fn test_u32_and_immediate_left_normalized() {
+        let (mut b, a, _) = mk_builder_two_ops();
+        // (imm & x) should normalize to (x & imm) and use FP_IMM
+        b.u32_op(
+            BinaryOp::U32BitwiseAnd,
+            6,
+            Value::integer(0xF0F0_F0F0),
+            Value::operand(a),
+        )
+        .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        let i = &b.instructions[0];
+        assert_eq!(i.opcode, cairo_m_common::instruction::U32_STORE_AND_FP_IMM);
+        assert_eq!(i.op0(), Some(0)); // src operand offset
+        // Check encoded imm split
+        assert_eq!(i.op1(), Some(0xF0F0_F0F0u32 as i32 & 0xFFFF));
+        assert_eq!(i.op2(), Some(((0xF0F0_F0F0u32 >> 16) & 0xFFFF) as i32));
+        // dest
+        let last = &i.operands[3];
+        if let Operand::Literal(v) = last {
+            assert_eq!(*v, 6);
+        } else {
+            panic!("expected literal dest off")
+        }
+    }
+
+    #[test]
+    fn test_u32_or_immediate_left_normalized() {
+        let (mut b, a, _) = mk_builder_two_ops();
+        b.u32_op(
+            BinaryOp::U32BitwiseOr,
+            7,
+            Value::integer(0x0000_FFFF),
+            Value::operand(a),
+        )
+        .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        let i = &b.instructions[0];
+        assert_eq!(i.opcode, cairo_m_common::instruction::U32_STORE_OR_FP_IMM);
+        assert_eq!(i.op0(), Some(0));
+        assert_eq!(i.op2(), Some(0x0000));
+        let last = &i.operands[3];
+        if let Operand::Literal(v) = last {
+            assert_eq!(*v, 7);
+        } else {
+            panic!("expected literal dest off")
+        }
+    }
+
+    #[test]
+    fn test_u32_eq_immediate_left_normalized() {
+        let (mut b, a, _) = mk_builder_two_ops();
+        b.u32_op(BinaryOp::U32Eq, 2, Value::integer(12345), Value::operand(a))
+            .unwrap();
+        assert_eq!(b.instructions.len(), 1);
+        let i = &b.instructions[0];
+        assert_eq!(i.opcode, U32_STORE_EQ_FP_IMM);
+        assert_eq!(i.op0(), Some(0)); // src operand offset
+        let last = &i.operands[3];
+        if let Operand::Literal(v) = last {
+            assert_eq!(*v, 2);
+        } else {
+            panic!("expected literal dest off")
+        }
     }
 }
