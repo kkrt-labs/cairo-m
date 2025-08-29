@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/semantic/tests/common/mod.rs
+assertion_line: 423
 expression: snapshot
 ---
 --- Input 1 (ERROR) ---
@@ -11,4 +12,17 @@ fn test() { let x = undefined_var; return; }
  1 │ fn test() { let x = undefined_var; return; }
    │                     ──────┬──────  
    │                           ╰──────── Undeclared variable 'undefined_var'
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let x = x + 1; return; }
+--- Diagnostics ---
+[1001] Error: Undeclared variable 'x'
+   ╭─[ semantic_tests::statements::let_local_statements::test_let_statements:1:21 ]
+   │
+ 1 │ fn test() { let x = x + 1; return; }
+   │                     ┬  
+   │                     ╰── Undeclared variable 'x'
 ───╯
