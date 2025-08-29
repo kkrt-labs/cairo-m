@@ -22,49 +22,74 @@ pub enum InstructionError {
     InvalidInstructionType(&'static str),
 }
 
-pub const INSTRUCTION_MAX_SIZE: usize = 5;
 // User-facing marker for field kinds used in the macro input.
 // Note: This enum is only used for declarative purposes in the macro callsite;
 // it is not stored in Instruction and has no runtime impact.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OperandType {
+#[doc(hidden)]
+pub(crate) enum OperandType {
     Immediate,
     Memory(DataType),
 }
 
-// Helper macros to process field kinds
-macro_rules! __mem_access_for_kind {
-    (OperandType::Memory(DataType::Felt)) => {
-        1
+// Push helper for building operand type vectors at runtime without trailing comma issues
+macro_rules! __push_mem_if_applicable {
+    ($vec:ident, OperandType::Memory(DataType::Felt)) => {
+        $vec.push(DataType::Felt);
     };
-    (OperandType::Memory(DataType::U32)) => {
-        2
+    ($vec:ident, OperandType::Memory(DataType::U32)) => {
+        $vec.push(DataType::U32);
     };
-    (OperandType::Immediate) => {
-        0
+    ($vec:ident, OperandType::Immediate) => {};
+    ($vec:ident, (OperandType::Memory(DataType::Felt))) => {
+        $vec.push(DataType::Felt);
     };
-    ((OperandType::Memory(DataType::Felt))) => {
-        1
+    ($vec:ident, (OperandType::Memory(DataType::U32))) => {
+        $vec.push(DataType::U32);
     };
-    ((OperandType::Memory(DataType::U32))) => {
-        2
-    };
-    ((OperandType::Immediate)) => {
-        0
-    };
+    ($vec:ident, (OperandType::Immediate)) => {};
 }
 
-macro_rules! __mem_operand_kind_to_list {
-    (OperandType::Memory(DataType::Felt)) => { DataType::Felt, };
-    (OperandType::Memory(DataType::U32)) => { DataType::U32, };
-    (OperandType::Immediate) => {};
-    ((OperandType::Memory(DataType::Felt))) => { DataType::Felt, };
-    ((OperandType::Memory(DataType::U32))) => { DataType::U32, };
-    ((OperandType::Immediate)) => {};
-}
-
-// Macro to define the Instruction enum and implementations from a more descriptive spec.
+/// Macro to define the Instruction enum and implementations from a more descriptive spec.
+///
+/// # Usage
+///
+/// ```ignore
+/// instructions! {
+///     StoreAddFpFp = 0 {
+///         src0_off: (OperandType::Memory(DataType::Felt)),
+///         src1_off: (OperandType::Memory(DataType::Felt)),
+///         dst_off: (OperandType::Memory(DataType::Felt)),
+///     };
+/// }
+/// ```
+///
+/// ```ignore
+/// instructions! {
+///     Ret = 11 {} implicit_operands: [OperandType::Memory(DataType::Felt)];
+/// }
+/// ```
+///
+/// # Arguments
+///
+/// * `$variant:ident` - The name of the instruction variant.
+/// * `$opcode:literal` - The numeric opcode value for this instruction.
+/// * `$field:ident` - The name of the field.
+/// * `$kind:tt` - The type of the field.
+/// * `$implicit_kind:tt` - The type of the implicit operand.
+/// * `$implicit_operands:[$($implicit_kind:tt),*]` - The types of the implicit operands.
+/// * `$(, implicit_operands: [$($implicit_kind:tt),*])?` - Optional implicit operands.
+/// * `$(,)?` - Optional trailing comma.
+/// * `$(;)?` - Optional trailing semicolon.
+///
+/// ## Implicit operands
+/// Some instructions have "implicit" operands that are not explicitly provided in the instruction - meaning they're dependent on the instruction's context, like the execution frame.
+///
+/// For example, the `Ret` instruction has two implicit operands:
+///
+/// * The return address, which is the value of the program counter at the time of the call.
+/// * The frame pointer, which is the value of the frame pointer at the time of the call.
 macro_rules! instructions {
     (
         $(
@@ -80,10 +105,20 @@ macro_rules! instructions {
             $( $variant { $( $field: M31 ),* }, )*
         }
 
-        // Generate opcode constants using paste
-        paste! {
-            $( pub const [<$variant:snake:upper>]: u32 = $opcode; )*
-        }
+        // Generate opcode constants
+        paste! { $( pub const [<$variant:snake:upper>]: u32 = $opcode; )* }
+
+        // Compute the maximum instruction size in M31s (opcode + explicit operands)
+        pub const INSTRUCTION_MAX_SIZE: usize = {
+            let sizes = [ $( 1usize $(+ { let _ = stringify!($field); 1usize })* ),* ];
+            let mut max: usize = 0;
+            let mut i: usize = 0;
+            while i < sizes.len() {
+                if sizes[i] > max { max = sizes[i]; }
+                i += 1;
+            }
+            max
+        };
 
         impl Instruction {
             /// Get the numeric opcode value for this instruction
@@ -120,26 +155,12 @@ macro_rules! instructions {
             }
 
             /// Get the number of memory accesses (as limbs) for this instruction's operands
-            pub const fn memory_accesses(&self) -> usize {
-                match self {
-                    Self::Ret { .. } => 2usize,
-                    $(
-                        Self::$variant { .. } => {
-                            0usize
-                            $( + __mem_access_for_kind!($kind) )*
-                            $( $( + __mem_access_for_kind!($implicit_kind) )* )?
-                        }
-                    ),*
-                }
-            }
-
-            /// Convert instruction to a vector of M31 values
-            pub fn to_m31_vec(&self) -> Vec<M31> {
-                let mut vec = vec![M31::from(self.opcode_value())];
-                match self {
-                    $( Self::$variant { $( $field ),* } => { $( vec.push(*$field); )* } ),*
-                }
-                vec
+            pub fn memory_accesses(&self) -> usize {
+                // Count limbs based on memory operand types (explicit + implicit).
+                self.operand_types()
+                    .iter()
+                    .map(|t| match t { DataType::Felt => 1usize, DataType::U32 => 2usize })
+                    .sum()
             }
 
             /// Convert instruction to a SmallVec of M31 values
@@ -152,13 +173,6 @@ macro_rules! instructions {
                 vec
             }
 
-            /// Get the name of the instruction as a string
-            pub const fn name(&self) -> &'static str {
-                match self {
-                    $( Self::$variant { .. } => stringify!($variant), )*
-                }
-            }
-
             /// Get all operands as a vector (excluding the opcode)
             pub fn operands(&self) -> Vec<M31> {
                 let mut vec = Vec::with_capacity(self.size_in_m31s() - 1);
@@ -169,13 +183,21 @@ macro_rules! instructions {
             }
 
             /// Get the data types for each memory operand of this instruction
-            /// NOTE: This placeholder returns an empty slice. The typed field metadata
-            /// is present in the macro but operand type extraction is not used at runtime
-            /// in this refactor step. If needed, we can reintroduce a generated static
-            /// table per opcode.
-            pub const fn operand_types(&self) -> &'static [DataType] {
+            ///
+            /// Returns a static slice containing a DataType entry per memory operand
+            /// (immediates are excluded). Implicit operands are appended after
+            /// explicit ones.
+            pub fn operand_types(&self) -> SmallVec<[DataType; 4]> {
                 match self {
-                    $( Self::$variant { .. } => &[], )*
+                    $(
+                        Self::$variant { .. } => {
+                            #[allow(unused)]
+                            let mut v = SmallVec::<[DataType; 4]>::new();
+                            $( __push_mem_if_applicable!(v, $kind); )*
+                            $( $( __push_mem_if_applicable!(v, $implicit_kind); )* )?
+                            v
+                        },
+                    )*
                 }
             }
         }
@@ -209,7 +231,7 @@ macro_rules! instructions {
         }
 
         // Generate the maximum opcode value
-        pub const MAX_OPCODE: u32 = {
+        const MAX_OPCODE: u32 = {
             let opcodes = [$($opcode),*];
             let mut max = 0;
             let mut i = 0;
@@ -236,7 +258,7 @@ macro_rules! instructions {
 ///
 /// # Panics
 /// The macro generates a `return` statement, so it must be used inside a function
-/// that returns a `Result<_, InstructionExecutionError>`.
+/// that returns `Result<_, E>` where `InstructionError: Into<E>`.
 ///
 /// # Usage
 ///
@@ -395,13 +417,22 @@ instructions! {
 
     // Call operations
     // call abs imm
+    // Implicitly pushes return `pc` and current `fp` as two Felt values.
     CallAbsImm = 10 {
         frame_off: (OperandType::Immediate),
         target: (OperandType::Immediate),
-    };
+    }, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+        (OperandType::Memory(DataType::Felt)),
+    ];
     // ret
-    // Ret is a special case, it accesses `pc` and `fp` - which is hardcoded in the macro.
-    Ret = 11 {};
+    // Ret is a special case: it implicitly accesses `pc` and `fp` as two Felt
+    // operands. We model these as implicit memory operands so that downstream
+    // components can consume the corresponding memory log entries.
+    Ret = 11 {}, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+        (OperandType::Memory(DataType::Felt)),
+    ];
 
     // Jump operations
     // jmp abs imm
@@ -576,7 +607,7 @@ impl Instruction {
     /// Convert instruction to QM31 values for memory storage
     /// Instructions are padded with zeros to align to QM31 boundaries
     pub fn to_qm31_vec(&self) -> Vec<QM31> {
-        self.to_m31_vec()
+        self.to_smallvec()
             .chunks(4)
             .map(|chunk| {
                 let mut m31_array = [M31::from(0); 4];
@@ -597,7 +628,7 @@ impl Serialize for Instruction {
         S: serde::Serializer,
     {
         use serde::ser::SerializeSeq;
-        let vec = self.to_m31_vec();
+        let vec = self.to_smallvec();
         let mut seq = serializer.serialize_seq(Some(vec.len()))?;
 
         for val in &vec {
