@@ -17,6 +17,8 @@ fn test_let_statements() {
         ],
         err: [
             in_function("let x = undefined_var;"),
+            // Self-referential assignment when variable is not defined
+            in_function("let x = x + 1;"),
         ]
     }
 }

@@ -467,8 +467,12 @@ pub fn expression_semantic_type<'db>(
             TypeId::new(db, TypeData::Error)
         }
         Expression::Identifier(name) => {
-            if let Some((def_idx, _)) =
-                semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
+            if let Some((def_idx, _)) = semantic_index
+                .resolve_name_to_definition_skip_let_initializer(
+                    name.value(),
+                    expr_info.scope_id,
+                    expr_info.ast_span,
+                )
             {
                 let def_id = DefinitionId::new(db, file, def_idx);
                 definition_semantic_type(db, crate_id, def_id)

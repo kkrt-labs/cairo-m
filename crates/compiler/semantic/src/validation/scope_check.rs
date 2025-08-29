@@ -155,11 +155,32 @@ impl ScopeValidator {
         // Check each identifier usage to see if it was resolved to a definition
         for (usage_index, usage) in index.identifier_usages().iter().enumerate() {
             if !index.is_usage_resolved(usage_index) {
-                // If not resolved locally, try to resolve with imports using the centralized method
-                if index
-                    .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
-                    .is_none()
-                {
+                // First, try local resolution but skip let-binding if used within its own initializer.
+                let found_local = index
+                    .resolve_name_to_definition_skip_let_initializer(
+                        &usage.name,
+                        usage.scope_id,
+                        usage.span,
+                    )
+                    .is_some();
+
+                // If not found locally, attempt resolving through imports with the same guard.
+                let found_import = if !found_local {
+                    index
+                        .resolve_name_with_imports_skip_let_initializer(
+                            db,
+                            crate_id,
+                            file,
+                            &usage.name,
+                            usage.scope_id,
+                            usage.span,
+                        )
+                        .is_some()
+                } else {
+                    true
+                };
+
+                if !found_import {
                     // Only report each undeclared variable once
                     if seen_undeclared.insert(usage.name.clone()) {
                         sink.push(Diagnostic::undeclared_variable(

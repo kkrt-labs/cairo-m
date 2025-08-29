@@ -452,6 +452,109 @@ impl SemanticIndex {
         }
     }
 
+    /// Resolve a name to its definition, but skip a `let` binding if the identifier usage is
+    /// inside that binding's own initializer expression. This avoids self-referential cycles
+    /// like `let x = x + 1;`.
+    pub fn resolve_name_to_definition_skip_let_initializer(
+        &self,
+        name: &str,
+        starting_scope: FileScopeId,
+        usage_span: chumsky::span::SimpleSpan<usize>,
+    ) -> Option<(DefinitionIndex, &Definition)> {
+        let mut current_scope = Some(starting_scope);
+
+        while let Some(scope_id) = current_scope {
+            if let Some(place_table) = self.place_table(scope_id) {
+                if let Some(place_ids) = place_table.all_place_ids_by_name(name) {
+                    // Iterate newest-first (supports shadowing)
+                    for &place_id in place_ids.iter().rev() {
+                        if let Some((def_idx, def)) = self.definition_for_place(scope_id, place_id)
+                        {
+                            let skip = if let crate::definition::DefinitionKind::Let(let_ref) =
+                                &def.kind
+                            {
+                                if let Some(init_expr_id) = let_ref.value_expr_id {
+                                    if let Some(init_expr) = self.expression(init_expr_id) {
+                                        let init_span = init_expr.ast_span;
+                                        usage_span.start >= init_span.start
+                                            && usage_span.end <= init_span.end
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            };
+
+                            if skip {
+                                continue;
+                            }
+
+                            return Some((def_idx, def));
+                        }
+                    }
+                }
+            }
+
+            // Move to parent scope
+            current_scope = self.scope(scope_id).and_then(|s| s.parent);
+        }
+
+        None
+    }
+
+    /// Resolve a name with cross-module support, but skip local `let` definitions
+    /// that are being referenced from within their own initializers.
+    pub fn resolve_name_with_imports_skip_let_initializer(
+        &self,
+        db: &dyn crate::SemanticDb,
+        crate_id: crate::Crate,
+        file: crate::File,
+        name: &str,
+        starting_scope: crate::FileScopeId,
+        usage_span: chumsky::span::SimpleSpan<usize>,
+    ) -> Option<(DefinitionIndex, crate::Definition, crate::File)> {
+        // First try local resolution with skip rule
+        if let Some((def_idx, def)) =
+            self.resolve_name_to_definition_skip_let_initializer(name, starting_scope, usage_span)
+        {
+            if !matches!(def.kind, crate::definition::DefinitionKind::Use(_)) {
+                return Some((def_idx, def.clone(), file));
+            }
+            // If it's an import, let the import resolution handle it below
+        }
+
+        // If not found locally, check imports visible from this scope
+        let imports = self.get_imports_in_scope(starting_scope);
+        for use_def_ref in imports {
+            if use_def_ref.item.value() == name {
+                // Resolve in the imported module
+                let imported_module_index = crate::module_semantic_index(
+                    db,
+                    crate_id,
+                    use_def_ref.imported_module.value().clone(),
+                )
+                .ok()?;
+                if let Some(imported_root) = imported_module_index.root_scope() {
+                    if let Some((imported_def_idx, imported_def)) =
+                        imported_module_index.resolve_name_to_definition(name, imported_root)
+                    {
+                        if let Some(imported_file) = crate_id
+                            .modules(db)
+                            .get(use_def_ref.imported_module.value())
+                        {
+                            return Some((imported_def_idx, imported_def.clone(), *imported_file));
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     /// Resolve a name with cross-module support
     ///
     /// This is the single source of truth for name resolution. It attempts to resolve names in this order:
