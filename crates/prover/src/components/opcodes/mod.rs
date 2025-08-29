@@ -191,21 +191,12 @@ macro_rules! define_opcodes {
                     Instruction::U32StoreMulFpFp { .. } => {},
                     Instruction::U32StoreDivFpFp { .. } => {},
                     Instruction::U32StoreAddFpImm { .. } => {},
-                    Instruction::U32StoreSubFpImm { .. } => {},
                     Instruction::U32StoreMulFpImm { .. } => {},
                     Instruction::U32StoreDivFpImm { .. } => {},
                     Instruction::U32StoreEqFpFp { .. } => {},
-                    Instruction::U32StoreNeqFpFp { .. } => {},
-                    Instruction::U32StoreGtFpFp { .. } => {},
-                    Instruction::U32StoreGeFpFp { .. } => {},
                     Instruction::U32StoreLtFpFp { .. } => {},
-                    Instruction::U32StoreLeFpFp { .. } => {},
                     Instruction::U32StoreEqFpImm { .. } => {},
-                    Instruction::U32StoreNeqFpImm { .. } => {},
-                    Instruction::U32StoreGtFpImm { .. } => {},
-                    Instruction::U32StoreGeFpImm { .. } => {},
                     Instruction::U32StoreLtFpImm { .. } => {},
-                    Instruction::U32StoreLeFpImm { .. } => {},
                     Instruction::U32StoreAndFpFp { .. } => {},
                     Instruction::U32StoreOrFpFp { .. } => {},
                     Instruction::U32StoreXorFpFp { .. } => {},
@@ -259,7 +250,7 @@ define_opcodes!(
         store_fp_fp
     ),
     (
-        [StoreAddFpImm, StoreSubFpImm, StoreMulFpImm, StoreDivFpImm,],
+        [StoreAddFpImm, StoreMulFpImm,], // StoreSubFpImm, StoreDivFpImm removed
         store_fp_imm
     ),
     ([StoreDoubleDerefFp], store_double_deref_fp),

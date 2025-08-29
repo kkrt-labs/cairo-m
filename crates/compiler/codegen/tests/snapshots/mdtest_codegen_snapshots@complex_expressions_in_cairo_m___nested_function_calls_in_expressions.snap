@@ -30,12 +30,12 @@ Generated CASM:
 compute_base:
 compute_base:
 compute_base_0:
-   0: 6 -4 2 -3            // [fp + -3] = [fp + -4] op 2
+   0: 6 -4 2 -3            // [fp + -3] = [fp + -4] * 2
    1: 11 _ _ _             // return
 compute_offset:
 compute_offset:
 compute_offset_0:
-   2: 4 -4 5 -3            // [fp + -3] = [fp + -4] op 5
+   2: 4 -4 5 -3            // [fp + -3] = [fp + -4] + 5
    3: 11 _ _ _             // return
 test_function_expressions:
 test_function_expressions:

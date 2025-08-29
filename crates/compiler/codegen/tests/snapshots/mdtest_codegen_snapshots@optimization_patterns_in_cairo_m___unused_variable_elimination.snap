@@ -17,5 +17,5 @@ test_unused_elimination:
 test_unused_elimination_0:
    0: 9 5 -3 _             // [fp + -3] = 5
    1: 9 10 1 _             // [fp + 1] = 10
-   2: 6 -3 2 2             // [fp + 2] = [fp + -3] op 2
+   2: 6 -3 2 2             // [fp + 2] = [fp + -3] * 2
    3: 11 _ _ _             // return

@@ -12,6 +12,7 @@ use cairo_m_compiler_mir::{
     MirType, Terminator, Value, ValueId,
 };
 
+use crate::mir_passes::legalize::legalize_module_for_vm;
 use crate::{
     CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand,
 };
@@ -48,11 +49,15 @@ impl CodeGenerator {
 
     /// Generate CASM code for an entire MIR module
     pub fn generate_module(&mut self, module: &MirModule) -> CodegenResult<()> {
-        // Step 1: Calculate layouts for all functions
-        self.calculate_all_layouts(module)?;
+        // Clone MIR and run target-specific legalization so builder can assume invariants.
+        let mut legalized = module.clone();
+        legalize_module_for_vm(&mut legalized);
+
+        // Step 1: Calculate layouts for all functions (post-legalization)
+        self.calculate_all_layouts(&legalized)?;
 
         // Step 2: Generate code for all functions (first pass)
-        self.generate_all_functions(module)?;
+        self.generate_all_functions(&legalized)?;
 
         // Step 3: Calculate memory layout for variable-sized instructions
         self.calculate_memory_layout()?;
@@ -179,7 +184,7 @@ impl CodeGenerator {
         self.function_entrypoints
             .insert(function.name.clone(), entrypoint_info);
 
-        builder.add_label(func_label);
+        builder.emit_add_label(func_label);
 
         // Generate code for all basic blocks
         self.generate_basic_blocks(function, module, &mut builder)?;
@@ -218,7 +223,7 @@ impl CodeGenerator {
         for (block_id, block) in function.basic_blocks.iter_enumerated() {
             // Add block label
             let block_label = Label::for_block(&function.name, block_id);
-            builder.add_label(block_label);
+            builder.emit_add_label(block_label);
 
             for (idx, instruction) in block.instructions.iter().enumerate() {
                 self.generate_instruction(
@@ -342,6 +347,18 @@ impl CodeGenerator {
                 left,
                 right,
             } => {
+                // Post-legalization invariant: only U32Eq/U32Less remain among u32 comparisons.
+                debug_assert!(
+                    !matches!(
+                        op,
+                        BinaryOp::U32Neq
+                            | BinaryOp::U32Greater
+                            | BinaryOp::U32LessEqual
+                            | BinaryOp::U32GreaterEqual
+                    ),
+                    "Illegalized u32 comparison {:?} should not reach codegen (expected legalizer to rewrite)",
+                    op
+                );
                 // Direct Argument Placement Optimization
                 let mut target_offset = self.find_direct_argument_placement_offset(
                     *dest,
@@ -383,20 +400,7 @@ impl CodeGenerator {
                 let callee_function = module.functions.get(*callee).ok_or_else(|| {
                     CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
                 })?;
-
-                let callee_name = &callee_function.name;
-                let _num_returns = callee_function.return_values.len();
-
-                if dests.is_empty() {
-                    // Void call (no return values)
-                    builder.void_call(callee_name, args, signature)?;
-                } else if dests.len() == 1 {
-                    // Single return value
-                    builder.call(dests[0], callee_name, args, signature)?;
-                } else {
-                    // Multiple return values
-                    builder.call_multiple(dests, callee_name, args, signature)?;
-                }
+                builder.lower_call(&callee_function.name, args, signature, dests)?;
             }
             InstructionKind::Cast {
                 dest,
@@ -631,7 +635,7 @@ impl CodeGenerator {
                     }
                 }
                 let target_label = format!("{function_name}_{target:?}");
-                builder.jump(&target_label)?;
+                builder.jump(&target_label);
             }
 
             Terminator::If {
@@ -646,7 +650,7 @@ impl CodeGenerator {
                 // Because CASM has only JNZ, we need to jump to the then_label if the condition is true.
                 // We can't optimize a fallthrough.
                 builder.jnz(*condition, &then_label)?;
-                builder.jump(&else_label)?;
+                builder.jump(&else_label);
             }
 
             Terminator::BranchCmp {
@@ -668,66 +672,72 @@ impl CodeGenerator {
                 match op {
                     BinaryOp::Eq => {
                         // For felt comparison, compute `a - b`. Result is zero if equal.
-                        builder.generate_arithmetic_op(
+                        builder.compute_into_offset(
                             BinaryOp::Sub,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to else if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &else_label)?;
+                        builder.jnz_offset(temp_slot_offset, &else_label);
                         // Fallthrough to the `then` block if the `jnz` was not taken.
                         let then_is_next = next_block_id == Some(*then_target);
                         if !then_is_next {
-                            builder.jump(&then_label)?;
+                            builder.jump(&then_label);
                         }
                     }
                     BinaryOp::Neq => {
                         // For felt comparison, compute `a - b`. Result is non-zero if not equal.
-                        builder.generate_arithmetic_op(
+                        builder.compute_into_offset(
                             BinaryOp::Sub,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to then if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        builder.jnz_offset(temp_slot_offset, &then_label);
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {
-                            builder.jump(&else_label)?;
+                            builder.jump(&else_label);
                         }
                     }
                     BinaryOp::U32Eq => {
                         // For U32 comparison, use U32Eq which returns a felt (1 if equal, 0 if not)
-                        builder.generate_u32_op(
+                        builder.compute_into_offset(
                             BinaryOp::U32Eq,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
                         // Jump to then if non-zero (equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label)?;
+                        builder.jnz_offset(temp_slot_offset, &then_label);
                         // Fallthrough to the `else` block if the `jnz` was not taken.
                         let else_is_next = next_block_id == Some(*else_target);
                         if !else_is_next {
-                            builder.jump(&else_label)?;
+                            builder.jump(&else_label);
                         }
                     }
                     BinaryOp::U32Neq => {
-                        // For U32 comparison, use U32Neq which returns a felt (1 if not equal, 0 if equal)
-                        builder.generate_u32_op(
-                            BinaryOp::U32Neq,
+                        // Builder only accepts U32Eq/U32Less for u32 comparisons.
+                        // Implement `a != b` as:
+                        //   tmp = (a == b)
+                        //   if tmp != 0 -> else (equal)
+                        //   else -> then (not equal)
+                        builder.compute_into_offset(
+                            BinaryOp::U32Eq,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
-                        // Jump to then if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label)?;
-                        // Fallthrough to the `else` block if the `jnz` was not taken.
-                        let else_is_next = next_block_id == Some(*else_target);
-                        if !else_is_next {
-                            builder.jump(&else_label)?;
+
+                        // If equal (tmp != 0), jump to else
+                        builder.jnz_offset(temp_slot_offset, &else_label);
+
+                        // Otherwise, flow to then. If then isn't next, emit a jump.
+                        let then_is_next = next_block_id == Some(*then_target);
+                        if !then_is_next {
+                            builder.jump(&then_label);
                         }
                     }
                     _ => {

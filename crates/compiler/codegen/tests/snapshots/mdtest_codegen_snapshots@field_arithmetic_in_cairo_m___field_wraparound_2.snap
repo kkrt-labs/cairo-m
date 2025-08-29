@@ -1,0 +1,18 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Field Arithmetic in Cairo-M - Field Wraparound 2"
+input_file: mdtest/01-basics/04-arithmetic.md
+---
+Source:
+fn test_wraparound_lower() -> felt {
+    let min = 0;
+    return min - 1;  // Wraps to 2^31 - 2
+}
+============================================================
+Generated CASM:
+test_wraparound_lower:
+test_wraparound_lower:
+test_wraparound_lower_0:
+   0: 9 0 0 _              // [fp + 0] = 0
+   1: 4 0 2147483646 -3    // [fp + -3] = [fp + 0] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   2: 11 _ _ _             // return

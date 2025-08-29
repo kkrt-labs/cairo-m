@@ -26,6 +26,11 @@ pub mod builder;
 pub mod db;
 pub mod generator;
 pub mod layout;
+pub mod mir_passes;
+
+// Test support utilities (only compiled for tests)
+#[cfg(test)]
+pub mod test_support;
 
 // Re-export main components
 pub use backend::{compile_module, validate_for_casm};

@@ -26,8 +26,8 @@ count_down_1:
    4: 14 3 2 _             // if [fp + 3] != 0 jmp rel count_down_2
    5: 12 11 _ _            // jump abs count_down_3
 count_down_2:
-   6: 5 3 1 4              // [fp + 4] = [fp + 3] op 1
-   7: 4 2 1 5              // [fp + 5] = [fp + 2] op 1
+   6: 4 3 2147483646 4     // [fp + 4] = [fp + 3] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   7: 4 2 1 5              // [fp + 5] = [fp + 2] + 1
    8: 4 5 0 2              // [fp + 2] = [fp + 5] + 0
    9: 4 4 0 3              // [fp + 3] = [fp + 4] + 0
   10: 12 4 _ _             // jump abs count_down_1

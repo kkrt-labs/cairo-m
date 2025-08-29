@@ -16,7 +16,7 @@ fn test_single_arg_opt() -> felt {
 ============================================================
 Generated CASM:
 increment:
-   0: 4 -4 1 -3            // [fp + -3] = [fp + -4] op 1
+   0: 4 -4 1 -3            // [fp + -3] = [fp + -4] + 1
    1: 11 _ _ _             // return
 test_single_arg_opt:
 test_single_arg_opt:

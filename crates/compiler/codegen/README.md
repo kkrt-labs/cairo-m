@@ -2,102 +2,119 @@
 
 ## Overview
 
-The `codegen` crate is responsible for translating MIR (Mid-level Intermediate
-Representation) to CASM (Cairo Assembly) instructions. It's the final stage of
-the Cairo-M compiler pipeline that produces executable assembly code for the
-Cairo VM.
+The `codegen` crate translates MIR (Mid-level Intermediate Representation) into
+CASM (Cairo Assembly). It is the final stage of the Cairo‑M compiler pipeline
+and produces instructions executable by the Cairo VM.
+
+This crate follows a “Normalize → Select → Emit” architecture:
+
+- Normalize: Canonicalize shapes (swap/complement/bias rules) into a small set
+  of normalized operations.
+- Select: Choose opcodes from a single source of truth (opcodes table) for the
+  normalized shape.
+- Emit: Push instructions, labels, and track frame writes through a single
+  emission seam.
 
 ## Architecture
 
 ### Core Components
 
-- **`generator.rs`**: Main code generation orchestration
-  - Implements two-pass compilation: instruction generation followed by label
-    resolution
-  - Manages function and basic block generation
-  - Handles control flow between blocks
+- `generator.rs`: Orchestrates code generation (two-pass: generation and label
+  resolution), walks functions and basic blocks, and delegates to the builder
+  facade.
 
-- **`builder.rs`**: Instruction building utilities
-  - Provides high-level methods for generating CASM instructions
-  - Translates MIR instructions to Cairo VM opcodes
-  - Implements binary operations, assignments, function calls, and control flow
+- `builder.rs`: Thin facade and state holder (frame usage, labels, instruction
+  buffer). Delegates domain logic to small modules:
+  - `builder/emit.rs`: Central emission helpers (push instructions, labels,
+    touch tracking). All pushes and label creation go through here.
+  - `builder/copy.rs`: Felt/u32/aggregate copy utilities (`copy_slots`,
+    `store_copy_u32`). Eliminates ad‑hoc loops.
+  - `builder/normalize.rs`: Pure normalization rules (swap/complement/bias). No
+    side effects, easy to test.
+  - `builder/opcodes.rs`: Opcode selection table for normalized ops (single
+    source of truth).
+  - `builder/felt.rs`: Felt operations (assign/arith/boolean) using normalize +
+    opcode selection + emit.
+  - `builder/u32_ops.rs`: U32 arithmetic/comparison/bitwise ops; handles two’s
+    complement, bias rules, complements.
+  - `builder/ctrlflow.rs`: Short‑circuit lowering templates (AND/OR/NOT) in one
+    place.
+  - `builder/calls.rs`: Calls, argument passing (with in‑place optimization),
+    and returns.
 
-- **`layout.rs`**: Stack frame layout management
-  - Calculates fp-relative offsets for all values
-  - Implements Cairo calling convention:
-    - Arguments: `fp - M - K - 2` to `fp - K - 3`
-    - Return values: `fp - K - 2` to `fp - 3`
-    - Locals: `fp + 0` onwards
+- `layout.rs`: Stack frame layout management
+  - Computes fp‑relative offsets for all values
+  - Calling convention (callee perspective):
+    - Arguments: `fp - M - K - 2` .. `fp - K - 3`
+    - Return values: `fp - K - 2` .. `fp - 3`
+    - Locals/temps: `fp + 0` ..
+  - Provides `FunctionLayout::new_for_test()` and `allocate_value` for
+    lightweight tests.
 
-### Key Features
+## Testing Strategy
 
-✅ **Implemented**:
+Two complementary approaches:
 
-- Basic arithmetic operations (add, sub, mul, div)
-- Control flow (if-else, jumps, conditional branches)
-- Function calls with arguments and return values
-- Local variables and parameter handling
-- Label resolution for jumps and function calls
-- Stack frame management
+- Unit tests (preferred for logic close to the builder):
+  - Pure rules (normalize, opcode selection): small, fast, deterministic tests.
+  - Emission sequences (ctrlflow, felt/u32 ops, copy, calls): construct a
+    minimal `FunctionLayout::new_for_test()`, allocate a few `ValueId`s with
+    known offsets, invoke the corresponding API, and assert on
+    `InstructionBuilder` opcodes/operands and labels.
+  - Reusable helpers: `ValueId::from_raw`, `Value::{operand, integer, boolean}`
+    keep tests concise.
 
-❌ **Not Yet Implemented**:
+- Snapshot tests (integration):
+  - Live in `tests/` and exercise full MIR → CASM paths.
+  - Use `insta` to manage snapshots. After a refactor that changes comments or
+    sequencing, update via `cargo insta review`.
 
-- Debug instructions
+Run all tests:
 
-## CASM Output Format
+- Unit/build checks: `cargo check -p cairo-m-compiler-codegen`
+- Full tests: `cargo test -p cairo-m-compiler-codegen`
+- Review snapshots (when needed):
+  `cargo insta review -p cairo-m-compiler-codegen`
 
-Generated CASM follows this format (debug mode):
+## Key Features
 
-```text
-label_name:
-  PC: OPCODE OFF0 OFF1 OFF2 OPERAND    // comment
-```
+- Felt arithmetic and boolean operations
+- U32 arithmetic, comparisons, and bitwise operations
+- Short‑circuit boolean lowering (AND/OR/NOT) in one place
+- Function calls with argument‑in‑place optimization and return handling
+- Label resolution for jumps and calls
+- Stack frame layout and frame usage tracking
 
-Examples:
+## Design Principles
 
-- `6 -3 42` - Store immediate 42 at [fp -3]
-- `0 -6 -5 2` - Add [fp -6] and [fp -5], store at [fp +2]
-- `12 7 10` - Call function at address 10
-- `31 0 4` - Jump relative 4 if [fp +0] != 0
+- Single‑purpose modules: Each concern (normalize, selection, emission,
+  ctrlflow, calls) has its own module and tests.
+- Deterministic emission: All pushes/labels/touch go through `emit.rs` to ensure
+  uniform behavior and easier auditing.
+- Testable by construction: Pure rules and small templates make it
+  straightforward to reason about and unit test codegen decisions.
 
 ## Contributing
 
-### Adding New Instructions
+When adding or changing codegen:
 
-1. Add the MIR instruction case in `builder.rs::generate_instruction()`
-2. Implement the translation logic using `CasmBuilder` methods
-3. Add test cases in `tests/test_cases/`
-4. Run tests and update snapshots:
-   `cargo test --package cairo-m-compiler-codegen`
+- Put logic in the appropriate module (e.g.,
+  felt/u32/ctrlflow/calls/copy/normalize/opcodes).
+- Add unit tests close to the logic you changed. Prefer small tests that assert
+  opcodes and operands.
+- If a change affects integration snapshots, run `cargo test` and update via
+  `cargo insta review`.
 
-### Testing
+Guidelines:
 
-The crate uses snapshot testing with `insta`. Test workflow:
-
-1. Write a `.cm` test file in `tests/test_cases/`
-2. Add a test function in `tests/codegen_tests.rs`
-3. Run tests: `cargo test`
-4. Review snapshots: `cargo insta review`
-
-### Code Style
-
-- Use descriptive variable names
-- Add comments for complex logic
-- Follow Rust naming conventions
-- Keep functions focused and small
-- Write comprehensive tests for new features
-
-## Design Decisions
-
-1. **Two-Pass Compilation**: First generate instructions with symbolic labels,
-   then resolve to concrete addresses
-2. **FP-Relative Addressing**: All memory access is frame pointer relative
-3. **Calling Convention**: Follows Cairo VM conventions with communication area
-   for arguments
-4. **Error Handling**: Structured errors with specific variants for different
-   failure modes
+- Keep functions focused and small; avoid monolithic match arms.
+- Prefer data‑driven normalization and selection to ad‑hoc rewrites.
+- Treat comments as part of the contract — they are visible in snapshots and
+  help users understand the output.
 
 ## Future Improvements
 
-See `session.md` for the current development roadmap and optimization
-opportunities.
+- Expand normalization coverage (more derived ops, fewer explicit opcodes).
+- Broaden unit test coverage (bitwise and comparisons) where useful.
+- Explore additional short‑circuit patterns (e.g., chained logical operators) if
+  MIR needs it.

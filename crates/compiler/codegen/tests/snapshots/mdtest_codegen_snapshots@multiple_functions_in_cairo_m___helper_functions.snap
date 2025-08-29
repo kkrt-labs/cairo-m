@@ -66,6 +66,6 @@ multiply_values_0:
 combine_results:
 combine_results:
 combine_results_0:
-  22: 6 -5 10 0            // [fp + 0] = [fp + -5] op 10
+  22: 6 -5 10 0            // [fp + 0] = [fp + -5] * 10
   23: 0 0 -4 -3            // [fp + -3] = [fp + 0] op [fp + -4]
   24: 11 _ _ _             // return

@@ -70,6 +70,22 @@ fn test_u32_sub() -> u32 {
 }
 ```
 
+```cairo-m
+fn test_u32_sub_underflow() -> u32 {
+    let x: u32 = 4294967290;
+    let y: u32 = 4294967295;
+    return x - y;
+}
+```
+
+```rust
+fn test_u32_sub_underflow() -> u32 {
+    let x: u32 = 4294967290;
+    let y: u32 = 4294967295;
+    return x.wrapping_sub(y);
+}
+```
+
 ### U32 Multiplication
 
 ```cairo-m
@@ -98,6 +114,8 @@ fn test_u32_div() -> u32 {
     return x / y;
 }
 ```
+
+Division by zero panics.
 
 ## Type Inference
 

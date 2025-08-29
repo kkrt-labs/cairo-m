@@ -489,6 +489,7 @@ dependencies = [
  "index_vec",
  "insta",
  "num-traits",
+ "proptest",
  "rustc-hash 1.1.0",
  "salsa",
  "salsa-macros",

@@ -19,7 +19,6 @@
 use assert::{assert_eq_fp_fp, assert_eq_fp_imm};
 use cairo_m_common::instruction::*;
 use cairo_m_common::{Instruction, State};
-use stwo_prover::core::fields::m31::M31;
 
 use crate::vm::instructions::call::*;
 use crate::vm::instructions::jnz::*;
@@ -129,11 +128,11 @@ pub enum InstructionExecutionError {
 pub type InstructionFn =
     fn(&mut Memory, State, &Instruction) -> Result<State, InstructionExecutionError>;
 
-/// Maps an opcode to its corresponding instruction handler function.
+/// Maps an instruction to its corresponding instruction handler function.
 ///
 /// ## Arguments
 ///
-/// * `op` - The opcode ID as an [`M31`] field element.
+/// * `instruction` - The instruction to map to a function.
 ///
 /// ## Returns
 ///
@@ -142,89 +141,53 @@ pub type InstructionFn =
 ///
 /// ## Errors
 ///
-/// Returns [`InstructionError::InvalidOpcode`] if the provided opcode does not
-/// correspond to any implemented instruction.
-pub fn opcode_to_instruction_fn(op: M31) -> Result<InstructionFn, InstructionError> {
-    let f = match op.0 {
-        STORE_ADD_FP_FP => store_add_fp_fp,
-        STORE_ADD_FP_IMM => store_add_fp_imm,
-        STORE_SUB_FP_FP => store_sub_fp_fp,
-        STORE_SUB_FP_IMM => store_sub_fp_imm,
-        STORE_DOUBLE_DEREF_FP => store_double_deref_fp,
-        STORE_DOUBLE_DEREF_FP_FP => store_double_deref_fp_fp,
-        STORE_IMM => store_imm,
-        STORE_FP_IMM => store_fp_imm,
-        STORE_MUL_FP_FP => store_mul_fp_fp,
-        STORE_MUL_FP_IMM => store_mul_fp_imm,
-        STORE_DIV_FP_FP => store_div_fp_fp,
-        STORE_DIV_FP_IMM => store_div_fp_imm,
-        CALL_ABS_IMM => call_abs_imm,
-        RET => ret,
-        JMP_ABS_IMM => jmp_abs_imm,
-        JMP_REL_IMM => jmp_rel_imm,
-        JNZ_FP_IMM => jnz_fp_imm,
-        U32_STORE_ADD_FP_FP => u32_store_add_fp_fp,
-        U32_STORE_SUB_FP_FP => u32_store_sub_fp_fp,
-        U32_STORE_MUL_FP_FP => u32_store_mul_fp_fp,
-        U32_STORE_DIV_FP_FP => u32_store_div_fp_fp,
-        U32_STORE_ADD_FP_IMM => u32_store_add_fp_imm,
-        U32_STORE_SUB_FP_IMM => u32_store_sub_fp_imm,
-        U32_STORE_MUL_FP_IMM => u32_store_mul_fp_imm,
-        U32_STORE_DIV_FP_IMM => u32_store_div_fp_imm,
-        U32_STORE_IMM => u32_store_imm,
-        U32_STORE_EQ_FP_FP => u32_store_eq_fp_fp,
-        U32_STORE_NEQ_FP_FP => u32_store_neq_fp_fp,
-        U32_STORE_GT_FP_FP => u32_store_gt_fp_fp,
-        U32_STORE_GE_FP_FP => u32_store_ge_fp_fp,
-        U32_STORE_LT_FP_FP => u32_store_lt_fp_fp,
-        U32_STORE_LE_FP_FP => u32_store_le_fp_fp,
-        U32_STORE_EQ_FP_IMM => u32_store_eq_fp_imm,
-        U32_STORE_NEQ_FP_IMM => u32_store_neq_fp_imm,
-        U32_STORE_GT_FP_IMM => u32_store_gt_fp_imm,
-        U32_STORE_GE_FP_IMM => u32_store_ge_fp_imm,
-        U32_STORE_LT_FP_IMM => u32_store_lt_fp_imm,
-        U32_STORE_LE_FP_IMM => u32_store_le_fp_imm,
-        U32_STORE_AND_FP_FP => u32_store_and_fp_fp,
-        U32_STORE_OR_FP_FP => u32_store_or_fp_fp,
-        U32_STORE_XOR_FP_FP => u32_store_xor_fp_fp,
-        U32_STORE_AND_FP_IMM => u32_store_and_fp_imm,
-        U32_STORE_OR_FP_IMM => u32_store_or_fp_imm,
-        U32_STORE_XOR_FP_IMM => u32_store_xor_fp_imm,
-        STORE_TO_DOUBLE_DEREF_FP_IMM => store_to_double_deref_fp_imm,
-        STORE_TO_DOUBLE_DEREF_FP_FP => store_to_double_deref_fp_fp,
-        PRINT_M31 => print_m31,
-        PRINT_U32 => print_u32,
-        STORE_LOWER_THAN_FP_IMM => store_lower_than_fp_imm,
-        ASSERT_EQ_FP_FP => assert_eq_fp_fp,
-        ASSERT_EQ_FP_IMM => assert_eq_fp_imm,
-        _ => return Err(InstructionError::InvalidOpcode(op)),
+/// Returns [`InstructionError::InvalidOpcode`] if the provided instruction does not
+/// correspond to any implemented handler.
+pub fn instruction_to_fn(instruction: Instruction) -> Result<InstructionFn, InstructionError> {
+    let f = match instruction {
+        Instruction::StoreAddFpFp { .. } => store_add_fp_fp,
+        Instruction::StoreAddFpImm { .. } => store_add_fp_imm,
+        Instruction::StoreSubFpFp { .. } => store_sub_fp_fp,
+        Instruction::StoreDoubleDerefFp { .. } => store_double_deref_fp,
+        Instruction::StoreDoubleDerefFpFp { .. } => store_double_deref_fp_fp,
+        Instruction::StoreImm { .. } => store_imm,
+        Instruction::StoreFpImm { .. } => store_fp_imm,
+        Instruction::StoreMulFpFp { .. } => store_mul_fp_fp,
+        Instruction::StoreMulFpImm { .. } => store_mul_fp_imm,
+        Instruction::StoreDivFpFp { .. } => store_div_fp_fp,
+        Instruction::CallAbsImm { .. } => call_abs_imm,
+        Instruction::Ret { .. } => ret,
+        Instruction::JmpAbsImm { .. } => jmp_abs_imm,
+        Instruction::JmpRelImm { .. } => jmp_rel_imm,
+        Instruction::JnzFpImm { .. } => jnz_fp_imm,
+        Instruction::U32StoreAddFpFp { .. } => u32_store_add_fp_fp,
+        Instruction::U32StoreSubFpFp { .. } => u32_store_sub_fp_fp,
+        Instruction::U32StoreMulFpFp { .. } => u32_store_mul_fp_fp,
+        Instruction::U32StoreDivFpFp { .. } => u32_store_div_fp_fp,
+        Instruction::U32StoreAddFpImm { .. } => u32_store_add_fp_imm,
+        Instruction::U32StoreMulFpImm { .. } => u32_store_mul_fp_imm,
+        Instruction::U32StoreDivFpImm { .. } => u32_store_div_fp_imm,
+        Instruction::U32StoreImm { .. } => u32_store_imm,
+        Instruction::U32StoreEqFpFp { .. } => u32_store_eq_fp_fp,
+        Instruction::U32StoreLtFpFp { .. } => u32_store_lt_fp_fp,
+        Instruction::U32StoreEqFpImm { .. } => u32_store_eq_fp_imm,
+        Instruction::U32StoreLtFpImm { .. } => u32_store_lt_fp_imm,
+        Instruction::U32StoreAndFpFp { .. } => u32_store_and_fp_fp,
+        Instruction::U32StoreOrFpFp { .. } => u32_store_or_fp_fp,
+        Instruction::U32StoreXorFpFp { .. } => u32_store_xor_fp_fp,
+        Instruction::U32StoreAndFpImm { .. } => u32_store_and_fp_imm,
+        Instruction::U32StoreOrFpImm { .. } => u32_store_or_fp_imm,
+        Instruction::U32StoreXorFpImm { .. } => u32_store_xor_fp_imm,
+        Instruction::StoreToDoubleDerefFpImm { .. } => store_to_double_deref_fp_imm,
+        Instruction::StoreToDoubleDerefFpFp { .. } => store_to_double_deref_fp_fp,
+        Instruction::PrintM31 { .. } => print_m31,
+        Instruction::PrintU32 { .. } => print_u32,
+        Instruction::StoreLowerThanFpImm { .. } => store_lower_than_fp_imm,
+        Instruction::AssertEqFpFp { .. } => assert_eq_fp_fp,
+        Instruction::AssertEqFpImm { .. } => assert_eq_fp_imm,
     };
     Ok(f)
 }
 
 #[cfg(test)]
 mod print_tests;
-
-#[cfg(test)]
-mod tests {
-    use cairo_m_common::instruction::{InstructionError, MAX_OPCODE};
-    use stwo_prover::core::fields::m31::M31;
-
-    use super::opcode_to_instruction_fn;
-
-    #[test]
-    fn test_opcode_to_instruction_fn_invalid_opcode() {
-        let invalid_opcode = M31(2_u32.pow(30));
-        let result = opcode_to_instruction_fn(invalid_opcode);
-        assert_eq!(result, Err(InstructionError::InvalidOpcode(invalid_opcode)));
-    }
-
-    #[test]
-    fn test_opcode_to_instruction_fn_valid_opcodes() {
-        for opcode_value in 0..=MAX_OPCODE {
-            let opcode = M31(opcode_value);
-            let result = opcode_to_instruction_fn(opcode);
-            assert!(result.is_ok(), "Opcode {opcode_value} should be valid");
-        }
-    }
-}
