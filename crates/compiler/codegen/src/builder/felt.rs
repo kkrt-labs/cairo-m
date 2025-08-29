@@ -302,27 +302,6 @@ impl super::CasmBuilder {
     pub(super) fn bool_not(&mut self, dest_off: i32, source: Value) -> CodegenResult<()> {
         self.sc_not(dest_off, &source)
     }
-
-    /// Compute boolean complement in place: dest = 1 - dest, alias-safe.
-    pub(crate) fn complement_felt_in_place(&mut self, dest_off: i32) {
-        // Stage 1 in tmp_a
-        let tmp_a = self.layout.reserve_stack(1);
-        self.store_immediate(1, tmp_a, format!("[fp + {tmp_a}] = 1"));
-        // Copy current dest to tmp_b to avoid src/dst alias
-        let tmp_b = self.layout.reserve_stack(1);
-        self.store_copy_single(
-            dest_off,
-            tmp_b,
-            format!("[fp + {tmp_b}] = [fp + {dest_off}] + 0"),
-        );
-        // Perform subtraction: dest = 1 - old_dest
-        self.felt_sub_fp_fp(
-            tmp_a,
-            tmp_b,
-            dest_off,
-            format!("[fp + {dest_off}] = 1 - [fp + {dest_off}]"),
-        );
-    }
 }
 
 /// Compute the M31-representation of `-imm` (i.e. add with negated immediate).
@@ -571,19 +550,6 @@ mod tests {
                 prop_assert_eq!(got.unwrap(), exp, "op={:?} a={} b={} left_reg={} right_reg={}",
                     op, a, b, left_reg, right_reg);
             }
-        }
-
-        #[test]
-        fn prop_complement_involution(val in 0u32..2) {
-            // Boolean values: 0 or 1
-            let (mut b, _) = mk_builder_with_value(val);
-            b.complement_felt_in_place(0);
-            b.complement_felt_in_place(0);
-
-            let mut mem = Mem::new(10);
-            exec(&mut mem, &b.instructions).unwrap();
-            // Double complement should give original value
-            prop_assert_eq!(mem.get(0), M31::from(val));
         }
     }
 

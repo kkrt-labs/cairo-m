@@ -2,6 +2,14 @@
 //!
 //! This module provides utilities for building CASM instructions from MIR values
 //! and function layouts.
+//!
+//! Invariants (post-legalization): The codegen pipeline now runs a target-specific
+//! MIR legalization pass before using this builder. As a result, when invoked via
+//! `CodeGenerator`, the builder may assume that u32 comparisons are restricted to
+//! `U32Eq` and strict `U32Less`. Other u32 comparison forms are rewritten by the
+//! legalizer using swaps and boolean `Not`. The builder still supports the full
+//! set of u32 comparison ops when called directly (e.g., unit tests), but the
+//! generator asserts that illegalized ops do not reach this stage.
 
 use cairo_m_common::instruction::*;
 use cairo_m_compiler_mir::{BinaryOp, DataLayout, Literal, MirType, Value, ValueId};

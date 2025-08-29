@@ -12,6 +12,7 @@ use cairo_m_compiler_mir::{
     MirType, Terminator, Value, ValueId,
 };
 
+use crate::mir_passes::legalize::legalize_module_for_vm;
 use crate::{
     CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand,
 };
@@ -48,11 +49,15 @@ impl CodeGenerator {
 
     /// Generate CASM code for an entire MIR module
     pub fn generate_module(&mut self, module: &MirModule) -> CodegenResult<()> {
-        // Step 1: Calculate layouts for all functions
-        self.calculate_all_layouts(module)?;
+        // Clone MIR and run target-specific legalization so builder can assume invariants.
+        let mut legalized = module.clone();
+        legalize_module_for_vm(&mut legalized);
+
+        // Step 1: Calculate layouts for all functions (post-legalization)
+        self.calculate_all_layouts(&legalized)?;
 
         // Step 2: Generate code for all functions (first pass)
-        self.generate_all_functions(module)?;
+        self.generate_all_functions(&legalized)?;
 
         // Step 3: Calculate memory layout for variable-sized instructions
         self.calculate_memory_layout()?;
@@ -342,6 +347,18 @@ impl CodeGenerator {
                 left,
                 right,
             } => {
+                // Post-legalization invariant: only U32Eq/U32Less remain among u32 comparisons.
+                debug_assert!(
+                    !matches!(
+                        op,
+                        BinaryOp::U32Neq
+                            | BinaryOp::U32Greater
+                            | BinaryOp::U32LessEqual
+                            | BinaryOp::U32GreaterEqual
+                    ),
+                    "Illegalized u32 comparison {:?} should not reach codegen (expected legalizer to rewrite)",
+                    op
+                );
                 // Direct Argument Placement Optimization
                 let mut target_offset = self.find_direct_argument_placement_offset(
                     *dest,
@@ -702,19 +719,25 @@ impl CodeGenerator {
                         }
                     }
                     BinaryOp::U32Neq => {
-                        // For U32 comparison, use U32Neq which returns a felt (1 if not equal, 0 if equal)
+                        // Builder only accepts U32Eq/U32Less for u32 comparisons.
+                        // Implement `a != b` as:
+                        //   tmp = (a == b)
+                        //   if tmp != 0 -> else (equal)
+                        //   else -> then (not equal)
                         builder.compute_into_offset(
-                            BinaryOp::U32Neq,
+                            BinaryOp::U32Eq,
                             temp_slot_offset,
                             *left,
                             *right,
                         )?;
-                        // Jump to then if non-zero (not equal)
-                        builder.jnz_offset(temp_slot_offset, &then_label);
-                        // Fallthrough to the `else` block if the `jnz` was not taken.
-                        let else_is_next = next_block_id == Some(*else_target);
-                        if !else_is_next {
-                            builder.jump(&else_label);
+
+                        // If equal (tmp != 0), jump to else
+                        builder.jnz_offset(temp_slot_offset, &else_label);
+
+                        // Otherwise, flow to then. If then isn't next, emit a jump.
+                        let then_is_next = next_block_id == Some(*then_target);
+                        if !then_is_next {
+                            builder.jump(&then_label);
                         }
                     }
                     _ => {

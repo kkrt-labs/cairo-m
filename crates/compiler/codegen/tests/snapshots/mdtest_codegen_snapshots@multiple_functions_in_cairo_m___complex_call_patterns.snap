@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
-assertion_line: 59
 description: "Codegen snapshot for mdtest: Multiple Functions in Cairo-M - Complex Call Patterns"
 input_file: mdtest/04-advanced/02-multiple-functions.md
 ---
@@ -46,7 +45,7 @@ test_complex_calls:
 test_complex_calls_0:
    0: 10 8 6 _             // call get_base_value
    1: 10 10 8 _            // call calculate_multiplier
-   2: 10 12 37 _           // call apply_transformation
+   2: 10 12 34 _           // call apply_transformation
    3: 4 10 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 10] + 0
    4: 4 11 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 11] + 0
    5: 11 _ _ _             // return
@@ -58,52 +57,50 @@ get_base_value_0:
 calculate_multiplier:
 calculate_multiplier:
 calculate_multiplier_0:
-   8: 34 -6 11 0 0         // [fp + 0] = u32([fp + -6], [fp + -5]) U32Greater u32(11, 0) /* imm = 0x0000000b */ (biased c' = 0x0000000b; gt = 1 - lt)
-   9: 9 1 5 _              // [fp + 5] = 1
-  10: 4 0 0 6              // [fp + 6] = [fp + 0] + 0
-  11: 1 5 6 0              // [fp + 0] = 1 - [fp + 0]
-  12: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
-  13: 12 21 _ _            // jump abs calculate_multiplier_2
+   8: 23 10 0 5            // [fp + 5], [fp + 6] = u32(10)
+   9: 28 5 -6 0            // [fp + 0] = u32([fp + 5], [fp + 6]) U32Less u32([fp + -6], [fp + -5])
+  10: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
+  11: 12 18 _ _            // jump abs calculate_multiplier_2
 calculate_multiplier_1:
-  14: 4 -6 0 7             // Arg 0 slot 0: [fp + 7] = [fp + -6] + 0
-  15: 4 -5 0 8             // Arg 0 slot 1: [fp + 8] = [fp + -5] + 0
-  16: 10 11 27 _           // call process_large
-  17: 4 9 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 9] + 0
-  18: 4 10 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 10] + 0
-  19: 11 _ _ _             // return
+  12: 4 -6 0 7             // Arg 0 slot 0: [fp + 7] = [fp + -6] + 0
+  13: 4 -5 0 8             // Arg 0 slot 1: [fp + 8] = [fp + -5] + 0
+  14: 10 11 24 _           // call process_large
+  15: 4 9 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 9] + 0
+  16: 4 10 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 10] + 0
+  17: 11 _ _ _             // return
 calculate_multiplier_2:
-  20: 4 -6 0 13            // Arg 0 slot 0: [fp + 13] = [fp + -6] + 0
-  21: 4 -5 0 14            // Arg 0 slot 1: [fp + 14] = [fp + -5] + 0
-  22: 10 17 32 _           // call process_small
-  23: 4 15 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 15] + 0
-  24: 4 16 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 16] + 0
-  25: 11 _ _ _             // return
+  18: 4 -6 0 13            // Arg 0 slot 0: [fp + 13] = [fp + -6] + 0
+  19: 4 -5 0 14            // Arg 0 slot 1: [fp + 14] = [fp + -5] + 0
+  20: 10 17 29 _           // call process_small
+  21: 4 15 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 15] + 0
+  22: 4 16 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 16] + 0
+  23: 11 _ _ _             // return
+process_large:
 process_large:
 process_large_0:
-  26: 22 -6 3 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) U32Div u32(3, 0) /* imm = 0x00000003 */
-process_large:
-  27: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  28: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  29: 11 _ _ _             // return
+  24: 22 -6 3 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) U32Div u32(3, 0) /* imm = 0x00000003 */
+  25: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  26: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  27: 11 _ _ _             // return
 process_small:
 process_small_0:
-  30: 21 -6 2 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) U32Mul u32(2, 0) /* imm = 0x00000002 */
-  31: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  28: 21 -6 2 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) U32Mul u32(2, 0) /* imm = 0x00000002 */
 process_small:
-  32: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
-  33: 11 _ _ _             // return
+  29: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  30: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  31: 11 _ _ _             // return
 apply_transformation:
 apply_transformation_0:
-  34: 15 -8 -6 4           // u32([fp + 4], [fp + 5]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + -6], [fp + -5])
-  35: 10 8 42 _            // call finalize_result
-  36: 4 6 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 6] + 0
+  32: 15 -8 -6 4           // u32([fp + 4], [fp + 5]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + -6], [fp + -5])
+  33: 10 8 39 _            // call finalize_result
 apply_transformation:
-  37: 4 7 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 7] + 0
-  38: 11 _ _ _             // return
+  34: 4 6 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 6] + 0
+  35: 4 7 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 7] + 0
+  36: 11 _ _ _             // return
 finalize_result:
 finalize_result_0:
-  39: 17 -6 -6 0           // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) U32Mul u32([fp + -6], [fp + -5])
-  40: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
-  41: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  37: 17 -6 -6 0           // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) U32Mul u32([fp + -6], [fp + -5])
+  38: 4 0 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
 finalize_result:
-  42: 11 _ _ _             // return
+  39: 4 1 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  40: 11 _ _ _             // return

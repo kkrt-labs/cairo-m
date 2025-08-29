@@ -38,11 +38,7 @@ pub fn u32_fp_fp(op: BinaryOp) -> CodegenResult<u32> {
         BinaryOp::U32Mul => Ok(U32_STORE_MUL_FP_FP),
         BinaryOp::U32Div => Ok(U32_STORE_DIV_FP_FP),
         BinaryOp::U32Eq => Ok(U32_STORE_EQ_FP_FP),
-        BinaryOp::U32Neq => Ok(U32_STORE_EQ_FP_FP), // derive neq = 1 - eq
-        BinaryOp::U32Greater => Ok(U32_STORE_LT_FP_FP), // gt = lt with swapped
-        BinaryOp::U32GreaterEqual => Ok(U32_STORE_LT_FP_FP), // ge = 1 - lt
         BinaryOp::U32Less => Ok(U32_STORE_LT_FP_FP),
-        BinaryOp::U32LessEqual => Ok(U32_STORE_LT_FP_FP), // le = 1 - gt = 1 - (lt with swapped)
         BinaryOp::U32BitwiseAnd => Ok(U32_STORE_AND_FP_FP),
         BinaryOp::U32BitwiseOr => Ok(U32_STORE_OR_FP_FP),
         BinaryOp::U32BitwiseXor => Ok(U32_STORE_XOR_FP_FP),
@@ -99,7 +95,7 @@ mod tests {
         assert_eq!(u32_fp_fp(BinaryOp::U32Div).unwrap(), U32_STORE_DIV_FP_FP);
         assert_eq!(u32_fp_fp(BinaryOp::U32Eq).unwrap(), U32_STORE_EQ_FP_FP);
         assert_eq!(u32_fp_fp(BinaryOp::U32Less).unwrap(), U32_STORE_LT_FP_FP);
-        assert_eq!(u32_fp_fp(BinaryOp::U32Greater).unwrap(), U32_STORE_LT_FP_FP);
+        // Only Eq/Lt are valid comparisons for fp-fp in builder path
 
         assert_eq!(u32_fp_imm(BinaryOp::U32Add).unwrap(), U32_STORE_ADD_FP_IMM);
         assert_eq!(u32_fp_imm(BinaryOp::U32Sub).unwrap(), U32_STORE_ADD_FP_IMM); // two's complement
@@ -107,9 +103,6 @@ mod tests {
         assert_eq!(u32_fp_imm(BinaryOp::U32Div).unwrap(), U32_STORE_DIV_FP_IMM);
         assert_eq!(u32_fp_imm(BinaryOp::U32Eq).unwrap(), U32_STORE_EQ_FP_IMM);
         assert_eq!(u32_fp_imm(BinaryOp::U32Less).unwrap(), U32_STORE_LT_FP_IMM);
-        assert_eq!(
-            u32_fp_imm(BinaryOp::U32GreaterEqual).unwrap(),
-            U32_STORE_LT_FP_IMM
-        );
+        // Only Eq/Lt are valid comparisons for fp-imm in builder path
     }
 }

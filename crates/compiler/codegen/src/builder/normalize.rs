@@ -1,95 +1,9 @@
-//! Normalization rules for operands and derived operations.
+//! Normalization helpers for operand shapes.
 //!
-//! Canonicalizes shapes and records transformations (swap/complement/bias) so
-//! selection and emission remain simple and uniform.
+//! Only commutative canonicalization remains: we move immediates to the RHS
+//! for commutative ops so the builder can consistently use FP_IMM encodings.
 
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
-
-#[derive(Clone, Copy, Debug)]
-pub struct CmpNorm {
-    pub op: BinaryOp,
-    pub swap: bool,
-    pub complement: bool,
-}
-
-pub const fn normalize_u32_cmp_fp_fp(op: BinaryOp) -> CmpNorm {
-    match op {
-        BinaryOp::U32Neq => CmpNorm {
-            op: BinaryOp::U32Eq,
-            swap: false,
-            complement: true,
-        },
-        BinaryOp::U32Greater => CmpNorm {
-            op: BinaryOp::U32Less,
-            swap: true,
-            complement: false,
-        },
-        BinaryOp::U32GreaterEqual => CmpNorm {
-            op: BinaryOp::U32Less,
-            swap: false,
-            complement: true,
-        },
-        BinaryOp::U32LessEqual => CmpNorm {
-            op: BinaryOp::U32Less,
-            swap: true,
-            complement: true,
-        },
-        _ => CmpNorm {
-            op,
-            swap: false,
-            complement: false,
-        },
-    }
-}
-
-// For fp-imm comparisons, some ops bias the immediate. Caller handles boundary cases.
-#[derive(Clone, Copy, Debug)]
-pub struct ImmNorm {
-    pub op: BinaryOp,
-    pub complement: bool,
-    pub biased_imm: Option<u32>,
-}
-
-pub const fn normalize_u32_cmp_fp_imm(op: BinaryOp, imm: u32) -> ImmNorm {
-    match op {
-        BinaryOp::U32Neq => ImmNorm {
-            op: BinaryOp::U32Eq,
-            complement: true,
-            biased_imm: None,
-        },
-        BinaryOp::U32Greater => {
-            // x > c == 1 - (x < c+1). Caller must handle c==MAX separately.
-            ImmNorm {
-                op: BinaryOp::U32Less,
-                complement: true,
-                biased_imm: Some(imm.wrapping_add(1)),
-            }
-        }
-        BinaryOp::U32GreaterEqual => ImmNorm {
-            op: BinaryOp::U32Less,
-            complement: true,
-            biased_imm: None,
-        },
-        BinaryOp::U32Less => ImmNorm {
-            op,
-            complement: false,
-            biased_imm: None,
-        },
-        BinaryOp::U32LessEqual => {
-            // x <= c == x < c+1. Caller must handle c==MAX separately (always true).
-            ImmNorm {
-                op: BinaryOp::U32Less,
-                complement: false,
-                biased_imm: Some(imm.wrapping_add(1)),
-            }
-        }
-        _ => ImmNorm {
-            op,
-            complement: false,
-            biased_imm: None,
-        },
-    }
-}
 
 /// Returns true if the felt binary op is commutative.
 pub const fn is_commutative_felt(op: BinaryOp) -> bool {
@@ -148,60 +62,24 @@ mod tests {
     use cairo_m_compiler_mir::BinaryOp;
 
     #[test]
-    fn test_u32_cmp_fp_fp_normalization() {
-        // neq -> eq with complement
-        let n = normalize_u32_cmp_fp_fp(BinaryOp::U32Neq);
-        assert!(matches!(n.op, BinaryOp::U32Eq));
-        assert!(n.complement);
-        assert!(!n.swap);
-
-        // gt -> lt with swap
-        let n = normalize_u32_cmp_fp_fp(BinaryOp::U32Greater);
-        assert!(matches!(n.op, BinaryOp::U32Less));
-        assert!(n.swap);
-        assert!(!n.complement);
-
-        // ge -> lt with complement
-        let n = normalize_u32_cmp_fp_fp(BinaryOp::U32GreaterEqual);
-        assert!(matches!(n.op, BinaryOp::U32Less));
-        assert!(n.complement);
-        assert!(!n.swap);
-
-        // le -> lt with swap + complement
-        let n = normalize_u32_cmp_fp_fp(BinaryOp::U32LessEqual);
-        assert!(matches!(n.op, BinaryOp::U32Less));
-        assert!(n.swap);
-        assert!(n.complement);
+    fn commutative_felt_immediate_right() {
+        let (l, r) = canonicalize_commutative_felt(
+            BinaryOp::Add,
+            Value::Literal(Literal::Integer(5)),
+            Value::Operand(cairo_m_compiler_mir::ValueId::from_raw(1)),
+        );
+        assert!(matches!(l, Value::Operand(_)));
+        assert!(matches!(r, Value::Literal(_)));
     }
 
     #[test]
-    fn test_u32_cmp_fp_imm_normalization_bias_and_complement() {
-        // neq: complement, no bias
-        let n = normalize_u32_cmp_fp_imm(BinaryOp::U32Neq, 123);
-        assert!(matches!(n.op, BinaryOp::U32Eq));
-        assert!(n.complement);
-        assert!(n.biased_imm.is_none());
-
-        // gt: complement + bias imm+1
-        let n = normalize_u32_cmp_fp_imm(BinaryOp::U32Greater, 7);
-        assert!(matches!(n.op, BinaryOp::U32Less));
-        assert!(n.complement);
-        assert_eq!(n.biased_imm, Some(8));
-
-        // le: bias imm+1, no complement
-        let n = normalize_u32_cmp_fp_imm(BinaryOp::U32LessEqual, 9);
-        assert!(matches!(n.op, BinaryOp::U32Less));
-        assert!(!n.complement);
-        assert_eq!(n.biased_imm, Some(10));
-
-        // ge: complement, no bias
-        let n = normalize_u32_cmp_fp_imm(BinaryOp::U32GreaterEqual, 42);
-        assert!(matches!(n.op, BinaryOp::U32Less));
-        assert!(n.complement);
-        assert!(n.biased_imm.is_none());
-
-        // Edge: bias wraps for MAX (caller handles boundary semantics)
-        let n = normalize_u32_cmp_fp_imm(BinaryOp::U32LessEqual, 0xFFFF_FFFF);
-        assert_eq!(n.biased_imm, Some(0));
+    fn commutative_u32_immediate_right() {
+        let (l, r) = canonicalize_commutative_u32(
+            BinaryOp::U32BitwiseAnd,
+            Value::Literal(Literal::Integer(0xFFFF_FFFF)),
+            Value::Operand(cairo_m_compiler_mir::ValueId::from_raw(2)),
+        );
+        assert!(matches!(l, Value::Operand(_)));
+        assert!(matches!(r, Value::Literal(_)));
     }
 }

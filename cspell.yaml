@@ -21,6 +21,7 @@ words:
   - chumsky
   - clippy
   - cmark
+  - cmps
   - codegen
   - combinators
   - csed
@@ -56,11 +57,13 @@ words:
   - inserttuple
   - insta
   - instrs
+  - insts
   - itertools
   - kats
   - kiro
   - kkrt
   - krate
+  - legalizer
   - logup
   - logups
   - lvalue
