@@ -8,9 +8,9 @@ use cairo_m_common::{Instruction, State};
 use num_traits::Zero;
 
 use super::InstructionExecutionError;
-use crate::extract_as;
 use crate::memory::Memory;
 use crate::vm::state::VmState;
+use cairo_m_common::extract_as;
 
 /// CASM equivalent:
 /// ```casm

@@ -32,12 +32,11 @@
 //! - Restore FP from memory, stored at fp - 2.
 //! - Update PC to the return address, stored at fp - 1.
 
-use cairo_m_common::{Instruction, State};
+use cairo_m_common::{extract_as, Instruction, State};
 use num_traits::One;
 use stwo_prover::core::fields::m31::M31;
 
 use super::InstructionExecutionError;
-use crate::extract_as;
 use crate::memory::Memory;
 use crate::vm::state::VmState;
 
