@@ -6,6 +6,8 @@ use cairo_m_common::instruction::*;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 use stwo_prover::core::fields::m31::M31;
 
+use super::opcodes::felt_fp_fp;
+
 impl super::CasmBuilder {
     pub(super) fn felt_arith(
         &mut self,
@@ -23,16 +25,7 @@ impl super::CasmBuilder {
             (Value::Operand(lid), Value::Operand(rid)) => {
                 let l_operand = self.layout.get_offset(*lid)?;
                 let r_operand = self.layout.get_offset(*rid)?;
-
-                let instr = InstructionBuilder::new(felt_fp_fp(op)?)
-                    .with_operand(Operand::Literal(l_operand))
-                    .with_operand(Operand::Literal(r_operand))
-                    .with_operand(Operand::Literal(dest_off))
-                    .with_comment(format!(
-                        "[fp + {dest_off}] = [fp + {l_operand}] op [fp + {r_operand}]"
-                    ));
-                self.emit_push(instr);
-                self.emit_touch(dest_off, 1);
+                self.felt_fp_fp_op(op, l_operand, r_operand, dest_off)?;
             }
             (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
                 let lo = self.layout.get_offset(*lid)?;
@@ -63,7 +56,6 @@ impl super::CasmBuilder {
                     .with_operand(Operand::Literal(dest_off))
                     .with_comment(comment);
                 self.emit_push(instr);
-                self.emit_touch(dest_off, 1);
             }
             (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
                 // Only add/mul are commutative; for sub/div use a temp
@@ -81,22 +73,13 @@ impl super::CasmBuilder {
                             .with_operand(Operand::Literal(dest_off))
                             .with_comment(comment);
                         self.emit_push(instr);
-                        self.emit_touch(dest_off, 1);
                     }
                     BinaryOp::Sub | BinaryOp::Div => {
                         // Stage immediate then use fp-fp form
                         let tmp = self.layout.reserve_stack(1);
                         self.store_immediate(*imm, tmp, format!("[fp + {tmp}] = {imm}"));
                         let ro = self.layout.get_offset(*rid)?;
-                        let instr = InstructionBuilder::new(super::opcodes::felt_fp_fp(op)?)
-                            .with_operand(Operand::Literal(tmp))
-                            .with_operand(Operand::Literal(ro))
-                            .with_operand(Operand::Literal(dest_off))
-                            .with_comment(format!(
-                                "[fp + {dest_off}] = [fp + {tmp}] op [fp + {ro}]"
-                            ));
-                        self.emit_push(instr);
-                        self.emit_touch(dest_off, 1);
+                        self.felt_fp_fp_op(op, tmp, ro, dest_off)?;
                     }
                     _ => unreachable!(),
                 }
@@ -124,7 +107,6 @@ impl super::CasmBuilder {
                 }
                 .0;
                 self.store_immediate(res, dest_off, format!("[fp + {dest_off}] = {res}"));
-                self.emit_touch(dest_off, 1);
                 return Ok(());
             }
             _ => unreachable!(),
@@ -185,6 +167,24 @@ impl super::CasmBuilder {
         self.emit_add_label(crate::Label::new(end_label));
     }
 
+    pub(crate) fn felt_fp_fp_op(
+        &mut self,
+        op: BinaryOp,
+        src0_off: i32,
+        src1_off: i32,
+        dst_off: i32,
+    ) -> CodegenResult<()> {
+        let op_opcode = felt_fp_fp(op)?;
+        let comment = format!("[fp + {dst_off}] = [fp + {src0_off}] op [fp + {src1_off}]");
+        let instr = InstructionBuilder::new(op_opcode)
+            .with_operand(Operand::Literal(src0_off))
+            .with_operand(Operand::Literal(src1_off))
+            .with_operand(Operand::Literal(dst_off))
+            .with_comment(comment);
+        self.emit_push(instr);
+        Ok(())
+    }
+
     pub(crate) fn felt_add_fp_fp(
         &mut self,
         src0_off: i32,
@@ -198,7 +198,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dst_off, 1);
     }
 
     pub(crate) fn felt_sub_fp_fp(
@@ -214,7 +213,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dst_off, 1);
     }
 
     pub(crate) fn felt_mul_fp_fp(
@@ -230,7 +228,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dst_off, 1);
     }
 
     pub(crate) fn felt_mul_fp_imm(
@@ -246,7 +243,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dst_off, 1);
     }
 
     pub(crate) fn felt_add_fp_imm(
@@ -262,7 +258,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dst_off, 1);
     }
 
     pub(crate) fn felt_lower_than_fp_imm(
@@ -278,7 +273,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dst_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dst_off, 1);
     }
 
     pub(super) fn bool_and(

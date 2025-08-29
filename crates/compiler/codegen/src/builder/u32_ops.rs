@@ -42,8 +42,6 @@ impl super::CasmBuilder {
     ) -> CodegenResult<()> {
         check_op(op)?;
         let is_cmp_op = is_cmp_u32_op(op);
-        let result_size = if is_cmp_op { 1 } else { 2 };
-
         // Normalize commutative immediate-left cases to immediate-right
         let (left, right) = super::normalize::canonicalize_commutative_u32(op, left, right);
 
@@ -52,42 +50,11 @@ impl super::CasmBuilder {
                 let lo = self.layout.get_offset(*lid)?;
                 let ro = self.layout.get_offset(*rid)?;
 
-                let instr = if is_cmp_op {
-                    let comment = if is_cmp_op {
-                        format!(
-                            "[fp + {dest_off}] = u32([fp + {lo}], [fp + {}]) {op} u32([fp + {ro}], [fp + {}])",
-                            lo + 1,
-                            ro + 1,
-                        )
-                    } else {
-                        format!(
-                            "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {lo}], [fp + {}]) {op} u32([fp + {ro}], [fp + {}])",
-                            dest_off + 1,
-                            lo + 1,
-                            ro + 1,
-                        )
-                    };
-                    InstructionBuilder::new(u32_fp_fp(op)?)
-                        .with_operand(Operand::Literal(lo))
-                        .with_operand(Operand::Literal(ro))
-                        .with_operand(Operand::Literal(dest_off))
-                        .with_comment(comment)
+                if is_cmp_op {
+                    self.u32_fp_fp_cmp(op, lo, ro, dest_off)?;
                 } else {
-                    // Non-comparison ops fallthrough handled below via opcode tables
-                    let comment = format!(
-                        "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {lo}], [fp + {}]) {op} u32([fp + {ro}], [fp + {}])",
-                        dest_off + 1,
-                        lo + 1,
-                        ro + 1,
-                    );
-                    InstructionBuilder::new(u32_fp_fp(op)?)
-                        .with_operand(Operand::Literal(lo))
-                        .with_operand(Operand::Literal(ro))
-                        .with_operand(Operand::Literal(dest_off))
-                        .with_comment(comment)
+                    self.u32_fp_fp_op(op, lo, ro, dest_off)?;
                 };
-                self.emit_push(instr);
-                self.emit_touch(dest_off, result_size);
             }
 
             (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
@@ -135,29 +102,16 @@ impl super::CasmBuilder {
                     return Err(CodegenError::InvalidMir("Division by zero".into()));
                 }
 
-                let instr = InstructionBuilder::new(u32_fp_imm(op)?)
-                    .with_operand(Operand::Literal(lo))
-                    .with_operand(Operand::Literal(low))
-                    .with_operand(Operand::Literal(high))
-                    .with_operand(Operand::Literal(dest_off))
-                    .with_comment(comment);
-                self.emit_push(instr);
-                self.emit_touch(dest_off, result_size);
+                self.u32_fp_imm_op(op, lo, low, high, dest_off, comment)?;
             }
 
             (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
                 let ro = self.layout.get_offset(*rid)?;
                 match op {
                     BinaryOp::U32Add | BinaryOp::U32Mul => {
-                        let (lo, hi) = split_u32_i32(*imm as i32);
-                        let instr = InstructionBuilder::new(u32_fp_imm(op)?)
-                            .with_operand(Operand::Literal(ro))
-                            .with_operand(Operand::Literal(lo))
-                            .with_operand(Operand::Literal(hi))
-                            .with_operand(Operand::Literal(dest_off))
-                            .with_comment(format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {ro}]) {op} u32({lo}, {hi})", dest_off + 1));
-                        self.emit_push(instr);
-                        self.emit_touch(dest_off, result_size);
+                        let (lo, hi) = super::split_u32_value(*imm);
+                        let comment = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {ro}], [fp + {}]) {op} u32({lo}, {hi})", dest_off+1, ro+1);
+                        self.u32_fp_imm_op(op, ro, lo, hi, dest_off, comment)?;
                     }
                     BinaryOp::U32Sub | BinaryOp::U32Div => {
                         let tmp = self.layout.reserve_stack(2);
@@ -166,13 +120,7 @@ impl super::CasmBuilder {
                             tmp,
                             format!("[fp + {}], [fp + {}] = u32({imm})", tmp, tmp + 1),
                         );
-                        let instr = InstructionBuilder::new(u32_fp_fp(op)?)
-                            .with_operand(Operand::Literal(tmp))
-                            .with_operand(Operand::Literal(ro))
-                            .with_operand(Operand::Literal(dest_off))
-                            .with_comment(format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {tmp}]) {op} u32([fp + {ro}])", dest_off + 1));
-                        self.emit_push(instr);
-                        self.emit_touch(dest_off, result_size);
+                        self.u32_fp_fp_op(op, tmp, ro, dest_off)?;
                     }
                     BinaryOp::U32Eq
                     | BinaryOp::U32Less
@@ -186,28 +134,9 @@ impl super::CasmBuilder {
                             format!("[fp + {}], [fp + {}] = u32({imm})", tmp, tmp + 1),
                         );
                         if matches!(op, BinaryOp::U32Eq | BinaryOp::U32Less) {
-                            let instr = InstructionBuilder::new(u32_fp_fp(op)?)
-                                .with_operand(Operand::Literal(tmp))
-                                .with_operand(Operand::Literal(ro))
-                                .with_operand(Operand::Literal(dest_off))
-                                .with_comment(format!(
-                                    "[fp + {dest_off}] = u32([fp + {tmp}], [fp + {}]) {op} u32([fp + {ro}], [fp + {}])",
-                                    tmp + 1,
-                                    ro + 1
-                                ));
-                            self.emit_push(instr);
-                            self.emit_touch(dest_off, 1);
+                            self.u32_fp_fp_cmp(op, tmp, ro, dest_off)?;
                         } else {
-                            let instr = InstructionBuilder::new(u32_fp_fp(op)?)
-                                .with_operand(Operand::Literal(tmp))
-                                .with_operand(Operand::Literal(ro))
-                                .with_operand(Operand::Literal(dest_off))
-                                .with_comment(format!(
-                                    "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {tmp}]) {op} u32([fp + {ro}])",
-                                    dest_off + 1
-                                ));
-                            self.emit_push(instr);
-                            self.emit_touch(dest_off, result_size);
+                            self.u32_fp_fp_op(op, tmp, ro, dest_off)?;
                         }
                     }
                     _ => {
@@ -230,7 +159,6 @@ impl super::CasmBuilder {
                         _ => unreachable!(),
                     };
                     self.store_immediate(res, dest_off, format!("[fp + {dest_off}] = {res}"));
-                    self.emit_touch(dest_off, 1);
                 } else {
                     let res_u32 = match op {
                         BinaryOp::U32Add => l.wrapping_add(r),
@@ -271,13 +199,63 @@ impl super::CasmBuilder {
 
         Ok(())
     }
-}
 
-/// Helper to split an i32 value (interpreted as u32) into low and high 16-bit parts
-#[inline]
-pub(super) const fn split_u32_i32(value: i32) -> (i32, i32) {
-    let u = value as u32;
-    ((u & 0xFFFF) as i32, ((u >> 16) & 0xFFFF) as i32)
+    pub(crate) fn u32_fp_fp_cmp(
+        &mut self,
+        op: BinaryOp,
+        src0_off: i32,
+        src1_off: i32,
+        dest_off: i32,
+    ) -> CodegenResult<()> {
+        let op_opcode = u32_fp_fp(op)?;
+        let comment = format!("[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])", src0_off + 1, src1_off + 1);
+        let instr = InstructionBuilder::new(op_opcode)
+            .with_operand(Operand::Literal(src0_off))
+            .with_operand(Operand::Literal(src1_off))
+            .with_operand(Operand::Literal(dest_off))
+            .with_comment(comment);
+        self.emit_push(instr);
+        Ok(())
+    }
+
+    pub(crate) fn u32_fp_fp_op(
+        &mut self,
+        op: BinaryOp,
+        src0_off: i32,
+        src1_off: i32,
+        dest_off: i32,
+    ) -> CodegenResult<()> {
+        let op_opcode = u32_fp_fp(op)?;
+        let comment = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])", dest_off + 1, src0_off + 1, src1_off + 1);
+        let instr = InstructionBuilder::new(op_opcode)
+            .with_operand(Operand::Literal(src0_off))
+            .with_operand(Operand::Literal(src1_off))
+            .with_operand(Operand::Literal(dest_off))
+            .with_comment(comment);
+        self.emit_push(instr);
+        // Arithmetic u32 result spans 2 slots
+        Ok(())
+    }
+
+    pub(crate) fn u32_fp_imm_op(
+        &mut self,
+        op: BinaryOp,
+        src0_off: i32,
+        imm_lo: i32,
+        imm_hi: i32,
+        dest_off: i32,
+        comment: String,
+    ) -> CodegenResult<()> {
+        let op_opcode = u32_fp_imm(op)?;
+        let instr = InstructionBuilder::new(op_opcode)
+            .with_operand(Operand::Literal(src0_off))
+            .with_operand(Operand::Literal(imm_lo))
+            .with_operand(Operand::Literal(imm_hi))
+            .with_operand(Operand::Literal(dest_off))
+            .with_comment(comment);
+        self.emit_push(instr);
+        Ok(())
+    }
 }
 
 /// Two's complement on 32-bit for u32 subtraction with an immediate

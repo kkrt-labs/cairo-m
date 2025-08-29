@@ -226,7 +226,6 @@ impl CasmBuilder {
                 self.bool_not(dest_off, source)?;
             }
         }
-        self.emit_touch(dest_off, 1);
         Ok(())
     }
 

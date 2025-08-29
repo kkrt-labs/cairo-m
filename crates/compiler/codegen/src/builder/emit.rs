@@ -25,12 +25,4 @@ impl super::CasmBuilder {
         label.address = Some(self.instructions.len());
         self.labels.push(label);
     }
-
-    /// Track that a frame region has been written.
-    pub(crate) fn emit_touch(&mut self, offset: i32, size: usize) {
-        if offset >= 0 {
-            let end_offset = offset + size as i32 - 1;
-            self.max_written_offset = self.max_written_offset.max(end_offset);
-        }
-    }
 }

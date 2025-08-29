@@ -305,7 +305,6 @@ impl super::CasmBuilder {
                     _ => 1,
                 };
 
-                self.emit_touch(return_slot_offset, value_size);
                 cumulative_slot_offset += value_size as i32;
             } else {
                 let value_size = match return_val {

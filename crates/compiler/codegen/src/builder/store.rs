@@ -22,7 +22,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dest_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dest_off, 1);
     }
 
     /// Load from memory: `[[fp + base_off] + imm] -> [fp + dest_off]` (slot-sized), with comment.
@@ -39,7 +38,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dest_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dest_off, 1);
     }
 
     /// Load from memory: `[[fp + base_off] + [fp + idx_off]] -> [fp + dest_off]` (slot-sized), with comment.
@@ -56,7 +54,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(dest_off))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(dest_off, 1);
     }
     /// Copy a u32 value (2 slots) from `src_off` to `dest_off` using the dedicated opcode.
     pub(super) fn store_copy_u32(&mut self, src_off: i32, dest_off: i32, comment_prefix: &str) {
@@ -71,7 +68,6 @@ impl super::CasmBuilder {
                 src_off + 1
             ));
         self.emit_push(instr);
-        self.emit_touch(dest_off, 2);
     }
 
     /// Store a felt/boolean/pointer immediate and track the write.
@@ -81,7 +77,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(offset))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(offset, 1);
     }
 
     /// Store a u32 immediate split into two slots and track the write.
@@ -93,7 +88,6 @@ impl super::CasmBuilder {
             .with_operand(Operand::Literal(offset))
             .with_comment(comment);
         self.emit_push(instr);
-        self.emit_touch(offset, 2);
     }
 
     /// Copy `slots` consecutive words from `src_off` to `dest_off`.
