@@ -496,11 +496,11 @@ macro_rules! impl_u32_cmp_op_fp_fp {
     };
 }
 
-// -- U32 Comparison FP-FP variants (minimal set - others derived) -----------
+// -- U32 Comparison FP-FP variants  -----------
 impl_u32_cmp_op_fp_fp!(u32_store_eq_fp_fp, U32StoreEqFpFp, |a, b| a == b);
 impl_u32_cmp_op_fp_fp!(u32_store_lt_fp_fp, U32StoreLtFpFp, |a, b| a < b);
 
-// -- U32 Comparison FP-IMM variants (minimal set - others derived) ----------
+// -- U32 Comparison FP-IMM variants ----------
 impl_u32_cmp_op_fp_imm!(u32_store_eq_fp_imm, U32StoreEqFpImm, |a, b| a == b);
 impl_u32_cmp_op_fp_imm!(u32_store_lt_fp_imm, U32StoreLtFpImm, |a, b| a < b);
 

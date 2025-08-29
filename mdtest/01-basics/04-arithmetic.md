@@ -62,7 +62,7 @@ fn field_division_non_divisible() -> M31 {
 Numbers wrap around at field prime:
 
 ```cairo-m
-fn test_wraparound_upper() -> felt {
+fn test_wrap_around_upper() -> felt {
     let max = 2147483646;  // 2^31 - 2
     return max + 1;  // Wraps to 2^31 - 1 == 0
 }
@@ -71,7 +71,7 @@ fn test_wraparound_upper() -> felt {
 ```rust
 use stwo_prover::core::fields::m31::M31;
 
-fn test_wraparound_upper() -> M31 {
+fn test_wrap_around_upper() -> M31 {
     let max = M31::from(2147483646);  // 2^31 - 2
     max + M31::from(1)  // Should wrap to M31::from(2^31 - 1) == 0
 }

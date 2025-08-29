@@ -5,6 +5,18 @@ use super::opcodes::{u32_fp_fp, u32_fp_imm};
 use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 
+fn is_u32_cmp_op(op: BinaryOp) -> bool {
+    matches!(
+        op,
+        BinaryOp::U32Eq
+            | BinaryOp::U32Neq
+            | BinaryOp::U32Greater
+            | BinaryOp::U32GreaterEqual
+            | BinaryOp::U32Less
+            | BinaryOp::U32LessEqual
+    )
+}
+
 impl super::CasmBuilder {
     pub(super) fn u32_op(
         &mut self,
@@ -13,16 +25,8 @@ impl super::CasmBuilder {
         left: Value,
         right: Value,
     ) -> CodegenResult<()> {
-        let is_cmp = matches!(
-            op,
-            BinaryOp::U32Eq
-                | BinaryOp::U32Neq
-                | BinaryOp::U32Greater
-                | BinaryOp::U32GreaterEqual
-                | BinaryOp::U32Less
-                | BinaryOp::U32LessEqual
-        );
-        let result_size = if is_cmp { 1 } else { 2 };
+        let is_cmp_op = is_u32_cmp_op(op);
+        let result_size = if is_cmp_op { 1 } else { 2 };
 
         // Normalize commutative immediate-left cases to immediate-right
         let (left, right) = super::normalize::canonicalize_commutative_u32(op, left, right);
@@ -37,15 +41,6 @@ impl super::CasmBuilder {
                     std::mem::swap(&mut lo, &mut ro);
                 }
 
-                let is_cmp_op = matches!(
-                    norm.op,
-                    BinaryOp::U32Eq
-                        | BinaryOp::U32Neq
-                        | BinaryOp::U32Greater
-                        | BinaryOp::U32GreaterEqual
-                        | BinaryOp::U32Less
-                        | BinaryOp::U32LessEqual
-                );
                 let comment = if is_cmp_op {
                     format!(
                         "[fp + {dest_off}] = u32([fp + {lo}], [fp + {}]) {op} u32([fp + {ro}], [fp + {}])",
@@ -115,17 +110,6 @@ impl super::CasmBuilder {
                 }
 
                 let (low, high) = super::split_u32_value(encoded_imm);
-
-                let is_cmp_op = matches!(
-                    norm.op,
-                    BinaryOp::U32Eq
-                        | BinaryOp::U32Neq
-                        | BinaryOp::U32Greater
-                        | BinaryOp::U32GreaterEqual
-                        | BinaryOp::U32Less
-                        | BinaryOp::U32LessEqual
-                );
-
                 // Show the encoded immediate in hex (matches actual operands)
                 let imm_hex = format!("{:#010x}", encoded_imm);
                 // Append legacy-style bias/complement notes for select ops
@@ -221,15 +205,7 @@ impl super::CasmBuilder {
                             tmp,
                             format!("[fp + {}], [fp + {}] = u32({imm})", tmp, tmp + 1),
                         );
-                        let is_cmp = matches!(
-                            op,
-                            BinaryOp::U32Eq
-                                | BinaryOp::U32Neq
-                                | BinaryOp::U32Greater
-                                | BinaryOp::U32GreaterEqual
-                                | BinaryOp::U32Less
-                                | BinaryOp::U32LessEqual
-                        );
+                        let is_cmp = is_u32_cmp_op(op);
                         if is_cmp {
                             let norm = normalize_u32_cmp_fp_fp(op);
                             let (mut left_off, mut right_off) = (tmp, ro);
@@ -276,7 +252,7 @@ impl super::CasmBuilder {
                 let l = { *li };
                 let r = { *ri };
 
-                if is_cmp {
+                if is_cmp_op {
                     let res = match op {
                         BinaryOp::U32Eq => (l == r) as u32,
                         BinaryOp::U32Neq => (l != r) as u32,
