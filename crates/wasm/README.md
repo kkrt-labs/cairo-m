@@ -47,10 +47,10 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | `i32.gt_u`                | ✅        | Maps to `BinaryOp::U32Greater`               |
 | `i32.le_u`                | ✅        | Maps to `BinaryOp::U32LessEqual`             |
 | `i32.ge_u`                | ✅        | Maps to `BinaryOp::U32GreaterEqual`          |
-| `i32.lt_s`                | ❌        | Not yet implemented                          |
-| `i32.gt_s`                | ❌        | Not yet implemented                          |
-| `i32.le_s`                | ❌        | Not yet implemented                          |
-| `i32.ge_s`                | ❌        | Not yet implemented                          |
+| `i32.lt_s`                | ✅        | Maps to 3 opcodes                            |
+| `i32.gt_s`                | ✅        | Maps to 3 opcodes                            |
+| `i32.le_s`                | ✅        | Maps to 3 opcodes                            |
+| `i32.ge_s`                | ✅        | Maps to 3 opcodes                            |
 | **Constants**             |           |                                              |
 | `i32.const`               | ✅        | Full support for i32 constants               |
 | **Local Variables**       |           |                                              |
@@ -109,6 +109,9 @@ cargo run -- <path-to-wasm-file> --mir-only
 
 # Enable verbose output (shows loading and conversion progress)
 cargo run -- <path-to-wasm-file> --verbose
+
+# Run a specific function with arguments
+cargo run -- <path-to-wasm-file> -f <function-name> -a <arg1> -a <arg2>
 ```
 
 #### Command Line Options
@@ -117,6 +120,9 @@ cargo run -- <path-to-wasm-file> --verbose
 - `-o, --output <FILE>`: Output file to write the compiled program to
 - `-v, --verbose`: Enable verbose output (shows MIR and progress information)
 - `--mir-only`: Show only MIR without compiling to final program
+- `-f, --function <NAME>`: Function name to run after compilation (entrypoint)
+- `-a, --arg <VALUE>`: Arguments to pass to the entrypoint (repeat -a for
+  multiple args)
 - `-h, --help`: Show help information
 - `-V, --version`: Show version information
 

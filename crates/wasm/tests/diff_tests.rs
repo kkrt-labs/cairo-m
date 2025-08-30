@@ -12,6 +12,8 @@ use womir::interpreter::Interpreter;
 use womir::loader::load_wasm;
 
 use proptest::prelude::*;
+use std::path::PathBuf;
+use std::process::Command;
 
 struct DataInput {
     values: Vec<u32>,
@@ -88,6 +90,26 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     );
 }
 
+fn build_wasm(path: &PathBuf) {
+    assert!(path.exists(), "Target directory does not exist: {path:?}",);
+
+    let output = Command::new("cargo")
+        .arg("build")
+        .arg("--release")
+        .arg("--target")
+        .arg("wasm32-unknown-unknown")
+        .current_dir(path)
+        .output()
+        .expect("Failed to run cargo build");
+
+    if !output.status.success() {
+        eprintln!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
+        eprintln!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
+    }
+
+    assert!(output.status.success(), "cargo build failed for {path:?}",);
+}
+
 proptest! {
     #[test]
     fn run_add(a: u32, b: u32) {
@@ -125,6 +147,28 @@ proptest! {
     #[test]
     fn run_nested_loop(a in 0..10u32) {
         test_program("tests/test_cases/nested_loop.wasm", "nested_loop", vec![a]);
+    }
+
+    #[test]
+    fn run_fib_from_rust(a in 0..10u32) {
+        let case_dir = format!("{}/sample-programs/fib", env!("CARGO_MANIFEST_DIR"));
+        build_wasm(&PathBuf::from(&case_dir));
+        test_program(
+            &format!("{}/target/wasm32-unknown-unknown/release/fib.wasm", case_dir),
+            "fib",
+            vec![a],
+        );
+    }
+
+    #[test]
+    fn run_ackermann_from_rust(m in 0..3u32, n in 0..3u32) {
+        let case_dir = format!("{}/sample-programs/ackermann", env!("CARGO_MANIFEST_DIR"));
+        build_wasm(&PathBuf::from(&case_dir));
+        test_program(
+            &format!("{}/target/wasm32-unknown-unknown/release/ackermann.wasm", case_dir),
+            "ackermann",
+            vec![m, n],
+        );
     }
 }
 

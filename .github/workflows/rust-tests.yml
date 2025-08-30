@@ -43,6 +43,9 @@ jobs:
       - name: Set up Rust toolchain
         run: rustup show
 
+      - name: Add WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
