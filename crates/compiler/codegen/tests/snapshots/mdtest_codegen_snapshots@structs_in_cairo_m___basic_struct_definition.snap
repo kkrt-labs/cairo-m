@@ -20,5 +20,5 @@ test_struct_basic:
 test_struct_basic_0:
    0: 9 10 0 _             // [fp + 0] = 10
    1: 9 20 1 _             // [fp + 1] = 20
-   2: 0 0 1 -3             // [fp + -3] = [fp + 0] op [fp + 1]
+   2: 0 0 1 2147483644     // [fp + -3] = [fp + 0] op [fp + 1]
    3: 11 _ _ _             // return

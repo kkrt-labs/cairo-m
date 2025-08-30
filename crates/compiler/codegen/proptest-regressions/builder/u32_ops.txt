@@ -9,3 +9,4 @@ cc 1f9d6148e032cb9330b08340ba12283e6fe1ef3b20753597f6eea0df6f522ffe # shrinks to
 cc 5841ca1d537ceeb926fd49070b94e0a4dadaac38bf4073bd3eef9365827cd3c6 # shrinks to a = 0, b = 1, left_reg = false, right_reg = false
 cc 37b9470d16b1b6afb8ecc69da55acc81fe805ea889b1e881685efaf11b6c990d # shrinks to a = 0, b = 0, left_reg = false, right_reg = false
 cc ad4428f364ebda6b76dd17a4e6b32c85de4244874484b77e059fa6a75efb31de # shrinks to a = 0, b = 0, left_reg = true, right_reg = false
+cc 9be9c6c070e7f28cb887461194f91ec08b36890073d2d7c5133be8821c436364 # shrinks to a = 0, b = 0, left_reg = false, right_reg = true

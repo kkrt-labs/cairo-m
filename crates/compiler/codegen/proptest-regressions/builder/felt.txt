@@ -7,3 +7,4 @@
 cc c0b5f00bdb192bba74a5f692d959545e8ff3a24dcf02f05b395fa47ffdae84ae # shrinks to a = 0, b = 0
 cc 32021a088585dfc0fc0e312f57a7ee833727c28edb02a1ffe8200285d188a52a # shrinks to a = 0
 cc c5a61cc70f5a9ee6b324dd65b1c7677bbddc99ab8cb6ab071e543513388eb992 # shrinks to a = 0
+cc 628dfd385ea66c80357a6e1bf05343b6f1c7d25a03818517ac2b7f0d3abd9330 # shrinks to a = 0, b = 2147483647, left_reg = false, right_reg = true

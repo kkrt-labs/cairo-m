@@ -12,5 +12,5 @@ Generated CASM:
 test_integer:
 test_integer:
 test_integer_0:
-   0: 9 42 -3 _            // Return value 0: [fp -3] = 42
+   0: 9 42 2147483644 _    // Return value 0: [fp -3] = 42
    1: 11 _ _ _             // return

@@ -25,24 +25,24 @@ test_fibonacci:
 test_fibonacci_0:
    0: 9 7 1 _              // Arg 0: [fp + 1] = 7
    1: 10 3 4 _             // call fibonacci
-   2: 4 2 0 -3             // Return value 0: [fp -3] = [fp + 2] + 0
+   2: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
    3: 11 _ _ _             // return
 fibonacci:
-   4: 14 -4 4 _            // if [fp + -4] != 0 jmp rel fibonacci_2
+   4: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel fibonacci_2
    5: 12 6 _ _             // jump abs fibonacci_1
 fibonacci_1:
-   6: 9 0 -3 _             // Return value 0: [fp -3] = 0
+   6: 9 0 2147483644 _     // Return value 0: [fp -3] = 0
    7: 11 _ _ _             // return
 fibonacci_2:
-   8: 4 -4 2147483646 5    // [fp + 5] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   8: 4 2147483643 2147483646 5 // [fp + 5] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
    9: 14 5 3 _             // if [fp + 5] != 0 jmp rel fibonacci_4
 fibonacci_3:
-  10: 9 1 -3 _             // Return value 0: [fp -3] = 1
+  10: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
   11: 11 _ _ _             // return
 fibonacci_4:
-  12: 4 -4 2147483646 6    // [fp + 6] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+  12: 4 2147483643 2147483646 6 // [fp + 6] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
   13: 10 8 4 _             // call fibonacci
-  14: 4 -4 2147483645 9    // [fp + 9] = [fp + -4] + (-2) (-2 as M31 -> 2147483645 (=-2 mod M31))
+  14: 4 2147483643 2147483645 9 // [fp + 9] = [fp + -4] + (-2) (-2 as M31 -> 2147483645 (=-2 mod M31))
   15: 10 11 4 _            // call fibonacci
-  16: 0 7 10 -3            // [fp + -3] = [fp + 7] op [fp + 10]
+  16: 0 7 10 2147483644    // [fp + -3] = [fp + 7] op [fp + 10]
   17: 11 _ _ _             // return

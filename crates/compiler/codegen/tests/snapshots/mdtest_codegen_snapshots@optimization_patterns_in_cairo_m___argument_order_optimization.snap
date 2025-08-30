@@ -29,12 +29,12 @@ test_arg_order_0:
    6: 4 2 0 11             // Arg 2 slot 0: [fp + 11] = [fp + 2] + 0
    7: 4 8 0 12             // Arg 3 slot 0: [fp + 12] = [fp + 8] + 0
    8: 10 14 11 _           // call process_four
-   9: 4 13 0 -3            // Return value 0: [fp -3] = [fp + 13] + 0
+   9: 4 13 0 2147483644    // Return value 0: [fp -3] = [fp + 13] + 0
   10: 11 _ _ _             // return
 process_four:
 process_four:
 process_four_0:
-  11: 0 -7 -6 0            // [fp + 0] = [fp + -7] op [fp + -6]
-  12: 0 0 -5 1             // [fp + 1] = [fp + 0] op [fp + -5]
-  13: 0 1 -4 -3            // [fp + -3] = [fp + 1] op [fp + -4]
+  11: 0 2147483640 2147483641 0 // [fp + 0] = [fp + -7] op [fp + -6]
+  12: 0 0 2147483642 1     // [fp + 1] = [fp + 0] op [fp + -5]
+  13: 0 1 2147483643 2147483644 // [fp + -3] = [fp + 1] op [fp + -4]
   14: 11 _ _ _             // return
