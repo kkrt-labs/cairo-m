@@ -157,9 +157,9 @@ impl Claim {
                 let inst_prev_clock = input.inst_prev_clock;
                 let opcode_constant = PackedM31::from(M31::from(RET));
                 let fp_min_1_prev_clock = input.mem1_prev_clock;
-                let fp_min_1_val = input.mem1_value_limb0;
+                let fp_min_1_val = input.mem1_value;
                 let fp_min_2_prev_clock = input.mem2_prev_clock;
-                let fp_min_2_val = input.mem2_value_limb0;
+                let fp_min_2_val = input.mem2_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;

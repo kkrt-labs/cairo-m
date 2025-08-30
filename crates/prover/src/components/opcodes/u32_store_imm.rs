@@ -13,7 +13,8 @@
 //! - dst_off
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - dst_prev_clock
+//! - dst_prev_lo_clock
+//! - dst_prev_hi_clock
 //!
 //! # Constraints
 //!
@@ -63,10 +64,10 @@ use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 11;
+const N_TRACE_COLUMNS: usize = 12;
 const N_MEMORY_LOOKUPS: usize = 6;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 2;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
 const N_RANGE_CHECK_16_LOOKUPS: usize = 2;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
@@ -173,9 +174,10 @@ impl Claim {
                 let imm_hi = input.inst_value_2;
                 let dst_off = input.inst_value_3;
 
-                let dst_prev_val_lo = input.mem1_prev_value_limb0;
-                let dst_prev_val_hi = input.mem1_prev_value_limb1;
-                let dst_prev_clock = input.mem1_prev_clock;
+                let dst_prev_val_lo = input.mem1_prev_value;
+                let dst_prev_lo_clock = input.mem1_prev_clock;
+                let dst_prev_val_hi = input.mem2_prev_value;
+                let dst_prev_hi_clock = input.mem2_prev_clock;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -187,7 +189,8 @@ impl Claim {
                 *row[7] = dst_off;
                 *row[8] = dst_prev_val_lo;
                 *row[9] = dst_prev_val_hi;
-                *row[10] = dst_prev_clock;
+                *row[10] = dst_prev_lo_clock;
+                *row[11] = dst_prev_hi_clock;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -207,7 +210,7 @@ impl Claim {
                 // Write dst_lo
                 *lookup_data.memory[2] = [
                     fp + dst_off,
-                    dst_prev_clock,
+                    dst_prev_lo_clock,
                     dst_prev_val_lo,
                     zero,
                     zero,
@@ -218,7 +221,7 @@ impl Claim {
                 // Write dst_hi
                 *lookup_data.memory[4] = [
                     fp + dst_off + one,
-                    dst_prev_clock,
+                    dst_prev_hi_clock,
                     dst_prev_val_hi,
                     zero,
                     zero,
@@ -231,7 +234,8 @@ impl Claim {
                 *lookup_data.range_check_16[1] = imm_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - dst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - dst_prev_lo_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - dst_prev_hi_clock - enabler;
             });
 
         (
@@ -389,6 +393,22 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[2],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, range_check_20_2))| {
+                let num = -PackedQM31::one();
+                let denom: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_2]);
+                let numerator = num * denom;
+                let denom = denom * denom;
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         (Self { claimed_sum }, trace)
     }
@@ -412,7 +432,7 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let opcode_constant = E::F::from(M31::from(U32_STORE_IMM));
 
-        // 11 columns
+        // 12 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -422,8 +442,9 @@ impl FrameworkEval for Eval {
         let imm_hi = eval.next_trace_mask();
         let dst_off = eval.next_trace_mask();
         let dst_prev_val_lo = eval.next_trace_mask();
+        let dst_prev_lo_clock = eval.next_trace_mask();
         let dst_prev_val_hi = eval.next_trace_mask();
-        let dst_prev_clock = eval.next_trace_mask();
+        let dst_prev_hi_clock = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -472,7 +493,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone(),
-                dst_prev_clock.clone(),
+                dst_prev_lo_clock.clone(),
                 dst_prev_val_lo,
             ],
         ));
@@ -488,7 +509,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone() + one.clone(),
-                dst_prev_clock.clone(),
+                dst_prev_hi_clock.clone(),
                 dst_prev_val_hi,
             ],
         ));
@@ -519,7 +540,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - dst_prev_clock - enabler],
+            &[clock.clone() - dst_prev_lo_clock - enabler.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock - dst_prev_hi_clock - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

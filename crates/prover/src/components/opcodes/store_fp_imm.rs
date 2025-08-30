@@ -225,11 +225,11 @@ impl Claim {
                     let off1 = input.inst_value_2;
                     let off2 = input.inst_value_3;
                     let op0_prev_clock = input.mem1_prev_clock;
-                    let op0_val = input.mem1_value_limb0;
+                    let op0_val = input.mem1_value;
                     let off1_inv = *off1_inverses;
                     let dst_prev_clock = input.mem2_prev_clock;
-                    let dst_prev_val = input.mem2_prev_value_limb0;
-                    let dst_val = input.mem2_value_limb0;
+                    let dst_prev_val = input.mem2_prev_value;
+                    let dst_val = input.mem2_value;
                     let prod = op0_val * off1;
                     let div = op0_val * *off1_inverses;
 

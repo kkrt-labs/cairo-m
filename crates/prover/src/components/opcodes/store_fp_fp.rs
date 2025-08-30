@@ -168,8 +168,8 @@ impl Claim {
                 let op1_inverses = PackedM31::from_array(array.map(|x| {
                     x.operands[1]
                         .and_then(|operand| {
-                            if operand.value.limb0 != M31::zero() {
-                                Some(operand.value.limb0.inverse())
+                            if operand.value != M31::zero() {
+                                Some(operand.value.inverse())
                             } else {
                                 None
                             }
@@ -233,13 +233,13 @@ impl Claim {
                     let off1 = input.inst_value_2;
                     let off2 = input.inst_value_3;
                     let op0_prev_clock = input.mem1_prev_clock;
-                    let op0_val = input.mem1_value_limb0;
+                    let op0_val = input.mem1_value;
                     let op1_prev_clock = input.mem2_prev_clock;
-                    let op1_val = input.mem2_value_limb0;
+                    let op1_val = input.mem2_value;
                     let op1_inv = *op1_inverses;
                     let dst_prev_clock = input.mem3_prev_clock;
-                    let dst_prev_val = input.mem3_prev_value_limb0;
-                    let dst_val = input.mem3_value_limb0;
+                    let dst_prev_val = input.mem3_prev_value;
+                    let dst_val = input.mem3_value;
                     let prod = op0_val * op1_val;
                     let div = op0_val * *op1_inverses;
 

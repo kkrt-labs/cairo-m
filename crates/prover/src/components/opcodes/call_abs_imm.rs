@@ -160,9 +160,9 @@ impl Claim {
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_prev_val = input.mem1_prev_value_limb0;
+                let op0_prev_val = input.mem1_prev_value;
                 let op0_plus_one_prev_clock = input.mem2_prev_clock;
-                let op0_plus_one_prev_val = input.mem2_prev_value_limb0;
+                let op0_plus_one_prev_val = input.mem2_prev_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;

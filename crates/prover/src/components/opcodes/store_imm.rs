@@ -154,7 +154,7 @@ impl Claim {
                 let opcode_constant = PackedM31::from(M31::from(STORE_IMM));
                 let off0 = input.inst_value_1;
                 let off2 = input.inst_value_2;
-                let dst_prev_val = input.mem1_prev_value_limb0;
+                let dst_prev_val = input.mem1_prev_value;
                 let dst_prev_clock = input.mem1_prev_clock;
 
                 *row[0] = enabler;
