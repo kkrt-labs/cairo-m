@@ -1,9 +1,8 @@
 // Assert instructions for the Cairo M VM.
 
-use cairo_m_common::{Instruction, InstructionError, State};
+use cairo_m_common::{extract_as, Instruction, InstructionError, State};
 
 use super::InstructionExecutionError;
-use crate::extract_as;
 use crate::memory::Memory;
 use crate::vm::state::VmState;
 

@@ -1,11 +1,11 @@
 //! JUMP instructions for the Cairo M VM.
 
-use cairo_m_common::{Instruction, State};
+use cairo_m_common::{extract_as, Instruction, State};
 
-use super::InstructionExecutionError;
-use crate::extract_as;
 use crate::memory::Memory;
 use crate::vm::state::VmState;
+
+use super::InstructionExecutionError;
 
 /// CASM equivalent:
 /// ```casm

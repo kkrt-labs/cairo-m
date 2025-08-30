@@ -16,6 +16,7 @@ words:
   - cairols
   - cairom
   - callees
+  - callsite
   - casm
   - chrono
   - chumsky

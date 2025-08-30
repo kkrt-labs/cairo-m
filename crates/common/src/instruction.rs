@@ -10,7 +10,7 @@ pub enum DataType {
     U32,
 }
 
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum InstructionError {
     #[error("Invalid opcode: {0}")]
     InvalidOpcode(M31),
@@ -18,67 +18,130 @@ pub enum InstructionError {
     SizeMismatch { expected: usize, found: usize },
     #[error("Assertion failed: {0} != {1}")]
     AssertionFailed(M31, M31),
+    #[error("Invalid instruction type: {0}")]
+    InvalidInstructionType(&'static str),
 }
 
-pub const INSTRUCTION_MAX_SIZE: usize = 5;
+// User-facing marker for field kinds used in the macro input.
+// Note: This enum is only used for declarative purposes in the macro callsite;
+// it is not stored in Instruction and has no runtime impact.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[doc(hidden)]
+pub(crate) enum OperandType {
+    Immediate,
+    Memory(DataType),
+}
 
-// Macro to define the Instruction enum with all variants and their implementations
-macro_rules! define_instruction {
+// Push helper for building operand type vectors at runtime without trailing comma issues
+macro_rules! __push_mem_if_applicable {
+    ($vec:ident, OperandType::Memory(DataType::Felt)) => {
+        $vec.push(DataType::Felt);
+    };
+    ($vec:ident, OperandType::Memory(DataType::U32)) => {
+        $vec.push(DataType::U32);
+    };
+    ($vec:ident, OperandType::Immediate) => {};
+    ($vec:ident, (OperandType::Memory(DataType::Felt))) => {
+        $vec.push(DataType::Felt);
+    };
+    ($vec:ident, (OperandType::Memory(DataType::U32))) => {
+        $vec.push(DataType::U32);
+    };
+    ($vec:ident, (OperandType::Immediate)) => {};
+}
+
+/// Macro to define the Instruction enum and implementations from a more descriptive spec.
+///
+/// # Usage
+///
+/// ```ignore
+/// instructions! {
+///     StoreAddFpFp = 0 {
+///         src0_off: (OperandType::Memory(DataType::Felt)),
+///         src1_off: (OperandType::Memory(DataType::Felt)),
+///         dst_off: (OperandType::Memory(DataType::Felt)),
+///     };
+/// }
+/// ```
+///
+/// ```ignore
+/// instructions! {
+///     Ret = 11 {} implicit_operands: [OperandType::Memory(DataType::Felt)];
+/// }
+/// ```
+///
+/// # Arguments
+///
+/// * `$variant:ident` - The name of the instruction variant.
+/// * `$opcode:literal` - The numeric opcode value for this instruction.
+/// * `$field:ident` - The name of the field.
+/// * `$kind:tt` - The type of the field.
+/// * `$implicit_kind:tt` - The type of the implicit operand.
+/// * `$implicit_operands:[$($implicit_kind:tt),*]` - The types of the implicit operands.
+/// * `$(, implicit_operands: [$($implicit_kind:tt),*])?` - Optional implicit operands.
+/// * `$(,)?` - Optional trailing comma.
+/// * `$(;)?` - Optional trailing semicolon.
+///
+/// ## Implicit operands
+/// Some instructions have "implicit" operands that are not explicitly provided in the instruction - meaning they're dependent on the instruction's context, like the execution frame.
+///
+/// For example, the `Ret` instruction has two implicit operands:
+///
+/// * The return address, which is the value of the program counter at the time of the call.
+/// * The frame pointer, which is the value of the frame pointer at the time of the call.
+macro_rules! instructions {
     (
         $(
-            $variant:ident = $opcode:literal,
-            $mem_access:literal,
-            fields: [$($field:ident),*],
-            size: $size:literal,
-            operands: [$($operand_type:ident),*]
-        );*
+            $variant:ident = $opcode:literal {
+                $( $field:ident : $kind:tt ),* $(,)?
+            } $(, implicit_operands: [$($implicit_kind:tt),* $(,)?])? $(;)?
+        )*
     ) => {
         /// Cairo M instruction enum where each variant represents a specific opcode
         /// with its required named fields
         #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub enum Instruction {
-            $(
-                $variant { $($field: M31),* },
-            )*
+            $( $variant { $( $field: M31 ),* }, )*
         }
 
-        // Generate opcode constants using paste
-        paste! {
-            $(
-                pub const [<$variant:snake:upper>]: u32 = $opcode;
-            )*
-        }
+        // Generate opcode constants
+        paste! { $( pub const [<$variant:snake:upper>]: u32 = $opcode; )* }
+
+        // Compute the maximum instruction size in M31s (opcode + explicit operands)
+        pub const INSTRUCTION_MAX_SIZE: usize = {
+            let sizes = [ $( 1usize $(+ { let _ = stringify!($field); 1usize })* ),* ];
+            let mut max: usize = 0;
+            let mut i: usize = 0;
+            while i < sizes.len() {
+                if sizes[i] > max { max = sizes[i]; }
+                i += 1;
+            }
+            max
+        };
 
         impl Instruction {
             /// Get the numeric opcode value for this instruction
             pub const fn opcode_value(&self) -> u32 {
                 match self {
-                    $(
-                        Self::$variant { .. } => $opcode,
-                    )*
+                    $( Self::$variant { .. } => $opcode, )*
                 }
             }
 
             /// Get the size of this instruction in M31 elements (including opcode)
             pub const fn size_in_m31s(&self) -> usize {
                 match self {
-                    $(
-                        Self::$variant { .. } => $size,
-                    )*
+                    $( Self::$variant { .. } => 1usize $(+ { let _ = stringify!($field); 1usize })* , )*
                 }
             }
 
             /// Get the size of this instruction in QM31 elements
-            pub const fn size_in_qm31s(&self) -> u32 {
-                self.size_in_m31s().div_ceil(4) as u32
-            }
+            pub const fn size_in_qm31s(&self) -> u32 { self.size_in_m31s().div_ceil(4) as u32 }
 
             /// Get the size in M31 elements for a given opcode
             pub const fn size_in_m31s_for_opcode(opcode: u32) -> Option<usize> {
                 match opcode {
-                    $(
-                        $opcode => Some($size),
-                    )*
+                    $( $opcode => Some(1usize $(+ { let _ = stringify!($field); 1usize })*), )*
                     _ => None,
                 }
             }
@@ -91,28 +154,13 @@ macro_rules! define_instruction {
                 }
             }
 
-            /// Get the number of memory accesses for this instruction
-            pub const fn memory_accesses(&self) -> usize {
-                match self {
-                    $(
-                        Self::$variant { .. } => $mem_access,
-                    )*
-                }
-            }
-
-            /// Convert instruction to a vector of M31 values
-            pub fn to_m31_vec(&self) -> Vec<M31> {
-                let mut vec = vec![M31::from(self.opcode_value())];
-                match self {
-                    $(
-                        Self::$variant { $($field),* } => {
-                            $(
-                                vec.push(*$field);
-                            )*
-                        }
-                    )*
-                }
-                vec
+            /// Get the number of memory accesses (as limbs) for this instruction's operands
+            pub fn memory_accesses(&self) -> usize {
+                // Count limbs based on memory operand types (explicit + implicit).
+                self.operand_types()
+                    .iter()
+                    .map(|t| match t { DataType::Felt => 1usize, DataType::U32 => 2usize })
+                    .sum()
             }
 
             /// Convert instruction to a SmallVec of M31 values
@@ -120,47 +168,35 @@ macro_rules! define_instruction {
                 let mut vec = SmallVec::new();
                 vec.push(M31::from(self.opcode_value()));
                 match self {
-                    $(
-                        Self::$variant { $($field),* } => {
-                            $(
-                                vec.push(*$field);
-                            )*
-                        }
-                    )*
+                    $( Self::$variant { $( $field ),* } => { $( vec.push(*$field); )* } ),*
                 }
                 vec
-            }
-
-            /// Get the name of the instruction as a string
-            pub const fn name(&self) -> &'static str {
-                match self {
-                    $(
-                        Self::$variant { .. } => stringify!($variant),
-                    )*
-                }
             }
 
             /// Get all operands as a vector (excluding the opcode)
             pub fn operands(&self) -> Vec<M31> {
                 let mut vec = Vec::with_capacity(self.size_in_m31s() - 1);
                 match self {
-                    $(
-                        Self::$variant { $($field),* } => {
-                            $(
-                                vec.push(*$field);
-                            )*
-                        }
-                    )*
+                    $( Self::$variant { $( $field ),* } => { $( vec.push(*$field); )* } ),*
                 }
                 vec
             }
 
             /// Get the data types for each memory operand of this instruction
-            pub const fn operand_types(&self) -> &'static [DataType] {
-                use DataType::*;
+            ///
+            /// Returns a static slice containing a DataType entry per memory operand
+            /// (immediates are excluded). Implicit operands are appended after
+            /// explicit ones.
+            pub fn operand_types(&self) -> SmallVec<[DataType; 4]> {
                 match self {
                     $(
-                        Self::$variant { .. } => &[$($operand_type),*],
+                        Self::$variant { .. } => {
+                            #[allow(unused)]
+                            let mut v = SmallVec::<[DataType; 4]>::new();
+                            $( __push_mem_if_applicable!(v, $kind); )*
+                            $( $( __push_mem_if_applicable!(v, $implicit_kind); )* )?
+                            v
+                        },
                     )*
                 }
             }
@@ -171,22 +207,19 @@ macro_rules! define_instruction {
 
             #[inline(always)]
             fn try_from(values: SmallVec<[M31; INSTRUCTION_MAX_SIZE]>) -> Result<Self, Self::Error> {
-                let (opcode_m31, operands) = values.split_first()
+                let (opcode_m31, operands) = values
+                    .split_first()
                     .ok_or(InstructionError::SizeMismatch { expected: 1, found: 0 })?;
                 let opcode_u32 = opcode_m31.0;
 
                 match opcode_u32 {
                     $(
                         $opcode => {
-                            if let [$($field),*] = operands {
-                                Ok(Self::$variant {
-                                    $(
-                                        $field: *$field,
-                                    )*
-                                })
+                            if let [$( $field ),*] = operands {
+                                Ok(Self::$variant { $( $field: *$field ),* })
                             } else {
                                 Err(InstructionError::SizeMismatch {
-                                    expected: $size - 1,
+                                    expected: (1usize $(+ { let _ = stringify!($field); 1usize })*) - 1,
                                     found: operands.len(),
                                 })
                             }
@@ -198,109 +231,365 @@ macro_rules! define_instruction {
         }
 
         // Generate the maximum opcode value
-        pub const MAX_OPCODE: u32 = {
+        const MAX_OPCODE: u32 = {
             let opcodes = [$($opcode),*];
             let mut max = 0;
             let mut i = 0;
             while i < opcodes.len() {
-                if opcodes[i] > max {
-                    max = opcodes[i];
-                }
+                if opcodes[i] > max { max = opcodes[i]; }
                 i += 1;
             }
             max
         };
 
         /// Const lookup table for instruction sizes by opcode.
-        /// This avoids the overhead of match statements in hot paths.
-        /// Automatically generated from the instruction definitions.
         pub const OPCODE_SIZE_TABLE: [Option<usize>; (MAX_OPCODE + 1) as usize] = {
             let mut table = [None; (MAX_OPCODE + 1) as usize];
-            $(
-                table[$opcode as usize] = Some($size);
-            )*
+            $( table[$opcode as usize] = Some(1usize $(+ { let _ = stringify!($field); 1usize })*); )*
             table
         };
     };
 }
 
-// Define all instructions with their opcodes, memory accesses, fields, and sizes
-define_instruction!(
+/// Extracts fields from a specific instruction variant or returns an InvalidOpcode error.
+///
+/// This macro simplifies instruction decoding by handling the boilerplate of matching
+/// and error handling. It automatically dereferences the extracted fields.
+///
+/// # Panics
+/// The macro generates a `return` statement, so it must be used inside a function
+/// that returns `Result<_, E>` where `InstructionError: Into<E>`.
+///
+/// # Usage
+///
+/// ## Extracting multiple fields into a tuple:
+/// ```ignore
+/// let (cond_off, offset) = extract_as!(instruction, JnzFpImm, (cond_off, offset));
+/// ```
+/// expands to:
+/// ```ignore
+/// let (cond_off, offset) = match instruction {
+///     Instruction::JnzFpImm { cond_off, offset } => (*cond_off, *offset),
+///     _ => return Err(InstructionExecutionError::InvalidInstructionType),
+/// };
+/// ```
+///
+/// ## Extracting a single field:
+/// ```ignore
+/// let target = extract_as!(instruction, JmpAbsImm, target);
+/// ```
+/// expands to:
+/// ```ignore
+/// let target = match instruction {
+///     Instruction::JmpAbsImm { target } => *target,
+///     _ => return Err(InstructionExecutionError::InvalidInstructionType),
+/// };
+/// ```
+#[macro_export]
+macro_rules! extract_as {
+    // Case 1: Extracting multiple fields into a tuple.
+    // e.g., extract_as!(instruction, JnzFpImm, (cond_off, offset))
+    ($instruction:expr, $variant:ident, ($($field:ident),+)) => {
+        match $instruction {
+            $crate::Instruction::$variant { $($field),+ } => {
+                // Creates a tuple of the dereferenced fields: (*cond_off, *offset)
+                ($(*$field),+)
+            },
+            _ => {
+                return Err($crate::InstructionError::InvalidInstructionType(stringify!($variant)).into());
+            }
+        }
+    };
+
+    // Case 2: Extracting a single field.
+    // e.g., extract_as!(instruction, JmpAbsImm, target)
+    ($instruction:expr, $variant:ident, $field:ident) => {
+        match $instruction {
+            $crate::Instruction::$variant { $field } => {
+                // Dereferences the single field: *target
+                *$field
+            },
+            _ => {
+                return Err($crate::InstructionError::InvalidInstructionType(stringify!($variant)).into());
+            }
+        }
+    };
+
+    // Case 3: Validating instruction variant with no fields (like Ret).
+    // e.g., extract_as!(instruction, Ret)
+    ($instruction:expr, $variant:ident) => {
+        match $instruction {
+            $crate::Instruction::$variant { .. } => {
+                // No fields to extract, just validates the variant
+            },
+            _ => {
+                return Err($crate::InstructionError::InvalidInstructionType(stringify!($variant)).into());
+            }
+        }
+    };
+}
+
+// Define all instructions with their opcodes and typed fields
+instructions! {
     // Arithmetic operations: order matters for the prover, see store_fp_fp.rs
-    StoreAddFpFp = 0, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
-    StoreSubFpFp = 1, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
-    StoreMulFpFp = 2, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
-    StoreDivFpFp = 3, 3, fields: [src0_off, src1_off, dst_off], size: 4, operands: [Felt, Felt, Felt];     // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
+    // [fp + dst_off] = [fp + src0_off] + [fp + src1_off]
+    StoreAddFpFp = 0 {
+        src0_off: (OperandType::Memory(DataType::Felt)),
+        src1_off: (OperandType::Memory(DataType::Felt)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = [fp + src0_off] - [fp + src1_off]
+    StoreSubFpFp = 1 {
+        src0_off: (OperandType::Memory(DataType::Felt)),
+        src1_off: (OperandType::Memory(DataType::Felt)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = [fp + src0_off] * [fp + src1_off]
+    StoreMulFpFp = 2 {
+        src0_off: (OperandType::Memory(DataType::Felt)),
+        src1_off: (OperandType::Memory(DataType::Felt)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = [fp + src0_off] / [fp + src1_off]
+    StoreDivFpFp = 3 {
+        src0_off: (OperandType::Memory(DataType::Felt)),
+        src1_off: (OperandType::Memory(DataType::Felt)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // Arithmetic operations with immediate: order matters for the prover, see store_fp_imm.rs
-    StoreAddFpImm = 4, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] + imm
-    StoreMulFpImm = 6, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt];                // [fp + dst_off] = [fp + src_off] * imm
+    // [fp + dst_off] = [fp + src_off] + imm
+    StoreAddFpImm = 4 {
+        src_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = [fp + src_off] * imm
+    StoreMulFpImm = 6 {
+        src_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // Comparison operations
-    StoreLowerThanFpImm = 48, 2, fields: [src_off, imm, dst_off], size: 4, operands: [Felt, Felt]; // [fp + dst_off] = [fp + src_off] < imm
+    // [fp + dst_off] = [fp + src_off] < imm
+    StoreLowerThanFpImm = 48 {
+        src_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // Assertions
-    AssertEqFpFp = 49, 2, fields: [src0_off, src1_off], size: 3, operands: [Felt, Felt]; // assert [fp + src0_off] == [fp + src1_off]
-    AssertEqFpImm = 50, 1, fields: [src_off, imm], size: 3, operands: [Felt]; // assert [fp + src_off] == imm
+    // assert [fp + src0_off] == [fp + src1_off]
+    AssertEqFpFp = 49 {
+        src0_off: (OperandType::Memory(DataType::Felt)),
+        src1_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // assert [fp + src_off] == imm
+    AssertEqFpImm = 50 {
+        src_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+    };
 
     // Memory operations
-    StoreDoubleDerefFp = 8, 3, fields: [base_off, imm, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + imm]
-    StoreDoubleDerefFpFp = 42, 3, fields: [base_off, offset_off, dst_off], size: 4, operands: [Felt, Felt, Felt]; // [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
-    StoreImm = 9, 1, fields: [imm, dst_off], size: 3, operands: [Felt];                                    // [fp + dst_off] = imm
-    StoreFpImm = 43, 2, fields: [imm, dst_off], size: 3, operands: [Felt];                                  // [fp + dst_off] = fp + imm
+    // [fp + dst_off] = [[fp + base_off] + imm]
+    StoreDoubleDerefFp = 8 {
+        base_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
+    StoreDoubleDerefFpFp = 42 {
+        base_off: (OperandType::Memory(DataType::Felt)),
+        offset_off: (OperandType::Memory(DataType::Felt)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = imm
+    StoreImm = 9 {
+        imm: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = fp + imm
+    StoreFpImm = 43 {
+        imm: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // Call operations
-    CallAbsImm = 10, 2, fields: [frame_off, target], size: 3, operands: [Felt, Felt];                      // call abs imm
-    Ret = 11, 2, fields: [], size: 1, operands: [Felt, Felt];                                              // ret
+    // call abs imm
+    // Implicitly pushes return `pc` and current `fp` as two Felt values.
+    CallAbsImm = 10 {
+        frame_off: (OperandType::Immediate),
+        target: (OperandType::Immediate),
+    }, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+        (OperandType::Memory(DataType::Felt)),
+    ];
+    // ret
+    // Ret is a special case: it implicitly accesses `pc` and `fp` as two Felt
+    // operands. We model these as implicit memory operands so that downstream
+    // components can consume the corresponding memory log entries.
+    Ret = 11 {}, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+        (OperandType::Memory(DataType::Felt)),
+    ];
 
     // Jump operations
-    JmpAbsImm = 12, 0, fields: [target], size: 2, operands: [];                                           // jmp abs imm
-    JmpRelImm = 13, 0, fields: [offset], size: 2, operands: [];                                           // jmp rel imm
+    // jmp abs imm
+    JmpAbsImm = 12 { target: (OperandType::Immediate) };
+    // jmp rel imm
+    JmpRelImm = 13 { offset: (OperandType::Immediate) };
 
     // Conditional jumps
-    JnzFpImm = 14, 1, fields: [cond_off, offset], size: 3, operands: [Felt];                              // jmp rel imm if [fp + cond_off] != 0
+    // jmp rel imm if [fp + cond_off] != 0
+    JnzFpImm = 14 {
+        cond_off: (OperandType::Memory(DataType::Felt)),
+        offset: (OperandType::Immediate),
+    };
 
     // U32 operations with FP operands
-    U32StoreAddFpFp = 15, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreSubFpFp = 16, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) - u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreMulFpFp = 17, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreDivFpFp = 18, 6, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) + u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreAddFpFp = 15 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) - u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreSubFpFp = 16 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) * u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreMulFpFp = 17 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreDivFpFp = 18 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
 
     // U32 operations with immediate
-    U32StoreAddFpImm = 19, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
-    U32StoreMulFpImm = 21, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
-    U32StoreDivFpImm = 22, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];   // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) + u32(imm_lo, imm_hi)
+    U32StoreAddFpImm = 19 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) * u32(imm_lo, imm_hi)
+    U32StoreMulFpImm = 21 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+    U32StoreDivFpImm = 22 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
 
     // U32 Memory operations
-    U32StoreImm = 23, 2, fields: [imm_lo, imm_hi, dst_off], size: 4, operands: [U32, U32];                             // u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32(imm_lo, imm_hi)
+    U32StoreImm = 23 {
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
 
     // U32 Comparison operations
-    U32StoreEqFpFp = 24, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) == u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreLtFpFp = 28, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, Felt];                // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
+    // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) == u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreEqFpFp = 24 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = u32([fp + src0_off], [fp + src0_off + 1]) < u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreLtFpFp = 28 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // U32 Comparison operations with immediate
-    U32StoreEqFpImm = 30, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
-    U32StoreLtFpImm = 34, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
+    // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) == u32(imm_lo, imm_hi)
+    U32StoreEqFpImm = 30 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [fp + dst_off] = u32([fp + src_off], [fp + src_off + 1]) < u32(imm_lo, imm_hi)
+    U32StoreLtFpImm = 34 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // U32 Bitwise operations
-    U32StoreAndFpFp = 36, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) & u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreOrFpFp = 37, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                 // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) | u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreXorFpFp = 38, 5, fields: [src0_off, src1_off, dst_off], size: 4, operands: [U32, U32, U32];                // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) ^ u32([fp + src1_off], [fp + src1_off + 1])
+    // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) &/|/^ u32([fp + src1_off], [fp + src1_off + 1])
+    U32StoreAndFpFp = 36 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    U32StoreOrFpFp = 37 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    U32StoreXorFpFp = 38 {
+        src0_off: (OperandType::Memory(DataType::U32)),
+        src1_off: (OperandType::Memory(DataType::U32)),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
 
     // U32 Bitwise operations with immediate
-    U32StoreAndFpImm = 39, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) & u32(imm_lo, imm_hi)
-    U32StoreOrFpImm = 40, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) | u32(imm_lo, imm_hi)
-    U32StoreXorFpImm = 41, 4, fields: [src_off, imm_lo, imm_hi, dst_off], size: 5, operands: [U32, U32];  // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) ^ u32(imm_lo, imm_hi)
+    U32StoreAndFpImm = 39 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    U32StoreOrFpImm = 40 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
+    U32StoreXorFpImm = 41 {
+        src_off: (OperandType::Memory(DataType::U32)),
+        imm_lo: (OperandType::Immediate),
+        imm_hi: (OperandType::Immediate),
+        dst_off: (OperandType::Memory(DataType::U32)),
+    };
 
-    // 42 taken by StoreDoubleDerefFpFp; 43 taken by StoreFpImm
     // Reverse double deref operations - store TO computed addresses
-    StoreToDoubleDerefFpImm = 44, 3, fields: [base_off, imm, src_off], size: 4, operands: [Felt, Felt, Felt]; // [[fp + base_off] + imm] = [fp + src_off]
-    StoreToDoubleDerefFpFp = 45, 3, fields: [base_off, offset_off, src_off], size: 4, operands: [Felt, Felt, Felt]; // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+    // [[fp + base_off] + imm] = [fp + src_off]
+    StoreToDoubleDerefFpImm = 44 {
+        src_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+        base_off: (OperandType::Memory(DataType::Felt)),
+    };
+    // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+    StoreToDoubleDerefFpFp = 45 {
+        src_off: (OperandType::Memory(DataType::Felt)),
+        base_off: (OperandType::Memory(DataType::Felt)),
+        offset_off: (OperandType::Memory(DataType::Felt)),
+    };
 
     // Print operations for debugging
-    PrintM31 = 46, 1, fields: [offset], size: 2, operands: [Felt];                      // print [fp + offset] as M31
-    PrintU32 = 47, 2, fields: [offset], size: 2, operands: [U32]                        // print u32([fp + offset], [fp + offset + 1])
-);
+    PrintM31 = 46 { offset: (OperandType::Memory(DataType::Felt)) };
+    PrintU32 = 47 { offset: (OperandType::Memory(DataType::U32)) };
+}
 
 impl From<Instruction> for SmallVec<[M31; INSTRUCTION_MAX_SIZE]> {
     fn from(instruction: Instruction) -> Self {
@@ -318,7 +607,7 @@ impl Instruction {
     /// Convert instruction to QM31 values for memory storage
     /// Instructions are padded with zeros to align to QM31 boundaries
     pub fn to_qm31_vec(&self) -> Vec<QM31> {
-        self.to_m31_vec()
+        self.to_smallvec()
             .chunks(4)
             .map(|chunk| {
                 let mut m31_array = [M31::from(0); 4];
@@ -339,7 +628,7 @@ impl Serialize for Instruction {
         S: serde::Serializer,
     {
         use serde::ser::SerializeSeq;
-        let vec = self.to_m31_vec();
+        let vec = self.to_smallvec();
         let mut seq = serializer.serialize_seq(Some(vec.len()))?;
 
         for val in &vec {
