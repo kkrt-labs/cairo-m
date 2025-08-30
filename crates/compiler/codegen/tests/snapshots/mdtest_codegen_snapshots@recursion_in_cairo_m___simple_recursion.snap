@@ -26,7 +26,7 @@ test_factorial_0:
    2: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
    3: 11 _ _ _             // return
 factorial:
-   4: 14 -4 4 _            // if [fp + -4] != 0 jmp rel factorial_2
+   4: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel factorial_2
    5: 12 6 _ _             // jump abs factorial_1
 factorial_1:
    6: 9 1 2147483644 _     // Return value 0: [fp -3] = 1

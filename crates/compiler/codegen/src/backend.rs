@@ -47,5 +47,5 @@ pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
     // Generate code
     let mut generator = CodeGenerator::new();
     generator.generate_module(module)?;
-    Ok(generator.compile())
+    generator.compile()
 }

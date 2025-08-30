@@ -37,7 +37,7 @@ test_mutual_recursion_0:
 is_even:
 is_even:
 is_even_0:
-   7: 14 -4 4 _            // if [fp + -4] != 0 jmp rel is_even_2
+   7: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel is_even_2
    8: 12 9 _ _             // jump abs is_even_1
 is_even_1:
    9: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
@@ -50,7 +50,7 @@ is_even_2:
 is_odd:
 is_odd:
 is_odd_0:
-  15: 14 -4 4 _            // if [fp + -4] != 0 jmp rel is_odd_2
+  15: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel is_odd_2
   16: 12 17 _ _            // jump abs is_odd_1
 is_odd_1:
   17: 9 0 2147483644 _     // Return value 0: [fp -3] = 0

@@ -258,11 +258,11 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreFpImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreFpImm {
                 imm: M31::from(3),
                 dst_off: M31::from(7),
-            })
+            }
         );
     }
 
@@ -274,12 +274,12 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
         assert_eq!(
-            i.get_typed_instruction(),
-            Some(&CasmInstr::StoreAddFpImm {
+            i.inner_instr(),
+            &CasmInstr::StoreAddFpImm {
                 src_off: M31::from(3),
                 imm: M31::from(0),
                 dst_off: M31::from(7),
-            })
+            }
         );
     }
 
@@ -303,13 +303,13 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
         assert_eq!(
-            i.get_typed_instruction(),
-            Some(&CasmInstr::U32StoreAddFpImm {
+            i.inner_instr(),
+            &CasmInstr::U32StoreAddFpImm {
                 src_off: M31::from(5),
                 imm_lo: M31::from(0),
                 imm_hi: M31::from(0),
                 dst_off: M31::from(12),
-            })
+            }
         );
         // Test execution
         let mut mem = Mem::new(64);
@@ -325,12 +325,12 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreDoubleDerefFp {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreDoubleDerefFp {
                 base_off: M31::from(2),
                 imm: M31::from(5),
                 dst_off: M31::from(8),
-            })
+            }
         );
     }
 
@@ -341,12 +341,12 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreDoubleDerefFpFp {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreDoubleDerefFpFp {
                 base_off: M31::from(2),
                 offset_off: M31::from(3),
                 dst_off: M31::from(8),
-            })
+            }
         );
     }
 
@@ -357,12 +357,12 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreToDoubleDerefFpImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreToDoubleDerefFpImm {
                 src_off: M31::from(8),
                 imm: M31::from(5),
                 base_off: M31::from(2),
-            })
+            }
         );
     }
 
@@ -373,12 +373,12 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreToDoubleDerefFpFp {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreToDoubleDerefFpFp {
                 src_off: M31::from(8),
                 base_off: M31::from(2),
                 offset_off: M31::from(3),
-            })
+            }
         );
     }
 
@@ -394,11 +394,11 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreImm {
                 imm: M31::from(42),
                 dst_off: M31::from(5),
-            })
+            }
         );
     }
 
@@ -410,12 +410,12 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::U32StoreImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::U32StoreImm {
                 imm_lo: M31::from(0x1234),
                 imm_hi: M31::from(0xABCD),
                 dst_off: M31::from(10),
-            })
+            }
         );
     }
 
@@ -428,11 +428,11 @@ mod tests {
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreImm {
                 imm: M31::from(1),
                 dst_off: M31::from(3),
-            })
+            }
         );
 
         // Test false
@@ -441,11 +441,11 @@ mod tests {
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreImm {
                 imm: M31::from(0),
                 dst_off: M31::from(4),
-            })
+            }
         );
     }
 
@@ -467,12 +467,12 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::StoreAddFpImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::StoreAddFpImm {
                 src_off: M31::from(0),
                 imm: M31::from(0),
                 dst_off: M31::from(10),
-            })
+            }
         );
     }
 

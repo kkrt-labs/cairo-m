@@ -18,7 +18,7 @@ fn classify(x: felt) -> felt {
 ============================================================
 Generated CASM:
 classify:
-   0: 14 -4 4 _            // if [fp + -4] != 0 jmp rel classify_2
+   0: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel classify_2
    1: 12 2 _ _             // jump abs classify_1
 classify_1:
    2: 9 0 2147483644 _     // Return value 0: [fp -3] = 0

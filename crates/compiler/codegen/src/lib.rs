@@ -15,11 +15,8 @@
 #![feature(let_chains)]
 #![allow(clippy::option_if_let_else)]
 
-use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 use cairo_m_common::{Instruction, InstructionError};
 use cairo_m_compiler_mir::BasicBlockId;
-use smallvec::SmallVec;
-use stwo_prover::core::fields::m31::M31;
 use thiserror::Error;
 
 pub mod backend;
@@ -40,99 +37,49 @@ pub use db::{compile_project as db_compile_project, CodegenDb};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
 
-/// Represents an operand that can be either a literal value or a label reference
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Operand {
-    /// A literal immediate value
-    Literal(i32),
-    /// A label reference that needs to be resolved
-    Label(String),
-}
-
-impl Operand {
-    /// Create a literal operand from an integer
-    pub const fn literal(value: i32) -> Self {
-        Self::Literal(value)
-    }
-
-    /// Create a label operand
-    pub const fn label(name: String) -> Self {
-        Self::Label(name)
-    }
-}
-
 /// Represents an instruction being built during code generation.
 ///
 /// This is an intermediate representation that may contain unresolved labels
 /// and other builder state before being converted to the final Instruction type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstructionBuilder {
-    /// The opcode number for this instruction. Always matches the inner instruction kind.
-    pub opcode: u32,
-    /// Vector of operands (can be literals or label references). For typed instructions,
-    /// this is populated from the original integer operands for debug/analysis convenience.
-    pub operands: Vec<Operand>,
+    /// The instruction being built. Jumps with labels are unresolved, and mutated during a label
+    /// resolution pass, using the `label` field.
+    inner: Instruction,
+    /// Label to resolve to a target address. If present, the instruction is unresolved.
+    label: Option<String>,
     /// Human-readable comment for debugging
-    pub comment: Option<String>,
-    /// If present, a fully-typed instruction from `cairo_m_common`.
-    /// When set, this takes precedence during `build()`.
-    typed: Option<Instruction>,
+    comment: Option<String>,
 }
 
 impl InstructionBuilder {
-    /// Construct a pending instruction from opcode, operands and optional comment.
-    pub const fn new_with(opcode: u32, operands: Vec<Operand>, comment: Option<String>) -> Self {
-        Self {
-            opcode,
-            operands,
-            comment,
-            typed: None,
-        }
-    }
-
-    /// Construct a ready instruction directly from a typed Instruction and optional comment.
-    pub fn from_instr(instruction: Instruction, comment: Option<String>) -> Self {
+    /// Construct an instruction builder directly from an Instruction and optional comment.
+    pub fn new(instruction: Instruction, comment: Option<String>) -> Self {
         let mut ib: Self = instruction.into();
         ib.comment = comment;
         ib
     }
-    /// Create a new CASM instruction
-    pub const fn new(opcode: u32) -> Self {
-        Self {
-            opcode,
-            operands: Vec::new(),
-            comment: None,
-            typed: None,
+
+    /// Finalize this builder into a concrete `Instruction`.
+    ///
+    /// Returns an error if a label is still unresolved. This avoids panicking
+    /// and surfaces misuse as a proper codegen error.
+    pub(crate) fn build(&self) -> CodegenResult<Instruction> {
+        if let Some(label) = &self.label {
+            return Err(CodegenError::UnresolvedLabel(format!(
+                "Unresolved label in build(): {label}"
+            )));
         }
+        Ok(self.inner)
     }
 
-    pub(crate) fn build(&self) -> Instruction {
-        if let Some(instr) = &self.typed {
-            return *instr;
-        }
-
-        // Fallback: build from opcode + literal operands (legacy path for label-bearing instrs)
-        let mut values = SmallVec::<[M31; INSTRUCTION_MAX_SIZE]>::new();
-        values.push(M31::from(self.opcode));
-
-        for op in &self.operands {
-            match op {
-                Operand::Literal(val) => values.push(M31::from(*val)),
-                Operand::Label(label) => panic!("Unresolved label in build(): {}", label),
-            }
-        }
-
-        Instruction::try_from(values).unwrap_or_else(|e| {
-            panic!(
-                "Failed to build instruction: {:?}. Opcode: {}, Operands: {:?}",
-                e, self.opcode, self.operands
-            )
-        })
+    pub fn get_label(&self) -> Option<&str> {
+        self.label.as_deref()
     }
 
-    /// Add an operand to the instruction
-    pub fn with_operand(mut self, operand: Operand) -> Self {
-        self.operands.push(operand);
+    /// Add a label that needs to be resolved to the instruction's  target field.
+    pub(crate) fn with_label(mut self, label: String) -> Self {
+        self.label = Some(label);
         self
     }
 
@@ -142,58 +89,12 @@ impl InstructionBuilder {
         self
     }
 
-    pub(crate) const fn get_typed_instruction(&self) -> Option<&Instruction> {
-        self.typed.as_ref()
+    pub(crate) const fn inner_instr(&self) -> &Instruction {
+        &self.inner
     }
 
-    /// Get the first operand
-    pub(crate) fn op0(&self) -> Option<i32> {
-        self.operands.first().and_then(|op| match op {
-            Operand::Literal(value) => Some(*value),
-            _ => None,
-        })
-    }
-
-    /// Get the second operand
-    pub(crate) fn op1(&self) -> Option<i32> {
-        self.operands.get(1).and_then(|op| match op {
-            Operand::Literal(value) => Some(*value),
-            _ => None,
-        })
-    }
-
-    /// Get the third operand
-    pub(crate) fn op2(&self) -> Option<i32> {
-        self.operands.get(2).and_then(|op| match op {
-            Operand::Literal(value) => Some(*value),
-            _ => None,
-        })
-    }
-
-    /// Convert to CASM assembly string
-    pub(crate) fn to_asm(&self) -> String {
-        let mut parts = vec![self.opcode.to_string()];
-
-        // Add operands to the string
-        for operand in &self.operands {
-            match operand {
-                Operand::Literal(val) => parts.push(val.to_string()),
-                Operand::Label(label) => parts.push(format!("@{}", label)),
-            }
-        }
-
-        // Pad with underscores to reach exactly 4 parts for consistent formatting
-        while parts.len() < 4 {
-            parts.push("_".to_string());
-        }
-
-        let instruction = parts.join(" ");
-
-        if let Some(comment) = &self.comment {
-            format!("{instruction:<20} // {comment}")
-        } else {
-            instruction
-        }
+    pub(crate) const fn inner_instr_mut(&mut self) -> &mut Instruction {
+        &mut self.inner
     }
 }
 
@@ -257,24 +158,35 @@ pub type CodegenResult<T> = Result<T, CodegenError>;
 
 impl std::fmt::Display for InstructionBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_asm())
+        let mut parts = vec![];
+        for value in self.inner_instr().to_smallvec() {
+            parts.push(value.to_string());
+        }
+
+        // Pad to reach a fixed part count for consistent formatting
+        const MIN_PARTS: usize = 4;
+        const PART_PLACEHOLDER: &str = "_";
+        while parts.len() < MIN_PARTS {
+            parts.push(PART_PLACEHOLDER.to_string());
+        }
+
+        let instruction = parts.join(" ");
+
+        if let Some(comment) = &self.comment {
+            write!(f, "{instruction:<20} // {comment}")
+        } else {
+            write!(f, "{instruction}")
+        }
     }
 }
 
 impl From<Instruction> for InstructionBuilder {
     fn from(instr: Instruction) -> Self {
         // Extract opcode and numeric operands for debug/analysis convenience
-        let opcode = instr.opcode_value();
-        let operands = instr
-            .operands()
-            .into_iter()
-            .map(|m| Operand::Literal(m.0 as i32))
-            .collect();
         Self {
-            opcode,
-            operands,
+            label: None,
             comment: None,
-            typed: Some(instr),
+            inner: instr,
         }
     }
 }

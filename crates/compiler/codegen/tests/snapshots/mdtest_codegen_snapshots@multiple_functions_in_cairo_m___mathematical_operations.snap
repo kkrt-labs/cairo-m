@@ -52,7 +52,7 @@ compute_expression_0:
   12: 0 5 8 2147483644     // [fp + -3] = [fp + 5] op [fp + 8]
   13: 11 _ _ _             // return
 power:
-  14: 14 -4 4 _            // if [fp + -4] != 0 jmp rel power_2
+  14: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel power_2
   15: 12 16 _ _            // jump abs power_1
 power_1:
   16: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
@@ -65,7 +65,7 @@ power_2:
   22: 2 2147483642 7 2147483644 // [fp + -3] = [fp + -5] op [fp + 7]
   23: 11 _ _ _             // return
 factorial:
-  24: 14 -4 4 _            // if [fp + -4] != 0 jmp rel factorial_2
+  24: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel factorial_2
   25: 12 26 _ _            // jump abs factorial_1
 factorial_1:
   26: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
