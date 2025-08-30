@@ -319,7 +319,6 @@ mod tests {
     use super::*;
     use crate::test_support::{exec, ExecutionError, Mem};
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::{STORE_ADD_FP_IMM, STORE_IMM, STORE_MUL_FP_IMM};
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
     use proptest::prelude::*;
     use stwo_prover::core::fields::m31::{self, M31};
@@ -366,9 +365,11 @@ mod tests {
             .unwrap();
 
         // Should use ADD with negated immediate
-        assert_eq!(b.instructions[1].opcode, STORE_ADD_FP_IMM);
         let neg_imm = m31_negate_imm(imm);
-        assert_eq!(b.instructions[1].op1(), Some(neg_imm));
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreAddFpImm { imm, .. } => assert_eq!(*imm, M31::from(neg_imm)),
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
 
         let mut mem = Mem::new(10);
         exec(&mut mem, &b.instructions).unwrap();
@@ -383,9 +384,11 @@ mod tests {
             .unwrap();
 
         // Should use MUL with inverse
-        assert_eq!(b.instructions[1].opcode, STORE_MUL_FP_IMM);
         let inv = m31_inverse_imm(imm).unwrap();
-        assert_eq!(b.instructions[1].op1(), Some(inv));
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreMulFpImm { imm, .. } => assert_eq!(*imm, M31::from(inv)),
+            other => panic!("expected StoreMulFpImm, got {other:?}"),
+        }
     }
 
     #[test]
@@ -416,7 +419,13 @@ mod tests {
             .unwrap();
 
         // Should normalize to fp+imm form
-        assert_eq!(b.instructions[1].opcode, STORE_ADD_FP_IMM);
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreAddFpImm { imm, dst_off, .. } => {
+                assert_eq!(*imm, M31::from(100));
+                assert_eq!(*dst_off, M31::from(5));
+            }
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
 
         let mut mem = Mem::new(10);
         exec(&mut mem, &b.instructions).unwrap();
@@ -430,7 +439,13 @@ mod tests {
             .unwrap();
 
         // Should normalize to fp*imm form
-        assert_eq!(b.instructions[1].opcode, STORE_MUL_FP_IMM);
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreMulFpImm { imm, dst_off, .. } => {
+                assert_eq!(*imm, M31::from(11));
+                assert_eq!(*dst_off, M31::from(5));
+            }
+            other => panic!("expected StoreMulFpImm, got {other:?}"),
+        }
 
         let mut mem = Mem::new(10);
         exec(&mut mem, &b.instructions).unwrap();
@@ -452,9 +467,11 @@ mod tests {
 
             // Should fold to single store_imm
             assert_eq!(b.instructions.len(), 1);
-            assert_eq!(b.instructions[0].opcode, STORE_IMM);
             let expected = (M31::from(lhs) + M31::from(rhs)).0;
-            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+            match b.instructions[0].inner_instr() {
+                CasmInstr::StoreImm { imm, .. } => assert_eq!(imm.0, expected),
+                other => panic!("expected StoreImm, got {other:?}"),
+            }
         }
 
         #[test]
@@ -466,9 +483,11 @@ mod tests {
                 .unwrap();
 
             assert_eq!(b.instructions.len(), 1);
-            assert_eq!(b.instructions[0].opcode, STORE_IMM);
             let expected = (M31::from(lhs) - M31::from(rhs)).0;
-            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+            match b.instructions[0].inner_instr() {
+                CasmInstr::StoreImm { imm, .. } => assert_eq!(imm.0, expected),
+                other => panic!("expected StoreImm, got {other:?}"),
+            }
         }
 
         #[test]
@@ -480,9 +499,11 @@ mod tests {
                 .unwrap();
 
             assert_eq!(b.instructions.len(), 1);
-            assert_eq!(b.instructions[0].opcode, STORE_IMM);
             let expected = (M31::from(lhs) * M31::from(rhs)).0;
-            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+            match b.instructions[0].inner_instr() {
+                CasmInstr::StoreImm { imm, .. } => assert_eq!(imm.0, expected),
+                other => panic!("expected StoreImm, got {other:?}"),
+            }
         }
 
         #[test]

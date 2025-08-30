@@ -19,13 +19,13 @@ Generated CASM:
 zero_truthiness:
 zero_truthiness:
 zero_truthiness_0:
-   0: 14 -4 4 _            // if [fp + -4] != 0 jmp rel zero_truthiness_2
+   0: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel zero_truthiness_2
    1: 12 2 _ _             // jump abs zero_truthiness_1
 zero_truthiness_1:
    2: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
    3: 11 _ _ _             // return
 zero_truthiness_2:
-   4: 14 -4 2 _            // if [fp + -4] != 0 jmp rel zero_truthiness_3
+   4: 14 2147483643 2 _    // if [fp + -4] != 0 jmp rel zero_truthiness_3
    5: 12 8 _ _             // jump abs zero_truthiness_4
 zero_truthiness_3:
    6: 9 3 2147483644 _     // Return value 0: [fp -3] = 3

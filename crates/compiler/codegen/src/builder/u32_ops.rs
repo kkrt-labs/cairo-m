@@ -355,12 +355,12 @@ mod tests {
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::U32StoreAddFpFp {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::U32StoreAddFpFp {
                 src0_off: M31::from(0),
                 src1_off: M31::from(2),
                 dst_off: M31::from(8),
-            })
+            }
         );
     }
 
@@ -374,13 +374,13 @@ mod tests {
         let expected_imm_hi = (expected_imm >> 16) as i32;
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::U32StoreAddFpImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::U32StoreAddFpImm {
                 src_off: M31::from(0),
                 imm_lo: M31::from(expected_imm_lo),
                 imm_hi: M31::from(expected_imm_hi),
                 dst_off: M31::from(5),
-            })
+            }
         );
     }
 
@@ -391,13 +391,13 @@ mod tests {
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
-            b.instructions[0].get_typed_instruction(),
-            Some(&CasmInstr::U32StoreEqFpImm {
+            b.instructions[0].inner_instr(),
+            &CasmInstr::U32StoreEqFpImm {
                 src_off: M31::from(0),
                 imm_lo: M31::from(42u32 as i32 & 0xFFFF),
                 imm_hi: M31::from(0),
                 dst_off: M31::from(3),
-            })
+            }
         );
     }
 
@@ -437,13 +437,13 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
         assert_eq!(
-            i.get_typed_instruction(),
-            Some(&CasmInstr::U32StoreAndFpImm {
+            i.inner_instr(),
+            &CasmInstr::U32StoreAndFpImm {
                 src_off: M31::from(0),
                 imm_lo: M31::from(0xF0F0_F0F0u32 as i32 & 0xFFFF),
                 imm_hi: M31::from(((0xF0F0_F0F0u32 >> 16) & 0xFFFF) as i32),
                 dst_off: M31::from(6),
-            })
+            }
         );
     }
 
@@ -460,13 +460,13 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
         assert_eq!(
-            i.get_typed_instruction(),
-            Some(&CasmInstr::U32StoreOrFpImm {
+            i.inner_instr(),
+            &CasmInstr::U32StoreOrFpImm {
                 src_off: M31::from(0),
                 imm_lo: M31::from(0x0000_FFFFu32 as i32 & 0xFFFF),
                 imm_hi: M31::from(0),
                 dst_off: M31::from(7),
-            })
+            }
         );
     }
 
@@ -478,13 +478,13 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
         assert_eq!(
-            i.get_typed_instruction(),
-            Some(&CasmInstr::U32StoreEqFpImm {
+            i.inner_instr(),
+            &CasmInstr::U32StoreEqFpImm {
                 src_off: M31::from(0),
                 imm_lo: M31::from(12345u32 as i32 & 0xFFFF),
                 imm_hi: M31::from(0),
                 dst_off: M31::from(2),
-            })
+            }
         );
     }
 

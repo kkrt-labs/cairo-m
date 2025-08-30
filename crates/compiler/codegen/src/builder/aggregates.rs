@@ -1316,12 +1316,12 @@ mod tests {
         let ptr_stores = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == STORE_FP_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_FP_IMM)
             .count();
         let imm_stores = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == STORE_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_IMM)
             .count();
         assert_eq!(ptr_stores, 1);
         assert_eq!(imm_stores, 3);
@@ -1343,12 +1343,12 @@ mod tests {
         let ptr_stores = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == STORE_FP_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_FP_IMM)
             .count();
         let u32_imm_stores = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == U32_STORE_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == U32_STORE_IMM)
             .count();
         assert_eq!(ptr_stores, 1);
         assert_eq!(u32_imm_stores, 2);
@@ -1375,7 +1375,10 @@ mod tests {
         .unwrap();
 
         // Expect one double-deref load instruction appended
-        assert_eq!(b.instructions[orig_len].opcode, STORE_DOUBLE_DEREF_FP);
+        assert_eq!(
+            b.instructions[orig_len].inner_instr().opcode_value(),
+            STORE_DOUBLE_DEREF_FP
+        );
     }
 
     #[test]
@@ -1399,11 +1402,14 @@ mod tests {
         .unwrap();
 
         // Expect one pointer copy + one double-deref store
-        assert!(b.instructions.iter().any(|i| i.opcode == STORE_ADD_FP_IMM));
         assert!(b
             .instructions
             .iter()
-            .any(|i| i.opcode == STORE_TO_DOUBLE_DEREF_FP_IMM));
+            .any(|i| i.inner_instr().opcode_value() == STORE_ADD_FP_IMM));
+        assert!(b
+            .instructions
+            .iter()
+            .any(|i| i.inner_instr().opcode_value() == STORE_TO_DOUBLE_DEREF_FP_IMM));
     }
 
     #[test]
@@ -1434,7 +1440,7 @@ mod tests {
         assert!(b
             .instructions
             .iter()
-            .any(|i| i.opcode == STORE_DOUBLE_DEREF_FP_FP));
+            .any(|i| i.inner_instr().opcode_value() == STORE_DOUBLE_DEREF_FP_FP));
     }
 
     #[test]
@@ -1465,17 +1471,17 @@ mod tests {
         let mul_count = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == STORE_MUL_FP_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_MUL_FP_IMM)
             .count();
         let load_count = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == STORE_DOUBLE_DEREF_FP_FP)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_DOUBLE_DEREF_FP_FP)
             .count();
         let adjust_count = b
             .instructions
             .iter()
-            .filter(|i| i.opcode == STORE_ADD_FP_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_ADD_FP_IMM)
             .count();
         assert_eq!(mul_count, 1);
         assert_eq!(load_count, 2);

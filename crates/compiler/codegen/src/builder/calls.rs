@@ -1,11 +1,11 @@
 //! Function call handling: argument passing and in-place detection.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
-use cairo_m_common::instruction::CALL_ABS_IMM;
-use cairo_m_common::instruction::RET;
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
+use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{
     instruction::CalleeSignature, DataLayout, Literal, MirType, Value, ValueId,
 };
+use stwo_prover::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Shared lowering for all call flavors (void, single, multiple).
@@ -58,10 +58,14 @@ impl super::CasmBuilder {
         } else {
             args_offset + m as i32 + k as i32
         };
-        let instr = InstructionBuilder::new(CALL_ABS_IMM)
-            .with_operand(Operand::Literal(frame_off))
-            .with_operand(Operand::Label(callee_name.to_string()))
-            .with_comment(format!("call {callee_name}"));
+        let instr = InstructionBuilder::new(
+            CasmInstr::CallAbsImm {
+                frame_off: M31::from(frame_off),
+                target: M31::from(0),
+            },
+            Some(format!("call {callee_name}")),
+        )
+        .with_label(callee_name.to_string());
         self.emit_push(instr);
         Ok(())
     }
@@ -315,7 +319,10 @@ impl super::CasmBuilder {
             }
         }
 
-        self.emit_push(InstructionBuilder::new(RET).with_comment("return".to_string()));
+        self.emit_push(InstructionBuilder::new(
+            CasmInstr::Ret {},
+            Some("return".to_string()),
+        ));
         Ok(())
     }
 }
@@ -324,7 +331,6 @@ impl super::CasmBuilder {
 mod tests {
     use super::*;
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::CALL_ABS_IMM;
     use cairo_m_compiler_mir::{MirType, Value, ValueId};
     use stwo_prover::core::fields::m31::M31;
 
@@ -345,9 +351,21 @@ mod tests {
         // Expect one CALL
         assert_eq!(b.instructions.len(), 1);
         let i = &b.instructions[0];
-        assert_eq!(i.opcode, CALL_ABS_IMM);
+        assert_eq!(
+            i.inner_instr(),
+            &CasmInstr::CallAbsImm {
+                frame_off: M31::from(2),
+                target: M31::from(0)
+            }
+        );
         // frame_off = args_offset + m + k; here args_offset is 0 via in-place optimization, m=1,k=1
-        assert_eq!(i.op0(), Some(2));
+        match i.inner_instr() {
+            CasmInstr::CallAbsImm { frame_off, target } => {
+                assert_eq!(*frame_off, M31::from(2));
+                assert_eq!(*target, M31::from(0));
+            }
+            other => panic!("expected CallAbsImm, got {other:?}"),
+        }
         // dest mapped to args_offset + m = 1
         let off = b.layout.get_offset(dest).unwrap();
         assert_eq!(off, 1);
@@ -377,9 +395,14 @@ mod tests {
             .unwrap();
         assert_eq!(builder.instructions.len(), 1);
         let i = &builder.instructions[0];
-        assert_eq!(i.opcode, CALL_ABS_IMM);
         // args_offset 0, m=2, k=2 => frame_off=4
-        assert_eq!(i.op0(), Some(4));
+        assert_eq!(
+            i.inner_instr(),
+            &CasmInstr::CallAbsImm {
+                frame_off: M31::from(4),
+                target: M31::from(0)
+            }
+        );
         // dests mapped to offsets 2 and 3
         assert_eq!(builder.layout.get_offset(d0).unwrap(), 2);
         assert_eq!(builder.layout.get_offset(d1).unwrap(), 3);
@@ -398,8 +421,13 @@ mod tests {
         b.lower_call("noop", &[Value::operand(a)], &sig, &[])
             .unwrap();
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, CALL_ABS_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(1)); // args_offset 0, m=1
+        assert_eq!(
+            b.instructions[0].inner_instr(),
+            &CasmInstr::CallAbsImm {
+                frame_off: M31::from(1),
+                target: M31::from(0)
+            }
+        );
     }
 
     #[test]
@@ -422,14 +450,26 @@ mod tests {
         let pos = b
             .instructions
             .iter()
-            .rposition(|i| i.opcode == cairo_m_common::instruction::STORE_ADD_FP_IMM)
+            .rposition(|i| {
+                i.inner_instr().opcode_value() == cairo_m_common::instruction::STORE_ADD_FP_IMM
+            })
             .expect("missing STORE_ADD_FP_IMM copy");
         let copy = &b.instructions[pos];
-        assert_eq!(copy.op0(), Some(0));
-        assert_eq!(copy.op2(), Some(M31::from(-2).0 as i32));
+        match copy.inner_instr() {
+            CasmInstr::StoreAddFpImm {
+                src_off,
+                imm,
+                dst_off,
+            } => {
+                assert_eq!(*src_off, M31::from(0));
+                assert_eq!(*imm, M31::from(0));
+                assert_eq!(*dst_off, M31::from(-2));
+            }
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
         // And ensure the last instruction is RET
         assert_eq!(
-            b.instructions.last().unwrap().opcode,
+            b.instructions.last().unwrap().inner_instr().opcode_value(),
             cairo_m_common::instruction::RET
         );
     }

@@ -35,7 +35,7 @@ mod tests {
         builder.assert_eq_fp_fp(0, 1, "test".to_string());
         assert_eq!(builder.instructions.len(), 1);
         assert_eq!(
-            builder.instructions[0].get_typed_instruction().unwrap(),
+            builder.instructions[0].inner_instr(),
             &CasmInstr::AssertEqFpFp {
                 src0_off: M31::from(0),
                 src1_off: M31::from(1),
@@ -49,7 +49,7 @@ mod tests {
         builder.assert_eq_fp_imm(0, 1, "test".to_string());
         assert_eq!(builder.instructions.len(), 1);
         assert_eq!(
-            builder.instructions[0].get_typed_instruction().unwrap(),
+            builder.instructions[0].inner_instr(),
             &CasmInstr::AssertEqFpImm {
                 src_off: M31::from(0),
                 imm: M31::from(1),

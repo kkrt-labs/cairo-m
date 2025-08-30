@@ -46,246 +46,330 @@ impl Mem {
 /// Only supports opcodes used by u32 arithmetic/compare paths and simple felt ops used around them.
 pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), ExecutionError> {
     for ib in instrs {
-        match ib.opcode {
-            // Felt
-            STORE_IMM => {
-                let imm = ib.op0().unwrap() as u32;
-                let dst = ib.op1().unwrap();
-                mem.set(dst, M31::from(imm));
+        let instr = ib.inner_instr();
+        match instr {
+            Instruction::StoreImm { imm, dst_off } => {
+                mem.set(dst_off.0 as i32, M31::from(imm.0));
             }
-            STORE_ADD_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let val = mem.get(a) + mem.get(b);
-                mem.set(dst, val);
+            Instruction::StoreAddFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get(src0_off.0 as i32);
+                let b = mem.get(src1_off.0 as i32);
+                let val = a + b;
+                mem.set(dst_off.0 as i32, val);
             }
-            STORE_ADD_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let imm = ib.op1().unwrap() as u32;
-                let dst = ib.op2().unwrap();
-                let val = mem.get(src) + M31::from(imm);
-                mem.set(dst, val);
+            Instruction::StoreSubFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get(src0_off.0 as i32);
+                let b = mem.get(src1_off.0 as i32);
+                let val = a - b;
+                mem.set(dst_off.0 as i32, val);
             }
-            STORE_SUB_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let val = mem.get(a) - mem.get(b);
-                mem.set(dst, val);
+            Instruction::StoreMulFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get(src0_off.0 as i32);
+                let b = mem.get(src1_off.0 as i32);
+                let val = a * b;
+                mem.set(dst_off.0 as i32, val);
             }
-            STORE_MUL_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let val = mem.get(a) * mem.get(b);
-                mem.set(dst, val);
-            }
-            STORE_DIV_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let divisor = mem.get(b);
-                if divisor.0 == 0 {
+            Instruction::StoreDivFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get(src0_off.0 as i32);
+                let b = mem.get(src1_off.0 as i32);
+                if b == M31::from(0) {
                     return Err(ExecutionError::DivisionByZero);
                 }
-                let val = mem.get(a) * divisor.inverse();
-                mem.set(dst, val);
+                let val = a / b;
+                mem.set(dst_off.0 as i32, val);
             }
-            STORE_MUL_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let imm = ib.op1().unwrap() as u32;
-                let dst = ib.op2().unwrap();
-                let val = mem.get(src) * M31::from(imm);
-                mem.set(dst, val);
+            Instruction::StoreAddFpImm {
+                src_off,
+                imm,
+                dst_off,
+            } => {
+                let a = mem.get(src_off.0 as i32);
+                let val = a + M31::from(imm.0);
+                mem.set(dst_off.0 as i32, val);
             }
-
-            // U32 immediates
-            U32_STORE_IMM => {
-                let lo = ib.op0().unwrap() as u32;
-                let hi = ib.op1().unwrap() as u32;
-                let dst = ib.op2().unwrap();
-                mem.set(dst, M31::from(lo));
-                mem.set(dst + 1, M31::from(hi));
+            Instruction::StoreMulFpImm {
+                src_off,
+                imm,
+                dst_off,
+            } => {
+                let a = mem.get(src_off.0 as i32);
+                let val = a * M31::from(imm.0);
+                mem.set(dst_off.0 as i32, val);
             }
-
-            // U32 fp-imm
-            U32_STORE_ADD_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let x = mem.get_u32(src);
-                mem.set_u32(dst, x.wrapping_add(imm));
+            Instruction::StoreLowerThanFpImm {
+                src_off,
+                imm,
+                dst_off,
+            } => {
+                let a = mem.get(src_off.0 as i32);
+                let val = a < M31::from(imm.0);
+                mem.set(dst_off.0 as i32, M31::from(val as u32));
             }
-            U32_STORE_MUL_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let x = mem.get_u32(src);
-                mem.set_u32(dst, x.wrapping_mul(imm));
+            Instruction::AssertEqFpFp { src0_off, src1_off } => {
+                let a = mem.get(src0_off.0 as i32);
+                let b = mem.get(src1_off.0 as i32);
+                assert_eq!(a, b);
             }
-            U32_STORE_DIV_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let x = mem.get_u32(src);
+            Instruction::AssertEqFpImm { src_off, imm } => {
+                let a = mem.get(src_off.0 as i32);
+                let val = a == M31::from(imm.0);
+                assert!(val);
+            }
+            Instruction::StoreDoubleDerefFp {
+                base_off,
+                imm,
+                dst_off,
+            } => {
+                let a = mem.get(base_off.0 as i32);
+                let val = mem.get(a.0 as i32 + imm.0 as i32);
+                mem.set(dst_off.0 as i32, val);
+            }
+            Instruction::StoreDoubleDerefFpFp {
+                base_off,
+                offset_off,
+                dst_off,
+            } => {
+                let a = mem.get(base_off.0 as i32);
+                let b = mem.get(offset_off.0 as i32);
+                let val = mem.get(a.0 as i32 + b.0 as i32);
+                mem.set(dst_off.0 as i32, val);
+            }
+            Instruction::StoreFpImm { imm, dst_off } => {
+                let val = mem.get(imm.0 as i32);
+                mem.set(dst_off.0 as i32, val);
+            }
+            Instruction::U32StoreAddFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a.wrapping_add(b);
+                mem.set_u32(dst_off.0 as i32, val);
+            }
+            Instruction::U32StoreSubFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a.wrapping_sub(b);
+                mem.set_u32(dst_off.0 as i32, val);
+            }
+            Instruction::U32StoreMulFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a.wrapping_mul(b);
+                mem.set_u32(dst_off.0 as i32, val);
+            }
+            Instruction::U32StoreDivFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                if b == 0 {
+                    return Err(ExecutionError::DivisionByZero);
+                }
+                let val = a.wrapping_div(b);
+                mem.set_u32(dst_off.0 as i32, val);
+            }
+            Instruction::U32StoreAddFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let a = mem.get_u32(src_off.0 as i32);
+                let result = a.wrapping_add(imm);
+                mem.set_u32(dst_off.0 as i32, result);
+            }
+            Instruction::U32StoreMulFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let result = a.wrapping_mul(imm);
+                mem.set_u32(dst_off.0 as i32, result);
+            }
+            Instruction::U32StoreDivFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
                 if imm == 0 {
                     return Err(ExecutionError::DivisionByZero);
                 }
-                let y = x.wrapping_div(imm);
-                mem.set_u32(dst, y);
+                let result = a.wrapping_div(imm);
+                mem.set_u32(dst_off.0 as i32, result);
+            }
+            Instruction::U32StoreImm {
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                mem.set_u32(dst_off.0 as i32, imm);
+            }
+            Instruction::U32StoreEqFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a == b;
+                mem.set(dst_off.0 as i32, M31::from(val as u32));
+            }
+            Instruction::U32StoreLtFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a < b;
+                mem.set(dst_off.0 as i32, M31::from(val as u32));
+            }
+            Instruction::U32StoreEqFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let val = a == imm;
+                mem.set(dst_off.0 as i32, M31::from(val as u32));
+            }
+            Instruction::U32StoreLtFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let val = a < imm;
+                mem.set(dst_off.0 as i32, M31::from(val as u32));
             }
 
-            U32_STORE_AND_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let x = mem.get_u32(src);
-                mem.set_u32(dst, x & imm);
+            Instruction::U32StoreAndFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a & b;
+                mem.set_u32(dst_off.0 as i32, val);
             }
-            U32_STORE_OR_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let x = mem.get_u32(src);
-                mem.set_u32(dst, x | imm);
+            Instruction::U32StoreOrFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a | b;
+                mem.set_u32(dst_off.0 as i32, val);
             }
-            U32_STORE_XOR_FP_IMM => {
-                let src = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let x = mem.get_u32(src);
-                mem.set_u32(dst, x ^ imm);
+            Instruction::U32StoreXorFpFp {
+                src0_off,
+                src1_off,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src0_off.0 as i32);
+                let b = mem.get_u32(src1_off.0 as i32);
+                let val = a ^ b;
+                mem.set_u32(dst_off.0 as i32, val);
             }
-
-            // U32 fp-fp arithmetic
-            U32_STORE_ADD_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                mem.set_u32(dst, x.wrapping_add(y));
+            Instruction::U32StoreAndFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let val = a & imm;
+                mem.set_u32(dst_off.0 as i32, val);
             }
-            U32_STORE_SUB_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                mem.set_u32(dst, x.wrapping_sub(y));
+            Instruction::U32StoreOrFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let val = a | imm;
+                mem.set_u32(dst_off.0 as i32, val);
             }
-            U32_STORE_MUL_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                mem.set_u32(dst, x.wrapping_mul(y));
+            Instruction::U32StoreXorFpImm {
+                src_off,
+                imm_lo,
+                imm_hi,
+                dst_off,
+            } => {
+                let a = mem.get_u32(src_off.0 as i32);
+                let imm = imm_lo.0 | (imm_hi.0 << 16);
+                let val = a ^ imm;
+                mem.set_u32(dst_off.0 as i32, val);
             }
-            U32_STORE_DIV_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                if y == 0 {
-                    return Err(ExecutionError::DivisionByZero);
-                }
-                let z = x.wrapping_div(y);
-                mem.set_u32(dst, z);
+            Instruction::StoreToDoubleDerefFpImm {
+                src_off,
+                imm,
+                base_off,
+            } => {
+                let a = mem.get(src_off.0 as i32);
+                let val = mem.get(a.0 as i32 + imm.0 as i32);
+                mem.set(base_off.0 as i32, val);
             }
-
-            U32_STORE_AND_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                mem.set_u32(dst, x & y);
+            Instruction::StoreToDoubleDerefFpFp {
+                src_off,
+                base_off,
+                offset_off,
+            } => {
+                let a = mem.get(src_off.0 as i32);
+                let b = mem.get(base_off.0 as i32);
+                let val = mem.get(a.0 as i32 + b.0 as i32);
+                mem.set(offset_off.0 as i32, val);
             }
-            U32_STORE_OR_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                mem.set_u32(dst, x | y);
-            }
-            U32_STORE_XOR_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let x = mem.get_u32(a);
-                let y = mem.get_u32(b);
-                mem.set_u32(dst, x ^ y);
-            }
-
-            // U32 comparisons (felt result in one slot)
-            U32_STORE_EQ_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let truth = (mem.get_u32(a) == mem.get_u32(b)) as u32;
-                mem.set(dst, M31::from(truth));
-            }
-            U32_STORE_EQ_FP_IMM => {
-                let a = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let truth = (mem.get_u32(a) == imm) as u32;
-                mem.set(dst, M31::from(truth));
-            }
-            U32_STORE_LT_FP_FP => {
-                let a = ib.op0().unwrap();
-                let b = ib.op1().unwrap();
-                let dst = ib.op2().unwrap();
-                let truth = (mem.get_u32(a) < mem.get_u32(b)) as u32;
-                mem.set(dst, M31::from(truth));
-            }
-            U32_STORE_LT_FP_IMM => {
-                let a = ib.op0().unwrap();
-                let lo = ib.op1().unwrap() as u32;
-                let hi = ib.op2().unwrap() as u32;
-                let dst = ib.op3();
-                let imm = hi << 16 | (lo & 0xFFFF);
-                let truth = (mem.get_u32(a) < imm) as u32;
-                mem.set(dst, M31::from(truth));
-            }
-
-            // Others used in comparison complement sequences handled above
             _ => {
-                // For unsupported opcodes in these tests, panic to catch misses early
-                panic!("Unsupported opcode in test interpreter: {}", ib.opcode);
+                panic!("Unsupported instruction: {:?} in test interpreter", instr);
             }
         }
     }
     Ok(())
-}
-
-// Convenience: access 4th operand
-trait Op3Ext {
-    fn op3(&self) -> i32;
-}
-impl Op3Ext for InstructionBuilder {
-    fn op3(&self) -> i32 {
-        match self.operands.get(3) {
-            Some(crate::Operand::Literal(v)) => *v,
-            _ => panic!("expected 4 operands with last literal"),
-        }
-    }
 }

@@ -17,7 +17,7 @@ use cairo_m_compiler_mir::{BinaryOp, DataLayout, Literal, MirType, Value, ValueI
 use cairo_m_compiler_parser::parser::UnaryOp;
 use stwo_prover::core::fields::m31::M31;
 
-use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand};
+use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
 
 // Centralized emission helpers for instruction/label/touch routing.
 mod aggregates;
@@ -26,7 +26,7 @@ pub(crate) mod calls;
 mod ctrlflow;
 mod emit;
 mod felt;
-mod normalize;
+pub(crate) mod normalize;
 mod store;
 mod u32_ops;
 
@@ -411,7 +411,7 @@ impl CasmBuilder {
         for instr in self.instructions.iter() {
             let current_new_index = new_instructions.len();
 
-            let replacement_instructions = match instr.opcode {
+            let replacement_instructions = match instr.inner_instr().opcode_value() {
                 STORE_ADD_FP_FP | STORE_SUB_FP_FP | STORE_MUL_FP_FP | STORE_DIV_FP_FP => {
                     // Reserve temp variables on demand for felt operations (need 2 single-slot temps)
                     if felt_temp1.is_none() || felt_temp2.is_none() {
@@ -513,7 +513,7 @@ impl CasmBuilder {
         temp_var_offset: i32,
         temp_var_offset2: i32,
     ) -> CodegenResult<Vec<InstructionBuilder>> {
-        let typed_instr = instr.get_typed_instruction().unwrap();
+        let typed_instr = instr.inner_instr();
         #[rustfmt::skip]
         let (off0, off1, off2) = match typed_instr {
             CasmInstr::StoreAddFpFp { src0_off, src1_off, dst_off, } => (src0_off, src1_off, dst_off),
@@ -530,7 +530,7 @@ impl CasmBuilder {
         if off0 == off1 && off1 == off2 {
             // The three offsets are the same, store off0 and off1 in temp vars and replace with 3 instructions
             Ok(vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::StoreAddFpImm {
                         src_off: *off0,
                         imm: M31::from(0),
@@ -538,7 +538,7 @@ impl CasmBuilder {
                     },
                     Some(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::StoreAddFpImm {
                         src_off: *off1,
                         imm: M31::from(0),
@@ -546,7 +546,7 @@ impl CasmBuilder {
                     },
                     Some(format!("[fp + {temp_var_offset2}] = [fp + {off1}] + 0")),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     felt_fp_fp_rebuild(
                         typed_instr,
                         M31::from(temp_var_offset),
@@ -561,7 +561,7 @@ impl CasmBuilder {
         } else if off0 == off1 || off0 == off2 {
             // off0 is a duplicate, store off0 in a temp var and replace with 2 instructions
             Ok(vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::StoreAddFpImm {
                         src_off: *off0,
                         imm: M31::from(0),
@@ -569,7 +569,7 @@ impl CasmBuilder {
                     },
                     Some(format!("[fp + {temp_var_offset}] = [fp + {off0}] + 0")),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     felt_fp_fp_rebuild(typed_instr, M31::from(temp_var_offset), *off1, *off2)?,
                     Some(format!(
                         "[fp + {off2}] = [fp + {temp_var_offset}] op [fp + {off1}]"
@@ -579,7 +579,7 @@ impl CasmBuilder {
         } else if off1 == off2 {
             // off1 is a duplicate, store off1 in a temp var and replace with 2 instructions
             Ok(vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::StoreAddFpImm {
                         src_off: *off1,
                         imm: M31::from(0),
@@ -587,7 +587,7 @@ impl CasmBuilder {
                     },
                     Some(format!("[fp + {temp_var_offset}] = [fp + {off1}] + 0")),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     felt_fp_fp_rebuild(typed_instr, *off0, M31::from(temp_var_offset), *off2)?,
                     Some(format!(
                         "[fp + {off2}] = [fp + {off0}] op [fp + {temp_var_offset}]"
@@ -607,7 +607,7 @@ impl CasmBuilder {
         instr: &InstructionBuilder,
         temp_var_offset: i32,
     ) -> CodegenResult<Vec<InstructionBuilder>> {
-        let typed_instr = instr.get_typed_instruction().unwrap();
+        let typed_instr = instr.inner_instr();
         #[rustfmt::skip]
         let (src_off, imm, dst_off) = match typed_instr {
             CasmInstr::StoreAddFpImm { src_off, imm, dst_off, } => (*src_off, *imm, *dst_off),
@@ -621,7 +621,7 @@ impl CasmBuilder {
         if src_off == dst_off {
             // src_off is a duplicate, store src_off in a temp var and replace with 2 instructions
             Ok(vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::StoreAddFpImm {
                         src_off,
                         imm: M31::from(0),
@@ -629,7 +629,7 @@ impl CasmBuilder {
                     },
                     Some(format!("[fp + {temp_var_offset}] = [fp + {src_off}] + 0")),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     felt_fp_imm_rebuild(typed_instr, M31::from(temp_var_offset), imm, dst_off)?,
                     Some(format!(
                         "[fp + {dst_off}] = [fp + {temp_var_offset}] op {imm}"
@@ -652,7 +652,7 @@ impl CasmBuilder {
         temp_var_offset2: i32,
     ) -> CodegenResult<Vec<InstructionBuilder>> {
         #[rustfmt::skip]
-        let (src0_off, src1_off, dst_off) = match instr.get_typed_instruction().unwrap() {
+        let (src0_off, src1_off, dst_off) = match instr.inner_instr() {
             CasmInstr::U32StoreAddFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
             CasmInstr::U32StoreSubFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
             CasmInstr::U32StoreMulFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
@@ -666,7 +666,7 @@ impl CasmBuilder {
             }
         };
         // Use typed instruction for rebuild
-        let typed_instr = instr.get_typed_instruction().unwrap();
+        let typed_instr = instr.inner_instr();
         // Check if this is a comparison (result is felt) or arithmetic (result is u32)
         let is_comparison = matches!(
             typed_instr,
@@ -705,7 +705,7 @@ impl CasmBuilder {
             // We need 4 temp slots total (2 for each U32)
             vec![
                 // Copy src0 to temp
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::U32StoreAddFpImm {
                         src_off: src0_off,
                         imm_lo: M31::from(0),
@@ -719,7 +719,7 @@ impl CasmBuilder {
                     )),
                 ),
                 // Copy src1 to temp
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::U32StoreAddFpImm {
                         src_off: src1_off,
                         imm_lo: M31::from(0),
@@ -733,7 +733,7 @@ impl CasmBuilder {
                     )),
                 ),
                 // Perform operation with temp locations
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     u32_fp_fp_rebuild(
                         typed_instr,
                         M31::from(temp_var_offset),
@@ -759,7 +759,7 @@ impl CasmBuilder {
         } else if src0_overlaps_dst {
             // src0 overlaps with dst, copy src0 to temp
             vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::U32StoreAddFpImm {
                         src_off: src0_off,
                         imm_lo: M31::from(0),
@@ -772,7 +772,7 @@ impl CasmBuilder {
                         src0_off + M31::from(1)
                     )),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     u32_fp_fp_rebuild(
                         typed_instr,
                         M31::from(temp_var_offset),
@@ -798,7 +798,7 @@ impl CasmBuilder {
         } else if src1_overlaps_dst {
             // src1 overlaps with dst, copy src1 to temp
             vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::U32StoreAddFpImm {
                         src_off: src1_off,
                         imm_lo: M31::from(0),
@@ -811,7 +811,7 @@ impl CasmBuilder {
                         src1_off + M31::from(1)
                     )),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     u32_fp_fp_rebuild(
                         typed_instr,
                         src0_off,
@@ -848,40 +848,27 @@ impl CasmBuilder {
         instr: &InstructionBuilder,
         temp_var_offset: i32,
     ) -> CodegenResult<Vec<InstructionBuilder>> {
-        // Extract operands (legacy integers for overlap detection)
-        let src_off = instr.op0().unwrap();
-        let dst_off = if let Some(Operand::Literal(off)) = instr.operands.get(3) {
-            *off
-        } else {
-            return Err(CodegenError::UnsupportedInstruction(
-                "U32 fp-imm instruction missing destination offset".to_string(),
-            ));
-        };
+        // Extract from typed instruction
+        #[rustfmt::skip]
+        let (src_off_m31, imm_lo_m31, imm_hi_m31, dst_off_m31, is_comparison) =
+            match instr.inner_instr() {
+                CasmInstr::U32StoreAddFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreMulFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreDivFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreAndFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreOrFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreXorFpImm { src_off, imm_lo, imm_hi, dst_off, } => (*src_off, *imm_lo, *imm_hi, *dst_off, false),
+                CasmInstr::U32StoreEqFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreLtFpImm { src_off, imm_lo, imm_hi, dst_off, } => (*src_off, *imm_lo, *imm_hi, *dst_off, true),
+                _ => {
+                    return Err(CodegenError::UnsupportedInstruction(
+                        "Expected u32 fp+imm instruction".into(),
+                    ))
+                }
+            };
 
-        // Get the immediate values (should be at positions 1 and 2)
-        let imm_lo = if let Some(Operand::Literal(imm)) = instr.operands.get(1) {
-            *imm
-        } else {
-            return Err(CodegenError::UnsupportedInstruction(
-                "U32 Store immediate low operand must be a literal".to_string(),
-            ));
-        };
-
-        let imm_hi = if let Some(Operand::Literal(imm)) = instr.operands.get(2) {
-            *imm
-        } else {
-            return Err(CodegenError::UnsupportedInstruction(
-                "U32 Store immediate high operand must be a literal".to_string(),
-            ));
-        };
-
-        // Use typed instruction for rebuild
-        let typed_instr = instr.get_typed_instruction().unwrap();
-        // Check if this is a comparison (result is felt) or arithmetic (result is u32)
-        let is_comparison = matches!(
-            typed_instr,
-            CasmInstr::U32StoreEqFpImm { .. } | CasmInstr::U32StoreLtFpImm { .. }
-        );
+        let src_off = src_off_m31.0;
+        let dst_off = dst_off_m31.0;
 
         // Check for problematic overlap between source and destination
         // For fp+imm operations, in-place operations (src_off == dst_off) are fine!
@@ -901,9 +888,9 @@ impl CasmBuilder {
         if has_overlap {
             // Source overlaps with destination, copy source to temp
             Ok(vec![
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     CasmInstr::U32StoreAddFpImm {
-                        src_off: M31::from(src_off),
+                        src_off: src_off_m31,
                         imm_lo: M31::from(0),
                         imm_hi: M31::from(0),
                         dst_off: M31::from(temp_var_offset),
@@ -914,24 +901,28 @@ impl CasmBuilder {
                         src_off + 1
                     )),
                 ),
-                InstructionBuilder::from_instr(
+                InstructionBuilder::new(
                     u32_fp_imm_rebuild(
-                        typed_instr,
+                        instr.inner_instr(),
                         M31::from(temp_var_offset),
-                        M31::from(imm_lo),
-                        M31::from(imm_hi),
-                        M31::from(dst_off),
+                        imm_lo_m31,
+                        imm_hi_m31,
+                        dst_off_m31,
                     )?,
                     Some(if is_comparison {
                         format!(
-                            "[fp + {dst_off}] = u32([fp + {temp_var_offset}], [fp + {}]) op u32({imm_lo}, {imm_hi})",
-                            temp_var_offset + 1
+                            "[fp + {dst_off}] = u32([fp + {temp_var_offset}], [fp + {}]) op u32({}, {})",
+                            temp_var_offset + 1,
+                            imm_lo_m31.0,
+                            imm_hi_m31.0
                         )
                     } else {
                         format!(
-                            "u32([fp + {dst_off}], [fp + {}]) = u32([fp + {temp_var_offset}], [fp + {}]) op u32({imm_lo}, {imm_hi})",
+                            "u32([fp + {dst_off}], [fp + {}]) = u32([fp + {temp_var_offset}], [fp + {}]) op u32({}, {})",
                             dst_off + 1,
-                            temp_var_offset + 1
+                            temp_var_offset + 1,
+                            imm_lo_m31.0,
+                            imm_hi_m31.0
                         )
                     }),
                 ),
@@ -1056,10 +1047,8 @@ impl CasmBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use cairo_m_compiler_mir::instruction::CalleeSignature;
     use cairo_m_compiler_mir::MirType;
-
     #[test]
     fn test_handle_fp_fp_duplicates_all_same() {
         // Create instruction: [fp + 5] = [fp + 5] + [fp + 5]
@@ -1073,10 +1062,23 @@ mod tests {
         assert_eq!(result.len(), 3, "Should expand to 3 instructions");
 
         // Check that we use temp variables
-        assert_eq!(result[0].op2(), Some(temp1));
-        assert_eq!(result[1].op2(), Some(temp2));
-        assert_eq!(result[2].op0(), Some(temp1));
-        assert_eq!(result[2].op1(), Some(temp2));
+        match result[0].inner_instr() {
+            CasmInstr::StoreAddFpImm { dst_off, .. } => assert_eq!(*dst_off, M31::from(temp1)),
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
+        match result[1].inner_instr() {
+            CasmInstr::StoreAddFpImm { dst_off, .. } => assert_eq!(*dst_off, M31::from(temp2)),
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
+        match result[2].inner_instr() {
+            CasmInstr::StoreAddFpFp {
+                src0_off, src1_off, ..
+            } => {
+                assert_eq!(*src0_off, M31::from(temp1));
+                assert_eq!(*src1_off, M31::from(temp2));
+            }
+            other => panic!("expected StoreAddFpFp, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1092,9 +1094,19 @@ mod tests {
         assert_eq!(result.len(), 2, "Should expand to 2 instructions");
 
         // Check that first operand is copied to temp
-        assert_eq!(result[0].op2(), Some(temp1));
-        assert_eq!(result[0].op0(), Some(5));
-        assert_eq!(result[1].op0(), Some(temp1));
+        match result[0].inner_instr() {
+            CasmInstr::StoreAddFpImm {
+                src_off, dst_off, ..
+            } => {
+                assert_eq!(*src_off, M31::from(5));
+                assert_eq!(*dst_off, M31::from(temp1));
+            }
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
+        match result[1].inner_instr() {
+            CasmInstr::StoreAddFpFp { src0_off, .. } => assert_eq!(*src0_off, M31::from(temp1)),
+            other => panic!("expected StoreAddFpFp, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1109,9 +1121,19 @@ mod tests {
         assert_eq!(result.len(), 2, "Should expand to 2 instructions");
 
         // Check that source is copied to temp first
-        assert_eq!(result[0].op2(), Some(temp1));
-        assert_eq!(result[0].op0(), Some(5));
-        assert_eq!(result[1].op0(), Some(temp1));
+        match result[0].inner_instr() {
+            CasmInstr::StoreAddFpImm {
+                src_off, dst_off, ..
+            } => {
+                assert_eq!(*src_off, M31::from(5));
+                assert_eq!(*dst_off, M31::from(temp1));
+            }
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
+        match result[1].inner_instr() {
+            CasmInstr::StoreAddFpImm { src_off, .. } => assert_eq!(*src_off, M31::from(temp1)),
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1126,8 +1148,15 @@ mod tests {
         assert_eq!(result.len(), 1, "Should keep as single instruction");
 
         // Should be unchanged
-        assert_eq!(result[0].op0(), Some(5));
-        assert_eq!(result[0].op2(), Some(7));
+        match result[0].inner_instr() {
+            CasmInstr::StoreAddFpImm {
+                src_off, dst_off, ..
+            } => {
+                assert_eq!(*src_off, M31::from(5));
+                assert_eq!(*dst_off, M31::from(7));
+            }
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
     }
 
     #[test]
