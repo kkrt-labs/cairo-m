@@ -278,6 +278,7 @@ impl Backend {
                         let source_files_clone_for_standalone = Arc::clone(&source_files_clone);
                         let path_to_uri_clone_for_standalone = Arc::clone(&path_to_uri_clone);
                         let file_path_clone = file_path.clone();
+                        let max_file_size_for_standalone = max_file_size;
 
                         #[allow(clippy::significant_drop_tightening)]
                         let prepared_file = tokio::task::spawn_blocking(move || {
@@ -297,13 +298,12 @@ impl Backend {
                                         // Check file size before reading
                                         if let Ok(metadata) = std::fs::metadata(&file_path_clone) {
                                             let file_size = metadata.len() as usize;
-                                            const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
-                                            if file_size > MAX_FILE_SIZE {
+                                            if file_size > max_file_size_for_standalone {
                                                 tracing::error!(
                                                     "File {:?} exceeds size limit ({} > {} bytes)",
                                                     file_path_clone,
                                                     file_size,
-                                                    MAX_FILE_SIZE
+                                                    max_file_size_for_standalone
                                                 );
                                                 return Err(format!(
                                                     "File exceeds size limit: {} bytes",
