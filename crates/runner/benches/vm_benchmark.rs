@@ -16,7 +16,7 @@ fn fibonacci_1m_benchmark(c: &mut Criterion) {
         "fibonacci_loop.cm"
     );
     let source_text = fs::read_to_string(&source_path).unwrap();
-    let options = CompilerOptions { verbose: false };
+    let options = CompilerOptions::default();
     let output = compile_cairo(source_text, source_path, options).unwrap();
     let program = (*output.program).clone();
 

@@ -16,7 +16,7 @@ pub fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
         .map_err(|e| format!("Failed to read source file '{}': {}", source_path, e))?;
 
     // Compile using the library API
-    let options = CompilerOptions { verbose: false };
+    let options = CompilerOptions::default();
 
     let output = compile_cairo(source_text, source_path, options)
         .map_err(|e| format!("Compilation failed: {}", e))?;
