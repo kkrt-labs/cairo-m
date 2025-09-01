@@ -190,7 +190,6 @@ macro_rules! define_opcodes {
                     Instruction::U32StoreSubFpFp { .. } => {},
                     Instruction::U32StoreMulFpFp { .. } => {},
                     Instruction::U32StoreDivFpFp { .. } => {},
-                    Instruction::U32StoreDivFpImm { .. } => {},
                     Instruction::U32StoreEqFpFp { .. } => {},
                     Instruction::U32StoreLtFpFp { .. } => {},
                     Instruction::U32StoreEqFpImm { .. } => {},
@@ -255,4 +254,5 @@ define_opcodes!(
     ([U32StoreImm], u32_store_imm),
     ([U32StoreAddFpImm], u32_store_add_fp_imm),
     ([U32StoreMulFpImm], u32_store_mul_fp_imm),
+    ([U32StoreDivFpImm], u32_store_div_fp_imm),
 );
