@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756724684926,
+  "lastUpdate": 1756730802585,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1391,6 +1391,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2422955855,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "da9cf5f3459d1d3a774a288b8e2cead423d656d3",
+          "message": "refactor(prover): fix adapter memory access (#284)\n\n* refactor(prover): simplify memory access tracking and value representation\n\n- Replace MemoryValue enum with direct M31 values for cleaner memory representation\n- Refactor instruction memory_accesses() to use macro-based limb counting\n- Remove unnecessary data type conversions in memory adapter\n\n* adapt u32_fp_imm opcodes\n\n* fix opcode tests\n\n* fix columns order\n\n* have consistent ordering for columns\n\n---------\n\nCo-authored-by: Antoine FONDEUR <antoine.fondeur@gmail.com>",
+          "timestamp": "2025-09-01T14:31:00+02:00",
+          "tree_id": "59ce7f0045606ba576a12909cd7163e09f81a13c",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/da9cf5f3459d1d3a774a288b8e2cead423d656d3"
+        },
+        "date": 1756730802526,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2439755615,
             "unit": "bytes"
           }
         ]
