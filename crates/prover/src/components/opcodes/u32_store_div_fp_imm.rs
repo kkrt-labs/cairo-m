@@ -60,8 +60,8 @@
 //! * registers update is regular (+2 because of the two-worded instruction)
 //!   * `- [pc, fp] + [pc + 2, fp]` in `Registers` relation
 //! * read 2 instruction words from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, src_off, imm_lo, imm_hi] + [pc, clk, opcode_constant, src_off, imm_lo, imm_hi]` in `Memory` relation
-//!   * `- [pc + 1, inst_prev_clk, opcode_constant, dst_off] + [pc + 1, clk, opcode_constant, dst_off]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, src_off, imm_lo, imm_hi] + [pc, clk, src_off, imm_lo, imm_hi]` in `Memory` relation
+//!   * `- [pc + 1, inst_prev_clk, dst_off] + [pc + 1, clk, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
 //!   * `- [fp + src_off, op0_prev_clk, op0_val_lo] + [fp + src_off, clk, op0_val_lo]`
