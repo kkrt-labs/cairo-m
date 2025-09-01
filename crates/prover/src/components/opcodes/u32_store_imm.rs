@@ -175,8 +175,8 @@ impl Claim {
                 let dst_off = input.inst_value_3;
 
                 let dst_prev_val_lo = input.mem1_prev_value;
-                let dst_prev_lo_clock = input.mem1_prev_clock;
                 let dst_prev_val_hi = input.mem2_prev_value;
+                let dst_prev_lo_clock = input.mem1_prev_clock;
                 let dst_prev_hi_clock = input.mem2_prev_clock;
 
                 *row[0] = enabler;
