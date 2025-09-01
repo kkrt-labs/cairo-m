@@ -14,7 +14,8 @@
 //! - dst_off
 //! - op0_val_lo
 //! - op0_val_hi
-//! - op0_prev_clock
+//! - op0_prev_lo_clock
+//! - op0_prev_hi_clock
 //! - dst_prev_val
 //! - dst_prev_clock
 //! - borrow_lo
@@ -34,9 +35,9 @@
 //!   * `- [pc + 1, inst_prev_clk, opcode_constant, dst_off] + [pc + 1, clk, opcode_constant, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
-//!   * `- [fp + src_off, op0_prev_clk, op0_val_lo] + [fp + src_off, clk, op0_val_lo]`
-//!   * `- [fp + src_off + 1, op0_prev_clk, op0_val_hi] + [fp + src_off + 1, clk, op0_val_hi]`
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src_off, op0_prev_lo_clk, op0_val_lo] + [fp + src_off, clk, op0_val_lo]`
+//!   * `- [fp + src_off + 1, op0_prev_hi_clk, op0_val_hi] + [fp + src_off + 1, clk, op0_val_hi]`
+//!   * `- [clk - op0_prev_lo_clk - 1]` and `- [clk - op0_prev_hi_clk - 1]` in `RangeCheck20` relation
 //! * perform u32 subtraction imm - 1 - op0
 //!   * `- [imm_lo - 1 + borrow_lo * 2 ** 16 - op0_val_lo]` in `RangeCheck16` relation
 //!   * `- [imm_hi - borrow_lo + borrow_hi * 2 ** 16 - op0_val_hi]` in `RangeCheck16` relation
@@ -80,10 +81,10 @@ use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 16;
+const N_TRACE_COLUMNS: usize = 17;
 const N_MEMORY_LOOKUPS: usize = 10;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 4;
 const N_RANGE_CHECK_16_LOOKUPS: usize = 6;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
@@ -191,31 +192,48 @@ impl Claim {
                 let imm_hi = input.inst_value_3;
                 let dst_off = input.inst_value_4;
 
-                let op0_val_lo = input.mem1_value_limb0;
-                let op0_val_hi = input.mem1_value_limb1;
-                let op0_prev_clock = input.mem1_prev_clock;
+                // Operand 0 (u32) comes from two separate memory reads
+                let op0_val_lo = input.mem1_value;
+                let op0_prev_lo_clock = input.mem1_prev_clock;
+                let op0_val_hi = input.mem2_value;
+                let op0_prev_hi_clock = input.mem2_prev_clock;
 
-                let dst_prev_val = input.mem2_prev_value_limb0; // Only need one value for dst
-                let dst_prev_clock = input.mem2_prev_clock;
+                // Destination is a single felt value
+                let dst_prev_val = input.mem3_prev_value;
+                let dst_prev_clock = input.mem3_prev_clock;
 
                 // Now compute borrows for the subtraction
                 let borrow_lo = PackedM31::from_array(
-                    op0_val_lo
+                    imm_lo
                         .to_array()
                         .iter()
-                        .zip(imm_lo.to_array().iter())
-                        .map(|(x, y)| if x.0 < y.0 { M31::one() } else { M31::zero() })
+                        .zip(op0_val_lo.to_array().iter())
+                        .zip(enabler.to_array().iter())
+                        .map(|((x, y), z)| {
+                            if x.0 < y.0 + z.0 {
+                                M31::one()
+                            } else {
+                                M31::zero()
+                            }
+                        })
                         .collect::<Vec<_>>()
                         .try_into()
                         .unwrap(),
                 );
 
                 let borrow_hi = PackedM31::from_array(
-                    (op0_val_hi - borrow_lo)
+                    imm_hi
                         .to_array()
                         .iter()
-                        .zip(imm_hi.to_array().iter())
-                        .map(|(x, y)| if x.0 < y.0 { M31::one() } else { M31::zero() })
+                        .zip(op0_val_hi.to_array().iter())
+                        .zip(borrow_lo.to_array().iter())
+                        .map(|((x, y), z)| {
+                            if x.0 < y.0 + z.0 {
+                                M31::one()
+                            } else {
+                                M31::zero()
+                            }
+                        })
                         .collect::<Vec<_>>()
                         .try_into()
                         .unwrap(),
@@ -232,11 +250,12 @@ impl Claim {
                 *row[8] = dst_off;
                 *row[9] = op0_val_lo;
                 *row[10] = op0_val_hi;
-                *row[11] = op0_prev_clock;
-                *row[12] = dst_prev_val;
-                *row[13] = dst_prev_clock;
-                *row[14] = borrow_lo;
-                *row[15] = borrow_hi;
+                *row[11] = op0_prev_lo_clock;
+                *row[12] = op0_prev_hi_clock;
+                *row[13] = dst_prev_val;
+                *row[14] = dst_prev_clock;
+                *row[15] = borrow_lo;
+                *row[16] = borrow_hi;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one + one, input.fp];
@@ -259,14 +278,20 @@ impl Claim {
                 *lookup_data.memory[3] = [input.pc + one, clock, dst_off, zero, zero, zero];
 
                 // Read op0_lo
-                *lookup_data.memory[4] =
-                    [fp + src_off, op0_prev_clock, op0_val_lo, zero, zero, zero];
+                *lookup_data.memory[4] = [
+                    fp + src_off,
+                    op0_prev_lo_clock,
+                    op0_val_lo,
+                    zero,
+                    zero,
+                    zero,
+                ];
                 *lookup_data.memory[5] = [fp + src_off, clock, op0_val_lo, zero, zero, zero];
 
                 // Read op0_hi
                 *lookup_data.memory[6] = [
                     fp + src_off + one,
-                    op0_prev_clock,
+                    op0_prev_hi_clock,
                     op0_val_hi,
                     zero,
                     zero,
@@ -291,8 +316,9 @@ impl Claim {
                     imm_hi - borrow_lo + borrow_hi * two_pow_16 - op0_val_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - dst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_lo_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_hi_clock - enabler;
+                *lookup_data.range_check_20[3] = clock - dst_prev_clock - enabler;
             });
 
         (
@@ -422,14 +448,19 @@ impl InteractionClaim {
         (
             col.par_iter_mut(),
             &interaction_claim_data.lookup_data.range_check_20[2],
+            &interaction_claim_data.lookup_data.range_check_20[3],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_2))| {
+            .for_each(|(_i, (writer, range_check_20_2, range_check_20_3))| {
                 let num = -PackedQM31::one();
                 let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_2]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_3]);
 
-                writer.write_frac(num, denom_0);
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
             });
         col.finalize_col();
 
@@ -457,7 +488,7 @@ impl FrameworkEval for Eval {
         let two_pow_16 = E::F::from(M31::from(1 << 16));
         let opcode_constant = E::F::from(M31::from(U32_STORE_LT_FP_IMM));
 
-        // 16 columns
+        // 17 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -469,7 +500,8 @@ impl FrameworkEval for Eval {
         let dst_off = eval.next_trace_mask();
         let op0_val_lo = eval.next_trace_mask();
         let op0_val_hi = eval.next_trace_mask();
-        let op0_prev_clock = eval.next_trace_mask();
+        let op0_prev_lo_clock = eval.next_trace_mask();
+        let op0_prev_hi_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let borrow_lo = eval.next_trace_mask();
@@ -544,7 +576,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src_off.clone(),
-                op0_prev_clock.clone(),
+                op0_prev_lo_clock.clone(),
                 op0_val_lo.clone(),
             ],
         ));
@@ -564,7 +596,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src_off.clone() + one.clone(),
-                op0_prev_clock.clone(),
+                op0_prev_hi_clock.clone(),
                 op0_val_hi.clone(),
             ],
         ));
@@ -635,7 +667,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_lo_clock - enabler.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock.clone() - op0_prev_hi_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
