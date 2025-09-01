@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756717368006,
+  "lastUpdate": 1756724683923,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1409,6 +1409,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6106498862,
             "range": "± 19212924",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "235f7b6fde76396f6661891c1fbdbc19b90ba807",
+          "message": "feat(compiler): add flag to disable opt passes (#286)\n\n* feat(compiler): add flag to disable opt passes\n\n* fix ci",
+          "timestamp": "2025-09-01T12:49:01+02:00",
+          "tree_id": "b4407779bff1a58a9c0aa2a84a7d124cee94411c",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/235f7b6fde76396f6661891c1fbdbc19b90ba807"
+        },
+        "date": 1756724682950,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6103115787,
+            "range": "± 17942630",
             "unit": "ns/iter"
           }
         ]
