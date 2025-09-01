@@ -25,7 +25,7 @@ fn compile_fibonacci() -> Program {
     );
     let source_text = fs::read_to_string(&source_path)
         .unwrap_or_else(|_| panic!("Failed to read {}", source_path));
-    let options = CompilerOptions { verbose: false };
+    let options = CompilerOptions::default();
     let output =
         compile_cairo(source_text, source_path, options).expect("Failed to compile fibonacci.cm");
     (*output.program).clone()

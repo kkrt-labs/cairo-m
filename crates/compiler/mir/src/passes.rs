@@ -76,6 +76,10 @@ impl PassManager {
         modified
     }
 
+    pub fn no_opt_pipeline() -> Self {
+        Self::new().add_pass(PhiElimination::new())
+    }
+
     /// Create a standard optimization pipeline (default)
     ///
     /// The pipeline implements a two-phase aggregate lowering strategy:

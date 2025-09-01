@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use cairo_m_common::Program;
 use cairo_m_compiler_diagnostics::{build_diagnostic_message, Diagnostic, DiagnosticSeverity};
+use cairo_m_compiler_mir::pipeline::{OptimizationLevel, PipelineConfig};
 use cairo_m_compiler_parser::{parse_file, SourceFile};
 use cairo_m_compiler_semantic::db::{crate_from_project, project_validate_semantics};
 use cairo_m_compiler_semantic::Crate as SemanticCrate;
@@ -39,6 +40,17 @@ pub enum CompilerError {
 pub struct CompilerOptions {
     /// Enable verbose output
     pub verbose: bool,
+    /// Optimization level for MIR pipeline
+    pub optimization_level: OptimizationLevel,
+}
+
+impl CompilerOptions {
+    pub const fn no_opts() -> Self {
+        Self {
+            verbose: false,
+            optimization_level: OptimizationLevel::None,
+        }
+    }
 }
 
 /// Compilation output including the compiled program and any diagnostics
@@ -78,7 +90,7 @@ pub fn compile_cairo(
 pub fn compile_from_file(
     db: &CompilerDatabase,
     source: SourceFile,
-    _options: CompilerOptions,
+    options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     // Parse the program
     let parsed_program = parse_file(db, source);
@@ -109,7 +121,12 @@ pub fn compile_from_file(
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    let program = cairo_m_compiler_codegen::db::compile_project(db, crate_id)
+    let pipeline = PipelineConfig {
+        optimization_level: options.optimization_level,
+        debug: options.verbose,
+    };
+
+    let program = cairo_m_compiler_codegen::db::compile_project_with_config(db, crate_id, pipeline)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
     Ok(CompilerOutput {
@@ -124,7 +141,7 @@ pub fn compile_from_file(
 pub fn compile_project(
     db: &CompilerDatabase,
     project: cairo_m_project::Project,
-    _options: CompilerOptions,
+    options: CompilerOptions,
 ) -> Result<CompilerOutput> {
     // Create a semantic crate from the project
     let crate_id = match crate_from_project(db, project) {
@@ -146,7 +163,12 @@ pub fn compile_project(
         return Err(CompilerError::SemanticErrors(semantic_errors));
     }
 
-    let program = cairo_m_compiler_codegen::db::compile_project(db, crate_id)
+    let pipeline = PipelineConfig {
+        optimization_level: options.optimization_level,
+        debug: options.verbose,
+    };
+
+    let program = cairo_m_compiler_codegen::db::compile_project_with_config(db, crate_id, pipeline)
         .map_err(|e| CompilerError::CodeGenerationFailed(e.to_string()))?;
 
     Ok(CompilerOutput {

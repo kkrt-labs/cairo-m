@@ -56,7 +56,7 @@ impl PipelineConfig {
 /// Run the optimization pipeline on a MIR module
 pub fn optimize_module(module: &mut MirModule, config: &PipelineConfig) {
     let mut pass_manager = match config.optimization_level {
-        OptimizationLevel::None => return, // No optimizations
+        OptimizationLevel::None => PassManager::no_opt_pipeline(),
         OptimizationLevel::Standard => PassManager::standard_pipeline(),
     };
 

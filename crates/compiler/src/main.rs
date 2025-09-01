@@ -4,6 +4,7 @@ use std::{fs, process};
 use cairo_m_compiler::{
     compile_project, format_diagnostics_multi_file, CompilerError, CompilerOptions,
 };
+use cairo_m_compiler_mir::pipeline::OptimizationLevel;
 use cairo_m_project::discover_project;
 use clap::Parser;
 use tracing::Level;
@@ -23,6 +24,10 @@ struct Args {
     /// Enable verbose output (shows MIR)
     #[arg(short, long)]
     verbose: bool,
+
+    /// Optimization level (0: disabled, 1: enabled)
+    #[arg(long = "opt-level", value_parser = clap::value_parser!(u8).range(0..=1), default_value_t = 1)]
+    opt_level: u8,
 }
 
 fn main() {
@@ -49,6 +54,10 @@ fn main() {
 
     let options = CompilerOptions {
         verbose: args.verbose,
+        optimization_level: match args.opt_level {
+            0 => OptimizationLevel::None,
+            _ => OptimizationLevel::Standard,
+        },
     };
 
     // Build a map of file paths to source text for multi-file diagnostics

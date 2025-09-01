@@ -62,7 +62,7 @@ fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {
     let source_text = read_fixture(&fixture_path);
 
     // Compile using the library API
-    let options = CompilerOptions { verbose: false };
+    let options = CompilerOptions::default();
 
     let output = compile_cairo(source_text, fixture_path, options)
         .map_err(|e| format!("Compilation failed: {}", e))?;
