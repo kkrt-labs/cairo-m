@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756713750429,
+  "lastUpdate": 1756717368006,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1379,6 +1379,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6089449022,
             "range": "± 37396347",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f97acb42a61aec48069d1f18239f3d203a72339",
+          "message": "feat(prover): add u32_store_mul_fp_imm (#272)\n\n* feat: add u32_store_mul_fp_imm\n\n* Update crates/prover/src/components/opcodes/u32_store_mul_fp_imm.rs\n\n* Update crates/prover/src/components/opcodes/u32_store_mul_fp_imm.rs",
+          "timestamp": "2025-09-01T11:46:53+03:00",
+          "tree_id": "92efd13dbce3277e01b72f84fe4551b934f131d4",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/4f97acb42a61aec48069d1f18239f3d203a72339"
+        },
+        "date": 1756717367030,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6106498862,
+            "range": "± 19212924",
             "unit": "ns/iter"
           }
         ]
