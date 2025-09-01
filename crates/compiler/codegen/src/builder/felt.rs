@@ -1,12 +1,44 @@
 //! Felt operations: arithmetic, boolean eq/neq/and/or/not. Delegates opcode
 //! selection to `opcodes` and uses `emit` to push instructions.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
-use cairo_m_common::instruction::*;
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
+use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 use stwo_prover::core::fields::m31::M31;
 
-use super::opcodes::{felt_fp_fp, felt_fp_imm};
+macro_rules! felt_fp_fp_op {
+    ($name:ident, $instr:ident) => {
+        pub(crate) fn $name(
+            &mut self,
+            src0_off: i32,
+            src1_off: i32,
+            dst_off: i32,
+            comment: String,
+        ) {
+            let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::$instr {
+                src0_off: M31::from(src0_off),
+                src1_off: M31::from(src1_off),
+                dst_off: M31::from(dst_off),
+            })
+            .with_comment(comment);
+            self.emit_push(instr);
+        }
+    };
+}
+
+macro_rules! felt_fp_imm_op {
+    ($name:ident, $instr:ident) => {
+        pub(crate) fn $name(&mut self, src0_off: i32, imm: i32, dst_off: i32, comment: String) {
+            let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::$instr {
+                src_off: M31::from(src0_off),
+                imm: M31::from(imm),
+                dst_off: M31::from(dst_off),
+            })
+            .with_comment(comment);
+            self.emit_push(instr);
+        }
+    };
+}
 
 impl super::CasmBuilder {
     pub(super) fn felt_arith(
@@ -27,36 +59,14 @@ impl super::CasmBuilder {
             }
             (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
                 let lo = self.layout.get_offset(*lid)?;
-
-                // a - imm = a + (-imm)
-                // a / imm = a * inv(imm)
-                let imm_enc = match op {
-                    BinaryOp::Sub => m31_negate_imm(*imm),
-                    BinaryOp::Div => m31_inverse_imm(*imm)?,
-                    _ => *imm as i32,
-                };
-                let comment = match op {
-                    BinaryOp::Add => format!("[fp + {dest_off}] = [fp + {lo}] + {imm}"),
-                    BinaryOp::Sub => format!(
-                        "[fp + {dest_off}] = [fp + {lo}] + (-{imm}) (-{imm} as M31 -> {})",
-                        fmt_m31_imm(imm_enc)
-                    ),
-                    BinaryOp::Mul => format!("[fp + {dest_off}] = [fp + {lo}] * {imm}"),
-                    BinaryOp::Div => format!(
-                        "[fp + {dest_off}] = [fp + {lo}] * (1/{imm}) (inv({imm}) as M31 -> {})",
-                        fmt_m31_imm(imm_enc)
-                    ),
-                    _ => unreachable!(),
-                };
-                self.felt_fp_imm_op(op, lo, imm_enc, dest_off, comment)?;
+                self.felt_fp_imm_op(op, lo, *imm as i32, dest_off)?;
             }
             (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
                 // Only add/mul are commutative; for sub/div use a temp
                 match op {
                     BinaryOp::Add | BinaryOp::Mul => {
                         let ro = self.layout.get_offset(*rid)?;
-                        let comment = format!("[fp + {dest_off}] = [fp + {ro}] {op} {imm}");
-                        self.felt_fp_imm_op(op, ro, *imm as i32, dest_off, comment)?;
+                        self.felt_fp_imm_op(op, ro, *imm as i32, dest_off)?;
                     }
                     BinaryOp::Sub | BinaryOp::Div => {
                         // Stage immediate then use fp-fp form
@@ -158,14 +168,18 @@ impl super::CasmBuilder {
         src1_off: i32,
         dst_off: i32,
     ) -> CodegenResult<()> {
-        let op_opcode = felt_fp_fp(op)?;
         let comment = format!("[fp + {dst_off}] = [fp + {src0_off}] op [fp + {src1_off}]");
-        let instr = InstructionBuilder::new(op_opcode)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(src1_off))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
+        match op {
+            BinaryOp::Add => self.felt_add_fp_fp(src0_off, src1_off, dst_off, comment),
+            BinaryOp::Sub => self.felt_sub_fp_fp(src0_off, src1_off, dst_off, comment),
+            BinaryOp::Mul => self.felt_mul_fp_fp(src0_off, src1_off, dst_off, comment),
+            BinaryOp::Div => self.felt_div_fp_fp(src0_off, src1_off, dst_off, comment),
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Invalid felt fp-fp op".into(),
+                ))
+            }
+        };
         Ok(())
     }
 
@@ -175,106 +189,62 @@ impl super::CasmBuilder {
         src0_off: i32,
         imm: i32,
         dst_off: i32,
-        comment: String,
     ) -> CodegenResult<()> {
-        let op_opcode = felt_fp_imm(op)?;
-        let instr = InstructionBuilder::new(op_opcode)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
+        let comment = format!("[fp + {dst_off}] = [fp + {src0_off}] {op} {imm}");
+        match op {
+            BinaryOp::Add => self.felt_add_fp_imm(src0_off, imm, dst_off, comment),
+            BinaryOp::Sub => self.felt_sub_fp_imm(src0_off, imm, dst_off, comment),
+            BinaryOp::Mul => self.felt_mul_fp_imm(src0_off, imm, dst_off, comment),
+            BinaryOp::Div => self.felt_div_fp_imm(src0_off, imm, dst_off, comment)?,
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Invalid felt fp-imm op".into(),
+                ))
+            }
+        };
         Ok(())
     }
 
-    pub(crate) fn felt_add_fp_fp(
-        &mut self,
-        src0_off: i32,
-        src1_off: i32,
-        dst_off: i32,
-        comment: String,
-    ) {
-        let instr = InstructionBuilder::new(STORE_ADD_FP_FP)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(src1_off))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
-    }
+    felt_fp_fp_op!(felt_add_fp_fp, StoreAddFpFp);
+    felt_fp_fp_op!(felt_sub_fp_fp, StoreSubFpFp);
+    felt_fp_fp_op!(felt_mul_fp_fp, StoreMulFpFp);
+    felt_fp_fp_op!(felt_div_fp_fp, StoreDivFpFp);
 
-    pub(crate) fn felt_sub_fp_fp(
-        &mut self,
-        src0_off: i32,
-        src1_off: i32,
-        dst_off: i32,
-        comment: String,
-    ) {
-        let instr = InstructionBuilder::new(STORE_SUB_FP_FP)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(src1_off))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
-    }
+    felt_fp_imm_op!(felt_mul_fp_imm, StoreMulFpImm);
+    felt_fp_imm_op!(felt_add_fp_imm, StoreAddFpImm);
+    felt_fp_imm_op!(felt_lower_than_fp_imm, StoreLowerThanFpImm);
 
-    pub(crate) fn felt_mul_fp_fp(
-        &mut self,
-        src0_off: i32,
-        src1_off: i32,
-        dst_off: i32,
-        comment: String,
-    ) {
-        let instr = InstructionBuilder::new(STORE_MUL_FP_FP)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(src1_off))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
-    }
-
-    pub(crate) fn felt_mul_fp_imm(
+    pub(crate) fn felt_sub_fp_imm(
         &mut self,
         src0_off: i32,
         imm: i32,
         dst_off: i32,
-        comment: String,
+        _comment: String,
     ) {
-        let instr = InstructionBuilder::new(STORE_MUL_FP_IMM)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
+        // a - imm = a + (-imm)
+        let imm_enc = m31_negate_imm(imm as u32);
+        let comment = format!(
+            "[fp + {dst_off}] = [fp + {src0_off}] + (-{imm}) (-{imm} as M31 -> {})",
+            fmt_m31_imm(imm_enc)
+        );
+        self.felt_add_fp_imm(src0_off, imm_enc, dst_off, comment)
     }
 
-    pub(crate) fn felt_add_fp_imm(
+    pub(crate) fn felt_div_fp_imm(
         &mut self,
         src0_off: i32,
         imm: i32,
         dst_off: i32,
-        comment: String,
-    ) {
-        let instr = InstructionBuilder::new(STORE_ADD_FP_IMM)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
-    }
-
-    pub(crate) fn felt_lower_than_fp_imm(
-        &mut self,
-        src0_off: i32,
-        imm: i32,
-        dst_off: i32,
-        comment: String,
-    ) {
-        let instr = InstructionBuilder::new(STORE_LOWER_THAN_FP_IMM)
-            .with_operand(Operand::Literal(src0_off))
-            .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dst_off))
-            .with_comment(comment);
-        self.emit_push(instr);
+        _comment: String,
+    ) -> CodegenResult<()> {
+        // a / imm = a * inv(imm)
+        let imm_enc = m31_inverse_imm(imm as u32)?;
+        let comment = format!(
+            "[fp + {dst_off}] = [fp + {src0_off}] * (1/{imm}) (inv({imm}) as M31 -> {})",
+            fmt_m31_imm(imm_enc)
+        );
+        self.felt_mul_fp_imm(src0_off, imm_enc, dst_off, comment);
+        Ok(())
     }
 
     pub(super) fn bool_and(
@@ -349,7 +319,6 @@ mod tests {
     use super::*;
     use crate::test_support::{exec, ExecutionError, Mem};
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::{STORE_ADD_FP_IMM, STORE_IMM, STORE_MUL_FP_IMM};
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
     use proptest::prelude::*;
     use stwo_prover::core::fields::m31::{self, M31};
@@ -396,9 +365,11 @@ mod tests {
             .unwrap();
 
         // Should use ADD with negated immediate
-        assert_eq!(b.instructions[1].opcode, STORE_ADD_FP_IMM);
         let neg_imm = m31_negate_imm(imm);
-        assert_eq!(b.instructions[1].op1(), Some(neg_imm));
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreAddFpImm { imm, .. } => assert_eq!(*imm, M31::from(neg_imm)),
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
 
         let mut mem = Mem::new(10);
         exec(&mut mem, &b.instructions).unwrap();
@@ -413,9 +384,11 @@ mod tests {
             .unwrap();
 
         // Should use MUL with inverse
-        assert_eq!(b.instructions[1].opcode, STORE_MUL_FP_IMM);
         let inv = m31_inverse_imm(imm).unwrap();
-        assert_eq!(b.instructions[1].op1(), Some(inv));
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreMulFpImm { imm, .. } => assert_eq!(*imm, M31::from(inv)),
+            other => panic!("expected StoreMulFpImm, got {other:?}"),
+        }
     }
 
     #[test]
@@ -446,7 +419,13 @@ mod tests {
             .unwrap();
 
         // Should normalize to fp+imm form
-        assert_eq!(b.instructions[1].opcode, STORE_ADD_FP_IMM);
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreAddFpImm { imm, dst_off, .. } => {
+                assert_eq!(*imm, M31::from(100));
+                assert_eq!(*dst_off, M31::from(5));
+            }
+            other => panic!("expected StoreAddFpImm, got {other:?}"),
+        }
 
         let mut mem = Mem::new(10);
         exec(&mut mem, &b.instructions).unwrap();
@@ -460,7 +439,13 @@ mod tests {
             .unwrap();
 
         // Should normalize to fp*imm form
-        assert_eq!(b.instructions[1].opcode, STORE_MUL_FP_IMM);
+        match b.instructions[1].inner_instr() {
+            CasmInstr::StoreMulFpImm { imm, dst_off, .. } => {
+                assert_eq!(*imm, M31::from(11));
+                assert_eq!(*dst_off, M31::from(5));
+            }
+            other => panic!("expected StoreMulFpImm, got {other:?}"),
+        }
 
         let mut mem = Mem::new(10);
         exec(&mut mem, &b.instructions).unwrap();
@@ -482,9 +467,11 @@ mod tests {
 
             // Should fold to single store_imm
             assert_eq!(b.instructions.len(), 1);
-            assert_eq!(b.instructions[0].opcode, STORE_IMM);
             let expected = (M31::from(lhs) + M31::from(rhs)).0;
-            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+            match b.instructions[0].inner_instr() {
+                CasmInstr::StoreImm { imm, .. } => assert_eq!(imm.0, expected),
+                other => panic!("expected StoreImm, got {other:?}"),
+            }
         }
 
         #[test]
@@ -496,9 +483,11 @@ mod tests {
                 .unwrap();
 
             assert_eq!(b.instructions.len(), 1);
-            assert_eq!(b.instructions[0].opcode, STORE_IMM);
             let expected = (M31::from(lhs) - M31::from(rhs)).0;
-            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+            match b.instructions[0].inner_instr() {
+                CasmInstr::StoreImm { imm, .. } => assert_eq!(imm.0, expected),
+                other => panic!("expected StoreImm, got {other:?}"),
+            }
         }
 
         #[test]
@@ -510,9 +499,11 @@ mod tests {
                 .unwrap();
 
             assert_eq!(b.instructions.len(), 1);
-            assert_eq!(b.instructions[0].opcode, STORE_IMM);
             let expected = (M31::from(lhs) * M31::from(rhs)).0;
-            assert_eq!(b.instructions[0].op0().unwrap() as u32, expected);
+            match b.instructions[0].inner_instr() {
+                CasmInstr::StoreImm { imm, .. } => assert_eq!(imm.0, expected),
+                other => panic!("expected StoreImm, got {other:?}"),
+            }
         }
 
         #[test]

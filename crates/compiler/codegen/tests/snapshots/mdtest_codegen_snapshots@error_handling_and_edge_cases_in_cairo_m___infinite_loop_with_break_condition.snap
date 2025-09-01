@@ -36,8 +36,8 @@ loop_with_escape_1:
    5: 14 6 5 _             // if [fp + 6] != 0 jmp rel loop_with_escape_3
    6: 12 13 _ _            // jump abs loop_with_escape_4
 loop_with_escape_2:
-   7: 4 4 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
-   8: 4 5 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+   7: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+   8: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
    9: 11 _ _ _             // return
 loop_with_escape_3:
   10: 12 9 _ _             // jump abs loop_with_escape_2

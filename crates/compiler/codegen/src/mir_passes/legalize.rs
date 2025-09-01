@@ -11,6 +11,7 @@
 //! plus a boolean `Not`, increasing instruction count. We choose to fuse them into independent instructions
 //! to reduce the amount of columns in the prover.
 
+use crate::builder::normalize::is_commutative_u32;
 use cairo_m_compiler_mir::{
     instruction::InstructionKind, BinaryOp, MirFunction, MirModule, MirType, Value,
 };
@@ -124,19 +125,6 @@ pub fn legalize_function_for_vm(function: &mut MirFunction) {
         let block = function.get_basic_block_mut(bid).expect("valid block id");
         block.instructions = new_instrs;
     }
-}
-
-const fn is_commutative_u32(op: BinaryOp) -> bool {
-    matches!(
-        op,
-        BinaryOp::U32Add
-            | BinaryOp::U32Mul
-            | BinaryOp::U32BitwiseAnd
-            | BinaryOp::U32BitwiseOr
-            | BinaryOp::U32BitwiseXor
-            | BinaryOp::U32Eq
-            | BinaryOp::U32Neq
-    )
 }
 
 const fn canonicalize_commutative_u32(

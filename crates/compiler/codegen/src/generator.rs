@@ -4,18 +4,17 @@
 
 use std::collections::HashMap;
 
-use cairo_m_common::instruction::*;
+use cairo_m_common::instruction::Instruction as CasmInstr;
 use cairo_m_common::program::{AbiSlot, AbiType, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, MirFunction, MirModule,
     MirType, Terminator, Value, ValueId,
 };
+use stwo_prover::core::fields::m31::M31;
 
 use crate::mir_passes::legalize::legalize_module_for_vm;
-use crate::{
-    CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, Operand,
-};
+use crate::{CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
 
 /// Main code generator that orchestrates MIR to CASM translation
 #[derive(Debug)]
@@ -69,14 +68,14 @@ impl CodeGenerator {
     }
 
     /// Compile the generated code into a CompiledProgram.
-    pub(crate) fn compile(self) -> Program {
+    pub(crate) fn compile(self) -> CodegenResult<Program> {
         let instructions = self
             .instructions
             .iter()
             .map(|instr| instr.build())
-            .collect();
+            .collect::<CodegenResult<_>>()?;
 
-        Program {
+        Ok(Program {
             // TODO: Link source file / crates once supported
             metadata: ProgramMetadata {
                 compiler_version: Some(env!("CARGO_PKG_VERSION").to_string()),
@@ -86,7 +85,7 @@ impl CodeGenerator {
             },
             entrypoints: self.function_entrypoints,
             instructions,
-        }
+        })
     }
 
     /// Calculate layouts for all functions in the module
@@ -107,14 +106,15 @@ impl CodeGenerator {
             self.memory_layout.push(current_mem_pc);
 
             // Get the size of this instruction based on its opcode
-            let size_in_qm31s =
-                cairo_m_common::Instruction::size_in_qm31s_for_opcode(instr_builder.opcode)
-                    .ok_or_else(|| {
-                        CodegenError::InvalidMir(format!(
-                            "Unknown opcode: {}",
-                            instr_builder.opcode
-                        ))
-                    })?;
+            let size_in_qm31s = cairo_m_common::Instruction::size_in_qm31s_for_opcode(
+                instr_builder.inner_instr().opcode_value(),
+            )
+            .ok_or_else(|| {
+                CodegenError::InvalidMir(format!(
+                    "Unknown opcode: {}",
+                    instr_builder.inner_instr().opcode_value()
+                ))
+            })?;
             current_mem_pc += size_in_qm31s;
         }
 
@@ -806,56 +806,46 @@ impl CodeGenerator {
             }
         }
 
-        // Resolve label references in instructions
+        // Resolve label references in instructions (typed API)
         for (logical_pc, instruction) in self.instructions.iter_mut().enumerate() {
-            // Check all operands for labels
-            for operand in instruction.operands.iter_mut() {
-                if let Operand::Label(label_name) = operand {
-                    let physical_pc =
-                        self.memory_layout.get(logical_pc).copied().ok_or_else(|| {
-                            CodegenError::UnresolvedLabel(format!(
-                                "Invalid PC {} for instruction",
-                                logical_pc
-                            ))
-                        })?;
+            // Only process instructions that carry a label placeholder
+            let Some(label_name) = instruction.label.clone() else {
+                continue;
+            };
 
-                    match instruction.opcode {
-                        JMP_ABS_IMM => {
-                            // Absolute jump - use direct physical address
-                            if let Some(&target_addr) = label_map.get(label_name) {
-                                *operand = Operand::Literal(target_addr as i32);
-                            } else {
-                                return Err(CodegenError::UnresolvedLabel(label_name.clone()));
-                            }
-                        }
+            let physical_pc = self.memory_layout.get(logical_pc).copied().ok_or_else(|| {
+                CodegenError::UnresolvedLabel(format!("Invalid PC {} for instruction", logical_pc))
+            })?;
 
-                        JNZ_FP_IMM => {
-                            // Conditional jump - use relative offset in physical memory
-                            if let Some(&target_addr) = label_map.get(label_name) {
-                                let relative_offset = (target_addr as i32) - (physical_pc as i32);
-                                *operand = Operand::Literal(relative_offset);
-                            } else {
-                                return Err(CodegenError::UnresolvedLabel(label_name.clone()));
-                            }
-                        }
-
-                        CALL_ABS_IMM => {
-                            // Function call - use direct physical address
-                            if let Some(&target_addr) = label_map.get(label_name) {
-                                *operand = Operand::Literal(target_addr as i32);
-                            } else {
-                                return Err(CodegenError::UnresolvedLabel(label_name.clone()));
-                            }
-                        }
-
-                        _ => {
-                            // Other opcodes with label operands - this shouldn't happen with current implementation
-                            return Err(CodegenError::UnresolvedLabel(format!(
-                                "Unexpected label operand for opcode {}: {}",
-                                instruction.opcode, label_name
-                            )));
-                        }
-                    }
+            match instruction.inner_instr_mut() {
+                CasmInstr::JmpAbsImm { target } => {
+                    let &target_addr = label_map
+                        .get(&label_name)
+                        .ok_or_else(|| CodegenError::UnresolvedLabel(label_name.clone()))?;
+                    *target = M31::from(target_addr as i32);
+                    instruction.label = None;
+                }
+                CasmInstr::JnzFpImm { offset, .. } => {
+                    let &target_addr = label_map
+                        .get(&label_name)
+                        .ok_or_else(|| CodegenError::UnresolvedLabel(label_name.clone()))?;
+                    let rel = (target_addr as i32) - (physical_pc as i32);
+                    *offset = M31::from(rel);
+                    instruction.label = None;
+                }
+                CasmInstr::CallAbsImm { target, .. } => {
+                    let &target_addr = label_map
+                        .get(&label_name)
+                        .ok_or_else(|| CodegenError::UnresolvedLabel(label_name.clone()))?;
+                    *target = M31::from(target_addr as i32);
+                    instruction.label = None;
+                }
+                _ => {
+                    return Err(CodegenError::UnresolvedLabel(format!(
+                        "Unexpected label for opcode {}: {}",
+                        instruction.inner_instr().opcode_value(),
+                        label_name
+                    )));
                 }
             }
         }
@@ -929,7 +919,7 @@ impl CodeGenerator {
                     result.push_str(&format!("{label}:\n"));
                 }
             }
-            result.push_str(&format!("{:4}: {}\n", pc, instruction.to_asm()));
+            result.push_str(&format!("{:4}: {}\n", pc, instruction));
         }
 
         result
@@ -1048,7 +1038,7 @@ mod tests {
         // Compile the module
         let mut generator = CodeGenerator::new();
         generator.generate_module(&module).unwrap();
-        let compiled = generator.compile();
+        let compiled = generator.compile().unwrap();
 
         // Check the store immediate instruction (should be first)
         // With the direct return optimization, the immediate is stored directly
@@ -1056,7 +1046,13 @@ mod tests {
         let store_imm = &compiled.instructions[0];
 
         // Check for StoreImm opcode
-        assert_eq!(store_imm.opcode_value(), STORE_IMM);
+        assert_eq!(
+            store_imm,
+            &CasmInstr::StoreImm {
+                imm: M31::from(42),
+                dst_off: M31::from(-3)
+            }
+        );
 
         // Check operands - StoreImm has format: [imm, dst_off]
         let operands = store_imm.operands();

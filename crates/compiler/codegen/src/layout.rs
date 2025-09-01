@@ -64,6 +64,8 @@ pub struct FunctionLayout {
 }
 
 impl FunctionLayout {
+    /// Number of slots saved by a call (caller FP and return PC)
+    const CALLER_SAVE_SLOTS: i32 = 2;
     /// Creates a new layout for a function, allocating slots for its parameters.
     pub(crate) fn new(function: &MirFunction) -> CodegenResult<Self> {
         let mut layout = Self {
@@ -119,8 +121,10 @@ impl FunctionLayout {
             })?;
             let size = DataLayout::memory_size_of(ty);
 
-            // Calculate the offset using the formula from Issue 2
-            let offset = -(m_slots as i32) - (k_slots as i32) - 2 + cumulative_param_size as i32;
+            // Calculate the offset using the frame layout formula
+            // fp - M - K - CALLER_SAVE_SLOTS + cumulative_param_size
+            let offset = -(m_slots as i32) - (k_slots as i32) - Self::CALLER_SAVE_SLOTS
+                + cumulative_param_size as i32;
 
             if size == 1 {
                 self.value_layouts

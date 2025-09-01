@@ -35,13 +35,6 @@ pub(crate) enum OperandType {
 
 // Push helper for building operand type vectors at runtime without trailing comma issues
 macro_rules! __push_mem_if_applicable {
-    ($vec:ident, OperandType::Memory(DataType::Felt)) => {
-        $vec.push(DataType::Felt);
-    };
-    ($vec:ident, OperandType::Memory(DataType::U32)) => {
-        $vec.push(DataType::U32);
-    };
-    ($vec:ident, OperandType::Immediate) => {};
     ($vec:ident, (OperandType::Memory(DataType::Felt))) => {
         $vec.push(DataType::Felt);
     };

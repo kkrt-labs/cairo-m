@@ -16,5 +16,5 @@ test_simple_if:
 test_simple_if:
 test_simple_if_0:
 test_simple_if_1:
-   0: 9 2 -3 _             // Return value 0: [fp -3] = 2
+   0: 9 2 2147483644 _     // Return value 0: [fp -3] = 2
    1: 11 _ _ _             // return

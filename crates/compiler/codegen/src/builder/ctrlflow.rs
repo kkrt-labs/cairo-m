@@ -1,15 +1,20 @@
 //! Control-flow lowering templates for JNZ/JMP sequencing and short-circuit.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder, Operand};
-use cairo_m_common::instruction::{JMP_ABS_IMM, JNZ_FP_IMM};
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
+use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{Literal, Value};
+use stwo_prover::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Generates an unconditional jump to a label.
     pub(crate) fn jump(&mut self, target_label: &str) {
-        let instr = InstructionBuilder::new(JMP_ABS_IMM)
-            .with_operand(Operand::Label(target_label.to_string()))
-            .with_comment(format!("jump abs {target_label}"));
+        let instr = InstructionBuilder::new(
+            CasmInstr::JmpAbsImm {
+                target: M31::from(0),
+            },
+            Some(format!("jump abs {target_label}")),
+        )
+        .with_label(target_label.to_string());
 
         self.emit_push(instr);
     }
@@ -33,10 +38,14 @@ impl super::CasmBuilder {
 
     /// Generates a conditional jump based on a direct fp-relative offset.
     pub(crate) fn jnz_offset(&mut self, cond_off: i32, target_label: &str) {
-        let instr = InstructionBuilder::new(JNZ_FP_IMM)
-            .with_operand(Operand::Literal(cond_off))
-            .with_operand(Operand::Label(target_label.to_string()))
-            .with_comment(format!("if [fp + {cond_off}] != 0 jmp rel {target_label}"));
+        let instr = InstructionBuilder::new(
+            CasmInstr::JnzFpImm {
+                cond_off: M31::from(cond_off),
+                offset: M31::from(0),
+            },
+            Some(format!("if [fp + {cond_off}] != 0 jmp rel {target_label}")),
+        )
+        .with_label(target_label.to_string());
 
         self.emit_push(instr);
     }
@@ -191,10 +200,10 @@ impl super::CasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::Operand;
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
-    use cairo_m_common::instruction::{JMP_ABS_IMM, JNZ_FP_IMM};
+    use cairo_m_common::Instruction as CasmInstr;
     use cairo_m_compiler_mir::{Value, ValueId};
+    use stwo_prover::core::fields::m31::M31;
 
     // =========================================================================
     // Test Setup Helpers
@@ -222,11 +231,13 @@ mod tests {
         b.jump("my_label");
 
         assert_eq!(b.instructions.len(), 1);
-        assert_eq!(b.instructions[0].opcode, JMP_ABS_IMM);
         assert_eq!(
-            b.instructions[0].operands[0],
-            Operand::Label("my_label".to_string())
+            b.instructions[0].inner_instr().clone(),
+            CasmInstr::JmpAbsImm {
+                target: M31::from(0)
+            }
         );
+        assert_eq!(b.instructions[0].label, Some("my_label".to_string()));
     }
     #[test]
     fn test_jnz_with_operand() {
@@ -235,12 +246,15 @@ mod tests {
         b.jnz(Value::operand(a), "target_label").unwrap();
 
         // Should have store_imm + jnz
-        let jnz_instr = b.instructions.iter().find(|i| i.opcode == JNZ_FP_IMM);
-        assert!(jnz_instr.is_some());
+        assert_eq!(b.instructions.len(), 2);
         assert_eq!(
-            jnz_instr.unwrap().operands[1],
-            Operand::Label("target_label".to_string())
+            b.instructions[1].inner_instr().clone(),
+            CasmInstr::JnzFpImm {
+                cond_off: M31::from(0),
+                offset: M31::from(0),
+            }
         );
+        assert_eq!(b.instructions[1].label, Some("target_label".to_string()));
     }
 
     #[test]
@@ -261,8 +275,13 @@ mod tests {
             .branch_if_nonzero_to(&Value::integer(1), "label", true)
             .unwrap();
         assert_eq!(result, Some(true));
-        // Should generate unconditional jump
-        assert_eq!(b.instructions[0].opcode, JMP_ABS_IMM);
+        // Should generate unconditional jump - with unresolved target (0)
+        assert_eq!(
+            b.instructions[0].inner_instr(),
+            &CasmInstr::JmpAbsImm {
+                target: M31::from(0)
+            }
+        );
     }
 
     #[test]
@@ -287,6 +306,12 @@ mod tests {
             .unwrap();
         assert_eq!(result, None); // Dynamic value
                                   // Should generate conditional jump (after the store_imm)
-        assert_eq!(b.instructions[1].opcode, JNZ_FP_IMM);
+        assert_eq!(
+            b.instructions[1].inner_instr(),
+            &CasmInstr::JnzFpImm {
+                cond_off: M31::from(0),
+                offset: M31::from(0)
+            }
+        );
     }
 }

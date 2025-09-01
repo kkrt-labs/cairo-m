@@ -59,8 +59,8 @@ test_compound_expressions_1:
   23: 19 25 1 0 29         // u32([fp + 29], [fp + 30]) = u32([fp + 25], [fp + 26]) U32Add u32(1, 0) /* imm = 0x00000001 */
   24: 19 29 0 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 29], [fp + 30]) + u32(0, 0)
 test_compound_expressions_2:
-  25: 4 27 0 -4            // Return value 0 slot 0: [fp -4] = [fp + 27] + 0
-  26: 4 28 0 -3            // Return value 0 slot 1: [fp -3] = [fp + 28] + 0
+  25: 4 27 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 27] + 0
+  26: 4 28 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 28] + 0
   27: 11 _ _ _             // return
 test_compound_expressions_3:
   28: 12 31 _ _            // jump abs test_compound_expressions_2

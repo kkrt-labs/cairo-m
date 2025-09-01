@@ -44,6 +44,6 @@ array_sum_loop_2:
   20: 4 11 0 6             // [fp + 6] = [fp + 11] + 0
   21: 12 11 _ _            // jump abs array_sum_loop_1
 array_sum_loop_3:
-  22: 4 4 0 -4             // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
-  23: 4 5 0 -3             // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+  22: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+  23: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
   24: 11 _ _ _             // return
