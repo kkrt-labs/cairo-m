@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756485680407,
+  "lastUpdate": 1756713751366,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1304,6 +1304,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2422836705,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "675fb95c1096e567a5f1c4f7c248b68bf1ffb4c9",
+          "message": "feat: add u32_store_add_fp_imm (#271)",
+          "timestamp": "2025-09-01T09:46:57+02:00",
+          "tree_id": "0e0d634665021cf45b0ede9239a92e5423b41a76",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/675fb95c1096e567a5f1c4f7c248b68bf1ffb4c9"
+        },
+        "date": 1756713751308,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2422885776,
             "unit": "bytes"
           }
         ]
