@@ -13,12 +13,12 @@
 //! - imm_hi
 //! - dst_off
 //! - op0_val_lo
-//! - op0_prev_lo_clock
 //! - op0_val_hi
+//! - op0_prev_lo_clock
 //! - op0_prev_hi_clock
 //! - dst_prev_val_lo
-//! - dst_prev_lo_clock
 //! - dst_prev_val_hi
+//! - dst_prev_lo_clock
 //! - dst_prev_hi_clock
 //! - res_lo
 //! - res_hi
