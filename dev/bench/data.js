@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756485024582,
+  "lastUpdate": 1756717410223,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2053,6 +2053,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 337796972,
             "range": "± 2518336",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "30dc8bd129d95b2b85b2224b2783dfc298ad5155",
+          "message": "refactor(common,runner): improve instruction macro system for type safety (#279)\n\nRefactor the instruction definition macro in the common crate to:\r\n- Add structured field-based instruction definitions\r\n- Include operand type metadata for better validation\r\n- move extract_as! macro for safe field extraction in common\r\n\r\nThis makes the instruction system more maintainable and less error-prone by:\r\n- Centralizing instruction definitions with their types\r\n- Providing compile-time field validation\r\n- Eliminating manual pattern matching boilerplate\r\n- calculating size automatically.\r\n\r\nThis is not the ideal nor final design, but it's a small improvement until a bigger re-think of this system.\r\n\r\nPart of CORE-1142",
+          "timestamp": "2025-09-01T09:58:51+01:00",
+          "tree_id": "5c7b2053563886f54af51d30816209049dc90d35",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/30dc8bd129d95b2b85b2224b2783dfc298ad5155"
+        },
+        "date": 1756717409783,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 336336139,
+            "range": "± 1830759",
             "unit": "ns/iter"
           }
         ]
