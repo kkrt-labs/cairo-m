@@ -41,6 +41,17 @@ use super::stmt::LowerStmt;
 pub fn generate_mir(db: &dyn MirDb, crate_id: Crate) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
     let pipeline_config = PipelineConfig::default();
 
+    generate_mir_with_config(db, crate_id, pipeline_config)
+}
+
+/// Entry point for MIR generation with a custom pipeline configuration.
+///
+/// This mirrors `generate_mir` but allows callers to specify optimization settings.
+pub fn generate_mir_with_config(
+    db: &dyn MirDb,
+    crate_id: Crate,
+    pipeline_config: PipelineConfig,
+) -> Result<Arc<MirModule>, Vec<Diagnostic>> {
     // Get semantic index for the entire crate
     let crate_semantic_index =
         match cairo_m_compiler_semantic::db::project_semantic_index(db, crate_id) {

@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use cairo_m_common::Program;
-use cairo_m_compiler_mir::MirDb;
+use cairo_m_compiler_mir::{pipeline::PipelineConfig, MirDb};
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::db::Crate;
 
@@ -23,15 +23,27 @@ pub trait CodegenDb: MirDb + Upcast<dyn MirDb> {}
 /// and produces the compiled program with full incremental caching support.
 #[salsa::tracked]
 pub fn compile_project(db: &dyn CodegenDb, crate_id: Crate) -> Result<Arc<Program>, CodegenError> {
-    // Get the MIR module
-    let mir_module = cairo_m_compiler_mir::generate_mir(db.upcast(), crate_id).map_err(|err| {
-        CodegenError::InvalidMir(
-            err.iter()
-                .map(|diag| diag.to_string())
-                .collect::<Vec<_>>()
-                .join("\n"),
-        )
-    })?;
+    compile_project_with_config(db, crate_id, PipelineConfig::default())
+}
+
+/// Compile a crate to a compiled program using a custom MIR pipeline configuration.
+pub fn compile_project_with_config(
+    db: &dyn CodegenDb,
+    crate_id: Crate,
+    pipeline: PipelineConfig,
+) -> Result<Arc<Program>, CodegenError> {
+    // Get the MIR module using provided pipeline config
+    let mir_module =
+        cairo_m_compiler_mir::generate_mir_with_config(db.upcast(), crate_id, pipeline).map_err(
+            |err| {
+                CodegenError::InvalidMir(
+                    err.iter()
+                        .map(|diag| diag.to_string())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                )
+            },
+        )?;
 
     // Use the existing compile_module logic
     let compiled = crate::compile_module(&mir_module)?;

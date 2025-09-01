@@ -82,7 +82,7 @@ pub mod value;
 pub mod value_visitor;
 
 pub use db::MirDb;
-pub use lowering::generate_mir;
+pub use lowering::{generate_mir, generate_mir_with_config};
 
 #[cfg(test)]
 pub mod testing;
