@@ -58,7 +58,7 @@
 //!   * `op0_val_lo * imm_lo - (p0_hi << 16 + res_lo)`
 //!   * `op0_val_hi * imm_lo - (p1_hi << 16 + p1_lo)`
 //!   * `op0_val_lo * imm_hi - (p2_hi << 16 + p2_lo)`
-//!   * `(p0_lo + p1_hi + p2_hi - overflow_limb) - res`
+//!   * `(p0_hi + p1_lo + p2_lo - overflow_limb) - res_hi`
 //! * write dst in [fp + dst_off]
 //!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val_lo] + [fp + dst_off, clk, res_lo]` in `Memory` Relation
 //!   * `- [fp + dst_off + 1, dst_prev_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, res_hi]` in `Memory` Relation
