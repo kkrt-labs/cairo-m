@@ -462,9 +462,8 @@ proptest! {
     }
 
     #[test]
-    #[should_panic(expected = "attempt to divide by zero")]
     fn test_u32_store_div_fp_imm_by_zero(src_value in 0..u16::MAX as u32) {
-        let _ = run_u32_fp_imm_test(
+        let result = run_u32_fp_imm_test(
             src_value,
             Instruction::U32StoreDivFpImm {
                 src_off: M31(0),
@@ -477,6 +476,12 @@ proptest! {
             2,
             2,
         );
+
+        // Should return an error for division by zero
+        match result {
+            Err(InstructionExecutionError::InvalidOperand(msg)) if msg == "Division by zero" => {},
+            _ => panic!("Expected InvalidOperand error for division by zero"),
+        }
     }
 
 

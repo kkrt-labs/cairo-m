@@ -354,7 +354,47 @@ impl_u32_store_bin_op_fp_imm!(u32_store_add_fp_imm, U32StoreAddFpImm, |a, b| a
     .wrapping_add(b));
 impl_u32_store_bin_op_fp_imm!(u32_store_mul_fp_imm, U32StoreMulFpImm, |a, b| a
     .wrapping_mul(b));
-impl_u32_store_bin_op_fp_imm!(u32_store_div_fp_imm, U32StoreDivFpImm, |a, b| a / b);
+/// CASM equivalent:
+/// ```casm
+/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / imm
+/// ```
+///
+/// Returns an error if attempting to divide by zero.
+pub fn u32_store_div_fp_imm(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (src_off, imm_lo, imm_hi, dst_off) = extract_as!(
+        instruction,
+        U32StoreDivFpImm,
+        (src_off, imm_lo, imm_hi, dst_off)
+    );
+
+    if imm_hi.0 > U32_LIMB_MASK || imm_lo.0 > U32_LIMB_MASK {
+        return Err(InstructionExecutionError::Memory(
+            MemoryError::U32LimbOutOfRange {
+                limb_lo: imm_lo.0,
+                limb_hi: imm_hi.0,
+            },
+        ));
+    }
+
+    let imm_value: u32 = (imm_hi.0 << U32_LIMB_BITS) | imm_lo.0;
+
+    // Check for division by zero
+    if imm_value == 0 {
+        return Err(InstructionExecutionError::InvalidOperand(
+            "Division by zero".to_string(),
+        ));
+    }
+
+    let src_value = memory.get_u32(state.fp + src_off)?;
+    let res = src_value / imm_value;
+
+    memory.insert_u32(state.fp + dst_off, res)?;
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
 
 /// CASM equivalent:
 /// ```casm
