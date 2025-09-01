@@ -76,10 +76,10 @@ use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 15;
+const N_TRACE_COLUMNS: usize = 16;
 const N_MEMORY_LOOKUPS: usize = 10;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 4;
 const N_RANGE_CHECK_16_LOOKUPS: usize = 4;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
@@ -187,11 +187,12 @@ impl Claim {
                 let imm_hi = input.inst_value_3;
                 let dst_off = input.inst_value_4;
 
-                let op0_val_lo = input.mem1_value_limb0;
-                let op0_val_hi = input.mem1_value_limb1;
-                let op0_prev_clock = input.mem1_prev_clock;
+                let op0_val_lo = input.mem1_value;
+                let op0_val_hi = input.mem2_value;
+                let op0_prev_lo_clock = input.mem1_prev_clock;
+                let op0_prev_hi_clock = input.mem2_prev_clock;
 
-                let dst_prev_val = input.mem3_prev_value_limb0;
+                let dst_prev_val = input.mem3_prev_value;
                 let dst_prev_clock = input.mem3_prev_clock;
 
                 let diff = op0_val_lo + op0_val_hi * two_pow_16 - imm_lo - imm_hi * two_pow_16;
@@ -214,10 +215,11 @@ impl Claim {
                 *row[8] = dst_off;
                 *row[9] = op0_val_lo;
                 *row[10] = op0_val_hi;
-                *row[11] = op0_prev_clock;
-                *row[12] = dst_prev_val;
-                *row[13] = dst_prev_clock;
-                *row[14] = diff_inv;
+                *row[11] = op0_prev_lo_clock;
+                *row[12] = op0_prev_hi_clock;
+                *row[13] = dst_prev_val;
+                *row[14] = dst_prev_clock;
+                *row[15] = diff_inv;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -238,14 +240,20 @@ impl Claim {
                 *lookup_data.memory[3] = [input.pc, clock, dst_off, zero, zero, zero];
 
                 // Read op0_lo
-                *lookup_data.memory[4] =
-                    [fp + src0_off, op0_prev_clock, op0_val_lo, zero, zero, zero];
+                *lookup_data.memory[4] = [
+                    fp + src0_off,
+                    op0_prev_lo_clock,
+                    op0_val_lo,
+                    zero,
+                    zero,
+                    zero,
+                ];
                 *lookup_data.memory[5] = [fp + src0_off, clock, op0_val_lo, zero, zero, zero];
 
                 // Read op0_hi
                 *lookup_data.memory[6] = [
                     fp + src0_off + one,
-                    op0_prev_clock,
+                    op0_prev_hi_clock,
                     op0_val_hi,
                     zero,
                     zero,
@@ -266,8 +274,9 @@ impl Claim {
                 *lookup_data.range_check_16[3] = imm_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - dst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_lo_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_hi_clock - enabler;
+                *lookup_data.range_check_20[3] = clock - dst_prev_clock - enabler;
             });
 
         (
@@ -373,41 +382,29 @@ impl InteractionClaim {
         }
 
         // Range check 20 lookups
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[0],
-            &interaction_claim_data.lookup_data.range_check_20[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_0]);
-                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_1]);
+        for i in 0..N_RANGE_CHECK_20_LOOKUPS / 2 {
+            let mut col = interaction_trace.new_col();
+            (
+                col.par_iter_mut(),
+                &interaction_claim_data.lookup_data.range_check_20[i * 2],
+                &interaction_claim_data.lookup_data.range_check_20[i * 2 + 1],
+            )
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
+                    let num = -PackedQM31::one();
+                    let denom_0: PackedQM31 =
+                        relations.range_check_20.combine(&[*range_check_20_0]);
+                    let denom_1: PackedQM31 =
+                        relations.range_check_20.combine(&[*range_check_20_1]);
 
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
+                    let numerator = num * denom_1 + num * denom_0;
+                    let denom = denom_0 * denom_1;
 
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[2],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_20_2))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_2]);
-
-                writer.write_frac(num, denom_0);
-            });
-        col.finalize_col();
-
+                    writer.write_frac(numerator, denom);
+                });
+            col.finalize_col();
+        }
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         (Self { claimed_sum }, trace)
     }
@@ -444,7 +441,8 @@ impl FrameworkEval for Eval {
         let dst_off = eval.next_trace_mask();
         let op0_val_lo = eval.next_trace_mask();
         let op0_val_hi = eval.next_trace_mask();
-        let op0_prev_clock = eval.next_trace_mask();
+        let op0_prev_lo_clock = eval.next_trace_mask();
+        let op0_prev_hi_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let diff_inv = eval.next_trace_mask();
@@ -517,7 +515,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone(),
-                op0_prev_clock.clone(),
+                op0_prev_lo_clock.clone(),
                 op0_val_lo.clone(),
             ],
         ));
@@ -537,7 +535,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone() + one.clone(),
-                op0_prev_clock.clone(),
+                op0_prev_hi_clock.clone(),
                 op0_val_hi.clone(),
             ],
         ));
@@ -598,7 +596,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_lo_clock - enabler.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock.clone() - op0_prev_hi_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
