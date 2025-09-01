@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756717410223,
+  "lastUpdate": 1756718677293,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2083,6 +2083,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 336336139,
             "range": "± 1830759",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "79e1fe09a74350ac7c39a79965a8ac34e2166b9d",
+          "message": "fix(runner): handle division by zero in u32_store_div_fp_imm (#283)\n\nReplace macro-generated function with custom implementation that checks for\ndivision by zero and returns InvalidOperand error instead of panicking.\n\nThis approach was chosen over modifying exec_u32_bin_op_fp_imm because:\n- No performance overhead for other arithmetic operations\n- Minimal code change with clear error handling\n- Avoids breaking changes to the existing macro system\n\nThe ~20 lines of code duplication is acceptable given the performance\nbenefits and simplicity of the solution.",
+          "timestamp": "2025-09-01T11:20:08+02:00",
+          "tree_id": "29a93dec17a77c3441537ecc45d7c5fc2d3b06d5",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/79e1fe09a74350ac7c39a79965a8ac34e2166b9d"
+        },
+        "date": 1756718676643,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 335007704,
+            "range": "± 7180675",
             "unit": "ns/iter"
           }
         ]
