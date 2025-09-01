@@ -256,61 +256,37 @@ fn test_memory_accesses() {
         .memory_accesses(),
         0
     );
+    assert_eq!(
+        Instruction::CallAbsImm {
+            frame_off: M31::from(0),
+            target: M31::from(0),
+        }
+        .memory_accesses(),
+        2
+    );
+    assert_eq!(
+        Instruction::JmpAbsImm {
+            target: M31::from(0),
+        }
+        .memory_accesses(),
+        0
+    );
+    assert_eq!(
+        Instruction::JmpRelImm {
+            offset: M31::from(0),
+        }
+        .memory_accesses(),
+        0
+    );
+    assert_eq!(
+        Instruction::JnzFpImm {
+            cond_off: M31::from(0),
+            offset: M31::from(0),
+        }
+        .memory_accesses(),
+        1
+    );
     assert_eq!(Instruction::Ret {}.memory_accesses(), 2);
-}
-
-#[test]
-fn test_instruction_names() {
-    assert_eq!(
-        Instruction::StoreAddFpFp {
-            src0_off: M31::from(0),
-            src1_off: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .name(),
-        "StoreAddFpFp"
-    );
-    assert_eq!(Instruction::Ret {}.name(), "Ret");
-    assert_eq!(
-        Instruction::U32StoreAddFpImm {
-            src_off: M31::from(0),
-            imm_hi: M31::from(0),
-            imm_lo: M31::from(0),
-            dst_off: M31::from(0)
-        }
-        .name(),
-        "U32StoreAddFpImm"
-    );
-}
-
-#[test]
-fn test_to_m31_vec() {
-    let ret = Instruction::Ret {};
-    let vec = ret.to_m31_vec();
-    assert_eq!(vec.len(), 1);
-    assert_eq!(vec[0], M31::from(11));
-
-    let store_imm = Instruction::StoreImm {
-        imm: M31::from(42),
-        dst_off: M31::from(3),
-    };
-    let vec = store_imm.to_m31_vec();
-    assert_eq!(vec.len(), 3);
-    assert_eq!(vec[0], M31::from(9)); // opcode
-    assert_eq!(vec[1], M31::from(42)); // imm
-    assert_eq!(vec[2], M31::from(3)); // dst_off
-
-    let add_fp_fp = Instruction::StoreAddFpFp {
-        src0_off: M31::from(1),
-        src1_off: M31::from(2),
-        dst_off: M31::from(3),
-    };
-    let vec = add_fp_fp.to_m31_vec();
-    assert_eq!(vec.len(), 4);
-    assert_eq!(vec[0], M31::from(0)); // opcode
-    assert_eq!(vec[1], M31::from(1)); // src0_off
-    assert_eq!(vec[2], M31::from(2)); // src1_off
-    assert_eq!(vec[3], M31::from(3)); // dst_off
 }
 
 #[test]
@@ -695,20 +671,20 @@ fn test_try_from_smallvec() {
             "StoreFpImm instruction",
         ),
         (
-            smallvec![M31::from(44), M31::from(5), M31::from(7), M31::from(9)],
+            smallvec![M31::from(44), M31::from(9), M31::from(7), M31::from(5)],
             Instruction::StoreToDoubleDerefFpImm {
+                src_off: M31::from(9),
                 base_off: M31::from(5),
                 imm: M31::from(7),
-                src_off: M31::from(9),
             },
             "StoreToDoubleDerefFpImm instruction",
         ),
         (
-            smallvec![M31::from(45), M31::from(5), M31::from(7), M31::from(9)],
+            smallvec![M31::from(45), M31::from(9), M31::from(7), M31::from(5)],
             Instruction::StoreToDoubleDerefFpFp {
-                base_off: M31::from(5),
-                offset_off: M31::from(7),
                 src_off: M31::from(9),
+                base_off: M31::from(7),
+                offset_off: M31::from(5),
             },
             "StoreToDoubleDerefFpFp instruction",
         ),
@@ -1000,8 +976,7 @@ fn test_roundtrip_all_instructions() {
 
     for instruction in instructions {
         // Test smallvec roundtrip
-        let vec = instruction.to_m31_vec();
-        let smallvec = SmallVec::from_vec(vec);
+        let smallvec = instruction.to_smallvec();
         let reconstructed = Instruction::try_from(smallvec).unwrap();
         assert_eq!(instruction, reconstructed);
 

@@ -114,15 +114,15 @@ impl super::CasmBuilder {
 
     pub(crate) fn store_to_double_deref_fp_imm(
         &mut self,
+        src_off: i32,
         base_off: i32,
         imm: i32,
-        dest_off: i32,
         comment: String,
     ) {
         let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_IMM)
-            .with_operand(Operand::Literal(base_off))
+            .with_operand(Operand::Literal(src_off))
             .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dest_off))
+            .with_operand(Operand::Literal(base_off))
             .with_comment(comment);
         self.emit_push(instr);
     }
@@ -131,13 +131,13 @@ impl super::CasmBuilder {
         &mut self,
         base_off: i32,
         imm: i32,
-        dest_off: i32,
+        src_off: i32,
         comment: String,
     ) {
         let instr = InstructionBuilder::new(STORE_TO_DOUBLE_DEREF_FP_FP)
-            .with_operand(Operand::Literal(base_off))
+            .with_operand(Operand::Literal(src_off))
             .with_operand(Operand::Literal(imm))
-            .with_operand(Operand::Literal(dest_off))
+            .with_operand(Operand::Literal(base_off))
             .with_comment(comment);
         self.emit_push(instr);
     }
@@ -342,13 +342,13 @@ mod tests {
     #[test]
     fn test_store_to_double_deref_fp_imm() {
         let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);
-        b.store_to_double_deref_fp_imm(2, 5, 8, "[fp + 8] -> [[fp + 2] + 5]".into());
+        b.store_to_double_deref_fp_imm(8, 2, 5, "[fp + 8] -> [[fp + 2] + 5]".into());
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(b.instructions[0].opcode, STORE_TO_DOUBLE_DEREF_FP_IMM);
-        assert_eq!(b.instructions[0].op0(), Some(2));
+        assert_eq!(b.instructions[0].op0(), Some(8));
         assert_eq!(b.instructions[0].op1(), Some(5));
-        assert_eq!(b.instructions[0].op2(), Some(8));
+        assert_eq!(b.instructions[0].op2(), Some(2));
     }
 
     #[test]
@@ -358,9 +358,9 @@ mod tests {
 
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(b.instructions[0].opcode, STORE_TO_DOUBLE_DEREF_FP_FP);
-        assert_eq!(b.instructions[0].op0(), Some(2));
+        assert_eq!(b.instructions[0].op0(), Some(8));
         assert_eq!(b.instructions[0].op1(), Some(3));
-        assert_eq!(b.instructions[0].op2(), Some(8));
+        assert_eq!(b.instructions[0].op2(), Some(2));
     }
 
     // -------------------------

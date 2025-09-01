@@ -611,9 +611,9 @@ impl super::CasmBuilder {
                 let elem_size = DataLayout::value_size_of(ty);
                 for i in 0..elem_size {
                     self.store_to_double_deref_fp_imm(
+                        src_offset + i as i32,
                         base_offset,
                         element_offset + i as i32,
-                        src_offset + i as i32,
                         format!(
                             "[[fp + {}] + {}] = [fp + {}] (slot {})",
                             base_offset,
@@ -636,9 +636,9 @@ impl super::CasmBuilder {
                         format!("[fp + {}] = {}", temp_offset, val),
                     );
                     self.store_to_double_deref_fp_imm(
+                        temp_offset,
                         base_offset,
                         element_offset,
-                        temp_offset,
                         format!(
                             "[[fp + {}] + {}] = [fp + {}]",
                             base_offset, element_offset, temp_offset
@@ -654,9 +654,9 @@ impl super::CasmBuilder {
                     );
                     for i in 0..2 {
                         self.store_to_double_deref_fp_imm(
+                            tmp + i,
                             base_offset,
                             element_offset + i,
-                            tmp + i,
                             format!(
                                 "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
                                 base_offset,
