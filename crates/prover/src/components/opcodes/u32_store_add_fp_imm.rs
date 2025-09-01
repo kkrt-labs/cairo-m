@@ -236,12 +236,12 @@ impl Claim {
                 *row[7] = imm_hi;
                 *row[8] = dst_off;
                 *row[9] = op0_val_lo;
-                *row[10] = op0_val_hi;
-                *row[11] = op0_prev_lo_clock;
+                *row[10] = op0_prev_lo_clock;
+                *row[11] = op0_val_hi;
                 *row[12] = op0_prev_hi_clock;
                 *row[13] = dst_prev_val_lo;
-                *row[14] = dst_prev_val_hi;
-                *row[15] = dst_prev_lo_clock;
+                *row[14] = dst_prev_lo_clock;
+                *row[15] = dst_prev_val_hi;
                 *row[16] = dst_prev_hi_clock;
                 *row[17] = u16_carry;
                 *row[18] = u32_carry;
