@@ -162,7 +162,7 @@ impl Claim {
                 let off0 = input.inst_value_1;
                 let imm = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value_limb0;
+                let op0_val = input.mem1_value;
                 let op0_val_inv = PackedM31::from(op0_val.to_array().map(|m| {
                     if m == M31::zero() {
                         M31::zero()

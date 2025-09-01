@@ -158,7 +158,7 @@ impl Claim {
                 let src0_off = input.inst_value_1;
                 let imm = input.inst_value_2;
                 let op0_prev_clock = input.mem1_prev_clock;
-                let op0_val = input.mem1_value_limb0;
+                let op0_val = input.mem1_value;
 
                 *row[0] = enabler;
                 *row[1] = pc;

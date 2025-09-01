@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 
-use cairo_m_common::instruction::{DataType, Instruction, INSTRUCTION_MAX_SIZE};
+use cairo_m_common::instruction::{Instruction, INSTRUCTION_MAX_SIZE};
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::State as VmRegisters;
 use num_traits::{One, Zero};
@@ -73,9 +73,9 @@ pub struct DataAccess {
     /// The clock time of the previous access to this address
     pub prev_clock: M31,
     /// The memory value before this access
-    pub prev_value: MemoryValue,
+    pub prev_value: M31,
     /// The memory value after this access
-    pub value: MemoryValue,
+    pub value: M31,
 }
 
 /// Represents an instruction memory access.
@@ -110,7 +110,7 @@ pub struct ExecutionBundle {
     /// The instruction memory access
     pub instruction: InstructionAccess,
     /// Data memory accesses for operands (up to 3 per instruction)
-    pub operands: [Option<DataAccess>; 3],
+    pub operands: [Option<DataAccess>; 5],
 }
 
 impl Default for ExecutionBundle {
@@ -122,7 +122,7 @@ impl Default for ExecutionBundle {
                 instruction: Instruction::Ret {},
                 prev_clock: M31::zero(),
             },
-            operands: [None, None, None],
+            operands: [None, None, None, None, None],
         }
     }
 }
@@ -348,93 +348,32 @@ where
         // Step 4: Process operand memory accesses based on instruction's opcode
         // The number and type of memory accesses depends on the instruction
         let num_operands = instruction.memory_accesses();
-        let operand_types = instruction.operand_types();
-        let mut operands: [Option<DataAccess>; 3] = [None, None, None];
+        let mut operands: [Option<DataAccess>; 5] = [None, None, None, None, None];
 
-        for (idx, operand_slot) in operands.iter_mut().take(num_operands).enumerate() {
+        for operand_slot in operands.iter_mut().take(num_operands) {
             // Get the data type for this operand based on the instruction's opcode
-            let data_type = operand_types
-                .get(idx)
-                .copied()
-                .expect("Operand type not found - The instruction is not defined properly.");
+            // Single M31 value for Felt operands
+            let operand_memory = match self.memory_iter.next() {
+                Some(entry) => entry,
+                None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
+            };
 
-            match data_type {
-                DataType::Felt => {
-                    // Single M31 value for Felt operands
-                    let operand_memory = match self.memory_iter.next() {
-                        Some(entry) => entry,
-                        None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
-                    };
+            let operand_entry = MemoryEntry {
+                address: operand_memory.addr,
+                value: operand_memory.value,
+                clock: self.clock.into(),
+            };
 
-                    let operand_entry = MemoryEntry {
-                        address: operand_memory.addr,
-                        value: operand_memory.value,
-                        clock: self.clock.into(),
-                    };
+            let operand_arg = self.memory.push(operand_entry);
 
-                    let operand_arg = self.memory.push(operand_entry);
+            let data_access = DataAccess {
+                address: operand_arg.address,
+                prev_clock: operand_arg.prev_clock,
+                prev_value: operand_arg.prev_val.0 .0,
+                value: operand_arg.value.0 .0,
+            };
 
-                    let data_access = DataAccess {
-                        address: operand_arg.address,
-                        prev_clock: operand_arg.prev_clock,
-                        prev_value: MemoryValue {
-                            limb0: operand_arg.prev_val.0 .0,
-                            limb1: M31::zero(),
-                        },
-                        value: MemoryValue {
-                            limb0: operand_arg.value.0 .0,
-                            limb1: M31::zero(),
-                        },
-                    };
-
-                    *operand_slot = Some(data_access);
-                }
-                DataType::U32 => {
-                    // Two consecutive M31 values for U32 operands
-                    // First limb (low part)
-                    let operand_memory_low = match self.memory_iter.next() {
-                        Some(entry) => entry,
-                        None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
-                    };
-
-                    let operand_entry_low = MemoryEntry {
-                        address: operand_memory_low.addr,
-                        value: operand_memory_low.value,
-                        clock: self.clock.into(),
-                    };
-
-                    let operand_arg_low = self.memory.push(operand_entry_low);
-
-                    // Second limb (high part)
-                    let operand_memory_high = match self.memory_iter.next() {
-                        Some(entry) => entry,
-                        None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
-                    };
-
-                    let operand_entry_high = MemoryEntry {
-                        address: operand_memory_high.addr,
-                        value: operand_memory_high.value,
-                        clock: self.clock.into(),
-                    };
-
-                    let operand_arg_high = self.memory.push(operand_entry_high);
-
-                    let data_access = DataAccess {
-                        address: operand_arg_low.address, // Use the base address
-                        prev_clock: operand_arg_low.prev_clock,
-                        prev_value: MemoryValue {
-                            limb0: operand_arg_low.prev_val.0 .0,
-                            limb1: operand_arg_high.prev_val.0 .0,
-                        },
-                        value: MemoryValue {
-                            limb0: operand_arg_low.value.0 .0,
-                            limb1: operand_arg_high.value.0 .0,
-                        },
-                    };
-
-                    *operand_slot = Some(data_access);
-                }
-            }
+            *operand_slot = Some(data_access);
         }
 
         let bundle = ExecutionBundle {

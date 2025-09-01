@@ -248,7 +248,7 @@ fn test_prove_and_verify_all_opcodes() {
     let compiled = compile_cairo(
         source,
         "all_opcodes.cm".to_string(),
-        CompilerOptions::default(),
+        CompilerOptions::no_opts(),
     )
     .unwrap();
 
@@ -276,7 +276,7 @@ fn test_all_opcodes_constraints() {
     let compiled = compile_cairo(
         source,
         "all_opcodes.cm".to_string(),
-        CompilerOptions::default(),
+        CompilerOptions::no_opts(),
     )
     .unwrap();
 

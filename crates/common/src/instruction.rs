@@ -33,15 +33,27 @@ pub(crate) enum OperandType {
     Memory(DataType),
 }
 
-// Push helper for building operand type vectors at runtime without trailing comma issues
-macro_rules! __push_mem_if_applicable {
-    ($vec:ident, (OperandType::Memory(DataType::Felt))) => {
-        $vec.push(DataType::Felt);
+// Returns the number of limbs for a given operand kind.
+// Immediate operands do not contribute to memory accesses.
+macro_rules! __mem_accesses_for_kind {
+    (OperandType::Memory(DataType::Felt)) => {
+        1usize
     };
-    ($vec:ident, (OperandType::Memory(DataType::U32))) => {
-        $vec.push(DataType::U32);
+    (OperandType::Memory(DataType::U32)) => {
+        2usize
     };
-    ($vec:ident, (OperandType::Immediate)) => {};
+    (OperandType::Immediate) => {
+        0usize
+    };
+    ((OperandType::Memory(DataType::Felt))) => {
+        1usize
+    };
+    ((OperandType::Memory(DataType::U32))) => {
+        2usize
+    };
+    ((OperandType::Immediate)) => {
+        0usize
+    };
 }
 
 /// Macro to define the Instruction enum and implementations from a more descriptive spec.
@@ -148,12 +160,16 @@ macro_rules! instructions {
             }
 
             /// Get the number of memory accesses (as limbs) for this instruction's operands
-            pub fn memory_accesses(&self) -> usize {
-                // Count limbs based on memory operand types (explicit + implicit).
-                self.operand_types()
-                    .iter()
-                    .map(|t| match t { DataType::Felt => 1usize, DataType::U32 => 2usize })
-                    .sum()
+            pub const fn memory_accesses(&self) -> usize {
+                match self {
+                    $(
+                        Self::$variant { .. } => {
+                            0usize
+                            $( + __mem_accesses_for_kind!($kind) )*
+                            $( $( + __mem_accesses_for_kind!($implicit_kind) )* )?
+                        }
+                    ),*
+                }
             }
 
             /// Convert instruction to a SmallVec of M31 values
@@ -175,24 +191,7 @@ macro_rules! instructions {
                 vec
             }
 
-            /// Get the data types for each memory operand of this instruction
-            ///
-            /// Returns a static slice containing a DataType entry per memory operand
-            /// (immediates are excluded). Implicit operands are appended after
-            /// explicit ones.
-            pub fn operand_types(&self) -> SmallVec<[DataType; 4]> {
-                match self {
-                    $(
-                        Self::$variant { .. } => {
-                            #[allow(unused)]
-                            let mut v = SmallVec::<[DataType; 4]>::new();
-                            $( __push_mem_if_applicable!(v, $kind); )*
-                            $( $( __push_mem_if_applicable!(v, $implicit_kind); )* )?
-                            v
-                        },
-                    )*
-                }
-            }
+            // Note: operand_types() removed; memory_accesses() computes directly.
         }
 
         impl TryFrom<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>> for Instruction {
@@ -410,7 +409,7 @@ instructions! {
 
     // Call operations
     // call abs imm
-    // Implicitly pushes return `pc` and current `fp` as two Felt values.
+    // Implicitly accesses return `pc` and current `fp` as two Felt values.
     CallAbsImm = 10 {
         frame_off: (OperandType::Immediate),
         target: (OperandType::Immediate),

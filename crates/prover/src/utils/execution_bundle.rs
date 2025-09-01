@@ -27,26 +27,32 @@ pub struct PackedExecutionBundle {
     // Memory arg 1 - Operand 0 (supports multi-limb values)
     pub mem1_addr: PackedM31,
     pub mem1_prev_clock: PackedM31,
-    pub mem1_prev_value_limb0: PackedM31,
-    pub mem1_prev_value_limb1: PackedM31,
-    pub mem1_value_limb0: PackedM31,
-    pub mem1_value_limb1: PackedM31,
+    pub mem1_prev_value: PackedM31,
+    pub mem1_value: PackedM31,
 
     // Memory arg 2 - Operand 1 (supports multi-limb values)
     pub mem2_addr: PackedM31,
     pub mem2_prev_clock: PackedM31,
-    pub mem2_prev_value_limb0: PackedM31,
-    pub mem2_prev_value_limb1: PackedM31,
-    pub mem2_value_limb0: PackedM31,
-    pub mem2_value_limb1: PackedM31,
+    pub mem2_prev_value: PackedM31,
+    pub mem2_value: PackedM31,
 
     // Memory arg 3 - Operand 2 (supports multi-limb values)
     pub mem3_addr: PackedM31,
     pub mem3_prev_clock: PackedM31,
-    pub mem3_prev_value_limb0: PackedM31,
-    pub mem3_prev_value_limb1: PackedM31,
-    pub mem3_value_limb0: PackedM31,
-    pub mem3_value_limb1: PackedM31,
+    pub mem3_prev_value: PackedM31,
+    pub mem3_value: PackedM31,
+
+    // Memory arg 4 - Operand 3 (supports multi-limb values)
+    pub mem4_addr: PackedM31,
+    pub mem4_prev_clock: PackedM31,
+    pub mem4_prev_value: PackedM31,
+    pub mem4_value: PackedM31,
+
+    // Memory arg 5 - Operand 4 (supports multi-limb values)
+    pub mem5_addr: PackedM31,
+    pub mem5_prev_clock: PackedM31,
+    pub mem5_prev_value: PackedM31,
+    pub mem5_value: PackedM31,
 }
 
 impl Pack for ExecutionBundle {
@@ -94,17 +100,11 @@ impl Pack for ExecutionBundle {
             mem1_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
                 inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_clock)
             })),
-            mem1_prev_value_limb0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_value.limb0)
+            mem1_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_value)
             })),
-            mem1_prev_value_limb1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_value.limb1)
-            })),
-            mem1_value_limb0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.value.limb0)
-            })),
-            mem1_value_limb1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.value.limb1)
+            mem1_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[0].map_or_else(M31::zero, |op| op.value)
             })),
 
             // Memory arg 2 (multi-limb support)
@@ -114,17 +114,11 @@ impl Pack for ExecutionBundle {
             mem2_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
                 inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_clock)
             })),
-            mem2_prev_value_limb0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_value.limb0)
+            mem2_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_value)
             })),
-            mem2_prev_value_limb1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_value.limb1)
-            })),
-            mem2_value_limb0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.value.limb0)
-            })),
-            mem2_value_limb1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.value.limb1)
+            mem2_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[1].map_or_else(M31::zero, |op| op.value)
             })),
 
             // Memory arg 3 (multi-limb support)
@@ -134,17 +128,39 @@ impl Pack for ExecutionBundle {
             mem3_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
                 inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_clock)
             })),
-            mem3_prev_value_limb0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_value.limb0)
+            mem3_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_value)
             })),
-            mem3_prev_value_limb1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_value.limb1)
+            mem3_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[2].map_or_else(M31::zero, |op| op.value)
             })),
-            mem3_value_limb0: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.value.limb0)
+
+            // Memory arg 4 (multi-limb support)
+            mem4_addr: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[3].map_or_else(M31::zero, |op| op.address)
             })),
-            mem3_value_limb1: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.value.limb1)
+            mem4_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[3].map_or_else(M31::zero, |op| op.prev_clock)
+            })),
+            mem4_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[3].map_or_else(M31::zero, |op| op.prev_value)
+            })),
+            mem4_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[3].map_or_else(M31::zero, |op| op.value)
+            })),
+
+            // Memory arg 5 (multi-limb support)
+            mem5_addr: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[4].map_or_else(M31::zero, |op| op.address)
+            })),
+            mem5_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[4].map_or_else(M31::zero, |op| op.prev_clock)
+            })),
+            mem5_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[4].map_or_else(M31::zero, |op| op.prev_value)
+            })),
+            mem5_value: PackedM31::from_array(std::array::from_fn(|i| {
+                inputs[i].operands[4].map_or_else(M31::zero, |op| op.value)
             })),
         }
     }
