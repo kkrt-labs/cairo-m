@@ -93,7 +93,7 @@ fn write_cairom_toml(project_path: &Path, name: &str) -> Result<()> {
 
 fn write_cargo_toml(project_path: &Path, name: &str) -> Result<()> {
     let template = include_str!("../templates/Cargo.toml");
-    let content = template.replace("{{name}}", name);
+    let content = template.replace("cairo-m-template", name);
     fs::write(project_path.join("Cargo.toml"), content).context("Failed to write Cargo.toml")?;
     Ok(())
 }
