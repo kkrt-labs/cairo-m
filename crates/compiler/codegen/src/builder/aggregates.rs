@@ -882,8 +882,8 @@ mod tests {
         test_support::{exec, Mem},
     };
     use cairo_m_common::instruction::{
-        STORE_ADD_FP_IMM, STORE_DOUBLE_DEREF_FP, STORE_DOUBLE_DEREF_FP_FP, STORE_FP_IMM, STORE_IMM,
-        STORE_MUL_FP_IMM, STORE_TO_DOUBLE_DEREF_FP_IMM, U32_STORE_IMM,
+        STORE_ADD_FP_IMM, STORE_DOUBLE_DEREF_FP, STORE_DOUBLE_DEREF_FP_FP, STORE_FRAME_POINTER,
+        STORE_IMM, STORE_MUL_FP_IMM, STORE_TO_DOUBLE_DEREF_FP_IMM, U32_STORE_IMM,
     };
     use cairo_m_compiler_mir::{MirFunction, MirType, Value, ValueId};
     use proptest::prelude::*;
@@ -1316,7 +1316,7 @@ mod tests {
         let ptr_stores = b
             .instructions
             .iter()
-            .filter(|i| i.inner_instr().opcode_value() == STORE_FP_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_FRAME_POINTER)
             .count();
         let imm_stores = b
             .instructions
@@ -1343,7 +1343,7 @@ mod tests {
         let ptr_stores = b
             .instructions
             .iter()
-            .filter(|i| i.inner_instr().opcode_value() == STORE_FP_IMM)
+            .filter(|i| i.inner_instr().opcode_value() == STORE_FRAME_POINTER)
             .count();
         let u32_imm_stores = b
             .instructions

@@ -55,7 +55,6 @@ fn test_prove_and_verify_unchanged_memory() {
         initial_memory: initial_memory.clone(),
         final_memory: initial_memory,
         clock_update_data: vec![],
-        access_log: vec![],
     };
 
     let public_address_ranges = cairo_m_common::PublicAddressRanges::default();

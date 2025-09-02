@@ -55,7 +55,7 @@ use crate::adapter::memory::DataAccess;
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
-use crate::utils::access_log::{get_prev_clock, get_prev_value};
+use crate::utils::data_accesses::{get_prev_clock, get_prev_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 

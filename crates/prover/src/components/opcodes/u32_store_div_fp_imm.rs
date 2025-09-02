@@ -123,7 +123,7 @@
 //!   * `- [r_lo]` in `RangeCheck16` relation
 //!   * `- [r_hi]` in `RangeCheck16` relation
 
-use crate::utils::access_log::{get_prev_clock, get_prev_value, get_value};
+use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use cairo_m_common::instruction::U32_STORE_DIV_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{

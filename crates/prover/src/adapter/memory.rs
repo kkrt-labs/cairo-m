@@ -48,19 +48,6 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     }
 }
 
-/// Represents a memory value that can be either a Felt (single M31) or U32 (two M31 limbs).
-///
-/// ## Fields
-/// - `limb0`: The low limb for U32 values, or the single value for Felt
-/// - `limb1`: The high limb for U32 values, or zero for Felt values
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct MemoryValue {
-    /// Low limb for U32 values, or the single value for Felt values
-    pub limb0: M31,
-    /// High limb for U32 values, always zero for Felt values
-    pub limb1: M31,
-}
-
 /// Represents a data memory access with both previous and current state.
 ///
 /// This structure captures the complete state transition for a memory access
@@ -203,8 +190,6 @@ pub struct Memory {
     pub final_memory: HashMap<M31, (QM31, M31, M31)>,
     /// Clock update data for handling large time gaps: (addr, clock, value)
     pub clock_update_data: Vec<(M31, M31, QM31)>,
-    /// Global data memory access log for the whole execution
-    pub access_log: Vec<DataAccess>,
 }
 
 /// Iterator that converts runner execution traces into prover execution bundles.
@@ -226,6 +211,8 @@ where
     memory_iter: Peekable<M>,
     /// Memory state tracker
     memory: Memory,
+    /// Global instruction memory access log
+    data_accesses: Vec<DataAccess>,
     /// Execution clock, incremented at each VM step
     clock: u32,
     /// Final register state (captured when trace ends)
@@ -251,6 +238,7 @@ where
             trace_iter: trace_iter.peekable(),
             memory_iter: memory_iter.peekable(),
             memory: Memory::new(initial_memory),
+            data_accesses: Vec::new(),
             clock: 1, // Clock 0 is reserved to preloaded values (like the program, inputs, etc.)
             final_registers: None,
         }
@@ -260,8 +248,8 @@ where
         self.trace_iter.peek()
     }
 
-    pub fn into_memory(self) -> Memory {
-        self.memory
+    pub fn into_memory_and_data_accesses(self) -> (Memory, Vec<DataAccess>) {
+        (self.memory, self.data_accesses)
     }
 
     pub const fn get_final_registers(&self) -> Option<VmRegisters> {
@@ -361,7 +349,7 @@ where
         let num_operands = instruction.memory_accesses();
 
         // Track the contiguous span in the global access log for this step
-        let start_idx = self.memory.access_log.len() as u32;
+        let start_idx = self.data_accesses.len() as u32;
 
         for _i in 0..num_operands {
             // Get the data type for this operand based on the instruction's opcode
@@ -386,13 +374,12 @@ where
                 value: operand_arg.value.0 .0,
             };
 
-            // Append to the global access log
-            self.memory.access_log.push(data_access);
+            self.data_accesses.push(data_access);
         }
 
         let access_span = AccessSpan {
             start: start_idx,
-            len: (self.memory.access_log.len() as u32 - start_idx) as u16,
+            len: (self.data_accesses.len() as u32 - start_idx) as u16,
         };
 
         let bundle = ExecutionBundle {
@@ -431,13 +418,7 @@ impl Memory {
             initial_memory: initial_memory_hashmap.clone(),
             final_memory: initial_memory_hashmap,
             clock_update_data: Vec::new(),
-            access_log: Vec::new(),
         }
-    }
-
-    /// Takes ownership of the global access log, leaving an empty one in place.
-    pub fn take_access_log(&mut self) -> Vec<DataAccess> {
-        std::mem::take(&mut self.access_log)
     }
 
     /// Updates multiplicities for public address ranges based on their usage patterns

@@ -107,12 +107,8 @@ impl Claim {
         SimdBackend: BackendForChannel<MC>,
     {
         // Write opcode components
-        // Temporarily take ownership of the access log to avoid overlapping mutable borrows
-        let access_log = std::mem::take(&mut input.instructions.access_log);
         let (opcodes_claim, opcodes_trace, opcodes_interaction_claim_data) =
-            opcodes::Claim::write_trace(&mut input.instructions, &access_log[..]);
-        // Put back the access log for later stages if needed
-        input.instructions.access_log = access_log;
+            opcodes::Claim::write_trace(&mut input.instructions);
 
         // Write memory trace
         let (memory_claim, memory_trace, memory_interaction_claim_data) =

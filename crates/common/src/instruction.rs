@@ -181,17 +181,6 @@ macro_rules! instructions {
                 }
                 vec
             }
-
-            /// Get all operands as a vector (excluding the opcode)
-            pub fn operands(&self) -> Vec<M31> {
-                let mut vec = Vec::with_capacity(self.size_in_m31s() - 1);
-                match self {
-                    $( Self::$variant { $( $field ),* } => { $( vec.push(*$field); )* } ),*
-                }
-                vec
-            }
-
-            // Note: operand_types() removed; memory_accesses() computes directly.
         }
 
         impl TryFrom<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>> for Instruction {
