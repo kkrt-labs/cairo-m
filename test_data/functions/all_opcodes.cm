@@ -55,20 +55,20 @@ fn main() -> felt {
     // ║                         Arithmetic U32 Opcodes                           ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
 
-    // U32StoreImm - basic immediate store
+    // U32StoreImm
     let x_u32: u32 = 42u32;
     let one_u32: u32 = 1u32;
     let two_pow_8: u32 = 256u32;
     let max_u16: u32 = 65535u32;       // 2^16 - 1
     let max_u32: u32 = 4294967295u32;  // 2^32 - 1
 
-    // ========== U32StoreAddFpImm Tests ==========
+    // U32StoreAddFpImm
     let add_basic = x_u32 + 50u32;
     let add_zero = x_u32 + 0u32;
     let add_carry_16 = max_u16 + 2u32;
     let add_overflow = max_u32 + 2u32;
 
-    // ========== U32StoreMulFpImm Tests ==========
+    // U32StoreMulFpImm
     let mul_basic = x_u32 * 5u32;
     let mul_zero = x_u32 * 0u32;
     let mul_one = x_u32 * 1u32;
@@ -76,7 +76,7 @@ fn main() -> felt {
     let mul_overflow_hi = max_u32 * 2u32;
     let big_mul = max_u32 * 4294967295u32; // max_u32 ** 2
 
-    // ========== U32StoreDivFpImm Tests ==========
+    // U32StoreDivFpImm
     let div_by_smaller = x_u32 / 5u32;
     let div_by_greater = x_u32 / 43u32;
     let div_by_itself = x_u32 / 42u32;
@@ -86,13 +86,8 @@ fn main() -> felt {
     let div_remainder_is_max_u32 = one_u32 / 4294967295u32;
 
     // ╔══════════════════════════════════════════════════════════════════════════╗
-    // ║                               Jump Opcodes                               ║
+    // ║                         Comparaison U32 Opcodes                          ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
-
-    // U32StoreMulFpImm: [fp + off2] = [fp + off0] * imm
-    let mul3 = x_u32 * 4;
-    // U32StoreAddFpImm: [fp + off2] = [fp + off0] + imm
-    let add3 = x_u32 + 4;
 
     // U32StoreLtFpImm
     let is_lt1 = x_u32 < 1u32;
@@ -109,6 +104,10 @@ fn main() -> felt {
     let is_lt2 = x_u32 < zero;
     let is_lt1 = x_u32 < forty_two;
     let is_lt1 = x_u32 < forty_three;
+
+    // ╔══════════════════════════════════════════════════════════════════════════╗
+    // ║                               Jump Opcodes                               ║
+    // ╚══════════════════════════════════════════════════════════════════════════╝
 
     // JnzFpImm
     if (a != 5) {
