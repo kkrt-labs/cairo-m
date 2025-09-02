@@ -49,6 +49,17 @@ fn array_creation_parameterized() {
 }
 
 #[test]
+fn test_array_repeat_syntax() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("let arr = [1; 3];"),
+            in_function("let arr: [felt; 3] = [1; 3];"),
+            in_function("let arr: [u32; 4] = [1u32; 4];"),
+       ]
+    }
+}
+
+#[test]
 fn assignment_statements_parameterized() {
     assert_parses_parameterized! {
         ok: [
