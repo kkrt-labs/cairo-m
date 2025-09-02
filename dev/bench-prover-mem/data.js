@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756809344992,
+  "lastUpdate": 1756823261939,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1478,6 +1478,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2377096455,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "609829fa6cde5a182b1df7ee12adc844ef617205",
+          "message": "bug(prover): add SHA256 test and fix double deref memory accesses (#289)",
+          "timestamp": "2025-09-02T16:10:57+02:00",
+          "tree_id": "1e47fee98d9c5b79ffd71d379eed931a6b456942",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/609829fa6cde5a182b1df7ee12adc844ef617205"
+        },
+        "date": 1756823261877,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2377095975,
             "unit": "bytes"
           }
         ]
