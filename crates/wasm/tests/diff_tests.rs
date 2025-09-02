@@ -170,6 +170,17 @@ proptest! {
             vec![m, n],
         );
     }
+
+    #[test]
+    fn run_vector_sum_from_rust(a in 0..10u32) {
+        let case_dir = format!("{}/sample-programs/vector", env!("CARGO_MANIFEST_DIR"));
+        build_wasm(&PathBuf::from(&case_dir));
+        test_program(
+            &format!("{}/target/wasm32-unknown-unknown/release/vector.wasm", case_dir),
+            "array_sum",
+            vec![a],
+        );
+    }
 }
 
 #[test]
