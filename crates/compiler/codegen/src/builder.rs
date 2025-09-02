@@ -62,7 +62,7 @@ fn u32_fp_fp_rebuild(orig: &CasmInstr, src0: M31, src1: M31, dst: M31) -> Codege
         CasmInstr::U32StoreAddFpFp { .. } => CasmInstr::U32StoreAddFpFp { src0_off: src0, src1_off: src1, dst_off: dst },
         CasmInstr::U32StoreSubFpFp { .. } => CasmInstr::U32StoreSubFpFp { src0_off: src0, src1_off: src1, dst_off: dst },
         CasmInstr::U32StoreMulFpFp { .. } => CasmInstr::U32StoreMulFpFp { src0_off: src0, src1_off: src1, dst_off: dst },
-        CasmInstr::U32StoreDivFpFp { .. } => CasmInstr::U32StoreDivFpFp { src0_off: src0, src1_off: src1, dst_off: dst },
+        CasmInstr::U32StoreDivRemFpFp { dst_rem_off, .. } => CasmInstr::U32StoreDivRemFpFp { src0_off: src0, src1_off: src1, dst_off: dst, dst_rem_off: *dst_rem_off },
         CasmInstr::U32StoreEqFpFp { .. } => CasmInstr::U32StoreEqFpFp { src0_off: src0, src1_off: src1, dst_off: dst },
         CasmInstr::U32StoreLtFpFp { .. } => CasmInstr::U32StoreLtFpFp { src0_off: src0, src1_off: src1, dst_off: dst },
         _ => return Err(CodegenError::UnsupportedInstruction("Expected u32 fp+fp instruction".into())),
@@ -74,7 +74,7 @@ fn u32_fp_imm_rebuild(orig: &CasmInstr, src: M31, imm_lo: M31, imm_hi: M31, dst:
     Ok(match orig {
         CasmInstr::U32StoreAddFpImm { .. } => CasmInstr::U32StoreAddFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst },
         CasmInstr::U32StoreMulFpImm { .. } => CasmInstr::U32StoreMulFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst },
-        CasmInstr::U32StoreDivFpImm { .. } => CasmInstr::U32StoreDivFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst },
+        CasmInstr::U32StoreDivRemFpImm { dst_rem_off, .. } => CasmInstr::U32StoreDivRemFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst, dst_rem_off: *dst_rem_off },
         CasmInstr::U32StoreEqFpImm { .. } => CasmInstr::U32StoreEqFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst },
         CasmInstr::U32StoreLtFpImm { .. } => CasmInstr::U32StoreLtFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst },
         CasmInstr::U32StoreAndFpImm { .. } => CasmInstr::U32StoreAndFpImm { src_off: src, imm_lo, imm_hi, dst_off: dst },
@@ -428,8 +428,10 @@ impl CasmBuilder {
                     Self::handle_fp_imm_duplicates(instr, felt_temp1.unwrap())
                 }
                 // U32 arithmetic operations with FP operands
-                U32_STORE_ADD_FP_FP | U32_STORE_SUB_FP_FP | U32_STORE_MUL_FP_FP
-                | U32_STORE_DIV_FP_FP => {
+                U32_STORE_ADD_FP_FP
+                | U32_STORE_SUB_FP_FP
+                | U32_STORE_MUL_FP_FP
+                | U32_STORE_DIV_REM_FP_FP => {
                     // Reserve temp variables on demand for U32 operations (need 2 slots each)
                     if u32_temp1.is_none() || u32_temp2.is_none() {
                         u32_temp1 = Some(self.layout.reserve_stack(2));
@@ -438,7 +440,7 @@ impl CasmBuilder {
                     Self::handle_u32_fp_fp_duplicates(instr, u32_temp1.unwrap(), u32_temp2.unwrap())
                 }
                 // U32 arithmetic operations with immediate operands
-                U32_STORE_ADD_FP_IMM | U32_STORE_MUL_FP_IMM | U32_STORE_DIV_FP_IMM => {
+                U32_STORE_ADD_FP_IMM | U32_STORE_MUL_FP_IMM | U32_STORE_DIV_REM_FP_IMM => {
                     // Reserve temp variable on demand for U32 operations (need 2 slots)
                     if u32_temp1.is_none() {
                         u32_temp1 = Some(self.layout.reserve_stack(2));
@@ -656,7 +658,7 @@ impl CasmBuilder {
             CasmInstr::U32StoreAddFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
             CasmInstr::U32StoreSubFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
             CasmInstr::U32StoreMulFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
-            CasmInstr::U32StoreDivFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
+            CasmInstr::U32StoreDivRemFpFp { src0_off, src1_off, dst_off, .. } => (*src0_off, *src1_off, *dst_off),
             CasmInstr::U32StoreEqFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
             CasmInstr::U32StoreLtFpFp { src0_off, src1_off, dst_off, } => (*src0_off, *src1_off, *dst_off),
             _ => {
@@ -673,31 +675,53 @@ impl CasmBuilder {
             CasmInstr::U32StoreEqFpFp { .. } | CasmInstr::U32StoreLtFpFp { .. }
         );
 
-        // For U32 values, we need to check overlaps considering 2-slot values
+        // For U32 values, check overlaps considering 2-slot operands and possibly 4-slot destination for DivRem
         // src0 uses [src0_off, src0_off+1], src1 uses [src1_off, src1_off+1]
-        // dst uses [dst_off] for comparisons, [dst_off, dst_off+1] for arithmetic
+        // dst uses [dst_off] for comparisons, [dst_off, dst_off+1] for arithmetic,
+        // and for DivRem also [dst_rem_off, dst_rem_off+1].
 
         let src0_overlaps_src1 = src0_off == src1_off
             || src0_off == src1_off + M31::from(1)
             || src0_off + M31::from(1) == src1_off
             || src0_off + M31::from(1) == src1_off + M31::from(1);
 
+        let is_divrem = matches!(typed_instr, CasmInstr::U32StoreDivRemFpFp { .. });
+        let dst_rem_off = match typed_instr {
+            CasmInstr::U32StoreDivRemFpFp { dst_rem_off, .. } => Some(*dst_rem_off),
+            _ => None,
+        };
+
+        // Helper closures for overlap checks against destination spans
+        let overlaps_two_slot = |s: M31, d: M31| -> bool {
+            s == d
+                || s == d + M31::from(1)
+                || s + M31::from(1) == d
+                || s + M31::from(1) == d + M31::from(1)
+        };
+        let overlaps_one_slot = |s: M31, d: M31| -> bool { s == d || s + M31::from(1) == d };
+
         let src0_overlaps_dst = if is_comparison {
-            src0_off == dst_off || src0_off + M31::from(1) == dst_off
+            overlaps_one_slot(src0_off, dst_off)
         } else {
-            src0_off == dst_off
-                || src0_off == dst_off + M31::from(1)
-                || src0_off + M31::from(1) == dst_off
-                || src0_off + M31::from(1) == dst_off + M31::from(1)
+            let mut ov = overlaps_two_slot(src0_off, dst_off);
+            if is_divrem {
+                if let Some(rem) = dst_rem_off {
+                    ov = ov || overlaps_two_slot(src0_off, rem);
+                }
+            }
+            ov
         };
 
         let src1_overlaps_dst = if is_comparison {
-            src1_off == dst_off || src1_off + M31::from(1) == dst_off
+            overlaps_one_slot(src1_off, dst_off)
         } else {
-            src1_off == dst_off
-                || src1_off == dst_off + M31::from(1)
-                || src1_off + M31::from(1) == dst_off
-                || src1_off + M31::from(1) == dst_off + M31::from(1)
+            let mut ov = overlaps_two_slot(src1_off, dst_off);
+            if is_divrem {
+                if let Some(rem) = dst_rem_off {
+                    ov = ov || overlaps_two_slot(src1_off, rem);
+                }
+            }
+            ov
         };
 
         let res = if src0_overlaps_src1 && src0_overlaps_dst {
@@ -854,7 +878,7 @@ impl CasmBuilder {
             match instr.inner_instr() {
                 CasmInstr::U32StoreAddFpImm { src_off, imm_lo, imm_hi, dst_off, }
                 | CasmInstr::U32StoreMulFpImm { src_off, imm_lo, imm_hi, dst_off, }
-                | CasmInstr::U32StoreDivFpImm { src_off, imm_lo, imm_hi, dst_off, }
+                | CasmInstr::U32StoreDivRemFpImm { src_off, imm_lo, imm_hi, dst_off, .. }
                 | CasmInstr::U32StoreAndFpImm { src_off, imm_lo, imm_hi, dst_off, }
                 | CasmInstr::U32StoreOrFpImm { src_off, imm_lo, imm_hi, dst_off, }
                 | CasmInstr::U32StoreXorFpImm { src_off, imm_lo, imm_hi, dst_off, } => (*src_off, *imm_lo, *imm_hi, *dst_off, false),
@@ -874,18 +898,48 @@ impl CasmBuilder {
         // For fp+imm operations, in-place operations (src_off == dst_off) are fine!
         // We only need to handle partial overlaps where the source and destination
         // overlap but are not identical.
+        // Detect overlap with destination. For DivRem, destination spans 4 slots [dst, dst+3].
+        // In-place operation (src_off == dst_off) is still fine; only partial overlaps are problematic.
+        let is_divrem = matches!(instr.inner_instr(), CasmInstr::U32StoreDivRemFpImm { .. });
         let has_overlap = if is_comparison {
             // For comparisons, dst is only 1 slot
-            // Problematic if high word of source overlaps with dest
             src_off + 1 == dst_off
+        } else if is_divrem {
+            // For DivRem, dst occupies 4 slots: dst_off..=dst_off+3
+            // Partial overlaps (excluding exact in-place src_off == dst_off) must be handled.
+            (src_off + 1 == dst_off)
+                || (src_off == dst_off + 1)
+                || (src_off == dst_off + 2)
+                || (src_off + 1 == dst_off + 2)
+                || (src_off == dst_off + 3)
+                || (src_off + 1 == dst_off + 3)
         } else {
-            // For arithmetic, dst is 2 slots
-            // In-place operation (src_off == dst_off) is fine
-            // Problematic only if there's a partial overlap
+            // For regular arithmetic, dst is 2 slots
             (src_off == dst_off + 1) || (src_off + 1 == dst_off)
         };
 
-        if has_overlap {
+        // Extend overlap to consider the actual dst_rem_off region (not assumed contiguous)
+        let dst_rem_off_opt =
+            if let CasmInstr::U32StoreDivRemFpImm { dst_rem_off, .. } = instr.inner_instr() {
+                Some(*dst_rem_off)
+            } else {
+                None
+            };
+        let overlaps_two_slot = |s: i32, d: i32| -> bool {
+            (s == d) || (s == d + 1) || (s + 1 == d) || (s + 1 == d + 1)
+        };
+        let has_overlap_ext = if is_divrem {
+            if let Some(rem) = dst_rem_off_opt {
+                has_overlap
+                    || (overlaps_two_slot(src_off as i32, rem.0 as i32) && src_off != dst_off)
+            } else {
+                has_overlap
+            }
+        } else {
+            has_overlap
+        };
+
+        if has_overlap_ext {
             // Source overlaps with destination, copy source to temp
             Ok(vec![
                 InstructionBuilder::new(
