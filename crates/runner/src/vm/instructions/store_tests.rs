@@ -602,6 +602,25 @@ proptest! {
     }
 
     #[test]
+    fn test_u32_store_div_rem_fp_fp_by_zero(src0_value: u32) {
+        let err = run_u32_fp_fp_test(
+            src0_value,
+            0,
+            Instruction::U32StoreDivRemFpFp {
+                src0_off: M31(0),
+                src1_off: M31(2),
+                dst_off: M31(4),
+                dst_rem_off: M31(6),
+            },
+            u32_store_div_rem_fp_fp,
+            0,
+            4,
+            2,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::InvalidOperand("Division by zero".to_string()));
+    }
+
+    #[test]
     fn test_u32_store_imm(imm_val_lo in 0..=u16::MAX as u32, imm_val_hi in 0..=u16::MAX as u32) {
         run_simple_store_test(
             &[0, 4],

@@ -362,6 +362,12 @@ pub fn u32_store_div_rem_fp_fp(
     let src0_value = memory.get_u32(state.fp + src0_off)?;
     let src1_value = memory.get_u32(state.fp + src1_off)?;
 
+    if src1_value == 0 {
+        return Err(InstructionExecutionError::InvalidOperand(
+            "Division by zero".to_string(),
+        ));
+    }
+
     let quotient = src0_value / src1_value;
     let remainder = src0_value % src1_value;
 
