@@ -57,6 +57,7 @@ fn main() -> felt {
 
     // U32StoreImm - basic immediate store
     let x_u32: u32 = 42u32;
+    let one_u32: u32 = 1u32;
     let two_pow_8: u32 = 256u32;
     let max_u16: u32 = 65535u32;       // 2^16 - 1
     let max_u32: u32 = 4294967295u32;  // 2^32 - 1
@@ -74,6 +75,15 @@ fn main() -> felt {
     let mul_overflow_lo = max_u16 * 2u32;
     let mul_overflow_hi = max_u32 * 2u32;
     let big_mul = max_u32 * 4294967295u32; // max_u32 ** 2
+
+    // ========== U32StoreDivFpImm Tests ==========
+    let div_by_smaller = x_u32 / 5u32;
+    let div_by_greater = x_u32 / 43u32;
+    let div_by_itself = x_u32 / 42u32;
+    let div_by_one = x_u32 / 1u32;
+    let div_max_u32 = max_u32 / 5u32;
+    let div_quotient_is_max_u32 = max_u32 / 1u32;
+    let div_remainder_is_max_u32 = one_u32 / 4294967295u32;
 
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                               Jump Opcodes                               ║

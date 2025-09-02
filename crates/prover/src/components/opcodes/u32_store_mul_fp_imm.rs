@@ -117,7 +117,7 @@ const N_RANGE_CHECK_8_LOOKUPS: usize = 12;
 const N_RANGE_CHECK_16_LOOKUPS: usize = 4;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
 
-// 255 * 255 = 254 * 2^8 + 1
+// 1 * (255 * 255) = 254 * 2^8 + 1
 // 2 * (255 * 255) + 254 = 509 * 2^8
 // 3 * (255 * 255) + 509 = 764 * 2^8
 // 4 * (255 * 255) + 764 = 1019 * 2^8
