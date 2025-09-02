@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756724020702,
+  "lastUpdate": 1756808672379,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2143,6 +2143,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 338413636,
             "range": "± 1040489",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c363e4bf0a91ca814442dce190de7e9cd9f462c6",
+          "message": "refactor(prover): refactor instructions operand accesses (#288)\n\n* refactor(prover): extract memory access tracking into dedicated module\n\n- Create dedicated AccessLog module for memory access tracking\n- Move memory access logic from ExecutionBundle to AccessLog\n- Simplify ExecutionBundle by delegating to AccessLog\n- Fix memory operations to use new access tracking system\n- Update all opcode components to use new memory interface\n\nThis refactoring improves code organization by separating concerns:\nmemory access tracking is now handled independently from execution\nbundle management, making the codebase more maintainable.\n\n* fix conflicts of rebase\n\n* some cleanup",
+          "timestamp": "2025-09-02T12:20:06+02:00",
+          "tree_id": "a9453d45310b375d7df55bc46486cfb54a7a94f0",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/c363e4bf0a91ca814442dce190de7e9cd9f462c6"
+        },
+        "date": 1756808671953,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 337676296,
+            "range": "± 1484134",
             "unit": "ns/iter"
           }
         ]
