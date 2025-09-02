@@ -166,8 +166,11 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(&opcodes.store_frame_pointer, &trace);
     assert_component(&opcodes.u32_store_imm, &trace);
     assert_component(&opcodes.u32_store_add_fp_imm, &trace);
+    assert_component(&opcodes.u32_store_add_fp_fp, &trace);
     assert_component(&opcodes.u32_store_mul_fp_imm, &trace);
+    assert_component(&opcodes.u32_store_mul_fp_fp, &trace);
     assert_component(&opcodes.u32_store_div_fp_imm, &trace);
+    assert_component(&opcodes.u32_store_div_fp_fp, &trace);
     assert_component(&opcodes.u32_store_eq_fp_fp, &trace);
     assert_component(&opcodes.u32_store_eq_fp_imm, &trace);
     assert_component(&opcodes.u32_store_lt_fp_imm, &trace);

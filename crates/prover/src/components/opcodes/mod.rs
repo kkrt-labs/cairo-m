@@ -184,10 +184,7 @@ macro_rules! define_opcodes {
                     )*
                     // TODO: Add support for these opcodes
                     Instruction::StoreLowerThanFpImm { .. } => {},
-                    Instruction::U32StoreAddFpFp { .. } => {},
                     Instruction::U32StoreSubFpFp { .. } => {},
-                    Instruction::U32StoreMulFpFp { .. } => {},
-                    Instruction::U32StoreDivFpFp { .. } => {},
                     Instruction::U32StoreAndFpFp { .. } => {},
                     Instruction::U32StoreOrFpFp { .. } => {},
                     Instruction::U32StoreXorFpFp { .. } => {},
@@ -259,4 +256,7 @@ define_opcodes!(
     ([U32StoreEqFpImm], u32_store_eq_fp_imm),
     ([U32StoreLtFpImm], u32_store_lt_fp_imm),
     ([U32StoreLtFpFp], u32_store_lt_fp_fp),
+    ([U32StoreAddFpFp], u32_store_add_fp_fp),
+    ([U32StoreMulFpFp], u32_store_mul_fp_fp),
+    ([U32StoreDivFpFp], u32_store_div_fp_fp),
 );
