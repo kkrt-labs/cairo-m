@@ -58,6 +58,9 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
             Expression::Tuple(elements) => self.lower_tuple_literal(elements, expr_id),
             Expression::TupleIndex { tuple, index } => self.lower_tuple_index(tuple, *index),
             Expression::ArrayLiteral(elements) => self.lower_array_literal(elements, expr_id),
+            Expression::ArrayRepeat { element, count } => {
+                self.lower_array_repeat(element, *count.value() as usize, expr_id)
+            }
             Expression::Cast {
                 expr,
                 target_type: _,
@@ -383,6 +386,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Create the array using MakeFixedArray instruction
         let array_dest = self.make_fixed_array(element_values, element_mir_type);
+
+        Ok(Value::operand(array_dest))
+    }
+
+    fn lower_array_repeat(
+        &mut self,
+        element: &Spanned<Expression>,
+        count: usize,
+        expr_id: ExpressionId,
+    ) -> Result<Value, String> {
+        // Lower the element expression once
+        let elem_value = self.lower_expression(element)?;
+
+        // Query semantic array type to obtain element MIR type
+        let array_type = self.ctx.get_expr_type(expr_id);
+        let element_mir_type = match &array_type {
+            MirType::FixedArray { element_type, .. } => (**element_type).clone(),
+            _ => return Err("ArrayRepeat does not have array type".to_string()),
+        };
+
+        // Build element values by repetition
+        let elements: Vec<Value> = std::iter::repeat_n(elem_value, count).collect();
+
+        // Create the array using MakeFixedArray instruction
+        let array_dest = self.make_fixed_array(elements, element_mir_type);
 
         Ok(Value::operand(array_dest))
     }

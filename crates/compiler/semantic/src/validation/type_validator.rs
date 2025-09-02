@@ -231,6 +231,9 @@ impl TypeValidator {
                     db, crate_id, file, index, elements, expr_info, sink,
                 );
             }
+            Expression::ArrayRepeat { element, count: _ } => {
+                self.check_array_repeat_types(db, crate_id, file, index, element, expr_info, sink);
+            }
             Expression::Cast { expr, target_type } => {
                 self.check_cast_types(
                     db,
@@ -685,7 +688,10 @@ impl TypeValidator {
 
         // Check for nested array literals
         for elem in elements {
-            if matches!(elem.value(), Expression::ArrayLiteral(_)) {
+            if matches!(
+                elem.value(),
+                Expression::ArrayLiteral(_) | Expression::ArrayRepeat { .. }
+            ) {
                 sink.push(
                     Diagnostic::error(
                         DiagnosticCode::InvalidTypeDefinition,
@@ -722,6 +728,72 @@ impl TypeValidator {
                         )
                         .with_location(file.file_path(db).to_string(), elem.span()),
                     );
+                }
+            }
+        }
+    }
+
+    /// Check array repeat literal: ensure element type is valid and no nesting
+    fn check_array_repeat_types(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        element: &Spanned<Expression>,
+        expr_info: &ExpressionInfo,
+        sink: &dyn DiagnosticSink,
+    ) {
+        // Nested arrays not supported
+        if matches!(
+            element.value(),
+            Expression::ArrayLiteral(_) | Expression::ArrayRepeat { .. }
+        ) {
+            sink.push(
+                Diagnostic::error(
+                    DiagnosticCode::InvalidTypeDefinition,
+                    "Nested arrays are not supported yet".to_string(),
+                )
+                .with_location(file.file_path(db).to_string(), expr_info.ast_span),
+            );
+            return;
+        }
+
+        // If we have an expected array type, ensure element type is compatible to improve diagnostics
+        if let Some(expected_ast) = &expr_info.expected_type_ast {
+            if let TypeExpr::FixedArray { element_type, .. } = expected_ast.value() {
+                if let Some(elem_id) = index.expression_id_by_span(element.span()) {
+                    let expected_elem_ty = crate::type_resolution::resolve_ast_type(
+                        db,
+                        crate_id,
+                        file,
+                        element_type.as_ref().clone(),
+                        expr_info.scope_id,
+                    );
+                    let actual_elem_ty = crate::type_resolution::expression_semantic_type(
+                        db,
+                        crate_id,
+                        file,
+                        elem_id,
+                        Some(expected_elem_ty),
+                    );
+                    if !crate::type_resolution::are_types_compatible(
+                        db,
+                        actual_elem_ty,
+                        expected_elem_ty,
+                    ) {
+                        sink.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!(
+                                    "Array element has type `{}`, but expected `{}`",
+                                    actual_elem_ty.data(db).display_name(db),
+                                    expected_elem_ty.data(db).display_name(db)
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), element.span()),
+                        );
+                    }
                 }
             }
         }

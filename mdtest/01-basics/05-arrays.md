@@ -19,6 +19,26 @@ fn create_array_u32() -> u32 {
 }
 ```
 
+## Array Repetition Syntax
+
+You can create a fixed-size array by repeating a single element using the
+`[elem; N]` syntax (similar to Rust):
+
+```cairo-m
+fn test_main() -> u32 {
+    let (arr1, arr2) = repeat_array_u32_one();
+    return arr1[1] + arr2[2];
+}
+
+fn repeat_array_u32_one() -> ([u32;3], [u32; 4]) {
+    return ([0u32; 3], [1u32; 4]);
+}
+```
+
+Note: when the repeated element is zero, the compiler avoids writing each
+element explicitly as the stack is zero-initialized; it only reserves the space
+and stores the pointer.
+
 ## Array Element Assignment
 
 ```cairo-m

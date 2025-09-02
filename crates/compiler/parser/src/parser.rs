@@ -298,8 +298,13 @@ pub enum Expression {
         tuple: Box<Spanned<Expression>>,
         index: usize,
     },
-    /// Array literal (e.g., `[1, 2, 3]`, `[0u32; 10]`)
+    /// Array literal (e.g., `[1, 2, 3]`)
     ArrayLiteral(Vec<Spanned<Expression>>),
+    /// Array repetition literal (e.g., `[0; 10]`, `[1u32; 4]`)
+    ArrayRepeat {
+        element: Box<Spanned<Expression>>,
+        count: Spanned<u64>,
+    },
     /// Type cast expression (e.g., `x as felt`, `42u32 as felt`)
     Cast {
         expr: Box<Spanned<Expression>>,
@@ -841,6 +846,32 @@ where
             )
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
+        // Array repetition expressions: "[expr; UNSUFFIXED_INT]"
+        let array_repeat = just(TokenType::LBrack)
+            .ignore_then(
+                expr.clone().then_ignore(just(TokenType::Semicolon)).then(
+                    select! { TokenType::LiteralNumber(lit) => lit }
+                        .map_with(|lit, extra| Spanned::new(lit, extra.span())),
+                ),
+            )
+            .then_ignore(just(TokenType::RBrack))
+            .try_map_with(|(element, lit_spanned), extra| {
+                if lit_spanned.value().suffix.is_some() {
+                    Err(Rich::custom(
+                        lit_spanned.span(),
+                        "array length must be an unsuffixed integer",
+                    ))
+                } else {
+                    Ok(Spanned::new(
+                        Expression::ArrayRepeat {
+                            element: Box::new(element),
+                            count: Spanned::new(lit_spanned.value().value, lit_spanned.span()),
+                        },
+                        extra.span(),
+                    ))
+                }
+            });
+
         // Array literal expressions: "[elem1, elem2, elem3]"
         let array_literal = expr
             .clone()
@@ -855,6 +886,7 @@ where
         let atom = literal
             .or(boolean_literal)
             .or(struct_literal)
+            .or(array_repeat.clone())
             .or(array_literal)
             .or(ident_expr)
             .or(paren_or_tuple);

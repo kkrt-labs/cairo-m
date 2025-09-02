@@ -182,3 +182,36 @@ fn test() { let arr: [[felt; 2]; 2] = [[1, 2], [3, 4]]; return; }
    │                                       ────────┬───────  
    │                                               ╰───────── Nested arrays are not supported yet
 ───╯
+
+============================================================
+
+--- Input 14 (ERROR) ---
+fn test() { let arr: [felt; 4] = [1u32; 4]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[felt; 4]`, found `[u32; 4]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:34 ]
+   │
+ 1 │ fn test() { let arr: [felt; 4] = [1u32; 4]; return; }
+   │                                  ────┬────  
+   │                                      ╰────── Type mismatch for let statement `arr`. Expected `[felt; 4]`, found `[u32; 4]`
+───╯
+[2001] Error: Array element has type `u32`, but expected `felt`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:35 ]
+   │
+ 1 │ fn test() { let arr: [felt; 4] = [1u32; 4]; return; }
+   │                                   ──┬─  
+   │                                     ╰─── Array element has type `u32`, but expected `felt`
+───╯
+
+============================================================
+
+--- Input 15 (ERROR) ---
+fn test() { let arr: [u32; 5] = [1u32; 4]; return; }
+--- Diagnostics ---
+[2001] Error: Type mismatch for let statement `arr`. Expected `[u32; 5]`, found `[u32; 4]`
+   ╭─[ semantic_tests::arrays::array_literals::test_array_literal_type_inference:1:33 ]
+   │
+ 1 │ fn test() { let arr: [u32; 5] = [1u32; 4]; return; }
+   │                                 ────┬────  
+   │                                     ╰────── Type mismatch for let statement `arr`. Expected `[u32; 5]`, found `[u32; 4]`
+───╯

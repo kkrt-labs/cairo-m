@@ -226,6 +226,7 @@ fn test_expression_type_coverage() {
             Expression::StructLiteral { .. } => "StructLiteral",
             Expression::Tuple(_) => "Tuple",
             Expression::ArrayLiteral(_) => "ArrayLiteral",
+            Expression::ArrayRepeat { .. } => "ArrayRepeat",
             Expression::TupleIndex { .. } => "TupleIndex",
             Expression::Cast { .. } => "Cast",
         };

@@ -351,10 +351,21 @@ impl super::CasmBuilder {
             self.layout.current_frame_usage()
         };
 
-        // Copy each element to its position in the array
-        for (index, element) in elements.iter().enumerate() {
-            let target_offset = base_offset + (index * element_size) as i32;
-            self.copy_value_to_offset(element, target_offset, element_size)?;
+        // Optimization: if all elements are zero, memory is already zeroed by default.
+        // Skip writing and just advance the frame pointer via reserve_stack above.
+        let all_zero = elements.iter().all(|v| match v {
+            Value::Literal(cairo_m_compiler_mir::Literal::Integer(n)) => *n == 0,
+            Value::Literal(cairo_m_compiler_mir::Literal::Boolean(b)) => !*b,
+            Value::Literal(cairo_m_compiler_mir::Literal::Unit) => true,
+            _ => false,
+        });
+
+        if !all_zero {
+            // Copy each element to its position in the array
+            for (index, element) in elements.iter().enumerate() {
+                let target_offset = base_offset + (index * element_size) as i32;
+                self.copy_value_to_offset(element, target_offset, element_size)?;
+            }
         }
 
         // Allocate a single-slot destination for the array pointer
@@ -1635,8 +1646,14 @@ mod tests {
             // Should allocate 1 slot for pointer
             prop_assert!(b.layout.value_layouts.contains_key(&dest));
 
-            // Should have instructions for all elements plus pointer
-            prop_assert!(b.instructions.len() > n_elements);
+            // Pointer store must exist
+            prop_assert!(!b.instructions.is_empty());
+
+            // If there is at least one non-zero element, we expect element stores
+            let has_non_zero = elements.iter().any(|v| matches!(v, Value::Literal(Literal::Integer(n)) if *n != 0));
+            if has_non_zero {
+                prop_assert!(b.instructions.len() > 1);
+            }
         }
     }
 }
