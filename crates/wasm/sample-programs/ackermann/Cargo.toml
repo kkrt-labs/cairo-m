@@ -1,0 +1,9 @@
+[workspace]
+
+[package]
+name = "ackermann"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+panic-abort = "0.3.2"

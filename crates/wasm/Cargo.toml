@@ -11,6 +11,8 @@ cairo-m-compiler-mir.workspace = true
 cairo-m-compiler-codegen.workspace = true
 cairo-m-common.workspace = true
 stwo-prover.workspace = true
+## Needed at runtime to execute compiled programs from the CLI
+cairo-m-runner.workspace = true
 ouroboros = "0.18"
 wasmparser = "0.235.0"
 clap = { version = "4.0", features = ["derive"] }
