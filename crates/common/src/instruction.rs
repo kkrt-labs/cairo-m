@@ -378,13 +378,17 @@ instructions! {
         base_off: (OperandType::Memory(DataType::Felt)),
         imm: (OperandType::Immediate),
         dst_off: (OperandType::Memory(DataType::Felt)),
-    };
+    }, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+    ];
     // [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
     StoreDoubleDerefFpFp = 42 {
         base_off: (OperandType::Memory(DataType::Felt)),
         offset_off: (OperandType::Memory(DataType::Felt)),
         dst_off: (OperandType::Memory(DataType::Felt)),
-    };
+    }, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+    ];
     // [fp + dst_off] = imm
     StoreImm = 9 {
         imm: (OperandType::Immediate),
@@ -559,13 +563,17 @@ instructions! {
         src_off: (OperandType::Memory(DataType::Felt)),
         imm: (OperandType::Immediate),
         base_off: (OperandType::Memory(DataType::Felt)),
-    };
+    }, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+    ];
     // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
     StoreToDoubleDerefFpFp = 45 {
         src_off: (OperandType::Memory(DataType::Felt)),
         base_off: (OperandType::Memory(DataType::Felt)),
         offset_off: (OperandType::Memory(DataType::Felt)),
-    };
+    }, implicit_operands: [
+        (OperandType::Memory(DataType::Felt)),
+    ];
 
     // Print operations for debugging
     PrintM31 = 46 { offset: (OperandType::Memory(DataType::Felt)) };

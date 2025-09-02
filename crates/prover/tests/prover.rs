@@ -237,6 +237,80 @@ fn test_hash_continuity_fibonacci() {
     }
 }
 
+/// Test proof generation for sha256 program.
+#[test]
+#[ignore = "implement remaining opcodes"]
+fn test_prove_and_verify_sha256_program() {
+    // Include SHA256 source at compile time
+    let source = include_str!("../../../examples/sha256-cairo-m/src/sha256.cm").to_string();
+
+    let compiled = compile_cairo(
+        source,
+        "sha256.cm".to_string(),
+        CompilerOptions::no_opts(), // Use no_opts like all_opcodes test
+    )
+    .unwrap();
+
+    // Prepare input for SHA256 - test with "abc"
+    const MAX_CHUNKS: usize = 2;
+    const PADDED_BUFFER_U32_SIZE: usize = (MAX_CHUNKS * 64) / 4;
+
+    let msg = b"abc";
+
+    // Perform standard SHA-256 padding
+    let mut padded_bytes = msg.to_vec();
+    padded_bytes.push(0x80);
+
+    // Pad to 56 bytes (448 bits) within the last chunk
+    while padded_bytes.len() % 64 != 56 {
+        padded_bytes.push(0x00);
+    }
+
+    // Append message length as 64-bit big-endian
+    let bit_len = (msg.len() as u64) * 8;
+    padded_bytes.extend_from_slice(&bit_len.to_be_bytes());
+
+    let num_chunks = padded_bytes.len() / 64;
+
+    // Convert bytes to u32 words (big-endian)
+    let mut padded_words: Vec<u32> = padded_bytes
+        .chunks_exact(4)
+        .map(|chunk| u32::from_be_bytes(chunk.try_into().expect("Chunk size mismatch")))
+        .collect();
+
+    // Pad to fixed buffer size
+    padded_words.resize(PADDED_BUFFER_U32_SIZE, 0);
+
+    // Convert to InputValue format
+    let padded_buffer = padded_words
+        .into_iter()
+        .map(|word| InputValue::Number(i64::from(word)))
+        .collect();
+
+    let args = vec![
+        InputValue::List(padded_buffer),
+        InputValue::Number(num_chunks as i64),
+    ];
+
+    let runner_output =
+        run_cairo_program(&compiled.program, "sha256_hash", &args, Default::default())
+            .expect("Failed to run SHA256 program");
+
+    let mut prover_input = import_from_runner_output(
+        runner_output
+            .vm
+            .segments
+            .into_iter()
+            .next()
+            .expect("No segments in runner output"),
+        runner_output.public_address_ranges,
+    )
+    .expect("Failed to import runner output for SHA256");
+    let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
+
+    verify_cairo_m::<Blake2sMerkleChannel>(proof, None).unwrap();
+}
+
 /// Tests proof generation for comprehensive opcode coverage.
 ///
 /// This test executes a Cairo-M program that exercises all available

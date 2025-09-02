@@ -381,6 +381,7 @@ dependencies = [
  "smallvec",
  "sonic-rs 0.3.17",
  "stwo-prover",
+ "thiserror 2.0.16",
 ]
 
 [[package]]
