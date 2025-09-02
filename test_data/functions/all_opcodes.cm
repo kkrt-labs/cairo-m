@@ -73,7 +73,7 @@ fn main() -> felt {
     let mul_one = x_u32 * 1u32;
     let mul_overflow_lo = max_u16 * 2u32;
     let mul_overflow_hi = max_u32 * 2u32;
-    //let big_mul = max_u32 * 4294967295u32; // max_u32 ** 2
+    let big_mul = max_u32 * 4294967295u32; // max_u32 ** 2
 
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                               Jump Opcodes                               ║
