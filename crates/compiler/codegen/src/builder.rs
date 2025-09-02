@@ -350,6 +350,256 @@ impl CasmBuilder {
         self.label_counter
     }
 
+    pub fn handle_load(
+        &mut self,
+        dest: ValueId,
+        base_address: Value,
+        offset: Value,
+        element_ty: &MirType,
+    ) -> CodegenResult<()> {
+        let dest_off = self.layout.get_offset(dest)?;
+        let element_size = DataLayout::memory_size_of(element_ty);
+
+        match (base_address, offset) {
+            (Value::Operand(base_address_id), Value::Operand(offset_id)) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let offset_off = self.layout.get_offset(offset_id)?;
+
+                if element_size == 1 {
+                    // Single slot load
+                    self.store_from_double_deref_fp_fp(
+                        base_address_off,
+                        offset_off,
+                        dest_off,
+                        format!(
+                            "[fp + {}] = [[fp + {}] + [fp + {}]] // load {} element",
+                            dest_off, base_address_off, offset_off, element_ty
+                        ),
+                    );
+                } else {
+                    // Multi-slot load: need to compute scaled offset and load each slot
+                    // First, compute scaled_offset = offset * element_size
+                    let scaled_offset_temp = self.layout.reserve_stack(1);
+                    self.felt_mul_fp_imm(
+                        offset_off,
+                        element_size as i32,
+                        scaled_offset_temp,
+                        format!(
+                            "[fp + {}] = [fp + {}] * {} // scale offset by element size",
+                            scaled_offset_temp, offset_off, element_size
+                        ),
+                    );
+
+                    // Load each slot of the multi-slot element
+                    for i in 0..element_size {
+                        let slot_dest = dest_off + i as i32;
+                        if i == 0 {
+                            // First slot: use scaled offset directly
+                            self.store_from_double_deref_fp_fp(
+                                base_address_off,
+                                scaled_offset_temp,
+                                slot_dest,
+                                format!(
+                                    "[fp + {}] = [[fp + {}] + [fp + {}]] // load {} element slot {}",
+                                    slot_dest, base_address_off, scaled_offset_temp, element_ty, i
+                                ),
+                            );
+                        } else {
+                            // Subsequent slots: add slot offset to scaled offset
+                            let slot_offset_temp = self.layout.reserve_stack(1);
+                            self.felt_add_fp_imm(
+                                scaled_offset_temp,
+                                i as i32,
+                                slot_offset_temp,
+                                format!(
+                                    "[fp + {}] = [fp + {}] + {} // add slot offset",
+                                    slot_offset_temp, scaled_offset_temp, i
+                                ),
+                            );
+                            self.store_from_double_deref_fp_fp(
+                                base_address_off,
+                                slot_offset_temp,
+                                slot_dest,
+                                format!(
+                                    "[fp + {}] = [[fp + {}] + [fp + {}]] // load {} element slot {}",
+                                    slot_dest, base_address_off, slot_offset_temp, element_ty, i
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            (Value::Operand(base_address_id), Value::Literal(Literal::Integer(imm))) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let scaled_imm = imm * element_size as u32;
+
+                if element_size == 1 {
+                    // Single slot load
+                    self.store_from_double_deref_fp_imm(
+                        base_address_off,
+                        scaled_imm as i32,
+                        dest_off,
+                        format!(
+                            "[fp + {}] = [[fp + {}] + {}] // load {} element",
+                            dest_off, base_address_off, scaled_imm, element_ty
+                        ),
+                    );
+                } else {
+                    // Multi-slot load with immediate offset
+                    for i in 0..element_size {
+                        let slot_dest = dest_off + i as i32;
+                        let slot_offset = scaled_imm as i32 + i as i32;
+                        self.store_from_double_deref_fp_imm(
+                            base_address_off,
+                            slot_offset,
+                            slot_dest,
+                            format!(
+                                "[fp + {}] = [[fp + {}] + {}] // load {} element slot {}",
+                                slot_dest, base_address_off, slot_offset, element_ty, i
+                            ),
+                        );
+                    }
+                }
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Load requires base address as operand and offset as operand or immediate"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn handle_store(
+        &mut self,
+        base_address: Value,
+        offset: Value,
+        source: Value,
+        element_ty: &MirType,
+    ) -> CodegenResult<()> {
+        let element_size = DataLayout::memory_size_of(element_ty);
+
+        match (base_address, offset, source) {
+            (
+                Value::Operand(base_address_id),
+                Value::Operand(offset_id),
+                Value::Operand(source_id),
+            ) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let offset_off = self.layout.get_offset(offset_id)?;
+                let source_off = self.layout.get_offset(source_id)?;
+
+                if element_size == 1 {
+                    // Single slot store
+                    self.store_to_double_deref_fp_fp(
+                        base_address_off,
+                        offset_off,
+                        source_off,
+                        format!(
+                            "[[fp + {}] + [fp + {}]] = [fp + {}] // store {} element",
+                            base_address_off, offset_off, source_off, element_ty
+                        ),
+                    );
+                } else {
+                    // Multi-slot store: need to compute scaled offset and store each slot
+                    // First, compute scaled_offset = offset * element_size
+                    let scaled_offset_temp = self.layout.reserve_stack(1);
+                    self.felt_mul_fp_imm(
+                        offset_off,
+                        element_size as i32,
+                        scaled_offset_temp,
+                        format!(
+                            "[fp + {}] = [fp + {}] * {} // scale offset by element size",
+                            scaled_offset_temp, offset_off, element_size
+                        ),
+                    );
+
+                    // Store each slot of the multi-slot element
+                    for i in 0..element_size {
+                        let slot_source = source_off + i as i32;
+                        if i == 0 {
+                            // First slot: use scaled offset directly
+                            self.store_to_double_deref_fp_fp(
+                                base_address_off,
+                                scaled_offset_temp,
+                                slot_source,
+                                format!(
+                                    "[[fp + {}] + [fp + {}]] = [fp + {}] // store {} element slot {}",
+                                    base_address_off, scaled_offset_temp, slot_source, element_ty, i
+                                ),
+                            );
+                        } else {
+                            // Subsequent slots: add slot offset to scaled offset
+                            let slot_offset_temp = self.layout.reserve_stack(1);
+                            self.felt_add_fp_imm(
+                                scaled_offset_temp,
+                                i as i32,
+                                slot_offset_temp,
+                                format!(
+                                    "[fp + {}] = [fp + {}] + {} // add slot offset",
+                                    slot_offset_temp, scaled_offset_temp, i
+                                ),
+                            );
+                            self.store_to_double_deref_fp_fp(
+                                base_address_off,
+                                slot_offset_temp,
+                                slot_source,
+                                format!(
+                                    "[[fp + {}] + [fp + {}]] = [fp + {}] // store {} element slot {}",
+                                    base_address_off, slot_offset_temp, slot_source, element_ty, i
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            (
+                Value::Operand(base_address_id),
+                Value::Literal(Literal::Integer(imm)),
+                Value::Operand(source_id),
+            ) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let source_off = self.layout.get_offset(source_id)?;
+                let scaled_imm = imm * element_size as u32;
+
+                if element_size == 1 {
+                    // Single slot store
+                    self.store_to_double_deref_fp_imm(
+                        source_off,
+                        base_address_off,
+                        scaled_imm as i32,
+                        format!(
+                            "[[fp + {}] + {}] = [fp + {}] // store {} element",
+                            base_address_off, scaled_imm, source_off, element_ty
+                        ),
+                    );
+                } else {
+                    // Multi-slot store with immediate offset
+                    for i in 0..element_size {
+                        let slot_source = source_off + i as i32;
+                        let slot_offset = scaled_imm as i32 + i as i32;
+                        self.store_to_double_deref_fp_imm(
+                            slot_source,
+                            base_address_off,
+                            slot_offset,
+                            format!(
+                                "[[fp + {}] + {}] = [fp + {}] // store {} element slot {}",
+                                base_address_off, slot_offset, slot_source, element_ty, i
+                            ),
+                        );
+                    }
+                }
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Store requires base address as operand, offset as operand or immediate, and source as operand".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     // ===== Casting Operations =====
 
     /// Generates code for type casting operations

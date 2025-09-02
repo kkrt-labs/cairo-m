@@ -363,9 +363,28 @@ pub enum InstructionKind {
         new_value: Value,
         array_ty: MirType,
     },
-
     /// Assert equality between two values.
     AssertEq { left: Value, right: Value },
+
+    /// Experimental : only used by WASM crate
+    /// Load value from an absolute address in the VM
+    /// Offset will be multiplied by the type size
+    Load {
+        dest: ValueId,
+        base_address: Value,
+        offset: Value,
+        element_ty: MirType,
+    },
+
+    /// Experimental : only used by WASM crate
+    /// Store value to an absolute address in the VM
+    /// Offset will be multiplied by the type size
+    Store {
+        base_address: Value,
+        offset: Value,
+        source: Value,
+        element_ty: MirType,
+    },
 }
 
 impl Instruction {
@@ -691,13 +710,15 @@ impl Instruction {
             | InstructionKind::InsertTuple { dest, .. }
             | InstructionKind::MakeFixedArray { dest, .. }
             | InstructionKind::ArrayIndex { dest, .. }
-            | InstructionKind::ArrayInsert { dest, .. } => vec![*dest],
+            | InstructionKind::ArrayInsert { dest, .. }
+            | InstructionKind::Load { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
             InstructionKind::Debug { .. }
             | InstructionKind::Nop
-            | InstructionKind::AssertEq { .. } => vec![],
+            | InstructionKind::AssertEq { .. }
+            | InstructionKind::Store { .. } => vec![],
         }
     }
 
@@ -858,6 +879,35 @@ impl Instruction {
                     used.insert(id);
                 });
             }
+            InstructionKind::Load {
+                base_address,
+                offset,
+                ..
+            } => {
+                visit_value(base_address, |id| {
+                    used.insert(id);
+                });
+                visit_value(offset, |id| {
+                    used.insert(id);
+                });
+            }
+
+            InstructionKind::Store {
+                base_address,
+                offset,
+                source,
+                ..
+            } => {
+                visit_value(base_address, |id| {
+                    used.insert(id);
+                });
+                visit_value(offset, |id| {
+                    used.insert(id);
+                });
+                visit_value(source, |id| {
+                    used.insert(id);
+                });
+            }
         }
 
         used
@@ -950,6 +1000,24 @@ impl Instruction {
                 replace_value_id(left, from, to);
                 replace_value_id(right, from, to);
             }
+            InstructionKind::Load {
+                base_address,
+                offset,
+                ..
+            } => {
+                replace_value_id(base_address, from, to);
+                replace_value_id(offset, from, to);
+            }
+            InstructionKind::Store {
+                base_address,
+                offset,
+                source,
+                ..
+            } => {
+                replace_value_id(base_address, from, to);
+                replace_value_id(offset, from, to);
+                replace_value_id(source, from, to);
+            }
         }
     }
 
@@ -974,6 +1042,8 @@ impl Instruction {
             InstructionKind::ArrayIndex { .. } => Ok(()),
             InstructionKind::ArrayInsert { .. } => Ok(()),
             InstructionKind::AssertEq { .. } => Ok(()),
+            InstructionKind::Load { .. } => Ok(()),
+            InstructionKind::Store { .. } => Ok(()),
         }
     }
 
@@ -1290,6 +1360,32 @@ impl PrettyPrint for Instruction {
                     "AssertEq {}, {}",
                     left.pretty_print(0),
                     right.pretty_print(0)
+                ));
+            }
+            InstructionKind::Load {
+                dest,
+                base_address,
+                offset,
+                element_ty: _,
+            } => {
+                result.push_str(&format!(
+                    "{} = load {}, {}",
+                    dest.pretty_print(0),
+                    base_address.pretty_print(0),
+                    offset.pretty_print(0)
+                ));
+            }
+            InstructionKind::Store {
+                base_address,
+                offset,
+                source,
+                element_ty: _,
+            } => {
+                result.push_str(&format!(
+                    "store {}, {}, {}",
+                    base_address.pretty_print(0),
+                    offset.pretty_print(0),
+                    source.pretty_print(0)
                 ));
             }
         }

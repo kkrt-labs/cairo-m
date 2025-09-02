@@ -209,13 +209,11 @@ impl ScalarReplacementOfAggregates {
         visited.insert(*dest);
 
         // Find the MakeStruct/MakeTuple/MakeFixedArray instruction for this dest
-        let Some(make_inst) = instructions.iter().find(|inst| {
-            match &inst.kind {
-                InstructionKind::MakeStruct { dest: d, .. } => d == dest,
-                InstructionKind::MakeTuple { dest: d, .. } => d == dest,
-                InstructionKind::MakeFixedArray { dest: d, .. } => d == dest,
-                _ => false,
-            }
+        let Some(make_inst) = instructions.iter().find(|inst| match &inst.kind {
+            InstructionKind::MakeStruct { dest: d, .. } => d == dest,
+            InstructionKind::MakeTuple { dest: d, .. } => d == dest,
+            InstructionKind::MakeFixedArray { dest: d, .. } => d == dest,
+            _ => false,
         }) else {
             return false;
         };
@@ -236,7 +234,9 @@ impl ScalarReplacementOfAggregates {
                 }
 
                 // Condition 3: Can create AggState
-                let Some(MirType::Struct { fields: ty_fields, .. }) = function
+                let Some(MirType::Struct {
+                    fields: ty_fields, ..
+                }) = function
                     .get_value_type(*dest)
                     .or(Some(struct_ty))
                     .filter(|t| matches!(t, MirType::Struct { .. }))
@@ -739,6 +739,34 @@ impl ScalarReplacementOfAggregates {
                     callback(*id);
                 }
             }
+            InstructionKind::Load {
+                base_address,
+                offset,
+                ..
+            } => {
+                if let Value::Operand(id) = base_address {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = offset {
+                    callback(*id);
+                }
+            }
+            InstructionKind::Store {
+                base_address,
+                offset,
+                source,
+                ..
+            } => {
+                if let Value::Operand(id) = base_address {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = offset {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = source {
+                    callback(*id);
+                }
+            }
         }
     }
 
@@ -932,7 +960,8 @@ impl MirPass for ScalarReplacementOfAggregates {
                     InstructionKind::MakeFixedArray { dest, elements, .. }
                         if self.config.enable_tuples =>
                     {
-                        let Some(ty @ MirType::FixedArray { .. }) = function.get_value_type(*dest) else {
+                        let Some(ty @ MirType::FixedArray { .. }) = function.get_value_type(*dest)
+                        else {
                             new_instrs.push(inst);
                             continue;
                         };
