@@ -33,6 +33,7 @@ words:
   - deque
   - dests
   - dhat
+  - divrem
   - docstrings
   - dtolnay
   - ebnf

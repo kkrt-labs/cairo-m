@@ -180,10 +180,11 @@ fn test_opcode_values() {
             17,
         ),
         (
-            Instruction::U32StoreDivFpFp {
+            Instruction::U32StoreDivRemFpFp {
                 src0_off: M31::from(0),
                 src1_off: M31::from(0),
                 dst_off: M31::from(0),
+                dst_rem_off: M31::from(0),
             },
             18,
         ),
@@ -206,11 +207,12 @@ fn test_opcode_values() {
             21,
         ),
         (
-            Instruction::U32StoreDivFpImm {
+            Instruction::U32StoreDivRemFpImm {
                 src_off: M31::from(0),
                 imm_hi: M31::from(0),
                 imm_lo: M31::from(0),
                 dst_off: M31::from(0),
+                dst_rem_off: M31::from(0),
             },
             22,
         ),
@@ -441,13 +443,20 @@ fn test_try_from_smallvec() {
             "U32StoreMulFpFp instruction",
         ),
         (
-            smallvec![M31::from(18), M31::from(10), M31::from(11), M31::from(12)],
-            Instruction::U32StoreDivFpFp {
+            smallvec![
+                M31::from(18),
+                M31::from(10),
+                M31::from(11),
+                M31::from(12),
+                M31::from(13)
+            ],
+            Instruction::U32StoreDivRemFpFp {
                 src0_off: M31::from(10),
                 src1_off: M31::from(11),
                 dst_off: M31::from(12),
+                dst_rem_off: M31::from(13),
             },
-            "U32StoreDivFpFp instruction",
+            "U32StoreDivRemFpFp instruction",
         ),
         // U32 arithmetic with immediate
         (
@@ -488,15 +497,17 @@ fn test_try_from_smallvec() {
                 M31::from(4),
                 M31::from(0x0123),
                 M31::from(0xcdef),
-                M31::from(7)
+                M31::from(7),
+                M31::from(8)
             ],
-            Instruction::U32StoreDivFpImm {
+            Instruction::U32StoreDivRemFpImm {
                 src_off: M31::from(4),
                 imm_lo: M31::from(0x0123),
                 imm_hi: M31::from(0xcdef),
                 dst_off: M31::from(7),
+                dst_rem_off: M31::from(8),
             },
-            "U32StoreDivFpImm instruction",
+            "U32StoreDivRemFpImm instruction",
         ),
         // Memory and control flow operations
         (

@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 59
 description: "Codegen snapshot for mdtest: Example Programs - Comprehensive RPG Combat System"
 input_file: mdtest/07-example-programs/example-00.md
 ---
@@ -228,7 +229,7 @@ main_test_0:
   19: 4 15 0 41            // Arg 0 slot 9: [fp + 41] = [fp + 15] + 0
   20: 10 48 28 _           // call get_character_stats
   21: 15 28 46 22          // u32([fp + 22], [fp + 23]) = u32([fp + 28], [fp + 29]) U32Add u32([fp + 46], [fp + 47])
-  22: 22 44 10 0 24        // u32([fp + 24], [fp + 25]) = u32([fp + 44], [fp + 45]) U32Div u32(10, 0) /* imm = 0x0000000a */
+  22: 22 44 10 0 24 54     // u32([fp + 24], [fp + 25]); u32([fp + 54], [fp + 55]) = u32([fp + 44], [fp + 45]) / u32(10, 0)
   23: 15 22 24 26          // u32([fp + 26], [fp + 27]) = u32([fp + 22], [fp + 23]) U32Add u32([fp + 24], [fp + 25])
   24: 4 26 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 26] + 0
   25: 4 27 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 27] + 0
@@ -347,10 +348,10 @@ perform_combat:
  108: 4 53 0 61            // Arg 2 slot 0: [fp + 61] = [fp + 53] + 0
  109: 4 54 0 62            // Arg 2 slot 1: [fp + 62] = [fp + 54] + 0
  110: 10 65 71 _           // call calculate_damage
- 111: 22 2147483622 10 0 18 // u32([fp + 18], [fp + 19]) = u32([fp + -25], [fp + -24]) U32Div u32(10, 0) /* imm = 0x0000000a */
+ 111: 22 2147483622 10 0 18 67 // u32([fp + 18], [fp + 19]); u32([fp + 67], [fp + 68]) = u32([fp + -25], [fp + -24]) / u32(10, 0)
  112: 9 0 20 _             // [fp + 20] = false
- 113: 23 5 0 67            // [fp + 67], [fp + 68] = u32(5)
- 114: 28 67 18 21          // [fp + 21] = u32([fp + 67], [fp + 68]) U32Less u32([fp + 18], [fp + 19])
+ 113: 23 5 0 69            // [fp + 69], [fp + 70] = u32(5)
+ 114: 28 69 18 21          // [fp + 21] = u32([fp + 69], [fp + 70]) U32Less u32([fp + 18], [fp + 19])
  115: 19 63 0 0 22         // u32([fp + 22], [fp + 23]) = u32([fp + 63], [fp + 64]) + u32(0, 0)
  116: 4 20 0 24            // [fp + 24] = [fp + 20] + 0
  117: 14 21 2 _            // if [fp + 21] != 0 jmp rel perform_combat_1
