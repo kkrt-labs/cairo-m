@@ -150,7 +150,7 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 let val = mem.get(a.0 as i32 + b.0 as i32);
                 mem.set(dst_off.0 as i32, val);
             }
-            Instruction::StoreFpImm { imm, dst_off } => {
+            Instruction::StoreFramePointer { imm, dst_off } => {
                 let val = mem.get(imm.0 as i32);
                 mem.set(dst_off.0 as i32, val);
             }

@@ -15,7 +15,7 @@ use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
-use crate::adapter::memory::{ExecutionBundleIterator, Memory};
+use crate::adapter::memory::{DataAccess, ExecutionBundleIterator, Memory};
 use crate::adapter::merkle::{build_partial_merkle_tree, NodeData, TreeType};
 use crate::poseidon2::{Poseidon2Hash, T};
 
@@ -69,6 +69,8 @@ pub struct Instructions {
     pub final_registers: VmRegisters,
     /// Execution bundles grouped by opcode value for opcode witness generation
     pub states_by_opcodes: HashMap<u32, Vec<ExecutionBundle>>,
+    /// Global data memory access log for all steps
+    pub data_accesses: Vec<DataAccess>,
 }
 
 /// Internal function to convert runner output to prover input format.
@@ -131,7 +133,8 @@ where
     final_registers = bundle_iter.get_final_registers().unwrap_or(final_registers);
 
     // Get the memory state from the iterator
-    let mut memory = bundle_iter.into_memory();
+    let (mut memory, data_accesses) = bundle_iter.into_memory_and_data_accesses();
+    // Extract global access log for opcode components consumption
     memory.update_multiplicities(&public_address_ranges);
 
     // Assert that the keys are the same for both initial_memory and final_memory
@@ -183,6 +186,7 @@ where
             initial_registers,
             final_registers,
             states_by_opcodes,
+            data_accesses,
         },
         poseidon2_inputs,
     })

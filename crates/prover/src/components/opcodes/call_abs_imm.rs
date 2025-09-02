@@ -56,9 +56,11 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::DataAccess;
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
+use crate::utils::data_accesses::{get_prev_clock, get_prev_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -113,6 +115,7 @@ impl Claim {
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
+        data_accesses: &[DataAccess],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -159,10 +162,11 @@ impl Claim {
                 let opcode_constant = PackedM31::from(M31::from(CALL_ABS_IMM));
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
-                let op0_prev_clock = input.mem1_prev_clock;
-                let op0_prev_val = input.mem1_prev_value;
-                let op0_plus_one_prev_clock = input.mem2_prev_clock;
-                let op0_plus_one_prev_val = input.mem2_prev_value;
+
+                let op0_prev_clock = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_val = get_prev_value(input, data_accesses, 0);
+                let op0_plus_one_prev_clock = get_prev_clock(input, data_accesses, 1);
+                let op0_plus_one_prev_val = get_prev_value(input, data_accesses, 1);
 
                 *row[0] = enabler;
                 *row[1] = pc;

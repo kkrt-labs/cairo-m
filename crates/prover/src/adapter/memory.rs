@@ -48,19 +48,6 @@ impl From<crate::adapter::io::IoMemoryEntry> for MemoryEntry {
     }
 }
 
-/// Represents a memory value that can be either a Felt (single M31) or U32 (two M31 limbs).
-///
-/// ## Fields
-/// - `limb0`: The low limb for U32 values, or the single value for Felt
-/// - `limb1`: The high limb for U32 values, or zero for Felt values
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct MemoryValue {
-    /// Low limb for U32 values, or the single value for Felt values
-    pub limb0: M31,
-    /// High limb for U32 values, always zero for Felt values
-    pub limb1: M31,
-}
-
 /// Represents a data memory access with both previous and current state.
 ///
 /// This structure captures the complete state transition for a memory access
@@ -76,6 +63,15 @@ pub struct DataAccess {
     pub prev_value: M31,
     /// The memory value after this access
     pub value: M31,
+}
+
+/// A contiguous range inside the global access log corresponding to memory accesses for a single instruction.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AccessSpan {
+    /// Start index in the global access log
+    pub start: u32,
+    /// Number of entries in this step
+    pub len: u16,
 }
 
 /// Represents an instruction memory access.
@@ -109,8 +105,8 @@ pub struct ExecutionBundle {
     pub clock: M31,
     /// The instruction memory access
     pub instruction: InstructionAccess,
-    /// Data memory accesses for operands (up to 3 per instruction)
-    pub operands: [Option<DataAccess>; 5],
+    /// Span into the global access log for this step's data memory accesses
+    pub access_span: AccessSpan,
 }
 
 impl Default for ExecutionBundle {
@@ -122,7 +118,7 @@ impl Default for ExecutionBundle {
                 instruction: Instruction::Ret {},
                 prev_clock: M31::zero(),
             },
-            operands: [None, None, None, None, None],
+            access_span: AccessSpan { start: 0, len: 0 },
         }
     }
 }
@@ -215,6 +211,8 @@ where
     memory_iter: Peekable<M>,
     /// Memory state tracker
     memory: Memory,
+    /// Global instruction memory access log
+    data_accesses: Vec<DataAccess>,
     /// Execution clock, incremented at each VM step
     clock: u32,
     /// Final register state (captured when trace ends)
@@ -240,6 +238,7 @@ where
             trace_iter: trace_iter.peekable(),
             memory_iter: memory_iter.peekable(),
             memory: Memory::new(initial_memory),
+            data_accesses: Vec::new(),
             clock: 1, // Clock 0 is reserved to preloaded values (like the program, inputs, etc.)
             final_registers: None,
         }
@@ -249,8 +248,8 @@ where
         self.trace_iter.peek()
     }
 
-    pub fn into_memory(self) -> Memory {
-        self.memory
+    pub fn into_memory_and_data_accesses(self) -> (Memory, Vec<DataAccess>) {
+        (self.memory, self.data_accesses)
     }
 
     pub const fn get_final_registers(&self) -> Option<VmRegisters> {
@@ -348,9 +347,11 @@ where
         // Step 4: Process operand memory accesses based on instruction's opcode
         // The number and type of memory accesses depends on the instruction
         let num_operands = instruction.memory_accesses();
-        let mut operands: [Option<DataAccess>; 5] = [None, None, None, None, None];
 
-        for operand_slot in operands.iter_mut().take(num_operands) {
+        // Track the contiguous span in the global access log for this step
+        let start_idx = self.data_accesses.len() as u32;
+
+        for _i in 0..num_operands {
             // Get the data type for this operand based on the instruction's opcode
             // Single M31 value for Felt operands
             let operand_memory = match self.memory_iter.next() {
@@ -373,14 +374,19 @@ where
                 value: operand_arg.value.0 .0,
             };
 
-            *operand_slot = Some(data_access);
+            self.data_accesses.push(data_access);
         }
+
+        let access_span = AccessSpan {
+            start: start_idx,
+            len: (self.data_accesses.len() as u32 - start_idx) as u16,
+        };
 
         let bundle = ExecutionBundle {
             registers,
             clock: self.clock.into(),
             instruction: instruction_access,
-            operands,
+            access_span,
         };
 
         self.clock += 1;

@@ -289,28 +289,6 @@ fn test_memory_accesses() {
     assert_eq!(Instruction::Ret {}.memory_accesses(), 2);
 }
 
-#[test]
-fn test_operands() {
-    let ret = Instruction::Ret {};
-    assert_eq!(ret.operands(), vec![]);
-
-    let store_imm = Instruction::StoreImm {
-        imm: M31::from(42),
-        dst_off: M31::from(3),
-    };
-    assert_eq!(store_imm.operands(), vec![M31::from(42), M31::from(3)]);
-
-    let add_fp_fp = Instruction::StoreAddFpFp {
-        src0_off: M31::from(1),
-        src1_off: M31::from(2),
-        dst_off: M31::from(3),
-    };
-    assert_eq!(
-        add_fp_fp.operands(),
-        vec![M31::from(1), M31::from(2), M31::from(3)]
-    );
-}
-
 #[allow(clippy::cognitive_complexity)]
 #[test]
 fn test_try_from_smallvec() {
@@ -664,11 +642,11 @@ fn test_try_from_smallvec() {
         ),
         (
             smallvec![M31::from(43), M31::from(5), M31::from(7)],
-            Instruction::StoreFpImm {
+            Instruction::StoreFramePointer {
                 imm: M31::from(5),
                 dst_off: M31::from(7),
             },
-            "StoreFpImm instruction",
+            "StoreFramePointer instruction",
         ),
         (
             smallvec![M31::from(44), M31::from(9), M31::from(7), M31::from(5)],

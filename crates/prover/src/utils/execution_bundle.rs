@@ -4,10 +4,10 @@ use stwo_prover::core::backend::simd::m31::{PackedM31, N_LANES};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::adapter::ExecutionBundle;
+use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 
 // Flattened PackedExecutionBundle that contains all the M31 components as separate PackedM31 vectors
 // This structure is optimized for SIMD operations
-// Supports multi-limb values (U32) and variable-sized instructions (up to 5 M31s)
 #[derive(Debug, Clone, Copy)]
 pub struct PackedExecutionBundle {
     // VM registers (2 fields)
@@ -16,7 +16,6 @@ pub struct PackedExecutionBundle {
 
     pub clock: PackedM31,
 
-    // Memory arg 0 - Instruction (up to 5 M31s for variable-sized instructions)
     pub inst_prev_clock: PackedM31,
     pub inst_value_0: PackedM31,
     pub inst_value_1: PackedM31,
@@ -24,41 +23,19 @@ pub struct PackedExecutionBundle {
     pub inst_value_3: PackedM31,
     pub inst_value_4: PackedM31,
 
-    // Memory arg 1 - Operand 0 (supports multi-limb values)
-    pub mem1_addr: PackedM31,
-    pub mem1_prev_clock: PackedM31,
-    pub mem1_prev_value: PackedM31,
-    pub mem1_value: PackedM31,
-
-    // Memory arg 2 - Operand 1 (supports multi-limb values)
-    pub mem2_addr: PackedM31,
-    pub mem2_prev_clock: PackedM31,
-    pub mem2_prev_value: PackedM31,
-    pub mem2_value: PackedM31,
-
-    // Memory arg 3 - Operand 2 (supports multi-limb values)
-    pub mem3_addr: PackedM31,
-    pub mem3_prev_clock: PackedM31,
-    pub mem3_prev_value: PackedM31,
-    pub mem3_value: PackedM31,
-
-    // Memory arg 4 - Operand 3 (supports multi-limb values)
-    pub mem4_addr: PackedM31,
-    pub mem4_prev_clock: PackedM31,
-    pub mem4_prev_value: PackedM31,
-    pub mem4_value: PackedM31,
-
-    // Memory arg 5 - Operand 4 (supports multi-limb values)
-    pub mem5_addr: PackedM31,
-    pub mem5_prev_clock: PackedM31,
-    pub mem5_prev_value: PackedM31,
-    pub mem5_value: PackedM31,
+    // TODO: can we make better?
+    pub span_start: [usize; N_LANES],
+    pub span_len: [u16; N_LANES],
 }
 
 impl Pack for ExecutionBundle {
     type SimdType = PackedExecutionBundle;
 
     fn pack(inputs: [Self; N_LANES]) -> Self::SimdType {
+        // Cache instruction M31 vectors once per lane
+        let inst_values: [smallvec::SmallVec<[M31; INSTRUCTION_MAX_SIZE]>; N_LANES] =
+            std::array::from_fn(|i| inputs[i].instruction.instruction.to_smallvec());
+
         PackedExecutionBundle {
             // Pack VM registers
             pc: PackedM31::from_array(std::array::from_fn(|i| inputs[i].registers.pc)),
@@ -73,95 +50,23 @@ impl Pack for ExecutionBundle {
             })),
             // Pack instruction M31 values with padding for smaller instructions
             inst_value_0: PackedM31::from_array(std::array::from_fn(|i| {
-                let inst_values = inputs[i].instruction.instruction.to_smallvec();
-                inst_values.first().copied().unwrap_or_else(M31::zero)
+                inst_values[i].first().copied().unwrap_or_else(M31::zero)
             })),
             inst_value_1: PackedM31::from_array(std::array::from_fn(|i| {
-                let inst_values = inputs[i].instruction.instruction.to_smallvec();
-                inst_values.get(1).copied().unwrap_or_else(M31::zero)
+                inst_values[i].get(1).copied().unwrap_or_else(M31::zero)
             })),
             inst_value_2: PackedM31::from_array(std::array::from_fn(|i| {
-                let inst_values = inputs[i].instruction.instruction.to_smallvec();
-                inst_values.get(2).copied().unwrap_or_else(M31::zero)
+                inst_values[i].get(2).copied().unwrap_or_else(M31::zero)
             })),
             inst_value_3: PackedM31::from_array(std::array::from_fn(|i| {
-                let inst_values = inputs[i].instruction.instruction.to_smallvec();
-                inst_values.get(3).copied().unwrap_or_else(M31::zero)
+                inst_values[i].get(3).copied().unwrap_or_else(M31::zero)
             })),
             inst_value_4: PackedM31::from_array(std::array::from_fn(|i| {
-                let inst_values = inputs[i].instruction.instruction.to_smallvec();
-                inst_values.get(4).copied().unwrap_or_else(M31::zero)
+                inst_values[i].get(4).copied().unwrap_or_else(M31::zero)
             })),
 
-            // Memory arg 1 (multi-limb support)
-            mem1_addr: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.address)
-            })),
-            mem1_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_clock)
-            })),
-            mem1_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.prev_value)
-            })),
-            mem1_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[0].map_or_else(M31::zero, |op| op.value)
-            })),
-
-            // Memory arg 2 (multi-limb support)
-            mem2_addr: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.address)
-            })),
-            mem2_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_clock)
-            })),
-            mem2_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.prev_value)
-            })),
-            mem2_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[1].map_or_else(M31::zero, |op| op.value)
-            })),
-
-            // Memory arg 3 (multi-limb support)
-            mem3_addr: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.address)
-            })),
-            mem3_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_clock)
-            })),
-            mem3_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.prev_value)
-            })),
-            mem3_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[2].map_or_else(M31::zero, |op| op.value)
-            })),
-
-            // Memory arg 4 (multi-limb support)
-            mem4_addr: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[3].map_or_else(M31::zero, |op| op.address)
-            })),
-            mem4_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[3].map_or_else(M31::zero, |op| op.prev_clock)
-            })),
-            mem4_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[3].map_or_else(M31::zero, |op| op.prev_value)
-            })),
-            mem4_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[3].map_or_else(M31::zero, |op| op.value)
-            })),
-
-            // Memory arg 5 (multi-limb support)
-            mem5_addr: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[4].map_or_else(M31::zero, |op| op.address)
-            })),
-            mem5_prev_clock: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[4].map_or_else(M31::zero, |op| op.prev_clock)
-            })),
-            mem5_prev_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[4].map_or_else(M31::zero, |op| op.prev_value)
-            })),
-            mem5_value: PackedM31::from_array(std::array::from_fn(|i| {
-                inputs[i].operands[4].map_or_else(M31::zero, |op| op.value)
-            })),
+            span_start: std::array::from_fn(|i| inputs[i].access_span.start as usize),
+            span_len: std::array::from_fn(|i| inputs[i].access_span.len),
         }
     }
 }

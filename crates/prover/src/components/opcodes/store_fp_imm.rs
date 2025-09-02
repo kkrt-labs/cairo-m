@@ -1,7 +1,7 @@
 //! This component is used to prove the StoreXFpImm opcodes.
 //!
-//! [fp + off2] = [fp + off0] + imm : StoreAddFpImm
-//! [fp + off2] = [fp + off0] * imm : StoreMulFpImm
+//! [fp + dst_off] = [fp + src_off] + imm : StoreAddFpImm
+//! [fp + dst_off] = [fp + src_off] * imm : StoreMulFpImm
 //!
 //! # Columns
 //!
@@ -10,12 +10,12 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
-//! - off0
-//! - off1
-//! - off2
-//! - op0_prev_clock
-//! - op0_val
-//! - off1_inv
+//! - src_off
+//! - imm
+//! - dst_off
+//! - src_prev_clock
+//! - src_val
+//! - imm_inv
 //! - dst_prev_clock
 //! - dst_prev_val
 //! - dst_val
@@ -32,32 +32,33 @@
 //!   * `opcode_flag_0 * (1 - opcode_flag_0)`
 //! * opcode_flag_1 is a bool
 //!   * `opcode_flag_1 * (1 - opcode_flag_1)`
-//! * prod is the product of op0 and off1
-//!   * `prod - op0 * off1`
-//! * div is the division of op0 and off1
-//!   * `div - op0 * off1_inv`
-//! * off1_inv is the inverse of off1 or off1 is 0
-//!   * `off1 * (off1_inv * off1 - 1)`
-//!   * `off1_inv * (off1_inv * off1 - 1)`
+//! * prod is the product of src and imm
+//!   * `prod - src * imm`
+//! * div is the division of src and imm
+//!   * `div - src * imm_inv`
+//! * imm_inv is the inverse of imm or imm is 0
+//!   * `imm * (imm_inv * imm - 1)`
+//!   * `imm_inv * (imm_inv * imm - 1)`
 //! * dst_val is the result of the operation
-//!   * `dst_val - (1 - opcode_flag_0) * (1 - opcode_flag_1) * (op0 + off1) // (0, 0) => StoreAddFpImm
-//!   * `    - (1 - opcode_flag_0) * opcode_flag_1 * (op0 - off1) // (0, 1) => StoreSubFpImm
+//!   * `dst_val - (1 - opcode_flag_0) * (1 - opcode_flag_1) * (src + imm) // (0, 0) => StoreAddFpImm
+//!   * `    - (1 - opcode_flag_0) * opcode_flag_1 * (src - imm) // (0, 1) => StoreSubFpImm
 //!   * `    - opcode_flag_0 * (1 - opcode_flag_1) * prod // (1, 0) => StoreMulFpImm
 //!   * `    - opcode_flag_0 * opcode_flag_1 * div // (1, 1) => StoreDivFpImm
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `opcode_id - (base_opcode + opcode_flag_0 * 2 + opcode_flag_1)`
-//!   * `- [pc, inst_prev_clk, opcode_id, off0, off1, off2] + [pc, clk, opcode_id, off0, off1, off2]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_id, src_off, imm, dst_off] + [pc, clk, opcode_id, src_off, imm, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
-//! * read op0
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
-//! * write dst in [fp + off2]
-//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, dst_val]` in `Memory` relation
+//! * read src
+//!   * `- [fp + src_off, src_prev_clk, src_val] + [fp + src_off, clk, src_val]` in `Memory` relation
+//!   * `- [clk - src_prev_clk - 1]` in `RangeCheck20` relation
+//! * write dst in [fp + dst_off]
+//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, dst_val]` in `Memory` relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::instruction::{RET, STORE_ADD_FP_IMM};
+use cairo_m_common::Instruction;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -82,9 +83,11 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::DataAccess;
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
+use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -140,6 +143,7 @@ impl Claim {
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
+        data_accesses: &[DataAccess],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -158,14 +162,18 @@ impl Claim {
             .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
-                let off1_inverses = PackedM31::from_array(array.map(|x| {
-                    let off1 = if x.instruction.instruction.opcode_value() == RET {
+                let imm_inverses = PackedM31::from_array(array.map(|x| {
+                    let imm = if x.instruction.instruction.opcode_value() == RET {
                         M31::zero()
                     } else {
-                        x.instruction.instruction.operands()[1]
+                        match x.instruction.instruction {
+                            Instruction::StoreAddFpImm { imm, .. } => imm,
+                            Instruction::StoreMulFpImm { imm, .. } => imm,
+                            _ => unreachable!(),
+                        }
                     };
-                    if off1 != M31::zero() {
-                        off1.inverse()
+                    if imm != M31::zero() {
+                        imm.inverse()
                     } else {
                         M31::zero()
                     }
@@ -188,7 +196,7 @@ impl Claim {
                 }));
                 (
                     Pack::pack(array),
-                    off1_inverses,
+                    imm_inverses,
                     opcode_flag_0,
                     opcode_flag_1,
                 )
@@ -213,7 +221,7 @@ impl Claim {
             .for_each(
                 |(
                     row_index,
-                    (mut row, (input, off1_inverses, opcode_flag_0, opcode_flag_1), lookup_data),
+                    (mut row, (input, imm_inverses, opcode_flag_0, opcode_flag_1), lookup_data),
                 )| {
                     let enabler = enabler_col.packed_at(row_index);
                     let pc = input.pc;
@@ -221,29 +229,30 @@ impl Claim {
                     let clock = input.clock;
                     let inst_prev_clock = input.inst_prev_clock;
                     let opcode_id = input.inst_value_0;
-                    let off0 = input.inst_value_1;
-                    let off1 = input.inst_value_2;
-                    let off2 = input.inst_value_3;
-                    let op0_prev_clock = input.mem1_prev_clock;
-                    let op0_val = input.mem1_value;
-                    let off1_inv = *off1_inverses;
-                    let dst_prev_clock = input.mem2_prev_clock;
-                    let dst_prev_val = input.mem2_prev_value;
-                    let dst_val = input.mem2_value;
-                    let prod = op0_val * off1;
-                    let div = op0_val * *off1_inverses;
+                    let src_off = input.inst_value_1;
+                    let imm = input.inst_value_2;
+                    let dst_off = input.inst_value_3;
+
+                    let src_prev_clock = get_prev_clock(input, data_accesses, 0);
+                    let src_val = get_value(input, data_accesses, 0);
+                    let dst_prev_clock = get_prev_clock(input, data_accesses, 1);
+                    let dst_prev_val = get_prev_value(input, data_accesses, 1);
+                    let dst_val = get_value(input, data_accesses, 1);
+                    let prod = src_val * imm;
+                    let div = src_val * *imm_inverses;
+                    let imm_inv = *imm_inverses;
 
                     *row[0] = enabler;
                     *row[1] = pc;
                     *row[2] = fp;
                     *row[3] = clock;
                     *row[4] = inst_prev_clock;
-                    *row[5] = off0;
-                    *row[6] = off1;
-                    *row[7] = off2;
-                    *row[8] = op0_prev_clock;
-                    *row[9] = op0_val;
-                    *row[10] = off1_inv;
+                    *row[5] = src_off;
+                    *row[6] = imm;
+                    *row[7] = dst_off;
+                    *row[8] = src_prev_clock;
+                    *row[9] = src_val;
+                    *row[10] = imm_inv;
                     *row[11] = dst_prev_clock;
                     *row[12] = dst_prev_val;
                     *row[13] = dst_val;
@@ -256,18 +265,19 @@ impl Claim {
                     *lookup_data.registers[1] = [input.pc + one, input.fp];
 
                     *lookup_data.memory[0] =
-                        [input.pc, inst_prev_clock, opcode_id, off0, off1, off2];
-                    *lookup_data.memory[1] = [input.pc, clock, opcode_id, off0, off1, off2];
+                        [input.pc, inst_prev_clock, opcode_id, src_off, imm, dst_off];
+                    *lookup_data.memory[1] = [input.pc, clock, opcode_id, src_off, imm, dst_off];
 
-                    *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
-                    *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
+                    *lookup_data.memory[2] =
+                        [fp + src_off, src_prev_clock, src_val, zero, zero, zero];
+                    *lookup_data.memory[3] = [fp + src_off, clock, src_val, zero, zero, zero];
 
                     *lookup_data.memory[4] =
-                        [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                    *lookup_data.memory[5] = [fp + off2, clock, dst_val, zero, zero, zero];
+                        [fp + dst_off, dst_prev_clock, dst_prev_val, zero, zero, zero];
+                    *lookup_data.memory[5] = [fp + dst_off, clock, dst_val, zero, zero, zero];
 
                     *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                    *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
+                    *lookup_data.range_check_20[1] = clock - src_prev_clock - enabler;
                     *lookup_data.range_check_20[2] = clock - dst_prev_clock - enabler;
                 },
             );
@@ -450,12 +460,12 @@ impl FrameworkEval for Eval {
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
-        let off0 = eval.next_trace_mask();
-        let off1 = eval.next_trace_mask();
-        let off2 = eval.next_trace_mask();
-        let op0_prev_clock = eval.next_trace_mask();
-        let op0_val = eval.next_trace_mask();
-        let off1_inv = eval.next_trace_mask();
+        let src_off = eval.next_trace_mask();
+        let imm = eval.next_trace_mask();
+        let dst_off = eval.next_trace_mask();
+        let src_prev_clock = eval.next_trace_mask();
+        let src_val = eval.next_trace_mask();
+        let imm_inv = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_val = eval.next_trace_mask();
@@ -473,21 +483,21 @@ impl FrameworkEval for Eval {
         // opcode_flag_1 is 0 or 1
         eval.add_constraint(opcode_flag_1.clone() * (one.clone() - opcode_flag_1.clone()));
 
-        // prod is op0 * off1
-        eval.add_constraint(prod.clone() - op0_val.clone() * off1.clone());
+        // prod is src * imm
+        eval.add_constraint(prod.clone() - src_val.clone() * imm.clone());
 
-        // off1_inv is the inverse of off1 or off1 is 0
-        eval.add_constraint(off1.clone() * (off1_inv.clone() * off1.clone() - one.clone()));
+        // imm_inv is the inverse of imm or imm is 0
+        eval.add_constraint(imm.clone() * (imm_inv.clone() * imm.clone() - one.clone()));
 
-        // off1_inv is the inverse of off1 or off1_inv is 0
-        eval.add_constraint(off1_inv.clone() * (off1_inv.clone() * off1.clone() - one.clone()));
+        // imm_inv is the inverse of imm or imm_inv is 0
+        eval.add_constraint(imm_inv.clone() * (imm_inv.clone() * imm.clone() - one.clone()));
 
-        // div is op0 / off1
-        eval.add_constraint(div.clone() - op0_val.clone() * off1_inv);
+        // div is src / imm
+        eval.add_constraint(div.clone() - src_val.clone() * imm_inv);
 
         // dst_val is
-        // Add: (1 - opcode_flag_0) * (1 - opcode_flag_1) * (op0 + off1)
-        // Sub: (1 - opcode_flag_0) * opcode_flag_1 * (op0 - off1)
+        // Add: (1 - opcode_flag_0) * (1 - opcode_flag_1) * (src + imm)
+        // Sub: (1 - opcode_flag_0) * opcode_flag_1 * (src - imm)
         // Mul: opcode_flag_0 * (1 - opcode_flag_1) * prod
         // Div: opcode_flag_0 * opcode_flag_1 * div
         let is_add = eval.add_intermediate(
@@ -504,8 +514,8 @@ impl FrameworkEval for Eval {
                 + opcode_flag_1,
         );
         let res = eval.add_intermediate(
-            is_add * (op0_val.clone() + off1.clone())
-                + is_sub * (op0_val.clone() - off1.clone())
+            is_add * (src_val.clone() + imm.clone())
+                + is_sub * (src_val.clone() - imm.clone())
                 + is_mul * prod
                 + is_div * div,
         );
@@ -531,9 +541,9 @@ impl FrameworkEval for Eval {
                 pc.clone(),
                 inst_prev_clock.clone(),
                 opcode_id.clone(),
-                off0.clone(),
-                off1.clone(),
-                off2.clone(),
+                src_off.clone(),
+                imm.clone(),
+                dst_off.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
@@ -543,26 +553,26 @@ impl FrameworkEval for Eval {
                 pc,
                 clock.clone(),
                 opcode_id,
-                off0.clone(),
-                off1,
-                off2.clone(),
+                src_off.clone(),
+                imm,
+                dst_off.clone(),
             ],
         ));
 
-        // Read op0
+        // Read src
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() + off0.clone(),
-                op0_prev_clock.clone(),
-                op0_val.clone(),
+                fp.clone() + src_off.clone(),
+                src_prev_clock.clone(),
+                src_val.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + off0, clock.clone(), op0_val],
+            &[fp.clone() + src_off, clock.clone(), src_val],
         ));
 
         // Write dst
@@ -570,7 +580,7 @@ impl FrameworkEval for Eval {
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() + off2.clone(),
+                fp.clone() + dst_off.clone(),
                 dst_prev_clock.clone(),
                 dst_prev_val,
             ],
@@ -578,7 +588,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + off2, clock.clone(), dst_val],
+            &[fp + dst_off, clock.clone(), dst_val],
         ));
 
         // Range check 20
@@ -590,7 +600,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock - enabler.clone()],
+            &[clock.clone() - src_prev_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,

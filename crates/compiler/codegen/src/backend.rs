@@ -47,5 +47,8 @@ pub fn compile_module(module: &MirModule) -> Result<Program, CodegenError> {
     // Generate code
     let mut generator = CodeGenerator::new();
     generator.generate_module(module)?;
+    if std::env::var("DEBUG_CASM").is_ok() {
+        println!("CASM: {}", generator.debug_instructions());
+    }
     generator.compile()
 }

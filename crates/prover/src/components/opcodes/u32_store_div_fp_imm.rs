@@ -123,6 +123,7 @@
 //!   * `- [r_lo]` in `RangeCheck16` relation
 //!   * `- [r_hi]` in `RangeCheck16` relation
 
+use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use cairo_m_common::instruction::U32_STORE_DIV_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
@@ -148,7 +149,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::ExecutionBundle;
+use crate::adapter::{memory::DataAccess, ExecutionBundle};
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
@@ -220,6 +221,7 @@ impl Claim {
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
+        data_accesses: &[DataAccess],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -272,16 +274,16 @@ impl Claim {
                 let dst_off = input.inst_value_4;
 
                 // Operand 0 (u32) comes from two separate memory reads
-                let n_lo = input.mem1_value; // numerator low
-                let n_hi = input.mem2_value; // numerator high
-                let op0_prev_lo_clock = input.mem1_prev_clock;
-                let op0_prev_hi_clock = input.mem2_prev_clock;
+                let n_lo = get_value(input, data_accesses, 0); // numerator low
+                let n_hi = get_value(input, data_accesses, 1); // numerator high
+                let op0_prev_lo_clock = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_hi_clock = get_prev_clock(input, data_accesses, 1);
 
                 // Destination (u32) previous values and clocks for each limb
-                let dst_prev_val_lo = input.mem3_prev_value;
-                let dst_prev_lo_clock = input.mem3_prev_clock;
-                let dst_prev_val_hi = input.mem4_prev_value;
-                let dst_prev_hi_clock = input.mem4_prev_clock;
+                let dst_prev_val_lo = get_prev_value(input, data_accesses, 2);
+                let dst_prev_lo_clock = get_prev_clock(input, data_accesses, 2);
+                let dst_prev_val_hi = get_prev_value(input, data_accesses, 3);
+                let dst_prev_hi_clock = get_prev_clock(input, data_accesses, 3);
 
                 // Decompose immediate (divisor) into 8-bit limbs: d = d_0 + d_1*2^8 + d_2*2^16 + d_3*2^24
                 let two_pow_8 = PackedM31::from(M31::from(1 << 8));

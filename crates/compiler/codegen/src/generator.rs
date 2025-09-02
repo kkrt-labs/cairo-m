@@ -1053,10 +1053,5 @@ mod tests {
                 dst_off: M31::from(-3)
             }
         );
-
-        // Check operands - StoreImm has format: [imm, dst_off]
-        let operands = store_imm.operands();
-        assert_eq!(operands[0], M31::from(42)); // immediate value
-        assert_eq!(operands[1], M31::from(-3)); // destination offset
     }
 }
