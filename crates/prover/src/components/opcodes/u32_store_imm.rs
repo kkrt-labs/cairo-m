@@ -445,9 +445,9 @@ impl FrameworkEval for Eval {
         let imm_hi = eval.next_trace_mask();
         let dst_off = eval.next_trace_mask();
         let dst_prev_val_lo = eval.next_trace_mask();
-        let dst_prev_clock_lo_clock = eval.next_trace_mask();
         let dst_prev_val_hi = eval.next_trace_mask();
-        let dst_prev_clock_hi_clock = eval.next_trace_mask();
+        let dst_prev_lo_clock = eval.next_trace_mask();
+        let dst_prev_hi_clock = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
