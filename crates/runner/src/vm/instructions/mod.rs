@@ -73,7 +73,7 @@ pub fn instruction_to_fn(instruction: Instruction) -> Result<InstructionFn, Inst
         Instruction::StoreDoubleDerefFp { .. } => store_double_deref_fp,
         Instruction::StoreDoubleDerefFpFp { .. } => store_double_deref_fp_fp,
         Instruction::StoreImm { .. } => store_imm,
-        Instruction::StoreFpImm { .. } => store_fp_imm,
+        Instruction::StoreFramePointer { .. } => store_fp_imm,
         Instruction::StoreMulFpFp { .. } => store_mul_fp_fp,
         Instruction::StoreMulFpImm { .. } => store_mul_fp_imm,
         Instruction::StoreDivFpFp { .. } => store_div_fp_fp,

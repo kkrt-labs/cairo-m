@@ -78,6 +78,15 @@ pub struct DataAccess {
     pub value: M31,
 }
 
+/// A contiguous range inside the global access log corresponding to memory accesses for a single instruction.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct AccessSpan {
+    /// Start index in the global access log
+    pub start: u32,
+    /// Number of entries in this step
+    pub len: u16,
+}
+
 /// Represents an instruction memory access.
 ///
 /// Same as DataAccess but since instruction accesses are only reads, prev_value
@@ -109,8 +118,8 @@ pub struct ExecutionBundle {
     pub clock: M31,
     /// The instruction memory access
     pub instruction: InstructionAccess,
-    /// Data memory accesses for operands (up to 3 per instruction)
-    pub operands: [Option<DataAccess>; 5],
+    /// Span into the global access log for this step's data memory accesses
+    pub access_span: AccessSpan,
 }
 
 impl Default for ExecutionBundle {
@@ -122,7 +131,7 @@ impl Default for ExecutionBundle {
                 instruction: Instruction::Ret {},
                 prev_clock: M31::zero(),
             },
-            operands: [None, None, None, None, None],
+            access_span: AccessSpan { start: 0, len: 0 },
         }
     }
 }
@@ -194,6 +203,8 @@ pub struct Memory {
     pub final_memory: HashMap<M31, (QM31, M31, M31)>,
     /// Clock update data for handling large time gaps: (addr, clock, value)
     pub clock_update_data: Vec<(M31, M31, QM31)>,
+    /// Global data memory access log for the whole execution
+    pub access_log: Vec<DataAccess>,
 }
 
 /// Iterator that converts runner execution traces into prover execution bundles.
@@ -348,9 +359,11 @@ where
         // Step 4: Process operand memory accesses based on instruction's opcode
         // The number and type of memory accesses depends on the instruction
         let num_operands = instruction.memory_accesses();
-        let mut operands: [Option<DataAccess>; 5] = [None, None, None, None, None];
 
-        for operand_slot in operands.iter_mut().take(num_operands) {
+        // Track the contiguous span in the global access log for this step
+        let start_idx = self.memory.access_log.len() as u32;
+
+        for _i in 0..num_operands {
             // Get the data type for this operand based on the instruction's opcode
             // Single M31 value for Felt operands
             let operand_memory = match self.memory_iter.next() {
@@ -373,14 +386,20 @@ where
                 value: operand_arg.value.0 .0,
             };
 
-            *operand_slot = Some(data_access);
+            // Append to the global access log
+            self.memory.access_log.push(data_access);
         }
+
+        let access_span = AccessSpan {
+            start: start_idx,
+            len: (self.memory.access_log.len() as u32 - start_idx) as u16,
+        };
 
         let bundle = ExecutionBundle {
             registers,
             clock: self.clock.into(),
             instruction: instruction_access,
-            operands,
+            access_span,
         };
 
         self.clock += 1;
@@ -412,7 +431,13 @@ impl Memory {
             initial_memory: initial_memory_hashmap.clone(),
             final_memory: initial_memory_hashmap,
             clock_update_data: Vec::new(),
+            access_log: Vec::new(),
         }
+    }
+
+    /// Takes ownership of the global access log, leaving an empty one in place.
+    pub fn take_access_log(&mut self) -> Vec<DataAccess> {
+        std::mem::take(&mut self.access_log)
     }
 
     /// Updates multiplicities for public address ranges based on their usage patterns

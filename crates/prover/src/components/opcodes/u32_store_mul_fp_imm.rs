@@ -103,9 +103,11 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::DataAccess;
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
+use crate::utils::access_log::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -169,6 +171,7 @@ impl Claim {
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
+        data_accesses: &[DataAccess],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -221,16 +224,16 @@ impl Claim {
                 let dst_off = input.inst_value_4;
 
                 // Operand 0 (u32) comes from two separate memory reads
-                let op0_val_lo = input.mem1_value;
-                let op0_prev_lo_clock = input.mem1_prev_clock;
-                let op0_val_hi = input.mem2_value;
-                let op0_prev_hi_clock = input.mem2_prev_clock;
+                let op0_prev_lo_clock = get_prev_clock(input, data_accesses, 0);
+                let op0_val_lo = get_value(input, data_accesses, 0);
+                let op0_prev_hi_clock = get_prev_clock(input, data_accesses, 1);
+                let op0_val_hi = get_value(input, data_accesses, 1);
 
                 // Destination (u32) previous values and clocks for each limb
-                let dst_prev_val_lo = input.mem3_prev_value;
-                let dst_prev_lo_clock = input.mem3_prev_clock;
-                let dst_prev_val_hi = input.mem4_prev_value;
-                let dst_prev_hi_clock = input.mem4_prev_clock;
+                let dst_prev_lo_clock = get_prev_clock(input, data_accesses, 2);
+                let dst_prev_val_lo = get_prev_value(input, data_accesses, 2);
+                let dst_prev_hi_clock = get_prev_clock(input, data_accesses, 3);
+                let dst_prev_val_hi = get_prev_value(input, data_accesses, 3);
 
                 // Compute products: p0 = op0_lo * imm_lo, p1 = op0_hi * imm_lo, p2 = op0_lo * imm_hi
                 // Each product is a 32-bit value that needs to be decomposed into two 16-bit limbs

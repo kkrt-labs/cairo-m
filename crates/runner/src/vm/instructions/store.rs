@@ -329,7 +329,7 @@ pub fn store_fp_imm(
     state: State,
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    let (imm, dst_off) = extract_as!(instruction, StoreFpImm, (imm, dst_off));
+    let (imm, dst_off) = extract_as!(instruction, StoreFramePointer, (imm, dst_off));
     let value = state.fp + imm;
     memory.insert(state.fp + dst_off, value.into())?;
 

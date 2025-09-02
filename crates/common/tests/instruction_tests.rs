@@ -664,11 +664,11 @@ fn test_try_from_smallvec() {
         ),
         (
             smallvec![M31::from(43), M31::from(5), M31::from(7)],
-            Instruction::StoreFpImm {
+            Instruction::StoreFramePointer {
                 imm: M31::from(5),
                 dst_off: M31::from(7),
             },
-            "StoreFpImm instruction",
+            "StoreFramePointer instruction",
         ),
         (
             smallvec![M31::from(44), M31::from(9), M31::from(7), M31::from(5)],

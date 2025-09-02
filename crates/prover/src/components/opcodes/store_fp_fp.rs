@@ -89,9 +89,11 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::DataAccess;
 use crate::adapter::ExecutionBundle;
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
+use crate::utils::access_log::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
@@ -147,6 +149,7 @@ impl Claim {
     /// after being packed into SIMD-friendly format.
     pub fn write_trace<MC: MerkleChannel>(
         inputs: &mut Vec<ExecutionBundle>,
+        data_accesses: &[DataAccess],
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -165,16 +168,18 @@ impl Claim {
             .par_chunks_exact(N_LANES)
             .map(|chunk| {
                 let array: [ExecutionBundle; N_LANES] = chunk.try_into().unwrap();
+
                 let op1_inverses = PackedM31::from_array(array.map(|x| {
-                    x.operands[1]
-                        .and_then(|operand| {
-                            if operand.value != M31::zero() {
-                                Some(operand.value.inverse())
-                            } else {
-                                None
-                            }
-                        })
-                        .unwrap_or_else(M31::zero)
+                    let mem_access_start = x.access_span.start as usize;
+                    let mem_access_len = x.access_span.len as usize;
+                    let a = &data_accesses[mem_access_start..mem_access_start + mem_access_len];
+                    let default_access = DataAccess::default();
+                    let x_op_1 = a.get(1).unwrap_or(&default_access).value;
+                    if x_op_1 != M31::zero() {
+                        x_op_1.inverse()
+                    } else {
+                        M31::zero()
+                    }
                 }));
                 let opcode_flag_0 = PackedM31::from_array(array.map(|x| {
                     let opcode = x.instruction.instruction.opcode_value();
@@ -232,14 +237,16 @@ impl Claim {
                     let off0 = input.inst_value_1;
                     let off1 = input.inst_value_2;
                     let off2 = input.inst_value_3;
-                    let op0_prev_clock = input.mem1_prev_clock;
-                    let op0_val = input.mem1_value;
-                    let op1_prev_clock = input.mem2_prev_clock;
-                    let op1_val = input.mem2_value;
+
+                    let op0_prev_clock = get_prev_clock(input, data_accesses, 0);
+                    let op0_val = get_value(input, data_accesses, 0);
+                    let op1_prev_clock = get_prev_clock(input, data_accesses, 1);
+                    let op1_val = get_value(input, data_accesses, 1);
+                    let dst_prev_clock = get_prev_clock(input, data_accesses, 2);
+                    let dst_prev_val = get_prev_value(input, data_accesses, 2);
+                    let dst_val = get_value(input, data_accesses, 2);
+
                     let op1_inv = *op1_inverses;
-                    let dst_prev_clock = input.mem3_prev_clock;
-                    let dst_prev_val = input.mem3_prev_value;
-                    let dst_val = input.mem3_value;
                     let prod = op0_val * op1_val;
                     let div = op0_val * *op1_inverses;
 

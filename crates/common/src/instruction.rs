@@ -402,7 +402,7 @@ instructions! {
         dst_off: (OperandType::Memory(DataType::Felt)),
     };
     // [fp + dst_off] = fp + imm
-    StoreFpImm = 43 {
+    StoreFramePointer = 43 {
         imm: (OperandType::Immediate),
         dst_off: (OperandType::Memory(DataType::Felt)),
     };

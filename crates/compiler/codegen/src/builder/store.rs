@@ -15,7 +15,7 @@ impl super::CasmBuilder {
 
     /// Store `fp + base_off` into `[fp + dest_off]` with provided comment.
     pub(super) fn store_fp_plus_imm(&mut self, base_off: i32, dest_off: i32, comment: String) {
-        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreFpImm {
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreFramePointer {
             imm: M31::from(base_off),
             dst_off: M31::from(dest_off),
         })
@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
             b.instructions[0].inner_instr(),
-            &CasmInstr::StoreFpImm {
+            &CasmInstr::StoreFramePointer {
                 imm: M31::from(3),
                 dst_off: M31::from(7),
             }

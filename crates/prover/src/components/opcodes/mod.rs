@@ -40,6 +40,7 @@ macro_rules! define_opcodes {
 
             pub fn write_trace<MC: MerkleChannel>(
                 instructions: &mut Instructions,
+                data_accesses: &[DataAccess],
             ) -> (
                 Self,
                 impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
@@ -59,7 +60,7 @@ macro_rules! define_opcodes {
                     }
 
                     let (paste::paste! { [<$opcode _claim>] }, paste::paste! { [<$opcode _trace_raw>] }, paste::paste! { [<$opcode _interaction_claim_data>] }) =
-                        $opcode::Claim::write_trace(&mut grouped_states);
+                        $opcode::Claim::write_trace(&mut grouped_states, data_accesses);
                     let paste::paste! { [<$opcode _trace>] } = Box::new(paste::paste! { [<$opcode _trace_raw>] }.to_evals().into_iter());
                 )*
 
@@ -184,7 +185,7 @@ macro_rules! define_opcodes {
                     )*
                     // TODO: Add support for these opcodes
                     Instruction::StoreLowerThanFpImm { .. } => {},
-                    Instruction::StoreFpImm { .. } => {},
+                    Instruction::StoreFramePointer { .. } => {},
                     Instruction::StoreDoubleDerefFpFp { .. } => {},
                     Instruction::U32StoreAddFpFp { .. } => {},
                     Instruction::U32StoreSubFpFp { .. } => {},
@@ -228,6 +229,7 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::adapter::memory::DataAccess;
 use crate::adapter::Instructions;
 use crate::components::Relations;
 
