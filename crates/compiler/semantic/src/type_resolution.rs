@@ -803,6 +803,32 @@ pub fn expression_semantic_type<'db>(
                 }
             }
         }
+        Expression::ArrayRepeat { element, count } => {
+            // Context hint for element type if available
+            let element_hint = if let Some(context_type) = context_expected {
+                match context_type.data(db) {
+                    TypeData::FixedArray { element_type, .. } => Some(element_type),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+
+            // Infer element type with hint if present
+            let element_id = semantic_index
+                .expression_id_by_span(element.span())
+                .unwrap();
+            let inferred_element_type =
+                expression_semantic_type(db, crate_id, file, element_id, element_hint);
+
+            TypeId::new(
+                db,
+                TypeData::FixedArray {
+                    element_type: inferred_element_type,
+                    size: *count.value() as usize,
+                },
+            )
+        }
     }
 }
 

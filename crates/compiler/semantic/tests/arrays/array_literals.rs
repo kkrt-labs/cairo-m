@@ -26,6 +26,11 @@ fn test_array_literal_type_inference() {
             // Arrays with trailing comma
             in_function("let arr = [1, 2, 3,];"),
 
+            // Array repetition
+            in_function("let arr = [1; 10];"),
+            in_function("let arr: [felt; 3] = [1; 3];"),
+            in_function("let arr: [u32; 4] = [1u32; 4];"),
+
             ],
         err: [
                 // Mixed types in array literal
@@ -52,6 +57,10 @@ fn test_array_literal_type_inference() {
                 // Nested arrays (not supported yet)
             in_function("let arr = [[1, 2], [3, 4]];"),
             in_function("let arr: [[felt; 2]; 2] = [[1, 2], [3, 4]];"),
+
+                // Array repetition with type mismatch
+                in_function("let arr: [felt; 4] = [1u32; 4];"),
+                in_function("let arr: [u32; 5] = [1u32; 4];"),
         ]
     }
 }

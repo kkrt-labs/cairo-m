@@ -1,0 +1,207 @@
+---
+source: crates/compiler/parser/tests/common.rs
+expression: snapshot
+---
+--- Input 1 ---
+fn test() { let arr = [1; 3]; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Identifier(
+                                Spanned(
+                                    "arr",
+                                    16..19,
+                                ),
+                            ),
+                            statement_type: None,
+                            value: Spanned(
+                                ArrayRepeat {
+                                    element: Spanned(
+                                        Literal(
+                                            1,
+                                            None,
+                                        ),
+                                        23..24,
+                                    ),
+                                    count: Spanned(
+                                        3,
+                                        26..27,
+                                    ),
+                                },
+                                22..28,
+                            ),
+                        },
+                        12..29,
+                    ),
+                ],
+            },
+            0..31,
+        ),
+    ),
+]
+============================================================
+
+--- Input 2 ---
+fn test() { let arr: [felt; 3] = [1; 3]; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Identifier(
+                                Spanned(
+                                    "arr",
+                                    16..19,
+                                ),
+                            ),
+                            statement_type: Some(
+                                Spanned(
+                                    FixedArray {
+                                        element_type: Spanned(
+                                            Named(
+                                                Spanned(
+                                                    Felt,
+                                                    22..26,
+                                                ),
+                                            ),
+                                            22..26,
+                                        ),
+                                        size: Spanned(
+                                            3,
+                                            28..29,
+                                        ),
+                                    },
+                                    21..30,
+                                ),
+                            ),
+                            value: Spanned(
+                                ArrayRepeat {
+                                    element: Spanned(
+                                        Literal(
+                                            1,
+                                            None,
+                                        ),
+                                        34..35,
+                                    ),
+                                    count: Spanned(
+                                        3,
+                                        37..38,
+                                    ),
+                                },
+                                33..39,
+                            ),
+                        },
+                        12..40,
+                    ),
+                ],
+            },
+            0..42,
+        ),
+    ),
+]
+============================================================
+
+--- Input 3 ---
+fn test() { let arr: [u32; 4] = [1u32; 4]; }
+--- AST ---
+[
+    Function(
+        Spanned(
+            FunctionDef {
+                name: Spanned(
+                    "test",
+                    3..7,
+                ),
+                params: [],
+                return_type: Spanned(
+                    Tuple(
+                        [],
+                    ),
+                    0..0,
+                ),
+                body: [
+                    Spanned(
+                        Let {
+                            pattern: Identifier(
+                                Spanned(
+                                    "arr",
+                                    16..19,
+                                ),
+                            ),
+                            statement_type: Some(
+                                Spanned(
+                                    FixedArray {
+                                        element_type: Spanned(
+                                            Named(
+                                                Spanned(
+                                                    U32,
+                                                    22..25,
+                                                ),
+                                            ),
+                                            22..25,
+                                        ),
+                                        size: Spanned(
+                                            4,
+                                            27..28,
+                                        ),
+                                    },
+                                    21..29,
+                                ),
+                            ),
+                            value: Spanned(
+                                ArrayRepeat {
+                                    element: Spanned(
+                                        Literal(
+                                            1,
+                                            Some(
+                                                "u32",
+                                            ),
+                                        ),
+                                        33..37,
+                                    ),
+                                    count: Spanned(
+                                        4,
+                                        39..40,
+                                    ),
+                                },
+                                32..41,
+                            ),
+                        },
+                        12..42,
+                    ),
+                ],
+            },
+            0..44,
+        ),
+    ),
+]

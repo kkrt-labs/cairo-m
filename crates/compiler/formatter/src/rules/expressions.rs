@@ -90,6 +90,13 @@ impl Format for Expression {
                     Doc::text("]"),
                 ])
             }
+            Self::ArrayRepeat { element, count } => Doc::concat(vec![
+                Doc::text("["),
+                element.value().format(ctx),
+                Doc::text("; "),
+                Doc::text(count.value().to_string()),
+                Doc::text("]"),
+            ]),
             Self::Cast { expr, target_type } => Doc::concat(vec![
                 expr.value().format(ctx),
                 Doc::text(" as "),

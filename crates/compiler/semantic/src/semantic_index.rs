@@ -1325,6 +1325,33 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                     }
                 }
             }
+            Expression::ArrayRepeat { element, count } => {
+                // If we have an array type hint with matching size, propagate element type
+                let element_type_hint =
+                    self.expected_type_hint
+                        .as_ref()
+                        .and_then(|hint| match hint.value() {
+                            TypeExpr::FixedArray { element_type, size }
+                                if *size.value() as usize == *count.value() as usize =>
+                            {
+                                Some(element_type.as_ref().clone())
+                            }
+                            _ => None,
+                        });
+
+                let elem_origin = Origin::ArrayElem {
+                    parent: expr_id,
+                    index: 0,
+                };
+
+                if let Some(elem_ty) = element_type_hint {
+                    self.with_expected_type(Some(elem_ty), |builder| {
+                        builder.visit_expr_with_origin(element, elem_origin);
+                    });
+                } else {
+                    self.visit_expr_with_origin(element, elem_origin);
+                }
+            }
             Expression::Cast {
                 expr,
                 target_type: _,
