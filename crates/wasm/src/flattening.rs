@@ -12,6 +12,8 @@ use wasmparser::Operator as Op;
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
 
+use stwo_prover::core::fields::m31::M31;
+
 #[derive(Error, Debug)]
 pub enum DagToMirError {
     #[error("Failed to load Wasm module: {0}")]
@@ -388,13 +390,15 @@ impl DagToMir {
                     // Convert WASM operation to MIR instruction
                     let mir_value =
                         self.convert_wasm_op_to_mir(node_idx, wasm_op, node, context)?;
-                    context.insert_value(
-                        ValueOrigin {
-                            node: node_idx,
-                            output_idx: 0,
-                        },
-                        mir_value,
-                    );
+                    if let Some(value_id) = mir_value {
+                        context.insert_value(
+                            ValueOrigin {
+                                node: node_idx,
+                                output_idx: 0,
+                            },
+                            value_id,
+                        );
+                    }
                 }
 
                 Operation::Label { id } => {
@@ -642,12 +646,12 @@ impl DagToMir {
         right: Value,
         dest_type: MirType,
         context: &mut DagToMirContext,
-    ) -> Result<ValueId, DagToMirError> {
+    ) -> Result<Option<ValueId>, DagToMirError> {
         let result_id = context.mir_function.new_typed_value_id(dest_type);
         let mir_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx, context)?;
         let instruction = Instruction::binary_op(mir_op, result_id, left, right);
         context.get_current_block()?.push_instruction(instruction);
-        Ok(result_id)
+        Ok(Some(result_id))
     }
 
     /// Convert a WASM operation to MIR instructions
@@ -657,7 +661,7 @@ impl DagToMir {
         wasm_op: &Op,
         node: &Node,
         context: &mut DagToMirContext,
-    ) -> Result<ValueId, DagToMirError> {
+    ) -> Result<Option<ValueId>, DagToMirError> {
         let inputs: Result<Vec<Value>, _> = node
             .inputs
             .iter()
@@ -728,7 +732,7 @@ impl DagToMir {
                 context.get_current_block()?.push_instruction(instruction1);
                 context.get_current_block()?.push_instruction(instruction2);
                 context.get_current_block()?.push_instruction(instruction3);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             // Zero comparison instruction, constructed by comparing the input to 0
@@ -742,7 +746,7 @@ impl DagToMir {
                     Value::integer(0),
                 );
                 context.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             // Assigning a constant to a variable
@@ -751,12 +755,78 @@ impl DagToMir {
                 let instruction =
                     Instruction::assign(result_id, Value::integer(*value as u32), MirType::U32);
                 context.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             // Local variable operations should be eliminated by WOMIR
             Op::LocalGet { .. } | Op::LocalSet { .. } | Op::LocalTee { .. } => {
                 unreachable!()
+            }
+
+            Op::I32Load { memarg, .. } => {
+                let base_address = inputs[0];
+                // temp1 = base_address / 2
+                let temp1 = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction1 =
+                    Instruction::binary_op(BinaryOp::Div, temp1, base_address, Value::integer(2));
+                context.get_current_block()?.push_instruction(instruction1);
+                // temp2 = temp1 as felt
+                let temp2 = context.mir_function.new_typed_value_id(MirType::Felt);
+                let instruction2 =
+                    Instruction::cast(temp2, Value::operand(temp1), MirType::U32, MirType::Felt);
+                context.get_current_block()?.push_instruction(instruction2);
+                // temp3 = - temp2
+                let temp3 = context.mir_function.new_typed_value_id(MirType::Felt);
+                let instruction3 = Instruction::binary_op(
+                    BinaryOp::Sub,
+                    temp3,
+                    Value::integer(1 << 30),
+                    Value::operand(temp2),
+                );
+                context.get_current_block()?.push_instruction(instruction3);
+
+                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction4 = Instruction::load(
+                    result_id,
+                    Value::operand(temp3),
+                    Value::integer(M31::from(-(memarg.offset as i32) / 4 - 1).0),
+                    MirType::U32,
+                );
+                context.get_current_block()?.push_instruction(instruction4);
+
+                Ok(Some(result_id))
+            }
+
+            Op::I32Store { memarg, .. } => {
+                let base_address = inputs[0];
+                // temp1 = base_address / 2
+                let temp1 = context.mir_function.new_typed_value_id(MirType::U32);
+                let instruction1 =
+                    Instruction::binary_op(BinaryOp::Div, temp1, base_address, Value::integer(2));
+                context.get_current_block()?.push_instruction(instruction1);
+                // temp2 = temp1 as felt
+                let temp2 = context.mir_function.new_typed_value_id(MirType::Felt);
+                let instruction2 =
+                    Instruction::cast(temp2, Value::operand(temp1), MirType::U32, MirType::Felt);
+                context.get_current_block()?.push_instruction(instruction2);
+                // temp3 = - temp2
+                let temp3 = context.mir_function.new_typed_value_id(MirType::Felt);
+                let instruction3 = Instruction::binary_op(
+                    BinaryOp::Sub,
+                    temp3,
+                    Value::integer(1 << 30),
+                    Value::operand(temp2),
+                );
+                context.get_current_block()?.push_instruction(instruction3);
+                let instruction4 = Instruction::store(
+                    Value::operand(temp3),
+                    Value::integer(M31::from(-(memarg.offset as i32 / 4) - 1).0),
+                    inputs[1],
+                    MirType::U32,
+                );
+                context.get_current_block()?.push_instruction(instruction4);
+
+                Ok(None)
             }
 
             Op::Call { function_index } => {
@@ -803,7 +873,7 @@ impl DagToMir {
 
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 context.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             _ => {
