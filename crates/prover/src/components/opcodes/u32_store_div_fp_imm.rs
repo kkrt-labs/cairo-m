@@ -16,12 +16,12 @@
 //! - dst_off
 //! - op0_val_lo (n_lo)
 //! - op0_val_hi (n_hi)
-//! - op0_prev_lo_clock
-//! - op0_prev_hi_clock
+//! - op0_prev_clock_lo_clock
+//! - op0_prev_clock_hi_clock
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - dst_prev_lo_clock
-//! - dst_prev_hi_clock
+//! - dst_prev_clock_lo_clock
+//! - dst_prev_clock_hi_clock
 //! - q_0
 //! - q_1
 //! - q_2
@@ -66,9 +66,9 @@
 //!   * `- [pc + 1, inst_prev_clk, dst_off] + [pc + 1, clk, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
-//!   * `- [fp + src_off, op0_prev_lo_clk, op0_val_lo] + [fp + src_off, clk, op0_val_lo]`
-//!   * `- [fp + src_off + 1, op0_prev_hi_clk, op0_val_hi] + [fp + src_off + 1, clk, op0_val_hi]`
-//!   * `- [clk - op0_prev_lo_clk - 1]` and `- [clk - op0_prev_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src_off, op0_prev_clock_lo_clk, op0_val_lo] + [fp + src_off, clk, op0_val_lo]`
+//!   * `- [fp + src_off + 1, op0_prev_clock_hi_clk, op0_val_hi] + [fp + src_off + 1, clk, op0_val_hi]`
+//!   * `- [clk - op0_prev_clock_lo_clk - 1]` and `- [clk - op0_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * prove that prod = q * d (u32 * u32 -> u64)
 //! * Note: 8 bit decomposition is to prevent overflow (MAX_u16 ** 2 > MAX_M31)
 //!   * `q_0 * d_0 - mul_carry_0 * 2 ** 8 - prod_0`
@@ -98,9 +98,9 @@
 //!   * `- [d_2 + d_3 * 2 ** 8 + sub_borrow_1 * 2 ** 16 - r_hi]` in `RangeCheck16` relation
 //!   * `sub_borrow_1`
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_lo_clk, dst_prev_val_lo] + [fp + dst_off, clk, q_0 + q_1 * 2 ** 8]` in `Memory` Relation
-//!   * `- [fp + dst_off + 1, dst_prev_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, q_2 + q_3 * 2 ** 8]` in `Memory` Relation
-//!   * `- [clk - dst_prev_lo_clk - 1]` and `- [clk - dst_prev_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + dst_off, dst_prev_clock_lo_clk, dst_prev_val_lo] + [fp + dst_off, clk, q_0 + q_1 * 2 ** 8]` in `Memory` Relation
+//!   * `- [fp + dst_off + 1, dst_prev_clock_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, q_2 + q_3 * 2 ** 8]` in `Memory` Relation
+//!   * `- [clk - dst_prev_clock_lo_clk - 1]` and `- [clk - dst_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * limbs of each U32 must be either in range [0, 2^16) or in range [0, 2^8)
 //!   * `- [n_lo]` in `RangeCheck16` relation
 //!   * `- [n_hi]` in `RangeCheck16` relation
@@ -276,14 +276,14 @@ impl Claim {
                 // Operand 0 (u32) comes from two separate memory reads
                 let n_lo = get_value(input, data_accesses, 0); // numerator low
                 let n_hi = get_value(input, data_accesses, 1); // numerator high
-                let op0_prev_lo_clock = get_prev_clock(input, data_accesses, 0);
-                let op0_prev_hi_clock = get_prev_clock(input, data_accesses, 1);
+                let op0_prev_clock_lo = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_clock_hi = get_prev_clock(input, data_accesses, 1);
 
                 // Destination (u32) previous values and clocks for each limb
                 let dst_prev_val_lo = get_prev_value(input, data_accesses, 2);
-                let dst_prev_lo_clock = get_prev_clock(input, data_accesses, 2);
                 let dst_prev_val_hi = get_prev_value(input, data_accesses, 3);
-                let dst_prev_hi_clock = get_prev_clock(input, data_accesses, 3);
+                let dst_prev_clock_lo = get_prev_clock(input, data_accesses, 2);
+                let dst_prev_clock_hi = get_prev_clock(input, data_accesses, 3);
 
                 // Decompose immediate (divisor) into 8-bit limbs: d = d_0 + d_1*2^8 + d_2*2^16 + d_3*2^24
                 let two_pow_8 = PackedM31::from(M31::from(1 << 8));
@@ -484,12 +484,12 @@ impl Claim {
                 *row[10] = dst_off;
                 *row[11] = n_lo; // op0_val_lo
                 *row[12] = n_hi; // op0_val_hi
-                *row[13] = op0_prev_lo_clock;
-                *row[14] = op0_prev_hi_clock;
+                *row[13] = op0_prev_clock_lo;
+                *row[14] = op0_prev_clock_hi;
                 *row[15] = dst_prev_val_lo;
                 *row[16] = dst_prev_val_hi;
-                *row[17] = dst_prev_lo_clock;
-                *row[18] = dst_prev_hi_clock;
+                *row[17] = dst_prev_clock_lo;
+                *row[18] = dst_prev_clock_hi;
                 *row[19] = q_0;
                 *row[20] = q_1;
                 *row[21] = q_2;
@@ -539,13 +539,13 @@ impl Claim {
                 *lookup_data.memory[3] = [input.pc + one, clock, dst_off, zero, zero, zero];
 
                 // Read op0_lo
-                *lookup_data.memory[4] = [fp + src_off, op0_prev_lo_clock, n_lo, zero, zero, zero];
+                *lookup_data.memory[4] = [fp + src_off, op0_prev_clock_lo, n_lo, zero, zero, zero];
                 *lookup_data.memory[5] = [fp + src_off, clock, n_lo, zero, zero, zero];
 
                 // Read op0_hi
                 *lookup_data.memory[6] = [
                     fp + src_off + one,
-                    op0_prev_hi_clock,
+                    op0_prev_clock_hi,
                     n_hi,
                     zero,
                     zero,
@@ -556,7 +556,7 @@ impl Claim {
                 // Write dst_lo
                 *lookup_data.memory[8] = [
                     fp + dst_off,
-                    dst_prev_lo_clock,
+                    dst_prev_clock_lo,
                     dst_prev_val_lo,
                     zero,
                     zero,
@@ -567,7 +567,7 @@ impl Claim {
                 // Write dst_hi
                 *lookup_data.memory[10] = [
                     fp + dst_off + one,
-                    dst_prev_hi_clock,
+                    dst_prev_clock_hi,
                     dst_prev_val_hi,
                     zero,
                     zero,
@@ -619,10 +619,10 @@ impl Claim {
                 *lookup_data.range_check_8[14] = m31_254 - mul_carry_6;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op0_prev_hi_clock - enabler;
-                *lookup_data.range_check_20[3] = clock - dst_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[4] = clock - dst_prev_hi_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi - enabler;
+                *lookup_data.range_check_20[3] = clock - dst_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[4] = clock - dst_prev_clock_hi - enabler;
             });
 
         (
@@ -851,12 +851,12 @@ impl FrameworkEval for Eval {
         let dst_off = eval.next_trace_mask();
         let n_lo = eval.next_trace_mask(); // op0_val_lo (numerator low)
         let n_hi = eval.next_trace_mask(); // op0_val_hi (numerator high)
-        let op0_prev_lo_clock = eval.next_trace_mask();
-        let op0_prev_hi_clock = eval.next_trace_mask();
+        let op0_prev_clock_lo = eval.next_trace_mask();
+        let op0_prev_clock_hi = eval.next_trace_mask();
         let dst_prev_val_lo = eval.next_trace_mask();
         let dst_prev_val_hi = eval.next_trace_mask();
-        let dst_prev_lo_clock = eval.next_trace_mask();
-        let dst_prev_hi_clock = eval.next_trace_mask();
+        let dst_prev_clock_lo = eval.next_trace_mask();
+        let dst_prev_clock_hi = eval.next_trace_mask();
         let q_0 = eval.next_trace_mask(); // quotient limb 0
         let q_1 = eval.next_trace_mask(); // quotient limb 1
         let q_2 = eval.next_trace_mask(); // quotient limb 2
@@ -1078,7 +1078,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src_off.clone(),
-                op0_prev_lo_clock.clone(),
+                op0_prev_clock_lo.clone(),
                 n_lo.clone(),
             ],
         ));
@@ -1094,7 +1094,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src_off.clone() + one.clone(),
-                op0_prev_hi_clock.clone(),
+                op0_prev_clock_hi.clone(),
                 n_hi.clone(),
             ],
         ));
@@ -1114,7 +1114,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone(),
-                dst_prev_lo_clock.clone(),
+                dst_prev_clock_lo.clone(),
                 dst_prev_val_lo,
             ],
         ));
@@ -1130,7 +1130,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone() + one.clone(),
-                dst_prev_hi_clock.clone(),
+                dst_prev_clock_hi.clone(),
                 dst_prev_val_hi,
             ],
         ));
@@ -1149,22 +1149,22 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_lo_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_hi_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_hi - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - dst_prev_lo_clock - enabler.clone()],
+            &[clock.clone() - dst_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - dst_prev_hi_clock - enabler],
+            &[clock - dst_prev_clock_hi - enabler],
         ));
 
         // Range checks for 8-bit values (d_i, q_i)

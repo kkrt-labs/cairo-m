@@ -13,12 +13,12 @@
 //! - dst_off
 //! - op0_val_lo
 //! - op0_val_hi
-//! - op0_prev_lo_clock
-//! - op0_prev_hi_clock
+//! - op0_prev_clock_lo_clock
+//! - op0_prev_clock_hi_clock
 //! - op1_val_lo
 //! - op1_val_hi
-//! - op1_prev_lo_clock
-//! - op1_prev_hi_clock
+//! - op1_prev_clock_lo_clock
+//! - op1_prev_clock_hi_clock
 //! - dst_prev_val
 //! - dst_prev_clock
 //! - borrow_lo
@@ -37,13 +37,13 @@
 //!   * `- [pc, inst_prev_clk, opcode_constant, src0_off, src1_off, dst_off] + [pc, clk, opcode_constant, src0_off, src1_off, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
-//!   * `- [fp + src0_off, op0_prev_lo_clk, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
-//!   * `- [fp + src0_off + 1, op0_prev_hi_clk, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
-//!   * `- [clk - op0_prev_lo_clk - 1]` and `- [clk - op0_prev_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src0_off, op0_prev_clock_lo_clk, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
+//!   * `- [fp + src0_off + 1, op0_prev_clock_hi_clk, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
+//!   * `- [clk - op0_prev_clock_lo_clk - 1]` and `- [clk - op0_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * read op1
-//!   * `- [fp + src1_off, op1_prev_lo_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
-//!   * `- [fp + src1_off + 1, op1_prev_hi_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
-//!   * `- [clk - op1_prev_lo_clk - 1]` and `- [clk - op1_prev_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src1_off, op1_prev_clock_lo_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
+//!   * `- [fp + src1_off + 1, op1_prev_clock_hi_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
+//!   * `- [clk - op1_prev_clock_lo_clk - 1]` and `- [clk - op1_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * perform u32 subtraction op1 - 1 - op0
 //!   * `- [op1_val_lo - 1 + borrow_lo * 2 ** 16 - op0_val_lo]` in `RangeCheck16` relation
 //!   * `- [op1_val_hi - borrow_lo + borrow_hi * 2 ** 16 - op0_val_hi]` in `RangeCheck16` relation
@@ -202,15 +202,15 @@ impl Claim {
 
                 // Operand 0 (u32) comes from two separate memory reads
                 let op0_val_lo = get_value(input, data_accesses, 0);
-                let op0_prev_lo_clock = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_clock_lo_clock = get_prev_clock(input, data_accesses, 0);
                 let op0_val_hi = get_value(input, data_accesses, 1);
-                let op0_prev_hi_clock = get_prev_clock(input, data_accesses, 1);
+                let op0_prev_clock_hi_clock = get_prev_clock(input, data_accesses, 1);
 
                 // Operand 1 (u32) comes from two separate memory reads
                 let op1_val_lo = get_value(input, data_accesses, 2);
-                let op1_prev_lo_clock = get_prev_clock(input, data_accesses, 2);
+                let op1_prev_clock_lo_clock = get_prev_clock(input, data_accesses, 2);
                 let op1_val_hi = get_value(input, data_accesses, 3);
-                let op1_prev_hi_clock = get_prev_clock(input, data_accesses, 3);
+                let op1_prev_clock_hi_clock = get_prev_clock(input, data_accesses, 3);
 
                 // Destination is a single felt value
                 let dst_prev_val = get_prev_value(input, data_accesses, 4);
@@ -263,12 +263,12 @@ impl Claim {
                 *row[7] = dst_off;
                 *row[8] = op0_val_lo;
                 *row[9] = op0_val_hi;
-                *row[10] = op0_prev_lo_clock;
-                *row[11] = op0_prev_hi_clock;
+                *row[10] = op0_prev_clock_lo_clock;
+                *row[11] = op0_prev_clock_hi_clock;
                 *row[12] = op1_val_lo;
                 *row[13] = op1_val_hi;
-                *row[14] = op1_prev_lo_clock;
-                *row[15] = op1_prev_hi_clock;
+                *row[14] = op1_prev_clock_lo_clock;
+                *row[15] = op1_prev_clock_hi_clock;
                 *row[16] = dst_prev_val;
                 *row[17] = dst_prev_clock;
                 *row[18] = borrow_lo;
@@ -298,7 +298,7 @@ impl Claim {
                 // Read op0_lo
                 *lookup_data.memory[2] = [
                     fp + src0_off,
-                    op0_prev_lo_clock,
+                    op0_prev_clock_lo_clock,
                     op0_val_lo,
                     zero,
                     zero,
@@ -309,7 +309,7 @@ impl Claim {
                 // Read op0_hi
                 *lookup_data.memory[4] = [
                     fp + src0_off + one,
-                    op0_prev_hi_clock,
+                    op0_prev_clock_hi_clock,
                     op0_val_hi,
                     zero,
                     zero,
@@ -320,7 +320,7 @@ impl Claim {
                 // Read op1_lo
                 *lookup_data.memory[6] = [
                     fp + src1_off,
-                    op1_prev_lo_clock,
+                    op1_prev_clock_lo_clock,
                     op1_val_lo,
                     zero,
                     zero,
@@ -331,7 +331,7 @@ impl Claim {
                 // Read op1_hi
                 *lookup_data.memory[8] = [
                     fp + src1_off + one,
-                    op1_prev_hi_clock,
+                    op1_prev_clock_hi_clock,
                     op1_val_hi,
                     zero,
                     zero,
@@ -356,10 +356,10 @@ impl Claim {
                     op1_val_hi - borrow_lo + borrow_hi * two_pow_16 - op0_val_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op0_prev_hi_clock - enabler;
-                *lookup_data.range_check_20[3] = clock - op1_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[4] = clock - op1_prev_hi_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo_clock - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi_clock - enabler;
+                *lookup_data.range_check_20[3] = clock - op1_prev_clock_lo_clock - enabler;
+                *lookup_data.range_check_20[4] = clock - op1_prev_clock_hi_clock - enabler;
                 *lookup_data.range_check_20[5] = clock - dst_prev_clock - enabler;
             });
 
@@ -561,12 +561,12 @@ impl FrameworkEval for Eval {
         let dst_off = eval.next_trace_mask();
         let op0_val_lo = eval.next_trace_mask();
         let op0_val_hi = eval.next_trace_mask();
-        let op0_prev_lo_clock = eval.next_trace_mask();
-        let op0_prev_hi_clock = eval.next_trace_mask();
+        let op0_prev_clock_lo_clock = eval.next_trace_mask();
+        let op0_prev_clock_hi_clock = eval.next_trace_mask();
         let op1_val_lo = eval.next_trace_mask();
         let op1_val_hi = eval.next_trace_mask();
-        let op1_prev_lo_clock = eval.next_trace_mask();
-        let op1_prev_hi_clock = eval.next_trace_mask();
+        let op1_prev_clock_lo_clock = eval.next_trace_mask();
+        let op1_prev_clock_hi_clock = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let borrow_lo = eval.next_trace_mask();
@@ -625,7 +625,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone(),
-                op0_prev_lo_clock.clone(),
+                op0_prev_clock_lo_clock.clone(),
                 op0_val_lo.clone(),
             ],
         ));
@@ -645,7 +645,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone() + one.clone(),
-                op0_prev_hi_clock.clone(),
+                op0_prev_clock_hi_clock.clone(),
                 op0_val_hi.clone(),
             ],
         ));
@@ -665,7 +665,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src1_off.clone(),
-                op1_prev_lo_clock.clone(),
+                op1_prev_clock_lo_clock.clone(),
                 op1_val_lo.clone(),
             ],
         ));
@@ -685,7 +685,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src1_off.clone() + one.clone(),
-                op1_prev_hi_clock.clone(),
+                op1_prev_clock_hi_clock.clone(),
                 op1_val_hi.clone(),
             ],
         ));
@@ -756,22 +756,22 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_lo_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_lo_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_hi_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_hi_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op1_prev_lo_clock - enabler.clone()],
+            &[clock.clone() - op1_prev_clock_lo_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op1_prev_hi_clock - enabler.clone()],
+            &[clock.clone() - op1_prev_clock_hi_clock - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
