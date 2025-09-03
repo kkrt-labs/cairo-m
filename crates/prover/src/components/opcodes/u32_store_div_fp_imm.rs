@@ -16,12 +16,12 @@
 //! - dst_off
 //! - op0_val_lo (n_lo)
 //! - op0_val_hi (n_hi)
-//! - op0_prev_clock_lo_clock
-//! - op0_prev_clock_hi_clock
+//! - op0_prev_clock_lo
+//! - op0_prev_clock_hi
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - dst_prev_clock_lo_clock
-//! - dst_prev_clock_hi_clock
+//! - dst_prev_clock_lo
+//! - dst_prev_clock_hi
 //! - q_0
 //! - q_1
 //! - q_2
@@ -70,24 +70,23 @@
 //!   * `- [fp + src_off + 1, op0_prev_clock_hi_clk, op0_val_hi] + [fp + src_off + 1, clk, op0_val_hi]`
 //!   * `- [clk - op0_prev_clock_lo_clk - 1]` and `- [clk - op0_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * prove that prod = q * d (u32 * u32 -> u64)
-//! * Note: 8 bit decomposition is to prevent overflow (MAX_u16 ** 2 > MAX_M31)
-//!   * `q_0 * d_0 - mul_carry_0 * 2 ** 8 - prod_0`
-//!   * `q_0 * d_1 + q_1 * d_0 + mul_carry_0 - mul_carry_1 * 2 ** 8 - prod_1`
-//!   * `q_0 * d_2 + q_2 * d_0 + q_1 * d_1 + mul_carry_1 - mul_carry_2 * 2 ** 8 - prod_2`
-//!   * `q_0 * d_3 + q_3 * d_0 + q_1 * d_2 + q_2 * d_1 + mul_carry_2 - mul_carry_3 * 2 ** 8 - prod_3`
-//!   * `q_1 * d_3 + q_3 * d_1 + q_2 * d_2 + mul_carry_3 - mul_carry_4 * 2 ** 8 - prod_4`
-//!   * `q_2 * d_3 + q_3 * d_2 + mul_carry_4 - mul_carry_5 * 2 ** 8 - prod_5`
-//!   * `q_3 * d_3 + mul_carry_5 - mul_carry_6 * 2 ** 8 - prod_6`
-//!   * `mul_carry_6 - prod_7`
-//!   * NOTE: 254 is the max value of a carry for u8 mul (MAX_u8 = 255): MAX_u8 * MAX_u8 = 254 * 2 ** 8 + 1
-//!   * `- [254 - mul_carry_0]` in `RangeCheck8` relation
-//!   * `- [254 - mul_carry_1]` in `RangeCheck8` relation
-//!   * `- [254 - mul_carry_2]` in `RangeCheck8` relation
-//!   * `- [254 - mul_carry_3]` in `RangeCheck8` relation
-//!   * `- [254 - mul_carry_4]` in `RangeCheck8` relation
-//!   * `- [254 - mul_carry_5]` in `RangeCheck8` relation
-//!   * `- [254 - mul_carry_6]` in `RangeCheck8` relation
-//! * prove that n = prod + r (there is no risk of overflow so we can switch back to 16 bits limbs)
+//!   * `prod_0 - (q_0 * d_0 - mul_carry_0 * 2 ** 8)`
+//!   * `prod_1 - (q_0 * d_1 + q_1 * d_0 + mul_carry_0 - mul_carry_1 * 2 ** 8)`
+//!   * `prod_2 - (q_0 * d_2 + q_2 * d_0 + q_1 * d_1 + mul_carry_1 - mul_carry_2 * 2 ** 8)`
+//!   * `prod_3 - (q_0 * d_3 + q_3 * d_0 + q_1 * d_2 + q_2 * d_1 + mul_carry_2 - mul_carry_3 * 2 ** 8)`
+//!   * `prod_4 - (q_1 * d_3 + q_3 * d_1 + q_2 * d_2 + mul_carry_3 - mul_carry_4 * 2 ** 8)`
+//!   * `prod_5 - (q_2 * d_3 + q_3 * d_2 + mul_carry_4 - mul_carry_5 * 2 ** 8)`
+//!   * `prod_6 - (q_3 * d_3 + mul_carry_5 - mul_carry_6 * 2 ** 8)`
+//!   * `prod_7 - mul_carry_6`
+//! * carry limbs must be in the correct range
+//!   * `- [254 - mul_carry_0]` in `RangeCheck16` relation
+//!   * `- [509 - mul_carry_1]` in `RangeCheck16` relation
+//!   * `- [764 - mul_carry_2]` in `RangeCheck16` relation
+//!   * `- [1019 - mul_carry_3]` in `RangeCheck16` relation
+//!   * `- [1274 - mul_carry_4]` in `RangeCheck16` relation
+//!   * `- [512 - mul_carry_5]` in `RangeCheck16` relation
+//!   * `- [256 - mul_carry_6]` in `RangeCheck16` relation
+//! * prove that n = prod + r
 //!   * `n_lo - (prod_0 + prod_1 * 2 ** 8 + r_lo - add_carry_0 * 2 ** 16)`
 //!   * `n_hi - (prod_2 + prod_3 * 2 ** 8 + r_hi + add_carry_0 - add_carry_1 * 2 ** 16)`
 //!   * `(prod_4 + prod_5 * 2 ** 8 + add_carry_1 - add_carry_2 * 2 ** 16)`
@@ -102,8 +101,6 @@
 //!   * `- [fp + dst_off + 1, dst_prev_clock_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, q_2 + q_3 * 2 ** 8]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clock_lo_clk - 1]` and `- [clk - dst_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * limbs of each U32 must be either in range [0, 2^16) or in range [0, 2^8)
-//!   * `- [n_lo]` in `RangeCheck16` relation
-//!   * `- [n_hi]` in `RangeCheck16` relation
 //!   * `- [d_0]` in `RangeCheck8` relation
 //!   * `- [d_1]` in `RangeCheck8` relation
 //!   * `- [d_2]` in `RangeCheck8` relation
@@ -112,14 +109,16 @@
 //!   * `- [q_1]` in `RangeCheck8` relation
 //!   * `- [q_2]` in `RangeCheck8` relation
 //!   * `- [q_3]` in `RangeCheck8` relation
-//!   * `- [prod_0]` in `RangeCheck16` relation
-//!   * `- [prod_1]` in `RangeCheck16` relation
-//!   * `- [prod_2]` in `RangeCheck16` relation
-//!   * `- [prod_3]` in `RangeCheck16` relation
-//!   * `- [prod_4]` in `RangeCheck16` relation
-//!   * `- [prod_5]` in `RangeCheck16` relation
-//!   * `- [prod_6]` in `RangeCheck16` relation
-//!   * `- [prod_7]` in `RangeCheck16` relation
+//!   * `- [prod_0]` in `RangeCheck8` relation
+//!   * `- [prod_1]` in `RangeCheck8` relation
+//!   * `- [prod_2]` in `RangeCheck8` relation
+//!   * `- [prod_3]` in `RangeCheck8` relation
+//!   * `- [prod_4]` in `RangeCheck8` relation
+//!   * `- [prod_5]` in `RangeCheck8` relation
+//!   * `- [prod_6]` in `RangeCheck8` relation
+//!   * `- [prod_7]` in `RangeCheck8` relation
+//!   * `- [n_lo]` in `RangeCheck16` relation
+//!   * `- [n_hi]` in `RangeCheck16` relation
 //!   * `- [r_lo]` in `RangeCheck16` relation
 //!   * `- [r_hi]` in `RangeCheck16` relation
 
@@ -158,9 +157,24 @@ use crate::utils::execution_bundle::PackedExecutionBundle;
 const N_TRACE_COLUMNS: usize = 46;
 const N_MEMORY_LOOKUPS: usize = 12;
 const N_REGISTERS_LOOKUPS: usize = 2;
+const N_RANGE_CHECK_8_LOOKUPS: usize = 16;
+const N_RANGE_CHECK_16_LOOKUPS: usize = 13;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
-const N_RANGE_CHECK_8_LOOKUPS: usize = 15;
-const N_RANGE_CHECK_16_LOOKUPS: usize = 14;
+
+// 1 * (255 * 255) = 254 * 2^8 + 1
+// 2 * (255 * 255) + 254 = 509 * 2^8
+// 3 * (255 * 255) + 509 = 764 * 2^8
+// 4 * (255 * 255) + 764 = 1019 * 2^8
+// 3 * (255 * 255) + 1019 = 765 * 2^8 + 254
+// 2 * (255 * 255) + 765 = 510 * 2^8 + 255
+// 1 * (255 * 255) + 510 = 255 * 2^8 + 255
+const MAX_CARRY_0: u32 = 254;
+const MAX_CARRY_1: u32 = 509;
+const MAX_CARRY_2: u32 = 764;
+const MAX_CARRY_3: u32 = 1019;
+const MAX_CARRY_4: u32 = 765;
+const MAX_CARRY_5: u32 = 510;
+const MAX_CARRY_6: u32 = 255;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_MEMORY_LOOKUPS
@@ -297,56 +311,67 @@ impl Claim {
                 let (d_0, d_1) = decompose_8(imm_lo);
                 let (d_2, d_3) = decompose_8(imm_hi);
 
-                // Perform actual U32 division to get quotient and remainder
-                let d_u32 = imm_lo + imm_hi * two_pow_16;
-                let n_u32 = n_lo + n_hi * two_pow_16;
-
                 // Compute quotient and remainder
-                let (q_u32, r_u32) = (
-                    PackedM31::from_array(
-                        n_u32
-                            .to_array()
-                            .iter()
-                            .zip(d_u32.to_array().iter())
-                            .map(|(n, d)| {
-                                if d.0 == 0 {
-                                    M31::zero()
-                                } else {
-                                    M31::from(n.0 / d.0)
-                                }
-                            })
-                            .collect::<Vec<_>>()
-                            .try_into()
-                            .unwrap(),
-                    ),
-                    PackedM31::from_array(
-                        n_u32
-                            .to_array()
-                            .iter()
-                            .zip(d_u32.to_array().iter())
-                            .map(|(n, d)| {
-                                if d.0 == 0 {
-                                    M31::from(n.0)
-                                } else {
-                                    M31::from(n.0 % d.0)
-                                }
-                            })
-                            .collect::<Vec<_>>()
-                            .try_into()
-                            .unwrap(),
-                    ),
+                let n_lo_array = n_lo.to_array();
+                let n_hi_array = n_hi.to_array();
+                let imm_lo_array = imm_lo.to_array();
+                let imm_hi_array = imm_hi.to_array();
+
+                // Convert to u32 iterators and perform euclidean division
+                let n_u32_iter = n_lo_array
+                    .iter()
+                    .zip(n_hi_array.iter())
+                    .map(|(lo, hi)| (lo.0 | (hi.0 << 16)));
+                let d_u32_iter = imm_lo_array
+                    .iter()
+                    .zip(imm_hi_array.iter())
+                    .map(|(lo, hi)| (lo.0 | (hi.0 << 16)));
+                let q_r_u32_iter =
+                    n_u32_iter.zip(d_u32_iter).map(
+                        |(n, d)| {
+                            if d == 0 {
+                                (0, 0)
+                            } else {
+                                (n / d, n % d)
+                            }
+                        },
+                    );
+
+                // Convert quotient and remainder back to PackedM31
+                let q_lo = PackedM31::from_array(
+                    q_r_u32_iter
+                        .clone()
+                        .map(|(q, _)| M31::from(q & 0xFFFF))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let q_hi = PackedM31::from_array(
+                    q_r_u32_iter
+                        .clone()
+                        .map(|(q, _)| M31::from(q >> 16))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let r_lo = PackedM31::from_array(
+                    q_r_u32_iter
+                        .clone()
+                        .map(|(_, r)| M31::from(r & 0xFFFF))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let r_hi = PackedM31::from_array(
+                    q_r_u32_iter
+                        .map(|(_, r)| M31::from(r >> 16))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                 );
 
-                // Decompose quotient and remainder into 8-bit and 16-bit limbs
-                let decompose_16 = |val: PackedM31| -> (PackedM31, PackedM31) {
-                    let lo = PackedM31::from_array(val.to_array().map(|x| M31::from(x.0 & 0xFFFF)));
-                    let hi = PackedM31::from_array(val.to_array().map(|x| M31::from(x.0 >> 16)));
-                    (lo, hi)
-                };
-                let (q_lo, q_hi) = decompose_16(q_u32);
                 let (q_0, q_1) = decompose_8(q_lo);
                 let (q_2, q_3) = decompose_8(q_hi);
-                let (r_lo, r_hi) = decompose_16(r_u32);
 
                 // Compute multiplication products for verification: q * d
                 // Using 8-bit limbs to prevent overflow
@@ -576,29 +601,7 @@ impl Claim {
                 *lookup_data.memory[11] = [fp + dst_off + one, clock, res_hi, zero, zero, zero];
 
                 // Range checks as specified in the AIR
-                // 16-bit range checks
-                *lookup_data.range_check_16[0] = n_lo;
-                *lookup_data.range_check_16[1] = n_hi;
-                *lookup_data.range_check_16[2] = prod_0;
-                *lookup_data.range_check_16[3] = prod_1;
-                *lookup_data.range_check_16[4] = prod_2;
-                *lookup_data.range_check_16[5] = prod_3;
-                *lookup_data.range_check_16[6] = prod_4;
-                *lookup_data.range_check_16[7] = prod_5;
-                *lookup_data.range_check_16[8] = prod_6;
-                *lookup_data.range_check_16[9] = prod_7;
-                *lookup_data.range_check_16[10] = r_lo;
-                *lookup_data.range_check_16[11] = r_hi;
-
-                let sub_check_lo = d_0 + d_1 * two_pow_8 + sub_borrow_0 * two_pow_16 - r_lo - one;
-                let sub_check_hi =
-                    d_2 + d_3 * two_pow_8 + sub_borrow_1 * two_pow_16 - r_hi - sub_borrow_0;
-                *lookup_data.range_check_16[12] = sub_check_lo;
-                *lookup_data.range_check_16[13] = sub_check_hi;
-
                 // 8-bit range checks
-                // For the subtraction checks d - r - 1
-
                 *lookup_data.range_check_8[0] = d_0;
                 *lookup_data.range_check_8[1] = d_1;
                 *lookup_data.range_check_8[2] = d_2;
@@ -607,16 +610,43 @@ impl Claim {
                 *lookup_data.range_check_8[5] = q_1;
                 *lookup_data.range_check_8[6] = q_2;
                 *lookup_data.range_check_8[7] = q_3;
+                *lookup_data.range_check_8[8] = prod_0;
+                *lookup_data.range_check_8[9] = prod_1;
+                *lookup_data.range_check_8[10] = prod_2;
+                *lookup_data.range_check_8[11] = prod_3;
+                *lookup_data.range_check_8[12] = prod_4;
+                *lookup_data.range_check_8[13] = prod_5;
+                *lookup_data.range_check_8[14] = prod_6;
+                *lookup_data.range_check_8[15] = prod_7;
 
-                // For mul_carry values, we need 254 - mul_carry_i to ensure they're in [0, 254]
-                let m31_254 = PackedM31::from(M31::from(254));
-                *lookup_data.range_check_8[8] = m31_254 - mul_carry_0;
-                *lookup_data.range_check_8[9] = m31_254 - mul_carry_1;
-                *lookup_data.range_check_8[10] = m31_254 - mul_carry_2;
-                *lookup_data.range_check_8[11] = m31_254 - mul_carry_3;
-                *lookup_data.range_check_8[12] = m31_254 - mul_carry_4;
-                *lookup_data.range_check_8[13] = m31_254 - mul_carry_5;
-                *lookup_data.range_check_8[14] = m31_254 - mul_carry_6;
+                // 16-bit range checks
+                *lookup_data.range_check_16[0] = n_lo;
+                *lookup_data.range_check_16[1] = n_hi;
+                *lookup_data.range_check_16[2] = r_lo;
+                *lookup_data.range_check_16[3] = r_hi;
+
+                // Carry limbs must be in the correct range
+                let max_carry_0 = PackedM31::from(M31::from(MAX_CARRY_0));
+                let max_carry_1 = PackedM31::from(M31::from(MAX_CARRY_1));
+                let max_carry_2 = PackedM31::from(M31::from(MAX_CARRY_2));
+                let max_carry_3 = PackedM31::from(M31::from(MAX_CARRY_3));
+                let max_carry_4 = PackedM31::from(M31::from(MAX_CARRY_4));
+                let max_carry_5 = PackedM31::from(M31::from(MAX_CARRY_5));
+                let max_carry_6 = PackedM31::from(M31::from(MAX_CARRY_6));
+                *lookup_data.range_check_16[4] = max_carry_0 - mul_carry_0;
+                *lookup_data.range_check_16[5] = max_carry_1 - mul_carry_1;
+                *lookup_data.range_check_16[6] = max_carry_2 - mul_carry_2;
+                *lookup_data.range_check_16[7] = max_carry_3 - mul_carry_3;
+                *lookup_data.range_check_16[8] = max_carry_4 - mul_carry_4;
+                *lookup_data.range_check_16[9] = max_carry_5 - mul_carry_5;
+                *lookup_data.range_check_16[10] = max_carry_6 - mul_carry_6;
+
+                // Subtraction checks for r < d
+                let sub_check_lo = d_0 + d_1 * two_pow_8 + sub_borrow_0 * two_pow_16 - r_lo - one;
+                let sub_check_hi =
+                    d_2 + d_3 * two_pow_8 + sub_borrow_1 * two_pow_16 - r_hi - sub_borrow_0;
+                *lookup_data.range_check_16[11] = sub_check_lo;
+                *lookup_data.range_check_16[12] = sub_check_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo - enabler;
@@ -702,74 +732,13 @@ impl InteractionClaim {
             col.finalize_col();
         }
 
-        // Range checks 20
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[0],
-            &interaction_claim_data.lookup_data.range_check_20[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, val1, val2))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
-                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
-
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[2],
-            &interaction_claim_data.lookup_data.range_check_20[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, val1, val2))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
-                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
-
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[4],
-            &interaction_claim_data.lookup_data.range_check_8[0],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, val1, val2))| {
-                let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
-                let denom_1: PackedQM31 = relations.range_check_8.combine(&[*val2]);
-
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
         // Range checks 8
         for i in 0..N_RANGE_CHECK_8_LOOKUPS / 2 {
             let mut col = interaction_trace.new_col();
             (
                 col.par_iter_mut(),
-                &interaction_claim_data.lookup_data.range_check_8[1 + 2 * i],
-                &interaction_claim_data.lookup_data.range_check_8[1 + 2 * i + 1],
+                &interaction_claim_data.lookup_data.range_check_8[2 * i],
+                &interaction_claim_data.lookup_data.range_check_8[2 * i + 1],
             )
                 .into_par_iter()
                 .enumerate()
@@ -811,6 +780,67 @@ impl InteractionClaim {
             col.finalize_col();
         }
 
+        // Range checks 20
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_16[12],
+            &interaction_claim_data.lookup_data.range_check_20[0],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, val1, val2))| {
+                let num = -PackedQM31::one();
+                let denom_0: PackedQM31 = relations.range_check_16.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[1],
+            &interaction_claim_data.lookup_data.range_check_20[2],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, val1, val2))| {
+                let num = -PackedQM31::one();
+                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[3],
+            &interaction_claim_data.lookup_data.range_check_20[4],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, val1, val2))| {
+                let num = -PackedQM31::one();
+                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         (Self { claimed_sum }, trace)
     }
@@ -834,7 +864,6 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let two_pow_8 = E::F::from(M31::from(1 << 8));
         let two_pow_16 = E::F::from(M31::from(1 << 16));
-        let m31_254 = E::F::from(M31::from(254));
         let opcode_constant = E::F::from(M31::from(U32_STORE_DIV_FP_IMM));
 
         // 46 columns
@@ -1140,6 +1169,106 @@ impl FrameworkEval for Eval {
             &[fp + dst_off + one, clock.clone(), res_hi],
         ));
 
+        // Range checks for 8-bit values (d_i, q_i, prod_i)
+        for val in &[d_0, d_1, d_2, d_3, q_0, q_1, q_2, q_3] {
+            eval.add_to_relation(RelationEntry::new(
+                &self.relations.range_check_8,
+                -E::EF::one(),
+                &[val.clone()],
+            ));
+        }
+
+        // Range checks for product limbs (8-bit)
+        for prod in &[
+            prod_0, prod_1, prod_2, prod_3, prod_4, prod_5, prod_6, prod_7,
+        ] {
+            eval.add_to_relation(RelationEntry::new(
+                &self.relations.range_check_8,
+                -E::EF::one(),
+                &[prod.clone()],
+            ));
+        }
+
+        // Range check 16 for all 16-bit limbs
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[n_lo],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[n_hi],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[r_lo],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[r_hi],
+        ));
+
+        // Range checks for mul_carry values using RangeCheck16
+        let max_carry_0 = E::F::from(M31::from(MAX_CARRY_0));
+        let max_carry_1 = E::F::from(M31::from(MAX_CARRY_1));
+        let max_carry_2 = E::F::from(M31::from(MAX_CARRY_2));
+        let max_carry_3 = E::F::from(M31::from(MAX_CARRY_3));
+        let max_carry_4 = E::F::from(M31::from(MAX_CARRY_4));
+        let max_carry_5 = E::F::from(M31::from(MAX_CARRY_5));
+        let max_carry_6 = E::F::from(M31::from(MAX_CARRY_6));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_0 - mul_carry_0],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_1 - mul_carry_1],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_2 - mul_carry_2],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_3 - mul_carry_3],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_4 - mul_carry_4],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_5 - mul_carry_5],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_6 - mul_carry_6],
+        ));
+
+        // Range checks for subtraction verification: d - r - 1
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[sub_check_lo],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[sub_check_hi],
+        ));
+
         // Range check 20
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
@@ -1165,78 +1294,6 @@ impl FrameworkEval for Eval {
             &self.relations.range_check_20,
             -E::EF::one(),
             &[clock - dst_prev_clock_hi - enabler],
-        ));
-
-        // Range checks for 8-bit values (d_i, q_i)
-        for val in &[d_0, d_1, d_2, d_3, q_0, q_1, q_2, q_3] {
-            eval.add_to_relation(RelationEntry::new(
-                &self.relations.range_check_8,
-                -E::EF::one(),
-                &[val.clone()],
-            ));
-        } // #30.5
-
-        // Range checks for mul_carry values: 254 - mul_carry_i
-        for carry in &[
-            mul_carry_0,
-            mul_carry_1,
-            mul_carry_2,
-            mul_carry_3,
-            mul_carry_4,
-            mul_carry_5,
-            mul_carry_6,
-        ] {
-            eval.add_to_relation(RelationEntry::new(
-                &self.relations.range_check_8,
-                -E::EF::one(),
-                &[m31_254.clone() - carry.clone()],
-            ));
-        } // #34
-
-        // Range check 16 for all 16-bit limbs
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_16,
-            -E::EF::one(),
-            &[n_lo],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_16,
-            -E::EF::one(),
-            &[n_hi],
-        )); // #35
-
-        // Range checks for product limbs
-        for prod in &[
-            prod_0, prod_1, prod_2, prod_3, prod_4, prod_5, prod_6, prod_7,
-        ] {
-            eval.add_to_relation(RelationEntry::new(
-                &self.relations.range_check_16,
-                -E::EF::one(),
-                &[prod.clone()],
-            ));
-        } // #39
-
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_16,
-            -E::EF::one(),
-            &[r_lo],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_16,
-            -E::EF::one(),
-            &[r_hi],
-        )); // #40
-
-        // Range checks for subtraction verification: d - r - 1
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_16,
-            -E::EF::one(),
-            &[sub_check_lo],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_16,
-            -E::EF::one(),
-            &[sub_check_hi],
         ));
 
         eval.finalize_logup_in_pairs();

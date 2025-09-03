@@ -17,11 +17,15 @@
 //! - op1_val_lo
 //! - op1_val_hi
 //! - op1_prev_clock
-//! - diff_inv
+//! - diff_inv_lo
+//! - diff_inv_hi
+//! - is_eq_lo
+//! - is_eq_prod
 //!
 //! # Constraints
 //!
-//! diff = op1_val_lo + op1_val_hi * 2^16 - op0_val_lo - op0_val_hi * 2^16
+//! diff_lo = op1_val_lo - op0_val_lo
+//! diff_hi = op1_val_hi - op0_val_hi
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * registers update is regular
@@ -37,12 +41,20 @@
 //!   * `- [fp + src1_off, op1_prev_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
 //!   * `- [fp + src1_off + 1, op1_prev_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
 //!   * `- [clk - op1_prev_clk - 1]` in `RangeCheck20` relation
-//! * diff_inv is the inverse of diff or diff is 0
-//!   * `- diff * (diff_inv * diff - 1)`
-//! * diff_inv is the inverse of diff or diff_inv is 0
-//!   * `- diff_inv * (diff_inv * diff - 1)`
+//! * diff_inv_lo is the inverse of diff_lo or diff_lo is 0
+//!   * `- diff_lo * (diff_inv_lo * diff_lo - 1)`
+//! * diff_inv_lo is the inverse of diff_lo or diff_lo is 0
+//!   * `- diff_lo * (diff_inv_lo * diff_lo - 1)`
+//! * diff_inv_hi is the inverse of diff_hi or diff_hi is 0
+//!   * `- diff_hi * (diff_inv_hi * diff_hi - 1)`
+//! * diff_inv_hi is the inverse of diff_hi or diff_hi is 0
+//!   * `- diff_hi * (diff_inv_hi * diff_hi - 1)`
+//! * is_eq_lo is 1 if diff_lo is 0, 0 otherwise
+//!   * `- is_eq_lo - (1 - diff_lo * diff_inv_lo)`
+//! * is_eq_prod is the product of is_eq_lo and is_eq_hi
+//!   * `- is_eq_prod - is_eq_lo * (1 - diff_hi * diff_inv_hi)`
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, one - diff * diff_inv]` in `Memory` Relation
+//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, is_eq_prod]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 //! * limbs of each U32 must be in range [0, 2^16)
 //!   * `- [op0_val_lo]` in `RangeCheck16` relation
@@ -82,7 +94,7 @@ use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 19;
+const N_TRACE_COLUMNS: usize = 22;
 const N_MEMORY_LOOKUPS: usize = 12;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 6;
@@ -172,7 +184,6 @@ impl Claim {
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
-        let two_pow_16 = PackedM31::from(M31::from(1 << 16));
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -206,15 +217,29 @@ impl Claim {
                 let dst_prev_val = get_prev_value(input, data_accesses, 4);
                 let dst_prev_clock = get_prev_clock(input, data_accesses, 4);
 
-                let diff =
-                    op1_val_lo + op1_val_hi * two_pow_16 - op0_val_lo - op0_val_hi * two_pow_16;
-                let diff_inv = PackedM31::from_array(diff.to_array().map(|x| {
+                // Compute differences for each limb
+                let diff_lo = op1_val_lo - op0_val_lo;
+                let diff_hi = op1_val_hi - op0_val_hi;
+
+                // Compute inverses (or zero if diff is zero)
+                let diff_inv_lo = PackedM31::from_array(diff_lo.to_array().map(|x| {
                     if x.0 != 0 {
                         x.inverse()
                     } else {
                         M31::zero()
                     }
                 }));
+                let diff_inv_hi = PackedM31::from_array(diff_hi.to_array().map(|x| {
+                    if x.0 != 0 {
+                        x.inverse()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+
+                // Compute equality indicators
+                let is_eq_lo = one - diff_lo * diff_inv_lo;
+                let is_eq_prod = is_eq_lo * (one - diff_hi * diff_inv_hi);
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -234,7 +259,10 @@ impl Claim {
                 *row[15] = op1_prev_clock_hi;
                 *row[16] = dst_prev_val;
                 *row[17] = dst_prev_clock;
-                *row[18] = diff_inv;
+                *row[18] = diff_inv_lo;
+                *row[19] = diff_inv_hi;
+                *row[20] = is_eq_lo;
+                *row[21] = is_eq_prod;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -304,8 +332,7 @@ impl Claim {
                 // Write dst
                 *lookup_data.memory[10] =
                     [fp + dst_off, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[11] =
-                    [fp + dst_off, clock, one - diff * diff_inv, zero, zero, zero];
+                *lookup_data.memory[11] = [fp + dst_off, clock, is_eq_prod, zero, zero, zero];
 
                 // Range checks for U32 limbs
                 *lookup_data.range_check_16[0] = op0_val_lo;
@@ -469,10 +496,9 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let two_pow_16 = E::F::from(M31::from(1 << 16));
         let opcode_constant = E::F::from(M31::from(U32_STORE_EQ_FP_FP));
 
-        // 19 columns
+        // 22 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -491,20 +517,33 @@ impl FrameworkEval for Eval {
         let op1_prev_clock_hi = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
-        let diff_inv = eval.next_trace_mask();
+        let diff_inv_lo = eval.next_trace_mask();
+        let diff_inv_hi = eval.next_trace_mask();
+        let is_eq_lo = eval.next_trace_mask();
+        let is_eq_prod = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        let diff = op1_val_lo.clone() + op1_val_hi.clone() * two_pow_16.clone()
-            - op0_val_lo.clone()
-            - op0_val_hi.clone() * two_pow_16;
+        // Calculate differences
+        let diff_lo = op1_val_lo.clone() - op0_val_lo.clone();
+        let diff_hi = op1_val_hi.clone() - op0_val_hi.clone();
 
-        // diff_inv is the inverse of diff or diff is 0
-        eval.add_constraint(diff.clone() * (diff_inv.clone() * diff.clone() - one.clone()));
+        // diff_inv_lo is the inverse of diff_lo or diff_lo is 0
+        eval.add_constraint(
+            diff_lo.clone() * (diff_inv_lo.clone() * diff_lo.clone() - one.clone()),
+        );
 
-        // diff_inv is the inverse of diff or diff_inv is 0
-        eval.add_constraint(diff_inv.clone() * (diff_inv.clone() * diff.clone() - one.clone()));
+        // diff_inv_hi is the inverse of diff_hi or diff_hi is 0
+        eval.add_constraint(
+            diff_hi.clone() * (diff_inv_hi.clone() * diff_hi.clone() - one.clone()),
+        );
+
+        // is_eq_lo is 1 if diff_lo is 0, 0 otherwise
+        eval.add_constraint(is_eq_lo.clone() - (one.clone() - diff_lo * diff_inv_lo));
+
+        // is_eq_prod is the product of is_eq_lo and is_eq_hi
+        eval.add_constraint(is_eq_prod.clone() - is_eq_lo * (one.clone() - diff_hi * diff_inv_hi));
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -618,7 +657,7 @@ impl FrameworkEval for Eval {
             &self.relations.memory,
             E::EF::from(enabler.clone()),
             &[
-                fp.clone() + src1_off + one.clone(),
+                fp.clone() + src1_off + one,
                 clock.clone(),
                 op1_val_hi.clone(),
             ],
@@ -637,7 +676,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + dst_off, clock.clone(), one - diff * diff_inv],
+            &[fp + dst_off, clock.clone(), is_eq_prod],
         ));
 
         // Range check 16

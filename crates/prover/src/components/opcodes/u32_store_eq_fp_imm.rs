@@ -15,11 +15,15 @@
 //! - op0_val_lo
 //! - op0_val_hi
 //! - op0_prev_clock
-//! - diff_inv
+//! - diff_inv_lo
+//! - diff_inv_hi
+//! - is_eq_lo
+//! - is_eq_prod
 //!
 //! # Constraints
 //!
-//! diff = op0_val_lo + op0_val_hi * 2^16 - imm_lo - imm_hi * 2^16
+//! diff_lo = op1_val_lo - op0_val_lo
+//! diff_hi = op1_val_hi - op0_val_hi
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * registers update is regular
@@ -32,18 +36,21 @@
 //!   * `- [fp + src0_off, op0_prev_clk, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
 //!   * `- [fp + src0_off + 1, op0_prev_clk, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
 //!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
-//! * diff_inv is the inverse of diff or diff is 0
-//!   * `- diff * (diff_inv * diff - 1)`
-//! * diff_inv is the inverse of diff or diff_inv is 0
-//!   * `- diff_inv * (diff_inv * diff - 1)`
+//! * diff_inv_lo is the inverse of diff_lo or diff_lo is 0
+//!   * `- diff_lo * (diff_inv_lo * diff_lo - 1)`
+//! * diff_inv_lo is the inverse of diff_lo or diff_lo is 0
+//!   * `- diff_lo * (diff_inv_lo * diff_lo - 1)`
+//! * diff_inv_hi is the inverse of diff_hi or diff_hi is 0
+//!   * `- diff_hi * (diff_inv_hi * diff_hi - 1)`
+//! * diff_inv_hi is the inverse of diff_hi or diff_hi is 0
+//!   * `- diff_hi * (diff_inv_hi * diff_hi - 1)`
+//! * is_eq_lo is 1 if diff_lo is 0, 0 otherwise
+//!   * `- is_eq_lo - (1 - diff_lo * diff_inv_lo)`
+//! * is_eq_prod is the product of is_eq_lo and is_eq_hi
+//!   * `- is_eq_prod - is_eq_lo * (1 - diff_hi * diff_inv_hi)`
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, one - diff * diff_inv]` in `Memory` Relation
+//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, is_eq_prod]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
-//! * limbs of each U32 must be in range [0, 2^16)
-//!   * `- [op0_val_lo]` in `RangeCheck16` relation
-//!   * `- [op0_val_hi]` in `RangeCheck16` relation
-//!   * `- [imm_lo]` in `RangeCheck16` relation
-//!   * `- [imm_hi]` in `RangeCheck16` relation
 
 use cairo_m_common::instruction::U32_STORE_EQ_FP_IMM;
 use num_traits::{One, Zero};
@@ -191,8 +198,8 @@ impl Claim {
 
                 let op0_val_lo = get_value(input, data_accesses, 0);
                 let op0_val_hi = get_value(input, data_accesses, 1);
-                let op0_prev_clock_lo_clock = get_prev_clock(input, data_accesses, 0);
-                let op0_prev_clock_hi_clock = get_prev_clock(input, data_accesses, 1);
+                let op0_prev_clock_lo = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_clock_hi = get_prev_clock(input, data_accesses, 1);
 
                 let dst_prev_val = get_prev_value(input, data_accesses, 2);
                 let dst_prev_clock = get_prev_clock(input, data_accesses, 2);
@@ -217,8 +224,8 @@ impl Claim {
                 *row[8] = dst_off;
                 *row[9] = op0_val_lo;
                 *row[10] = op0_val_hi;
-                *row[11] = op0_prev_clock_lo_clock;
-                *row[12] = op0_prev_clock_hi_clock;
+                *row[11] = op0_prev_clock_lo;
+                *row[12] = op0_prev_clock_hi;
                 *row[13] = dst_prev_val;
                 *row[14] = dst_prev_clock;
                 *row[15] = diff_inv;
@@ -244,7 +251,7 @@ impl Claim {
                 // Read op0_lo
                 *lookup_data.memory[4] = [
                     fp + src0_off,
-                    op0_prev_clock_lo_clock,
+                    op0_prev_clock_lo,
                     op0_val_lo,
                     zero,
                     zero,
@@ -255,7 +262,7 @@ impl Claim {
                 // Read op0_hi
                 *lookup_data.memory[6] = [
                     fp + src0_off + one,
-                    op0_prev_clock_hi_clock,
+                    op0_prev_clock_hi,
                     op0_val_hi,
                     zero,
                     zero,
@@ -276,8 +283,8 @@ impl Claim {
                 *lookup_data.range_check_16[3] = imm_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi - enabler;
                 *lookup_data.range_check_20[3] = clock - dst_prev_clock - enabler;
             });
 
@@ -443,8 +450,8 @@ impl FrameworkEval for Eval {
         let dst_off = eval.next_trace_mask();
         let op0_val_lo = eval.next_trace_mask();
         let op0_val_hi = eval.next_trace_mask();
-        let op0_prev_clock_lo_clock = eval.next_trace_mask();
-        let op0_prev_clock_hi_clock = eval.next_trace_mask();
+        let op0_prev_clock_lo = eval.next_trace_mask();
+        let op0_prev_clock_hi = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let diff_inv = eval.next_trace_mask();
@@ -517,7 +524,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone(),
-                op0_prev_clock_lo_clock.clone(),
+                op0_prev_clock_lo.clone(),
                 op0_val_lo.clone(),
             ],
         ));
@@ -537,7 +544,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone() + one.clone(),
-                op0_prev_clock_hi_clock.clone(),
+                op0_prev_clock_hi.clone(),
                 op0_val_hi.clone(),
             ],
         ));
@@ -598,12 +605,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock_lo_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock_hi_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_hi - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,

@@ -13,8 +13,8 @@
 //! - dst_off
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - dst_prev_clock_lo_clock
-//! - dst_prev_clock_hi_clock
+//! - dst_prev_clock_lo
+//! - dst_prev_clock_hi
 //!
 //! # Constraints
 //!
@@ -177,9 +177,9 @@ impl Claim {
                 let imm_hi = input.inst_value_2;
                 let dst_off = input.inst_value_3;
 
-                let dst_prev_clock_lo_clock = get_prev_clock(input, data_accesses, 0);
+                let dst_prev_clock_lo = get_prev_clock(input, data_accesses, 0);
                 let dst_prev_val_lo = get_prev_value(input, data_accesses, 0);
-                let dst_prev_clock_hi_clock = get_prev_clock(input, data_accesses, 1);
+                let dst_prev_clock_hi = get_prev_clock(input, data_accesses, 1);
                 let dst_prev_val_hi = get_prev_value(input, data_accesses, 1);
 
                 *row[0] = enabler;
@@ -192,8 +192,8 @@ impl Claim {
                 *row[7] = dst_off;
                 *row[8] = dst_prev_val_lo;
                 *row[9] = dst_prev_val_hi;
-                *row[10] = dst_prev_clock_lo_clock;
-                *row[11] = dst_prev_clock_hi_clock;
+                *row[10] = dst_prev_clock_lo;
+                *row[11] = dst_prev_clock_hi;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -213,7 +213,7 @@ impl Claim {
                 // Write dst_lo
                 *lookup_data.memory[2] = [
                     fp + dst_off,
-                    dst_prev_clock_lo_clock,
+                    dst_prev_clock_lo,
                     dst_prev_val_lo,
                     zero,
                     zero,
@@ -224,7 +224,7 @@ impl Claim {
                 // Write dst_hi
                 *lookup_data.memory[4] = [
                     fp + dst_off + one,
-                    dst_prev_clock_hi_clock,
+                    dst_prev_clock_hi,
                     dst_prev_val_hi,
                     zero,
                     zero,
@@ -237,8 +237,8 @@ impl Claim {
                 *lookup_data.range_check_16[1] = imm_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - dst_prev_clock_lo_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - dst_prev_clock_hi_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - dst_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[2] = clock - dst_prev_clock_hi - enabler;
             });
 
         (
@@ -445,9 +445,9 @@ impl FrameworkEval for Eval {
         let imm_hi = eval.next_trace_mask();
         let dst_off = eval.next_trace_mask();
         let dst_prev_val_lo = eval.next_trace_mask();
-        let dst_prev_clock_lo_clock = eval.next_trace_mask();
         let dst_prev_val_hi = eval.next_trace_mask();
-        let dst_prev_clock_hi_clock = eval.next_trace_mask();
+        let dst_prev_clock_lo = eval.next_trace_mask();
+        let dst_prev_clock_hi = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
@@ -496,7 +496,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone(),
-                dst_prev_clock_lo_clock.clone(),
+                dst_prev_clock_lo.clone(),
                 dst_prev_val_lo,
             ],
         ));
@@ -512,7 +512,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone() + one.clone(),
-                dst_prev_clock_hi_clock.clone(),
+                dst_prev_clock_hi.clone(),
                 dst_prev_val_hi,
             ],
         ));
@@ -543,12 +543,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - dst_prev_clock_lo_clock - enabler.clone()],
+            &[clock.clone() - dst_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - dst_prev_clock_hi_clock - enabler],
+            &[clock - dst_prev_clock_hi - enabler],
         ));
 
         eval.finalize_logup_in_pairs();
