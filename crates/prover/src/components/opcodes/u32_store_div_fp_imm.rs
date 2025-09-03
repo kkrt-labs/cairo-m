@@ -165,16 +165,16 @@ const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
 // 2 * (255 * 255) + 254 = 509 * 2^8
 // 3 * (255 * 255) + 509 = 764 * 2^8
 // 4 * (255 * 255) + 764 = 1019 * 2^8
-// 3 * (255 * 255) + 1019 = 1274 * 2^8
-// 2 * (255 * 255) + 1274 = 512 * 2^8 + 252
-// 1 * (255 * 255) + 512 = 256 * 2^8 + 1
+// 3 * (255 * 255) + 1019 = 765 * 2^8 + 254
+// 2 * (255 * 255) + 765 = 510 * 2^8 + 255
+// 1 * (255 * 255) + 510 = 255 * 2^8 + 255
 const MAX_CARRY_0: u32 = 254;
 const MAX_CARRY_1: u32 = 509;
 const MAX_CARRY_2: u32 = 764;
 const MAX_CARRY_3: u32 = 1019;
-const MAX_CARRY_4: u32 = 1274;
-const MAX_CARRY_5: u32 = 512;
-const MAX_CARRY_6: u32 = 256;
+const MAX_CARRY_4: u32 = 765;
+const MAX_CARRY_5: u32 = 510;
+const MAX_CARRY_6: u32 = 255;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_MEMORY_LOOKUPS
