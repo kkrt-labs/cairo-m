@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756889155992,
+  "lastUpdate": 1756892660687,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1536,6 +1536,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2377219109,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cdf0ddbe3ac8c1ba3dcbe30f72838ba3cef78d4d",
+          "message": "feat(prover): add tests for u32 arithmetics and fix bugs (#290)\n\n* bug: fix u32_store_imm on 2 limbs\n\n* bug: fix u32_store_mul_fp_imm by removing 16bit limbs\n\n* bug: remove 16bit limb addition in u32_store_eq_fp_fp/imm\n\n* feat: add range_check for mul carry in div, added tests\n\n* remove old u32 tests\n\n* fix carries in u32_store_div\n\n* rebase\n\n* typo",
+          "timestamp": "2025-09-03T12:27:18+03:00",
+          "tree_id": "6397fe2fd60b2909f7fd062449e95ef90b3249dd",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/cdf0ddbe3ac8c1ba3dcbe30f72838ba3cef78d4d"
+        },
+        "date": 1756892660622,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2377236656,
             "unit": "bytes"
           }
         ]
