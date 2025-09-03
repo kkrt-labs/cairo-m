@@ -560,17 +560,17 @@ instructions! {
     // Reverse double deref operations - store TO computed addresses
     // [[fp + base_off] + imm] = [fp + src_off]
     StoreToDoubleDerefFpImm = 44 {
-        src_off: (OperandType::Memory(DataType::Felt)),
-        imm: (OperandType::Immediate),
         base_off: (OperandType::Memory(DataType::Felt)),
+        imm: (OperandType::Immediate),
+        src_off: (OperandType::Memory(DataType::Felt)),
     }, implicit_operands: [
         (OperandType::Memory(DataType::Felt)),
     ];
     // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
     StoreToDoubleDerefFpFp = 45 {
-        src_off: (OperandType::Memory(DataType::Felt)),
         base_off: (OperandType::Memory(DataType::Felt)),
         offset_off: (OperandType::Memory(DataType::Felt)),
+        src_off: (OperandType::Memory(DataType::Felt)),
     }, implicit_operands: [
         (OperandType::Memory(DataType::Felt)),
     ];

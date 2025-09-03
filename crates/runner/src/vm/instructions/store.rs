@@ -228,12 +228,11 @@ pub fn store_double_deref_fp_fp(
         StoreDoubleDerefFpFp,
         (base_off, offset_off, dst_off)
     );
+    // Get the base pointer from memory at [fp + base_off]
+    let base_address = memory.get_data(state.fp + base_off)?;
 
     // Get the offset value from memory at [fp + offset_off]
     let offset_value = memory.get_data(state.fp + offset_off)?;
-
-    // Get the base pointer from memory at [fp + base_off]
-    let base_address = memory.get_data(state.fp + base_off)?;
 
     // Calculate the final address: base_address + offset_value
     let final_address = base_address + offset_value;
@@ -269,8 +268,8 @@ pub fn store_to_double_deref_fp_imm(
         (base_off, imm, src_off)
     );
 
-    let value = memory.get_data(state.fp + src_off)?;
     let base_address = memory.get_data(state.fp + base_off)?;
+    let value = memory.get_data(state.fp + src_off)?;
     let target_address = base_address + imm;
     memory.insert(target_address, value.into())?;
 
@@ -295,9 +294,9 @@ pub fn store_to_double_deref_fp_fp(
         (base_off, offset_off, src_off)
     );
 
-    let value = memory.get_data(state.fp + src_off)?;
-    let offset_value = memory.get_data(state.fp + offset_off)?;
     let base_addr = memory.get_data(state.fp + base_off)?;
+    let offset_value = memory.get_data(state.fp + offset_off)?;
+    let value = memory.get_data(state.fp + src_off)?;
 
     let target_address = base_addr + offset_value;
     memory.insert(target_address, value.into())?;

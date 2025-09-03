@@ -1,5 +1,6 @@
-//! This component is used to prove the StoreDoubleDerefFp opcode.
-//! [fp + off2] = [[fp + off0] + off1]
+//! This component is used to prove the StoreToDoubleDerefFpFp and StoreDoubleDerefFpFp opcodes:
+//! * [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+//! * [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
 //!
 //! # Columns
 //!
@@ -8,36 +9,49 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
+//! - opcode_constant
 //! - off0
 //! - off1
 //! - off2
-//! - op0_prev_clock
-//! - op0_val
-//! - op0_deref_prev_clock
-//! - op0_deref_val
-//! - dst_prev_clock
-//! - dst_prev_val
+//! - val0
+//! - prev_clock0
+//! - val1
+//! - prev_clock1
+//! - addr2
+//! - val2
+//! - prev_clock2
+//! - addr3
+//! - prev_val3
+//! - prev_clock3
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * write_lhs is a bool
+//!   * let write_lhs = (opcode_constant - STORE_DOUBLE_DEREF_FP_FP) * delta_inv
+//!   * `write_lhs * (1 - write_lhs)`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
-//! * read op0
-//!   * `- [fp + off0, op0_prev_clk, op0_val] + [fp + off0, clk, op0_val]` in `Memory` relation
-//!   * `- [clk - op0_prev_clk - 1]` in `RangeCheck20` relation
-//! * read [op0 + off1]
-//!   * `- [op0_val + off1, op0_deref_prev_clk, op0_deref_val] + [op0_val + off1, clk, op0_deref_val]` in `Memory` relation
-//!   * `- [clk - op0_deref_prev_clk - 1]` in `RangeCheck20` relation
-//! * write dst in [fp + off2]
-//!   * `- [fp + off2, dst_prev_clk, dst_prev_val] + [fp + off2, clk, op0_deref_val]` in `Memory` Relation
-//!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
+//! * read val0
+//!   * `- [fp + off0, prev_clock0, val0] + [fp + off0, clk, val0]` in `Memory` relation
+//!   * `- [clk - prev_clock0 - 1]` in `RangeCheck20` relation
+//! * read val1
+//!   * `- [fp + off1, prev_clock1, val1] + [fp + off1, clk, val1]` in `Memory` relation
+//!   * `- [clk - prev_clock1 - 1]` in `RangeCheck20` relation
+//! * read val2
+//!   * `addr2 - write_lhs * (fp + off2) - (1 - write_lhs) * (val0 + val1)`
+//!   * `- [addr2, prev_clock2, val2] + [addr2, clk, val2]` in `Memory` relation
+//!   * `- [clk - prev_clock2 - 1]` in `RangeCheck20` relation
+//! * write val2
+//!   * `addr3 - write_lhs * (val0 + val1) - (1 - write_lhs) * (fp + off2)`
+//!   * `- [addr3, prev_clock3, prev_val3] + [addr3, clk, val2]` in `Memory` relation
+//!   * `- [clk - prev_clock3 - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::instruction::STORE_DOUBLE_DEREF_FP;
+use cairo_m_common::instruction::{STORE_DOUBLE_DEREF_FP_FP, STORE_TO_DOUBLE_DEREF_FP_FP};
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -70,10 +84,10 @@ use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 14;
-const N_MEMORY_LOOKUPS: usize = 8;
+const N_TRACE_COLUMNS: usize = 19;
+const N_MEMORY_LOOKUPS: usize = 10;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 4;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_MEMORY_LOOKUPS + N_REGISTERS_LOOKUPS + N_RANGE_CHECK_20_LOOKUPS).div_ceil(2);
@@ -113,7 +127,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreDoubleDerefFp opcode.
+    /// Writes the trace for the Store{_,To}DoubleDerefFpFp opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
@@ -152,6 +166,10 @@ impl Claim {
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
+        let store_double_deref_fp_fp = PackedM31::from(M31::from(STORE_DOUBLE_DEREF_FP_FP));
+        let delta_inv = PackedM31::from(
+            M31::from(STORE_TO_DOUBLE_DEREF_FP_FP - STORE_DOUBLE_DEREF_FP_FP).inverse(),
+        );
         (
             trace.par_iter_mut(),
             packed_inputs.par_iter(),
@@ -165,31 +183,49 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(STORE_DOUBLE_DEREF_FP));
+                let opcode_constant = PackedM31::from(input.inst_value_0.to_array().map(|x| {
+                    if x.0 == 11 {
+                        M31::from(STORE_DOUBLE_DEREF_FP_FP)
+                    } else {
+                        x
+                    }
+                }));
+
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
                 let off2 = input.inst_value_3;
-                let op0_prev_clock = get_prev_clock(input, data_accesses, 0);
-                let op0_val = get_value(input, data_accesses, 0);
-                let op0_deref_prev_clock = get_prev_clock(input, data_accesses, 1);
-                let op0_deref_val = get_value(input, data_accesses, 1);
-                let dst_prev_val = get_prev_value(input, data_accesses, 2);
-                let dst_prev_clock = get_prev_clock(input, data_accesses, 2);
+                let val0 = get_value(input, data_accesses, 0);
+                let prev_clock0 = get_prev_clock(input, data_accesses, 0);
+                let val1 = get_value(input, data_accesses, 1);
+                let prev_clock1 = get_prev_clock(input, data_accesses, 1);
+                let val2 = get_value(input, data_accesses, 2);
+                let prev_clock2 = get_prev_clock(input, data_accesses, 2);
+                let prev_val3 = get_prev_value(input, data_accesses, 3);
+                let prev_clock3 = get_prev_clock(input, data_accesses, 3);
+
+                let write_lhs = (opcode_constant - store_double_deref_fp_fp) * delta_inv;
+                let addr2 = write_lhs * (fp + off2) + (one - write_lhs) * (val0 + val1);
+                let addr3 = write_lhs * (val0 + val1) + (one - write_lhs) * (fp + off2);
 
                 *row[0] = enabler;
                 *row[1] = pc;
                 *row[2] = fp;
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
-                *row[5] = off0;
-                *row[6] = off1;
-                *row[7] = off2;
-                *row[8] = op0_prev_clock;
-                *row[9] = op0_val;
-                *row[10] = op0_deref_prev_clock;
-                *row[11] = op0_deref_val;
-                *row[12] = dst_prev_clock;
-                *row[13] = dst_prev_val;
+                *row[5] = opcode_constant;
+                *row[6] = off0;
+                *row[7] = off1;
+                *row[8] = off2;
+                *row[9] = val0;
+                *row[10] = prev_clock0;
+                *row[11] = val1;
+                *row[12] = prev_clock1;
+                *row[13] = addr2;
+                *row[14] = val2;
+                *row[15] = prev_clock2;
+                *row[16] = addr3;
+                *row[17] = prev_val3;
+                *row[18] = prev_clock3;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -198,27 +234,23 @@ impl Claim {
                     [input.pc, inst_prev_clock, opcode_constant, off0, off1, off2];
                 *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, off2];
 
-                *lookup_data.memory[2] = [fp + off0, op0_prev_clock, op0_val, zero, zero, zero];
-                *lookup_data.memory[3] = [fp + off0, clock, op0_val, zero, zero, zero];
+                *lookup_data.memory[2] = [fp + off0, prev_clock0, val0, zero, zero, zero];
+                *lookup_data.memory[3] = [fp + off0, clock, val0, zero, zero, zero];
 
-                *lookup_data.memory[4] = [
-                    op0_val + off1,
-                    op0_deref_prev_clock,
-                    op0_deref_val,
-                    zero,
-                    zero,
-                    zero,
-                ];
-                *lookup_data.memory[5] = [op0_val + off1, clock, op0_deref_val, zero, zero, zero];
+                *lookup_data.memory[4] = [fp + off1, prev_clock1, val1, zero, zero, zero];
+                *lookup_data.memory[5] = [fp + off1, clock, val1, zero, zero, zero];
 
-                *lookup_data.memory[6] =
-                    [fp + off2, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[7] = [fp + off2, clock, op0_deref_val, zero, zero, zero];
+                *lookup_data.memory[6] = [addr2, prev_clock2, val2, zero, zero, zero];
+                *lookup_data.memory[7] = [addr2, clock, val2, zero, zero, zero];
+
+                *lookup_data.memory[8] = [addr3, prev_clock3, prev_val3, zero, zero, zero];
+                *lookup_data.memory[9] = [addr3, clock, val2, zero, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op0_deref_prev_clock - enabler;
-                *lookup_data.range_check_20[3] = clock - dst_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - prev_clock0 - enabler;
+                *lookup_data.range_check_20[2] = clock - prev_clock1 - enabler;
+                *lookup_data.range_check_20[3] = clock - prev_clock2 - enabler;
+                *lookup_data.range_check_20[4] = clock - prev_clock3 - enabler;
             });
 
         (
@@ -273,127 +305,66 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[0],
-            &interaction_claim_data.lookup_data.memory[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
+        // Memory lookups
+        for i in 0..N_MEMORY_LOOKUPS / 2 {
+            let mut col = interaction_trace.new_col();
+            (
+                col.par_iter_mut(),
+                &interaction_claim_data.lookup_data.memory[2 * i],
+                &interaction_claim_data.lookup_data.memory[2 * i + 1],
+            )
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(i, (writer, memory_prev, memory_new))| {
+                    let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
+                    let num_new = PackedQM31::from(enabler_col.packed_at(i));
+                    let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
+                    let denom_new: PackedQM31 = relations.memory.combine(memory_new);
 
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
+                    let numerator = num_prev * denom_new + num_new * denom_prev;
+                    let denom = denom_prev * denom_new;
 
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
+                    writer.write_frac(numerator, denom);
+                });
+            col.finalize_col();
+        }
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[2],
-            &interaction_claim_data.lookup_data.memory[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
+        // Range check 20 lookups
+        for i in 0..N_RANGE_CHECK_20_LOOKUPS / 2 {
+            let mut col = interaction_trace.new_col();
+            (
+                col.par_iter_mut(),
+                &interaction_claim_data.lookup_data.range_check_20[2 * i],
+                &interaction_claim_data.lookup_data.range_check_20[2 * i + 1],
+            )
+                .into_par_iter()
+                .for_each(|(writer, range_check_20_prev, range_check_20_new)| {
+                    let num_prev = -PackedQM31::one();
+                    let denom_prev: PackedQM31 =
+                        relations.range_check_20.combine(&[*range_check_20_prev]);
+                    let denom_new: PackedQM31 =
+                        relations.range_check_20.combine(&[*range_check_20_new]);
 
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
+                    let numerator = num_prev * (denom_prev + denom_new);
+                    let denom = denom_prev * denom_new;
 
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[4],
-            &interaction_claim_data.lookup_data.memory[5],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
+                    writer.write_frac(numerator, denom);
+                });
+            col.finalize_col();
+        }
 
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.memory[6],
-            &interaction_claim_data.lookup_data.memory[7],
+            &interaction_claim_data.lookup_data.range_check_20[4],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(i, (writer, memory_prev, memory_new))| {
-                let num_prev = -PackedQM31::from(enabler_col.packed_at(i));
-                let num_new = PackedQM31::from(enabler_col.packed_at(i));
-                let denom_prev: PackedQM31 = relations.memory.combine(memory_prev);
-                let denom_new: PackedQM31 = relations.memory.combine(memory_new);
-
-                let numerator = num_prev * denom_new + num_new * denom_prev;
-                let denom = denom_prev * denom_new;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[0],
-            &interaction_claim_data.lookup_data.range_check_20[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
+            .for_each(|(_i, (writer, range_check_20_4))| {
                 let num = -PackedQM31::one();
-                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_0]);
-                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_1]);
+                let denom: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_4]);
 
-                let numerator = num * denom_1 + num * denom_0;
-                let denom = denom_0 * denom_1;
-
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
-
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[2],
-            &interaction_claim_data.lookup_data.range_check_20[3],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(_i, (writer, range_check_20_2, range_check_20_3))| {
-                let num = -PackedQM31::one();
-                let denom_2: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_2]);
-                let denom_3: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_3]);
-
-                let numerator = num * denom_3 + num * denom_2;
-                let denom = denom_2 * denom_3;
-
-                writer.write_frac(numerator, denom);
+                writer.write_frac(num, denom);
             });
         col.finalize_col();
 
@@ -418,26 +389,54 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let opcode_constant = E::F::from(M31::from(STORE_DOUBLE_DEREF_FP));
+        let store_double_deref_fp_fp = E::F::from(M31::from(STORE_DOUBLE_DEREF_FP_FP));
+        let delta_inv =
+            E::F::from(M31::from(STORE_TO_DOUBLE_DEREF_FP_FP - STORE_DOUBLE_DEREF_FP_FP).inverse());
 
-        // 14 columns
+        // 19 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
+        let opcode_constant = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
-        let op0_prev_clock = eval.next_trace_mask();
-        let op0_val = eval.next_trace_mask();
-        let op0_deref_prev_clock = eval.next_trace_mask();
-        let op0_deref_val = eval.next_trace_mask();
-        let dst_prev_clock = eval.next_trace_mask();
-        let dst_prev_val = eval.next_trace_mask();
+        let val0 = eval.next_trace_mask();
+        let prev_clock0 = eval.next_trace_mask();
+        let val1 = eval.next_trace_mask();
+        let prev_clock1 = eval.next_trace_mask();
+        let addr2 = eval.next_trace_mask();
+        let val2 = eval.next_trace_mask();
+        let prev_clock2 = eval.next_trace_mask();
+        let addr3 = eval.next_trace_mask();
+        let prev_val3 = eval.next_trace_mask();
+        let prev_clock3 = eval.next_trace_mask();
+
+        let write_lhs = (opcode_constant.clone() - store_double_deref_fp_fp) * delta_inv;
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+
+        // write_lhs is a bool
+        eval.add_constraint(write_lhs.clone() * (one.clone() - write_lhs.clone()));
+
+        // addr2 is correctly computed
+        eval.add_constraint(
+            enabler.clone()
+                * (addr2.clone()
+                    - write_lhs.clone() * (fp.clone() + off2.clone())
+                    - (one.clone() - write_lhs.clone()) * (val0.clone() + val1.clone())),
+        );
+
+        // addr3 is correctly computed
+        eval.add_constraint(
+            enabler.clone()
+                * (addr3.clone()
+                    - write_lhs.clone() * (val0.clone() + val1.clone())
+                    - (one.clone() - write_lhs) * (fp.clone() + off2.clone())),
+        );
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -473,56 +472,56 @@ impl FrameworkEval for Eval {
                 opcode_constant,
                 off0.clone(),
                 off1.clone(),
-                off2.clone(),
+                off2,
             ],
         ));
 
-        // Read op0
+        // Read src
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off0.clone(),
-                op0_prev_clock.clone(),
-                op0_val.clone(),
-            ],
+            &[fp.clone() + off0.clone(), prev_clock0.clone(), val0.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + off0, clock.clone(), op0_val.clone()],
+            &[fp.clone() + off0, clock.clone(), val0],
         ));
 
-        // Read [op0 + off1] (double dereference)
+        // Read base
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                op0_val.clone() + off1.clone(),
-                op0_deref_prev_clock.clone(),
-                op0_deref_val.clone(),
-            ],
+            &[fp.clone() + off1.clone(), prev_clock1.clone(), val1.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[op0_val + off1, clock.clone(), op0_deref_val.clone()],
+            &[fp + off1, clock.clone(), val1],
         ));
 
-        // Write dst
+        // Read offset
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + off2.clone(),
-                dst_prev_clock.clone(),
-                dst_prev_val,
-            ],
+            &[addr2.clone(), prev_clock2.clone(), val2.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + off2, clock.clone(), op0_deref_val],
+            &[addr2, clock.clone(), val2.clone()],
+        ));
+
+        // Write at [base_val + offset_val]
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            -E::EF::from(enabler.clone()),
+            &[addr3.clone(), prev_clock3.clone(), prev_val3],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            E::EF::from(enabler.clone()),
+            &[addr3, clock.clone(), val2],
         ));
 
         // Range check 20
@@ -534,17 +533,22 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock - enabler.clone()],
+            &[clock.clone() - prev_clock0 - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_deref_prev_clock - enabler.clone()],
+            &[clock.clone() - prev_clock1 - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - dst_prev_clock - enabler],
+            &[clock.clone() - prev_clock2 - enabler.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock - prev_clock3 - enabler],
         ));
 
         eval.finalize_logup_in_pairs();
