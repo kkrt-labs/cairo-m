@@ -1,4 +1,5 @@
 mod flattening;
+mod instructions;
 mod loader;
 
 use cairo_m_common::InputValue;
