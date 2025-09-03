@@ -16,12 +16,12 @@
 //! - dst_off
 //! - op0_val_lo (n_lo)
 //! - op0_val_hi (n_hi)
-//! - op0_prev_clock_lo_clock
-//! - op0_prev_clock_hi_clock
+//! - op0_prev_clock_lo
+//! - op0_prev_clock_hi
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - dst_prev_clock_lo_clock
-//! - dst_prev_clock_hi_clock
+//! - dst_prev_clock_lo
+//! - dst_prev_clock_hi
 //! - q_0
 //! - q_1
 //! - q_2

@@ -198,8 +198,8 @@ impl Claim {
 
                 let op0_val_lo = get_value(input, data_accesses, 0);
                 let op0_val_hi = get_value(input, data_accesses, 1);
-                let op0_prev_clock_lo_clock = get_prev_clock(input, data_accesses, 0);
-                let op0_prev_clock_hi_clock = get_prev_clock(input, data_accesses, 1);
+                let op0_prev_clock_lo = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_clock_hi = get_prev_clock(input, data_accesses, 1);
 
                 let dst_prev_val = get_prev_value(input, data_accesses, 2);
                 let dst_prev_clock = get_prev_clock(input, data_accesses, 2);
@@ -224,8 +224,8 @@ impl Claim {
                 *row[8] = dst_off;
                 *row[9] = op0_val_lo;
                 *row[10] = op0_val_hi;
-                *row[11] = op0_prev_clock_lo_clock;
-                *row[12] = op0_prev_clock_hi_clock;
+                *row[11] = op0_prev_clock_lo;
+                *row[12] = op0_prev_clock_hi;
                 *row[13] = dst_prev_val;
                 *row[14] = dst_prev_clock;
                 *row[15] = diff_inv;
@@ -251,7 +251,7 @@ impl Claim {
                 // Read op0_lo
                 *lookup_data.memory[4] = [
                     fp + src0_off,
-                    op0_prev_clock_lo_clock,
+                    op0_prev_clock_lo,
                     op0_val_lo,
                     zero,
                     zero,
@@ -262,7 +262,7 @@ impl Claim {
                 // Read op0_hi
                 *lookup_data.memory[6] = [
                     fp + src0_off + one,
-                    op0_prev_clock_hi_clock,
+                    op0_prev_clock_hi,
                     op0_val_hi,
                     zero,
                     zero,
@@ -283,8 +283,8 @@ impl Claim {
                 *lookup_data.range_check_16[3] = imm_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi - enabler;
                 *lookup_data.range_check_20[3] = clock - dst_prev_clock - enabler;
             });
 
@@ -450,8 +450,8 @@ impl FrameworkEval for Eval {
         let dst_off = eval.next_trace_mask();
         let op0_val_lo = eval.next_trace_mask();
         let op0_val_hi = eval.next_trace_mask();
-        let op0_prev_clock_lo_clock = eval.next_trace_mask();
-        let op0_prev_clock_hi_clock = eval.next_trace_mask();
+        let op0_prev_clock_lo = eval.next_trace_mask();
+        let op0_prev_clock_hi = eval.next_trace_mask();
         let dst_prev_val = eval.next_trace_mask();
         let dst_prev_clock = eval.next_trace_mask();
         let diff_inv = eval.next_trace_mask();
@@ -524,7 +524,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone(),
-                op0_prev_clock_lo_clock.clone(),
+                op0_prev_clock_lo.clone(),
                 op0_val_lo.clone(),
             ],
         ));
@@ -544,7 +544,7 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone() + one.clone(),
-                op0_prev_clock_hi_clock.clone(),
+                op0_prev_clock_hi.clone(),
                 op0_val_hi.clone(),
             ],
         ));
@@ -605,12 +605,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock_lo_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_clock_hi_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_hi - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
