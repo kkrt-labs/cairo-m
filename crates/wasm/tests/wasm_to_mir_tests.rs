@@ -62,3 +62,5 @@ wasm_test!(
     convert_sha256_wasm,
     "sha256.wasm"
 );
+
+wasm_test!(convert_i64_bitwise_ops_wasm, "i64_bitwise_ops.wasm");

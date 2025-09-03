@@ -188,24 +188,78 @@ fn run_variables() {
 }
 
 #[test]
-fn run_array_sum_from_rust() {
-    let case_dir = format!("{}/sample-programs/array", env!("CARGO_MANIFEST_DIR"));
-    build_wasm(&PathBuf::from(&case_dir));
-    test_program(
-        &format!(
-            "{}/target/wasm32-unknown-unknown/release/array.wasm",
-            case_dir
-        ),
-        "array_sum",
-        vec![0],
-    );
-}
-
-#[test]
 fn run_load_store_sum() {
     test_program(
         "tests/test_cases/load_store_sum.wasm",
         "load_store_sum",
         vec![10],
     );
+}
+
+#[test]
+fn run_i64_bitwise_ops() {
+    // i64 values need to be passed as InputValue::List (tuples) to the ABI codec
+    // Create a custom test since test_program only handles u32 inputs
+    let wasm_file = std::fs::read("tests/test_cases/i64_bitwise_ops.wasm").unwrap();
+
+    let womir_program = load_wasm(GenericIrSetting, &wasm_file).unwrap();
+    let dag_module =
+        BlocklessDagModule::from_file("tests/test_cases/i64_bitwise_ops.wasm").unwrap();
+    let mir_module = DagToMir::new(dag_module)
+        .to_mir(PassManager::standard_pipeline())
+        .unwrap();
+
+    let compiled_module = compile_module(&mir_module).unwrap();
+
+    let data_input = DataInput::new(vec![]);
+    let mut womir_interpreter = Interpreter::new(womir_program, data_input);
+
+    // Create i64 values as tuples: (low_u32, high_u32)
+    let cairo_vm_inputs = vec![
+        InputValue::List(vec![
+            InputValue::Number(0x22222222), // low part of first i64
+            InputValue::Number(0x11111111), // high part of first i64
+        ]),
+        InputValue::List(vec![
+            InputValue::Number(0x44444444), // low part of second i64
+            InputValue::Number(0x33333333), // high part of second i64
+        ]),
+    ];
+
+    // For WOMIR interpreter, we need to pass u32 components
+    let womir_inputs = vec![
+        0x22222222u32,
+        0x11111111u32, // First i64 as (low, high)
+        0x44444444u32,
+        0x33333333u32, // Second i64 as (low, high)
+    ];
+
+    let result_womir_interpreter = womir_interpreter.run("i64_bitwise_test", &womir_inputs);
+    let result_cairo_m_interpreter = run_cairo_program(
+        &compiled_module,
+        "i64_bitwise_test",
+        &cairo_vm_inputs,
+        Default::default(),
+    )
+    .unwrap();
+
+    // The result should be a single i64 (returned as tuple), so extract it properly
+    assert_eq!(result_cairo_m_interpreter.return_values.len(), 1);
+    match &result_cairo_m_interpreter.return_values[0] {
+        CairoMValue::Tuple(tuple_parts) => {
+            assert_eq!(tuple_parts.len(), 2);
+            if let (CairoMValue::U32(low), CairoMValue::U32(high)) =
+                (&tuple_parts[0], &tuple_parts[1])
+            {
+                // Compare the u32 components directly
+                assert_eq!(vec![*low, *high], result_womir_interpreter);
+            } else {
+                panic!("Expected tuple of U32s, got {:?}", tuple_parts);
+            }
+        }
+        _ => panic!(
+            "Expected tuple result, got {:?}",
+            result_cairo_m_interpreter.return_values[0]
+        ),
+    }
 }

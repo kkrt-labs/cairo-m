@@ -219,6 +219,7 @@ impl DagToMir {
     ) -> Result<MirType, DagToMirError> {
         match wasm_type {
             wasmparser::ValType::I32 => Ok(MirType::U32),
+            wasmparser::ValType::I64 => Ok(MirType::Tuple(vec![MirType::U32, MirType::U32])),
             _ => Err(DagToMirError::UnsupportedWasmType {
                 wasm_type: *wasm_type,
                 function_name: function_name.to_string(),
