@@ -47,7 +47,7 @@
 //!   * `- [addr2, prev_clock2, prev_val2] + [addr2, clk, val1]` in `Memory` relation
 //!   * `- [clk - prev_clock2 - 1]` in `RangeCheck20` relation
 
-use cairo_m_common::instruction::STORE_TO_DOUBLE_DEREF_FP_IMM;
+use cairo_m_common::instruction::{STORE_DOUBLE_DEREF_FP, STORE_TO_DOUBLE_DEREF_FP_IMM};
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -80,7 +80,7 @@ use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 18;
+const N_TRACE_COLUMNS: usize = 17;
 const N_MEMORY_LOOKUPS: usize = 8;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 4;
@@ -161,6 +161,10 @@ impl Claim {
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
+        let store_double_deref_fp = PackedM31::from(M31::from(STORE_DOUBLE_DEREF_FP));
+        let delta_inv = PackedM31::from(
+            M31::from(STORE_TO_DOUBLE_DEREF_FP_IMM - STORE_DOUBLE_DEREF_FP).inverse(),
+        );
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -175,7 +179,13 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = input.inst_value_0;
+                let opcode_constant = PackedM31::from(input.inst_value_0.to_array().map(|x| {
+                    if x.0 == 11 {
+                        M31::from(STORE_DOUBLE_DEREF_FP)
+                    } else {
+                        x
+                    }
+                }));
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
                 let off2 = input.inst_value_3;
@@ -186,13 +196,7 @@ impl Claim {
                 let prev_val2 = get_prev_value(input, data_accesses, 2);
                 let prev_clock2 = get_prev_clock(input, data_accesses, 2);
 
-                let write_lhs = PackedM31::from_array(opcode_constant.to_array().map(|x| {
-                    if x.0 == STORE_TO_DOUBLE_DEREF_FP_IMM {
-                        M31::one()
-                    } else {
-                        M31::zero()
-                    }
-                }));
+                let write_lhs = (opcode_constant - store_double_deref_fp) * delta_inv;
                 let addr1 = write_lhs * (fp + off2) + (one - write_lhs) * (val0 + off1);
                 let addr2 = write_lhs * (val0 + off1) + (one - write_lhs) * (fp + off2);
 
@@ -202,18 +206,17 @@ impl Claim {
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
                 *row[5] = opcode_constant;
-                *row[6] = write_lhs;
-                *row[7] = off0;
-                *row[8] = off1;
-                *row[9] = off2;
-                *row[10] = val0;
-                *row[11] = prev_clock0;
-                *row[12] = addr1;
-                *row[13] = val1;
-                *row[14] = prev_clock1;
-                *row[15] = addr2;
-                *row[16] = prev_val2;
-                *row[17] = prev_clock2;
+                *row[6] = off0;
+                *row[7] = off1;
+                *row[8] = off2;
+                *row[9] = val0;
+                *row[10] = prev_clock0;
+                *row[11] = addr1;
+                *row[12] = val1;
+                *row[13] = prev_clock1;
+                *row[14] = addr2;
+                *row[15] = prev_val2;
+                *row[16] = prev_clock2;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -359,17 +362,17 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let thirty_six = E::F::from(M31::from(36));
-        let store_to_double_deref_fp_imm = E::F::from(M31::from(STORE_TO_DOUBLE_DEREF_FP_IMM));
+        let delta_inv =
+            E::F::from(M31::from(STORE_TO_DOUBLE_DEREF_FP_IMM - STORE_DOUBLE_DEREF_FP).inverse());
+        let store_double_deref_fp = E::F::from(M31::from(STORE_DOUBLE_DEREF_FP));
 
-        // 18 columns
+        // 17 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
         let opcode_constant = eval.next_trace_mask();
-        let write_lhs = eval.next_trace_mask();
         let off0 = eval.next_trace_mask();
         let off1 = eval.next_trace_mask();
         let off2 = eval.next_trace_mask();
@@ -382,18 +385,13 @@ impl FrameworkEval for Eval {
         let prev_val2 = eval.next_trace_mask();
         let prev_clock2 = eval.next_trace_mask();
 
+        let write_lhs = (opcode_constant.clone() - store_double_deref_fp) * delta_inv;
+
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // write_lhs is a bool
         eval.add_constraint(write_lhs.clone() * (one.clone() - write_lhs.clone()));
-
-        // write_lhs is correctly computed
-        eval.add_constraint(
-            enabler.clone()
-                * (thirty_six.clone() * write_lhs.clone() - thirty_six
-                    + (store_to_double_deref_fp_imm - opcode_constant.clone())),
-        );
 
         // addr1 is correctly computed
         eval.add_constraint(
