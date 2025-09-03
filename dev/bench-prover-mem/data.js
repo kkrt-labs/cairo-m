@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756823261939,
+  "lastUpdate": 1756889155992,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1507,6 +1507,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2377095975,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2c20fb778bcbaab2b6e785956db8224745b7dd03",
+          "message": "feat(prover): add u32_store_lt_{fp_fp/imm} (#270)\n\n* feat: add u32_store_lt_fp_fp and u32_store_lt_fp_imm\n\n* rebase: add range_check_20 implementation to new opcodes\n\n* typo: copy-paste typos\n\n* delete out.txt\n\n* fix rebase and bugs\n\n* remove dbg\n\n* rebase fix\n\n* switch from prev_lo/hi_clock to prev_clock_lo/hi",
+          "timestamp": "2025-09-03T10:28:31+02:00",
+          "tree_id": "3ac20f6cb087c97d53efc524f114de8b1af132f8",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/2c20fb778bcbaab2b6e785956db8224745b7dd03"
+        },
+        "date": 1756889155923,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2377219109,
             "unit": "bytes"
           }
         ]
