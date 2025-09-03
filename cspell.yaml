@@ -1,7 +1,7 @@
 version: "0.2"
-# Suggestions can sometimes take longer on CI machines,
-# leading to inconsistent results.
-suggestionsTimeout: 5000 # ms
+suggestionsTimeout: 5000
+ignorePaths:
+  - docs/filters/links-to-references.lua
 words:
   - allman
   - alloca
@@ -9,19 +9,24 @@ words:
   - architecting
   - arrayindex
   - arrayinsert
+  - Babybear
   - binop
   - branchcmp
   - bswap
   - bytemuck
+  - CAIR
   - cairols
   - cairom
   - cairomlings
+  - callabs
+  - callabsimm
   - callees
   - callsite
   - casm
   - cblock
   - chrono
   - chumsky
+  - clément
   - clippy
   - cmark
   - cmps
@@ -33,6 +38,8 @@ words:
   - ctrlflow
   - dashmap
   - dataclass
+  - dataframe
+  - dataframes
   - deque
   - dests
   - dhat
@@ -67,6 +74,8 @@ words:
   - instrs
   - insts
   - itertools
+  - jmprelimm
+  - jnzfpimm
   - kats
   - kiro
   - kkrt
@@ -75,6 +84,7 @@ words:
   - loff
   - logup
   - logups
+  - lualatex
   - lvalue
   - makefixedarray
   - makestruct
@@ -82,8 +92,11 @@ words:
   - mathrm
   - mdtest
   - memarg
+  - memcpy
   - merkle
+  - Mersenne
   - Mlings
+  - MOVS
   - mpsc
   - mult
   - mults
@@ -91,6 +104,7 @@ words:
   - nops
   - oneshot
   - operandless
+  - pandoc
   - peekable
   - pointee
   - preds
@@ -100,6 +114,7 @@ words:
   - Queueable
   - ranlib
   - readback
+  - readwrite
   - recompiles
   - repr
   - resx
@@ -133,9 +148,18 @@ words:
   - sreedhar
   - sroa
   - stackalloc
+  - starknet
   - starkware
   - stdext
+  - storeadd
   - storeback
+  - storediv
+  - storedoubledereffp
+  - storedoubledereffpfp
+  - storeframepointer
+  - storeimm
+  - storemul
+  - storesub
   - stwo
   - subexpression
   - subspan
@@ -145,6 +169,10 @@ words:
   - tcsetattr
   - tempvar
   - termios
+  - texcache
+  - texmfcache
+  - texmfvar
+  - texttt
   - thiserror
   - tlsv
   - toplevel
@@ -152,10 +180,12 @@ words:
   - torczon
   - treee
   - typechecks
+  - uints
   - unioning
   - unsuffixed
   - upcasting
   - usize
+  - Valida
   - vulns
   - walkdir
   - wasmparser
