@@ -118,7 +118,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreDoubleDerefFp opcode.
+    /// Writes the trace for the StoreToDoubleDerefFpFp opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
