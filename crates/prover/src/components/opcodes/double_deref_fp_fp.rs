@@ -10,7 +10,6 @@
 //! - clock
 //! - inst_prev_clock
 //! - opcode_constant
-//! - write_lhs
 //! - off0
 //! - off1
 //! - off2
@@ -30,9 +29,8 @@
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * write_lhs is a bool
+//!   * let write_lhs = (opcode_constant - STORE_DOUBLE_DEREF_FP_FP) * delta_inv
 //!   * `write_lhs * (1 - write_lhs)`
-//! * write_lhs is correctly computed
-//!   * `3 * write_lhs - 3 + (store_to_double_deref_fp_fp - opcode_constant)`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory

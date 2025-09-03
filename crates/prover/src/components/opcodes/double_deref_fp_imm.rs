@@ -1,5 +1,6 @@
-//! This component is used to prove the StoreDoubleDerefFp opcode.
-//! [fp + dst_off] = [[fp + base_off] + imm]
+//! This component is used to prove the StoreToDoubleDerefFp and StoreDoubleDerefFp opcodes:
+//! * [[fp + base_off] + imm] = [fp + src_off]
+//! * [fp + dst_off] = [[fp + base_off] + imm]
 //!
 //! # Columns
 //!
@@ -9,7 +10,6 @@
 //! - clock
 //! - inst_prev_clock
 //! - opcode_constant
-//! - write_lhs
 //! - off0
 //! - off1
 //! - off2
@@ -29,7 +29,8 @@
 //! * write_lhs is a bool
 //!   * `write_lhs * (1 - write_lhs)`
 //! * write_lhs is correctly computed
-//!   * `36 * write_lhs - 36 + (store_to_double_deref_fp - opcode_constant)`
+//!   * let write_lhs = (opcode_constant - STORE_DOUBLE_DEREF_FP_IMM) * delta_inv
+//!   * `write_lhs * (1 - write_lhs)`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
@@ -123,7 +124,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreDoubleDerefFp opcode.
+    /// Writes the trace for the StoreDoubleDerefFp and StoreToDoubleDerefFp opcodes.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
