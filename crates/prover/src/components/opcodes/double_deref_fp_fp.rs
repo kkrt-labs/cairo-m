@@ -29,8 +29,10 @@
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * write_lhs is a bool
+//!   * `write_lhs * (1 - write_lhs)`
 //! * write_lhs is correctly computed
-//!   * `3 * write_lhs - 3 - (store_to_double_deref_fp_fp - opcode_constant)`
+//!   * `3 * write_lhs - 3 + (store_to_double_deref_fp_fp - opcode_constant)`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
@@ -412,6 +414,9 @@ impl FrameworkEval for Eval {
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+
+        // write_lhs is a bool
+        eval.add_constraint(write_lhs.clone() * (one.clone() - write_lhs.clone()));
 
         // write_lhs is correctly computed
         eval.add_constraint(

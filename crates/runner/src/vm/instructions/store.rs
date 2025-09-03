@@ -268,8 +268,8 @@ pub fn store_to_double_deref_fp_imm(
         (base_off, imm, src_off)
     );
 
-    let value = memory.get_data(state.fp + src_off)?;
     let base_address = memory.get_data(state.fp + base_off)?;
+    let value = memory.get_data(state.fp + src_off)?;
     let target_address = base_address + imm;
     memory.insert(target_address, value.into())?;
 

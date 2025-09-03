@@ -242,8 +242,10 @@ define_opcodes!(
         [StoreAddFpImm, StoreMulFpImm,], // StoreSubFpImm, StoreDivFpImm removed
         store_fp_imm
     ),
-    ([StoreDoubleDerefFp], store_double_deref_fp),
-    ([StoreToDoubleDerefFpImm], store_to_double_deref_fp_imm),
+    (
+        [StoreDoubleDerefFp, StoreToDoubleDerefFpImm],
+        double_deref_fp_imm
+    ),
     (
         [StoreDoubleDerefFpFp, StoreToDoubleDerefFpFp],
         double_deref_fp_fp
