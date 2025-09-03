@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756892660687,
+  "lastUpdate": 1756918530588,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1565,6 +1565,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2377236656,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6e445f6200983bcab753970e14254fac854574b7",
+          "message": "feat(prover): add double_derefs and store_frame_pointer (#294)\n\n* feat: added files and boiler plate with AIR in comments (code not matching)\n\n* feat: added double_derefs (not fully tested)\n\n* feat: add store_frame_pointer and fix VM reading order\n\n* typo: fixed copy paste typo\n\n* merge double-deref-fp-fp\n\n* merge double_deref_fp_imm\n\n* merged opcodes\n\n* update tests\n\n* remove debugs\n\n* Fix component docstring\n\n---------\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>",
+          "timestamp": "2025-09-03T19:38:15+03:00",
+          "tree_id": "1bac71094ceb20c1f5513582e9585e35a1da305a",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/6e445f6200983bcab753970e14254fac854574b7"
+        },
+        "date": 1756918530525,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2377297678,
             "unit": "bytes"
           }
         ]
