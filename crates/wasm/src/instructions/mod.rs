@@ -1,4 +1,5 @@
 pub mod i32;
+pub mod i64;
 pub mod memory;
 
 use crate::flattening::{DagToMir, DagToMirContext, DagToMirError};
@@ -46,6 +47,11 @@ impl DagToMir {
             | Op::I32Eqz
             | Op::I32Const { .. } => {
                 self.handle_i32_operations(node_idx, wasm_op, &inputs, context)
+            }
+
+            // I64 operations (bitwise only for now)
+            Op::I64And | Op::I64Or | Op::I64Xor | Op::I64Const { .. } => {
+                self.handle_i64_operations(node_idx, wasm_op, &inputs, context)
             }
 
             // Memory operations
