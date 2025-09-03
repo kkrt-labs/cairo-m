@@ -651,18 +651,18 @@ fn test_try_from_smallvec() {
         (
             smallvec![M31::from(44), M31::from(9), M31::from(7), M31::from(5)],
             Instruction::StoreToDoubleDerefFpImm {
-                src_off: M31::from(9),
-                base_off: M31::from(5),
+                base_off: M31::from(9),
                 imm: M31::from(7),
+                src_off: M31::from(5),
             },
             "StoreToDoubleDerefFpImm instruction",
         ),
         (
             smallvec![M31::from(45), M31::from(9), M31::from(7), M31::from(5)],
             Instruction::StoreToDoubleDerefFpFp {
-                src_off: M31::from(9),
-                base_off: M31::from(7),
-                offset_off: M31::from(5),
+                base_off: M31::from(9),
+                offset_off: M31::from(7),
+                src_off: M31::from(5),
             },
             "StoreToDoubleDerefFpFp instruction",
         ),
