@@ -1,5 +1,5 @@
-//! This component is used to prove the StoreDoubleDerefFp opcode.
-//! [fp + dst_off] = [[fp + base_off] + imm]
+//! This component is used to prove the StoreToDoubleDerefFpFp opcode.
+//! [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
 //!
 //! # Columns
 //!
@@ -8,15 +8,17 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
+//! - src_off
 //! - base_off
-//! - imm
-//! - dst_off
+//! - offset_off
+//! - src_val
+//! - src_prev_clock
 //! - base_val
 //! - base_prev_clock
-//! - deref_val
-//! - deref_prev_clock
-//! - dst_prev_val
-//! - dst_prev_clock
+//! - offset_val
+//! - offset_prev_clock
+//! - final_deref_prev_val
+//! - final_deref_prev_clock
 //!
 //! # Constraints
 //!
@@ -25,17 +27,20 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, base_off, imm, dst_off] + [pc, clk, opcode_constant, base_off, imm, dst_off]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, src_off, base_off, offset_off] + [pc, clk, opcode_constant, src_off, base_off, offset_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
+//! * read src
+//!   * `- [fp + src_off, src_prev_clock, src_val] + [fp + src_off, clk, src_val]` in `Memory` relation
+//!   * `- [clk - src_prev_clock - 1]` in `RangeCheck20` relation
 //! * read base
-//!   * `- [fp + base_off, base_prev_clk, base_val] + [fp + base_off, clk, base_val]` in `Memory` relation
-//!   * `- [clk - base_prev_clk - 1]` in `RangeCheck20` relation
-//! * read [base + imm]
-//!   * `- [base_val + imm, base_prev_clk, base_val] + [base_val + imm, clk, base_val]` in `Memory` relation
-//!   * `- [clk - base_prev_clk - 1]` in `RangeCheck20` relation
-//! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, base_val]` in `Memory` Relation
-//!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + base_off, base_prev_clock, base_val] + [fp + base_off, clk, base_val]` in `Memory` relation
+//!   * `- [clk - base_prev_clock - 1]` in `RangeCheck20` relation
+//! * read offset
+//!   * `- [fp + offset_off, offset_prev_clock, offset_val] + [fp + offset_off, clk, offset_val]` in `Memory` relation
+//!   * `- [clk - offset_prev_clock - 1]` in `RangeCheck20` relation
+//! * write at [base + offset]
+//!   * `- [base_val + offset, final_deref_prev_clock, final_deref_prev_val] + [base_val + offset, clk, src_val]` in `Memory` relation
+//!   * `- [clk - final_deref_prev_clock - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::instruction::STORE_DOUBLE_DEREF_FP;
 use num_traits::{One, Zero};

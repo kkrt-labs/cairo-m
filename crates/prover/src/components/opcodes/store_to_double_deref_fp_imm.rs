@@ -1,5 +1,5 @@
-//! This component is used to prove the StoreDoubleDerefFp opcode.
-//! [fp + dst_off] = [[fp + base_off] + imm]
+//! This component is used to prove the StoreToDoubleDerefFpImm opcode.
+//! [[fp + base_off] + imm] = [fp + src_off]
 //!
 //! # Columns
 //!
@@ -8,13 +8,13 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
-//! - base_off
+//! - src_off
 //! - imm
-//! - dst_off
+//! - base_off
+//! - src_val
+//! - src_prev_clock
 //! - base_val
 //! - base_prev_clock
-//! - deref_val
-//! - deref_prev_clock
 //! - dst_prev_val
 //! - dst_prev_clock
 //!
@@ -25,16 +25,16 @@
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, base_off, imm, dst_off] + [pc, clk, opcode_constant, base_off, imm, dst_off]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, src_off, imm, base_off] + [pc, clk, opcode_constant, src_off, imm, base_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
+//! * read src
+//!   * `- [fp + src_off, src_prev_clock, src_val] + [fp + src_off, clk, src_val]` in `Memory` relation
+//!   * `- [clk - src_prev_clock - 1]` in `RangeCheck20` relation
 //! * read base
-//!   * `- [fp + base_off, base_prev_clk, base_val] + [fp + base_off, clk, base_val]` in `Memory` relation
-//!   * `- [clk - base_prev_clk - 1]` in `RangeCheck20` relation
-//! * read [base + imm]
-//!   * `- [base_val + imm, base_prev_clk, base_val] + [base_val + imm, clk, base_val]` in `Memory` relation
-//!   * `- [clk - base_prev_clk - 1]` in `RangeCheck20` relation
-//! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, base_val]` in `Memory` Relation
+//!   * `- [fp + base_off, base_prev_clock, base_val] + [fp + base_off, clk, base_val]` in `Memory` relation
+//!   * `- [clk - base_prev_clock - 1]` in `RangeCheck20` relation
+//! * write dst in [base + imm]
+//!   * `- [base + imm, dst_prev_clk, dst_prev_val] + [base + imm, clk, src_val]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::instruction::STORE_DOUBLE_DEREF_FP;
