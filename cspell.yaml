@@ -9,6 +9,7 @@ words:
   - architecting
   - arrayindex
   - arrayinsert
+  - Babybear
   - binop
   - bswap
   - branchcmp
@@ -26,6 +27,7 @@ words:
   - cmps
   - codegen
   - combinators
+  - Mersenne
   - csed
   - cstark
   - ctrlflow
