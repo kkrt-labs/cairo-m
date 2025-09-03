@@ -56,6 +56,7 @@ wasm_test!(convert_variables_wasm, "variables.wasm");
 wasm_test!(convert_bitwise_wasm, "bitwise.wasm");
 wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
 wasm_test!(convert_nested_loop_wasm, "nested_loop.wasm");
+wasm_test!(convert_load_store_sum_wasm, "load_store_sum.wasm");
 wasm_test!(
     #[ignore]
     convert_sha256_wasm,

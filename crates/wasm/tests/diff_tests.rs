@@ -170,17 +170,6 @@ proptest! {
             vec![m, n],
         );
     }
-
-    #[test]
-    fn run_vector_sum_from_rust(a in 0..10u32) {
-        let case_dir = format!("{}/sample-programs/vector", env!("CARGO_MANIFEST_DIR"));
-        build_wasm(&PathBuf::from(&case_dir));
-        test_program(
-            &format!("{}/target/wasm32-unknown-unknown/release/vector.wasm", case_dir),
-            "array_sum",
-            vec![a],
-        );
-    }
 }
 
 #[test]
@@ -196,4 +185,27 @@ fn run_func_call() {
 #[test]
 fn run_variables() {
     test_program("tests/test_cases/variables.wasm", "main", vec![]);
+}
+
+#[test]
+fn run_array_sum_from_rust() {
+    let case_dir = format!("{}/sample-programs/array", env!("CARGO_MANIFEST_DIR"));
+    build_wasm(&PathBuf::from(&case_dir));
+    test_program(
+        &format!(
+            "{}/target/wasm32-unknown-unknown/release/array.wasm",
+            case_dir
+        ),
+        "array_sum",
+        vec![0],
+    );
+}
+
+#[test]
+fn run_load_store_sum() {
+    test_program(
+        "tests/test_cases/load_store_sum.wasm",
+        "load_store_sum",
+        vec![10],
+    );
 }

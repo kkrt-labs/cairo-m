@@ -682,6 +682,47 @@ impl Instruction {
         }
     }
 
+    // Creates a new load instruction
+    pub const fn load(
+        dest: ValueId,
+        base_address: Value,
+        offset: Value,
+        element_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::Load {
+                dest,
+                base_address,
+                offset,
+                element_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    // Creates a new store instruction
+
+    pub const fn store(
+        base_address: Value,
+        offset: Value,
+        source: Value,
+        element_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::Store {
+                base_address,
+                offset,
+                source,
+                element_ty,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     /// Sets the source span for this instruction
     pub const fn with_span(mut self, span: SimpleSpan<usize>) -> Self {
         self.source_span = Some(span);
