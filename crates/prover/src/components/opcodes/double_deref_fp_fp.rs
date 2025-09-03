@@ -1,5 +1,6 @@
-//! This component is used to prove the StoreToDoubleDerefFpFp opcode.
-//! [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+//! This component is used to prove the StoreToDoubleDerefFpFp and StoreDoubleDerefFpFp opcodes:
+//! * [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
+//! * [fp + dst_off] = [[fp + base_off] + [fp + offset_off]]
 //!
 //! # Columns
 //!
@@ -8,39 +9,47 @@
 //! - fp
 //! - clock
 //! - inst_prev_clock
-//! - src_off
-//! - base_off
-//! - offset_off
-//! - src_val
-//! - src_prev_clock
-//! - base_val
-//! - base_prev_clock
-//! - offset_val
-//! - offset_prev_clock
-//! - final_deref_prev_val
-//! - final_deref_prev_clock
+//! - opcode_constant
+//! - write_lhs
+//! - off0
+//! - off1
+//! - off2
+//! - val0
+//! - prev_clock0
+//! - val1
+//! - prev_clock1
+//! - addr2
+//! - val2
+//! - prev_clock2
+//! - addr3
+//! - prev_val3
+//! - prev_clock3
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
+//! * write_lhs is correctly computed
+//!   * `3 * write_lhs - 3 - (store_to_double_deref_fp_fp - opcode_constant)`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, src_off, base_off, offset_off] + [pc, clk, opcode_constant, src_off, base_off, offset_off]` in `Memory` relation
+//!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1, off2] + [pc, clk, opcode_constant, off0, off1, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
-//! * read src
-//!   * `- [fp + src_off, src_prev_clock, src_val] + [fp + src_off, clk, src_val]` in `Memory` relation
-//!   * `- [clk - src_prev_clock - 1]` in `RangeCheck20` relation
-//! * read base
-//!   * `- [fp + base_off, base_prev_clock, base_val] + [fp + base_off, clk, base_val]` in `Memory` relation
-//!   * `- [clk - base_prev_clock - 1]` in `RangeCheck20` relation
-//! * read offset
-//!   * `- [fp + offset_off, offset_prev_clock, offset_val] + [fp + offset_off, clk, offset_val]` in `Memory` relation
-//!   * `- [clk - offset_prev_clock - 1]` in `RangeCheck20` relation
-//! * write at [base + offset]
-//!   * `- [base_val + offset, final_deref_prev_clock, final_deref_prev_val] + [base_val + offset, clk, src_val]` in `Memory` relation
-//!   * `- [clk - final_deref_prev_clock - 1]` in `RangeCheck20` relation
+//! * read val0
+//!   * `- [fp + off0, prev_clock0, val0] + [fp + off0, clk, val0]` in `Memory` relation
+//!   * `- [clk - prev_clock0 - 1]` in `RangeCheck20` relation
+//! * read val1
+//!   * `- [fp + off1, prev_clock1, val1] + [fp + off1, clk, val1]` in `Memory` relation
+//!   * `- [clk - prev_clock1 - 1]` in `RangeCheck20` relation
+//! * read val2
+//!   * `addr2 - write_lhs * (fp + off2) - (1 - write_lhs) * (val0 + val1)`
+//!   * `- [addr2, prev_clock2, val2] + [addr2, clk, val2]` in `Memory` relation
+//!   * `- [clk - prev_clock2 - 1]` in `RangeCheck20` relation
+//! * write val2
+//!   * `addr3 - write_lhs * (val0 + val1) - (1 - write_lhs) * (fp + off2)`
+//!   * `- [addr3, prev_clock3, prev_val3] + [addr3, clk, val2]` in `Memory` relation
+//!   * `- [clk - prev_clock3 - 1]` in `RangeCheck20` relation
 
 use cairo_m_common::instruction::STORE_TO_DOUBLE_DEREF_FP_FP;
 use num_traits::{One, Zero};
@@ -75,7 +84,7 @@ use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 16;
+const N_TRACE_COLUMNS: usize = 20;
 const N_MEMORY_LOOKUPS: usize = 10;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
@@ -118,7 +127,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreToDoubleDerefFpFp opcode.
+    /// Writes the trace for the Store{_,To}DoubleDerefFpFp opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
@@ -170,88 +179,74 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(STORE_TO_DOUBLE_DEREF_FP_FP));
-                let src_off = input.inst_value_1;
-                let base_off = input.inst_value_2;
-                let offset_off = input.inst_value_3;
-                let src_val = get_value(input, data_accesses, 0);
-                let src_prev_clock = get_prev_clock(input, data_accesses, 0);
-                let base_val = get_value(input, data_accesses, 1);
-                let base_prev_clock = get_prev_clock(input, data_accesses, 1);
-                let offset_val = get_value(input, data_accesses, 2);
-                let offset_prev_clock = get_prev_clock(input, data_accesses, 2);
-                let final_deref_prev_val = get_prev_value(input, data_accesses, 3);
-                let final_deref_prev_clock = get_prev_clock(input, data_accesses, 3);
+                let opcode_constant = input.inst_value_0;
+                let off0 = input.inst_value_1;
+                let off1 = input.inst_value_2;
+                let off2 = input.inst_value_3;
+                let val0 = get_value(input, data_accesses, 0);
+                let prev_clock0 = get_prev_clock(input, data_accesses, 0);
+                let val1 = get_value(input, data_accesses, 1);
+                let prev_clock1 = get_prev_clock(input, data_accesses, 1);
+                let val2 = get_value(input, data_accesses, 2);
+                let prev_clock2 = get_prev_clock(input, data_accesses, 2);
+                let prev_val3 = get_prev_value(input, data_accesses, 3);
+                let prev_clock3 = get_prev_clock(input, data_accesses, 3);
+
+                let write_lhs = PackedM31::from_array(opcode_constant.to_array().map(|x| {
+                    if x.0 == STORE_TO_DOUBLE_DEREF_FP_FP {
+                        M31::one()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+                let addr2 = write_lhs * (fp + off2) + (one - write_lhs) * (val0 + val1);
+                let addr3 = write_lhs * (val0 + val1) + (one - write_lhs) * (fp + off2);
 
                 *row[0] = enabler;
                 *row[1] = pc;
                 *row[2] = fp;
                 *row[3] = clock;
                 *row[4] = inst_prev_clock;
-                *row[5] = src_off;
-                *row[6] = base_off;
-                *row[7] = offset_off;
-                *row[8] = src_val;
-                *row[9] = src_prev_clock;
-                *row[10] = base_val;
-                *row[11] = base_prev_clock;
-                *row[12] = offset_val;
-                *row[13] = offset_prev_clock;
-                *row[14] = final_deref_prev_val;
-                *row[15] = final_deref_prev_clock;
+                *row[5] = opcode_constant;
+                *row[6] = write_lhs;
+                *row[7] = off0;
+                *row[8] = off1;
+                *row[9] = off2;
+                *row[10] = val0;
+                *row[11] = prev_clock0;
+                *row[12] = val1;
+                *row[13] = prev_clock1;
+                *row[14] = addr2;
+                *row[15] = val2;
+                *row[16] = prev_clock2;
+                *row[17] = addr3;
+                *row[18] = prev_val3;
+                *row[19] = prev_clock3;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                *lookup_data.memory[0] = [
-                    input.pc,
-                    inst_prev_clock,
-                    opcode_constant,
-                    src_off,
-                    base_off,
-                    offset_off,
-                ];
-                *lookup_data.memory[1] = [
-                    input.pc,
-                    clock,
-                    opcode_constant,
-                    src_off,
-                    base_off,
-                    offset_off,
-                ];
+                *lookup_data.memory[0] =
+                    [input.pc, inst_prev_clock, opcode_constant, off0, off1, off2];
+                *lookup_data.memory[1] = [input.pc, clock, opcode_constant, off0, off1, off2];
 
-                *lookup_data.memory[2] = [fp + src_off, src_prev_clock, src_val, zero, zero, zero];
-                *lookup_data.memory[3] = [fp + src_off, clock, src_val, zero, zero, zero];
+                *lookup_data.memory[2] = [fp + off0, prev_clock0, val0, zero, zero, zero];
+                *lookup_data.memory[3] = [fp + off0, clock, val0, zero, zero, zero];
 
-                *lookup_data.memory[4] =
-                    [fp + base_off, base_prev_clock, base_val, zero, zero, zero];
-                *lookup_data.memory[5] = [fp + base_off, clock, base_val, zero, zero, zero];
+                *lookup_data.memory[4] = [fp + off1, prev_clock1, val1, zero, zero, zero];
+                *lookup_data.memory[5] = [fp + off1, clock, val1, zero, zero, zero];
 
-                *lookup_data.memory[6] = [
-                    fp + offset_off,
-                    offset_prev_clock,
-                    offset_val,
-                    zero,
-                    zero,
-                    zero,
-                ];
-                *lookup_data.memory[7] = [fp + offset_off, clock, offset_val, zero, zero, zero];
+                *lookup_data.memory[6] = [addr2, prev_clock2, val2, zero, zero, zero];
+                *lookup_data.memory[7] = [addr2, clock, val2, zero, zero, zero];
 
-                *lookup_data.memory[8] = [
-                    base_val + offset_val,
-                    final_deref_prev_clock,
-                    final_deref_prev_val,
-                    zero,
-                    zero,
-                    zero,
-                ];
-                *lookup_data.memory[9] = [base_val + offset_val, clock, src_val, zero, zero, zero];
+                *lookup_data.memory[8] = [addr3, prev_clock3, prev_val3, zero, zero, zero];
+                *lookup_data.memory[9] = [addr3, clock, val2, zero, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - src_prev_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - base_prev_clock - enabler;
-                *lookup_data.range_check_20[3] = clock - offset_prev_clock - enabler;
-                *lookup_data.range_check_20[4] = clock - final_deref_prev_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - prev_clock0 - enabler;
+                *lookup_data.range_check_20[2] = clock - prev_clock1 - enabler;
+                *lookup_data.range_check_20[3] = clock - prev_clock2 - enabler;
+                *lookup_data.range_check_20[4] = clock - prev_clock3 - enabler;
             });
 
         (
@@ -390,28 +385,56 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let opcode_constant = E::F::from(M31::from(STORE_TO_DOUBLE_DEREF_FP_FP));
+        let three = E::F::from(M31::from(3));
+        let store_to_double_deref_fp_fp = E::F::from(M31::from(STORE_TO_DOUBLE_DEREF_FP_FP));
 
-        // 16 columns
+        // 20 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
         let clock = eval.next_trace_mask();
         let inst_prev_clock = eval.next_trace_mask();
-        let src_off = eval.next_trace_mask();
-        let base_off = eval.next_trace_mask();
-        let offset_off = eval.next_trace_mask();
-        let src_val = eval.next_trace_mask();
-        let src_prev_clock = eval.next_trace_mask();
-        let base_val = eval.next_trace_mask();
-        let base_prev_clock = eval.next_trace_mask();
-        let offset_val = eval.next_trace_mask();
-        let offset_prev_clock = eval.next_trace_mask();
-        let final_deref_prev_val = eval.next_trace_mask();
-        let final_deref_prev_clock = eval.next_trace_mask();
+        let opcode_constant = eval.next_trace_mask();
+        let write_lhs = eval.next_trace_mask();
+        let off0 = eval.next_trace_mask();
+        let off1 = eval.next_trace_mask();
+        let off2 = eval.next_trace_mask();
+        let val0 = eval.next_trace_mask();
+        let prev_clock0 = eval.next_trace_mask();
+        let val1 = eval.next_trace_mask();
+        let prev_clock1 = eval.next_trace_mask();
+        let addr2 = eval.next_trace_mask();
+        let val2 = eval.next_trace_mask();
+        let prev_clock2 = eval.next_trace_mask();
+        let addr3 = eval.next_trace_mask();
+        let prev_val3 = eval.next_trace_mask();
+        let prev_clock3 = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
+
+        // write_lhs is correctly computed
+        eval.add_constraint(
+            enabler.clone()
+                * (three.clone() * write_lhs.clone() - three
+                    + (store_to_double_deref_fp_fp - opcode_constant.clone())),
+        );
+
+        // addr2 is correctly computed
+        eval.add_constraint(
+            enabler.clone()
+                * (addr2.clone()
+                    - write_lhs.clone() * (fp.clone() + off2.clone())
+                    - (one.clone() - write_lhs.clone()) * (val0.clone() + val1.clone())),
+        );
+
+        // addr3 is correctly computed
+        eval.add_constraint(
+            enabler.clone()
+                * (addr3.clone()
+                    - write_lhs.clone() * (val0.clone() + val1.clone())
+                    - (one.clone() - write_lhs) * (fp.clone() + off2.clone())),
+        );
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -433,9 +456,9 @@ impl FrameworkEval for Eval {
                 pc.clone(),
                 inst_prev_clock.clone(),
                 opcode_constant.clone(),
-                src_off.clone(),
-                base_off.clone(),
-                offset_off.clone(),
+                off0.clone(),
+                off1.clone(),
+                off2.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
@@ -445,9 +468,9 @@ impl FrameworkEval for Eval {
                 pc,
                 clock.clone(),
                 opcode_constant,
-                src_off.clone(),
-                base_off.clone(),
-                offset_off.clone(),
+                off0.clone(),
+                off1.clone(),
+                off2,
             ],
         ));
 
@@ -455,64 +478,48 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + src_off.clone(),
-                src_prev_clock.clone(),
-                src_val.clone(),
-            ],
+            &[fp.clone() + off0.clone(), prev_clock0.clone(), val0.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + src_off, clock.clone(), src_val.clone()],
+            &[fp.clone() + off0, clock.clone(), val0],
         ));
 
         // Read base
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + base_off.clone(),
-                base_prev_clock.clone(),
-                base_val.clone(),
-            ],
+            &[fp.clone() + off1.clone(), prev_clock1.clone(), val1.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + base_off, clock.clone(), base_val.clone()],
+            &[fp + off1, clock.clone(), val1],
         ));
 
         // Read offset
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + offset_off.clone(),
-                offset_prev_clock.clone(),
-                offset_val.clone(),
-            ],
+            &[addr2.clone(), prev_clock2.clone(), val2.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + offset_off, clock.clone(), offset_val.clone()],
+            &[addr2, clock.clone(), val2.clone()],
         ));
 
         // Write at [base_val + offset_val]
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
-            &[
-                base_val.clone() + offset_val.clone(),
-                final_deref_prev_clock.clone(),
-                final_deref_prev_val,
-            ],
+            &[addr3.clone(), prev_clock3.clone(), prev_val3],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[base_val + offset_val, clock.clone(), src_val],
+            &[addr3, clock.clone(), val2],
         ));
 
         // Range check 20
@@ -524,22 +531,22 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - src_prev_clock - enabler.clone()],
+            &[clock.clone() - prev_clock0 - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - base_prev_clock - enabler.clone()],
+            &[clock.clone() - prev_clock1 - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - offset_prev_clock - enabler.clone()],
+            &[clock.clone() - prev_clock2 - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - final_deref_prev_clock - enabler],
+            &[clock - prev_clock3 - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

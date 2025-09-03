@@ -294,9 +294,9 @@ pub fn store_to_double_deref_fp_fp(
         (base_off, offset_off, src_off)
     );
 
-    let value = memory.get_data(state.fp + src_off)?;
     let base_addr = memory.get_data(state.fp + base_off)?;
     let offset_value = memory.get_data(state.fp + offset_off)?;
+    let value = memory.get_data(state.fp + src_off)?;
 
     let target_address = base_addr + offset_value;
     memory.insert(target_address, value.into())?;

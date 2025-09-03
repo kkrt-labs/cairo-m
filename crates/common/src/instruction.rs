@@ -568,9 +568,9 @@ instructions! {
     ];
     // [[fp + base_off] + [fp + offset_off]] = [fp + src_off]
     StoreToDoubleDerefFpFp = 45 {
-        src_off: (OperandType::Memory(DataType::Felt)),
         base_off: (OperandType::Memory(DataType::Felt)),
         offset_off: (OperandType::Memory(DataType::Felt)),
+        src_off: (OperandType::Memory(DataType::Felt)),
     }, implicit_operands: [
         (OperandType::Memory(DataType::Felt)),
     ];

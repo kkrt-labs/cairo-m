@@ -243,9 +243,11 @@ define_opcodes!(
         store_fp_imm
     ),
     ([StoreDoubleDerefFp], store_double_deref_fp),
-    ([StoreDoubleDerefFpFp], store_double_deref_fp_fp),
     ([StoreToDoubleDerefFpImm], store_to_double_deref_fp_imm),
-    ([StoreToDoubleDerefFpFp], store_to_double_deref_fp_fp),
+    (
+        [StoreDoubleDerefFpFp, StoreToDoubleDerefFpFp],
+        double_deref_fp_fp
+    ),
     ([StoreFramePointer], store_frame_pointer),
     ([U32StoreImm], u32_store_imm),
     ([U32StoreAddFpImm], u32_store_add_fp_imm),
