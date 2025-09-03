@@ -184,7 +184,6 @@ macro_rules! define_opcodes {
                     )*
                     // TODO: Add support for these opcodes
                     Instruction::StoreLowerThanFpImm { .. } => {},
-                    Instruction::StoreFramePointer { .. } => {},
                     Instruction::U32StoreAddFpFp { .. } => {},
                     Instruction::U32StoreSubFpFp { .. } => {},
                     Instruction::U32StoreMulFpFp { .. } => {},
@@ -247,6 +246,7 @@ define_opcodes!(
     ([StoreDoubleDerefFpFp], store_double_deref_fp_fp),
     ([StoreToDoubleDerefFpImm], store_to_double_deref_fp_imm),
     ([StoreToDoubleDerefFpFp], store_to_double_deref_fp_fp),
+    ([StoreFramePointer], store_frame_pointer),
     ([U32StoreImm], u32_store_imm),
     ([U32StoreAddFpImm], u32_store_add_fp_imm),
     ([U32StoreMulFpImm], u32_store_mul_fp_imm),

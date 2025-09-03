@@ -206,6 +206,7 @@ fn relation_entries(
         add_to_relation_entries(&opcodes.store_to_double_deref_fp_imm, trace),
         add_to_relation_entries(&opcodes.store_to_double_deref_fp_fp, trace),
         add_to_relation_entries(&opcodes.store_imm, trace),
+        add_to_relation_entries(&opcodes.store_frame_pointer, trace),
         add_to_relation_entries(&opcodes.u32_store_imm, trace),
         add_to_relation_entries(&opcodes.u32_store_add_fp_imm, trace),
         add_to_relation_entries(&opcodes.u32_store_mul_fp_imm, trace),

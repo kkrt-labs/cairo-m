@@ -52,6 +52,25 @@ fn main() -> felt {
     let immediate = 42;
 
     // ╔══════════════════════════════════════════════════════════════════════════╗
+    // ║                         Double Deref Opcodes                             ║
+    // ╚══════════════════════════════════════════════════════════════════════════╝
+
+    let my_arr: [felt; 4] = [0; 4];
+
+    // StoreDoubleDerefFp
+    let my_arr_0 = my_arr[0];
+
+    // StoreDoubleDerefFpFp
+    let one_felt = 1;
+    let my_arr_1 = my_arr[one_felt];
+
+    // StoreToDoubleDerefFpImm
+    my_arr[0] = 42;
+
+    // StoreToDoubleDerefFpFp
+    my_arr[one_felt] = 42;
+
+    // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                         Arithmetic U32 Opcodes                           ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
 
