@@ -192,7 +192,7 @@ impl Claim {
                         x
                     }
                 }));
-                dbg!(&opcode_constant);
+
                 let off0 = input.inst_value_1;
                 let off1 = input.inst_value_2;
                 let off2 = input.inst_value_3;
@@ -416,10 +416,7 @@ impl FrameworkEval for Eval {
         let prev_val3 = eval.next_trace_mask();
         let prev_clock3 = eval.next_trace_mask();
 
-        let write_lhs = (opcode_constant.clone() - store_double_deref_fp_fp) * delta_inv.clone();
-        dbg!(&opcode_constant);
-        dbg!(&delta_inv);
-        dbg!(&write_lhs);
+        let write_lhs = (opcode_constant.clone() - store_double_deref_fp_fp) * delta_inv;
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
