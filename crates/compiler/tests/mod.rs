@@ -10,7 +10,7 @@ fn test_compile_project() {
         .expect("Failed to get parent directory")
         .parent()
         .expect("Failed to get workspace root");
-    let project_root = workspace_root.join("cairo-m-project");
+    let project_root = workspace_root.join("examples/sha256-cairo-m");
 
     let res = Command::new("cargo")
         .arg("run")
