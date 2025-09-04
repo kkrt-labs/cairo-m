@@ -16,7 +16,7 @@
 //! - `StoreAddFpFp { src0_off: M31, src1_off: M31, dst_off: M31 }` - 4 M31 total
 //! - `Ret {}` - 1 M31 total (just the opcode)
 
-use assert::{assert_eq_fp_fp, assert_eq_fp_imm};
+use assert::assert_eq_fp_imm;
 use cairo_m_common::instruction::*;
 use cairo_m_common::{Instruction, State};
 
@@ -105,7 +105,6 @@ pub fn instruction_to_fn(instruction: Instruction) -> Result<InstructionFn, Inst
         Instruction::PrintM31 { .. } => print_m31,
         Instruction::PrintU32 { .. } => print_u32,
         Instruction::StoreLowerThanFpImm { .. } => store_lower_than_fp_imm,
-        Instruction::AssertEqFpFp { .. } => assert_eq_fp_fp,
         Instruction::AssertEqFpImm { .. } => assert_eq_fp_imm,
     };
     Ok(f)

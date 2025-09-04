@@ -360,12 +360,6 @@ instructions! {
         dst_off: (OperandType::Memory(DataType::Felt)),
     };
 
-    // Assertions
-    // assert [fp + src0_off] == [fp + src1_off]
-    AssertEqFpFp = 49 {
-        src0_off: (OperandType::Memory(DataType::Felt)),
-        src1_off: (OperandType::Memory(DataType::Felt)),
-    };
     // assert [fp + src_off] == imm
     AssertEqFpImm = 50 {
         src_off: (OperandType::Memory(DataType::Felt)),

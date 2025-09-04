@@ -227,7 +227,6 @@ use crate::components::Relations;
 
 // Define all opcode structures and implementations with a single macro call
 define_opcodes!(
-    ([AssertEqFpFp], assert_eq_fp_fp),
     ([AssertEqFpImm], assert_eq_fp_imm),
     ([CallAbsImm], call_abs_imm),
     ([JmpAbsImm, JmpRelImm], jmp_imm),

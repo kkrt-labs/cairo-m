@@ -362,8 +362,7 @@ pub enum InstructionKind {
         array_ty: MirType,
     },
 
-    /// Assert equality between two felt/bool values (single-slot)
-    /// Lowers to AssertEqFpFp / AssertEqFpImm
+    /// Assert equality between two values.
     AssertEq { left: Value, right: Value },
 }
 
