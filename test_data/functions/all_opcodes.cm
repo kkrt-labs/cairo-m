@@ -88,6 +88,9 @@ fn main() -> felt {
     // CallAbsImm
     let result = helper();
 
+    // AssertEqFpImm
+    assert(result == 5);
+
     return result;
 }
 

@@ -21,6 +21,7 @@ use cairo_m_compiler_parser::parser::{
 use cairo_m_compiler_parser::ParsedModule;
 use chumsky::span::SimpleSpan;
 
+use crate::builtins::{is_builtin_function_name, BuiltinFn};
 use crate::db::{Crate, SemanticDb};
 use crate::semantic_index::ExpressionInfo;
 use crate::type_resolution::{
@@ -101,6 +102,40 @@ impl Validator for TypeValidator {
 }
 
 impl TypeValidator {
+    fn check_builtin_assert(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        _callee: &Spanned<Expression>,
+        args: &[Spanned<Expression>],
+        sink: &dyn DiagnosticSink,
+    ) {
+        // Only validate that the inner expression (if provided) evaluates to a boolean.
+        // Delegate all other typing rules to the general validators.
+        if let Some(cond) = args.first() {
+            if let Some(cond_expr_id) = index.expression_id_by_span(cond.span()) {
+                let cond_type = expression_semantic_type(db, crate_id, file, cond_expr_id, None);
+                match cond_type.data(db) {
+                    TypeData::Bool => {}
+                    TypeData::Error | TypeData::Unknown => {
+                        // Avoid cascading diagnostics for already-invalid expressions
+                    }
+                    other => {
+                        sink.push(
+                            Diagnostic::error(
+                                DiagnosticCode::TypeMismatch,
+                                format!("expected bool, found `{}`", other.display_name(db)),
+                            )
+                            .with_location(file.file_path(db).to_string(), cond.span()),
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     /// Check if a type expression contains nested arrays
     fn check_for_nested_arrays(
         db: &dyn SemanticDb,
@@ -197,6 +232,13 @@ impl TypeValidator {
                 self.check_binary_op_types(db, crate_id, file, index, left, op, right, sink);
             }
             Expression::FunctionCall { callee, args } => {
+                // Handle built-in assert() semantics
+                if let Expression::Identifier(ident) = callee.value()
+                    && is_builtin_function_name(ident.value()) == Some(BuiltinFn::Assert)
+                {
+                    self.check_builtin_assert(db, crate_id, file, index, callee, args, sink);
+                    return;
+                }
                 self.check_function_call_types(db, crate_id, file, index, callee, args, sink);
             }
             Expression::MemberAccess { object, field } => {

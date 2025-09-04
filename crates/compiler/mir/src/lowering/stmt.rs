@@ -235,6 +235,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         // For statement expressions, check if it's a function call that should be void
         if let Expression::FunctionCall { callee, args } = expr.value() {
+            // Handle built-in assert(...)
+            if let Expression::Identifier(name) = callee.value()
+                && cairo_m_compiler_semantic::builtins::is_builtin_function_name(name.value())
+                    == Some(cairo_m_compiler_semantic::builtins::BuiltinFn::Assert)
+            {
+                self.lower_assert_call(args, expr.span())?;
+                return Ok(());
+            }
             // Handle function calls as statements (void calls)
             let expr_id = self.expr_id(expr.span())?;
 
@@ -254,6 +262,34 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // For other statement expressions, lower normally and discard the result
         self.lower_expression(expr)?;
+        Ok(())
+    }
+
+    /// Lower a built-in assert(...) call.
+    /// Evaluate the condition expression to a boolean value and assert it equals true.
+    pub(crate) fn lower_assert_call(
+        &mut self,
+        args: &[Spanned<Expression>],
+        call_span: chumsky::prelude::SimpleSpan,
+    ) -> Result<(), String> {
+        if args.is_empty() {
+            return Err("assert expects at least one argument".to_string());
+        }
+
+        // Lower the first argument as the condition; semantic layer ensures it's a bool.
+        let cond_val = self.lower_expression(&args[0])?;
+
+        // Assert the boolean condition equals true (1)
+        self.instr().add_instruction(crate::Instruction {
+            kind: crate::InstructionKind::AssertEq {
+                left: cond_val,
+                right: crate::Value::integer(1),
+            },
+            source_span: Some(call_span),
+            source_expr_id: None,
+            comment: None,
+        });
+
         Ok(())
     }
 

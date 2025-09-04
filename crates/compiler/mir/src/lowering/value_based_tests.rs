@@ -169,4 +169,51 @@ mod value_based_lowering_tests {
         assert!(!mir_text.contains("maketuple"));
         assert!(!mir_text.contains("framealloc"));
     }
+
+    #[test]
+    fn test_assert_in_expression_position_let() {
+        let source = r#"
+        fn test() {
+            let x = 3;
+            let _ = assert(x == 3);
+            return;
+        }
+        "#;
+
+        let db = TestDatabase::default();
+        let crate_id = create_test_crate(&db, source);
+        let module = generate_mir(&db, crate_id).expect("MIR generation failed for assert in expr");
+        let mir_text = module.pretty_print(0);
+
+        // Ensure assert lowered to AssertEq rather than unresolved function call
+        assert!(
+            mir_text.contains("AssertEq"),
+            "Expected AssertEq in MIR for assert call"
+        );
+        assert!(!mir_text.contains("Function 'assert' not found"));
+    }
+
+    #[test]
+    fn test_assert_used_as_argument_to_unit_param() {
+        let source = r#"
+        fn takes_unit(x: ()) { return; }
+
+        fn test() {
+            takes_unit(assert(1 == 1));
+            return;
+        }
+        "#;
+
+        let db = TestDatabase::default();
+        let crate_id = create_test_crate(&db, source);
+        let module = generate_mir(&db, crate_id).expect("MIR generation failed for assert arg");
+        let mir_text = module.pretty_print(0);
+
+        // Assert should still be lowered when used as an argument, and no unresolved calls
+        assert!(
+            mir_text.contains("AssertEq"),
+            "Expected AssertEq in MIR for assert call as arg"
+        );
+        assert!(!mir_text.contains("Function 'assert' not found"));
+    }
 }

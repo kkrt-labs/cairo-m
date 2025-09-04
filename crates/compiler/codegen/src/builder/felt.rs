@@ -41,6 +41,21 @@ macro_rules! felt_fp_imm_op {
 }
 
 impl super::CasmBuilder {
+    #[inline]
+    const fn literal_to_i32(l: &Literal) -> i32 {
+        match l {
+            Literal::Integer(v) => *v as i32,
+            Literal::Boolean(b) => {
+                if *b {
+                    1
+                } else {
+                    0
+                }
+            }
+            _ => 0,
+        }
+    }
+
     pub(super) fn felt_arith(
         &mut self,
         op: BinaryOp,
@@ -57,31 +72,34 @@ impl super::CasmBuilder {
                 let r_operand = self.layout.get_offset(*rid)?;
                 self.felt_fp_fp_op(op, l_operand, r_operand, dest_off)?;
             }
-            (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
+            (Value::Operand(lid), Value::Literal(lit)) => {
                 let lo = self.layout.get_offset(*lid)?;
-                self.felt_fp_imm_op(op, lo, *imm as i32, dest_off)?;
+                let imm = Self::literal_to_i32(lit);
+                self.felt_fp_imm_op(op, lo, imm, dest_off)?;
             }
-            (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
+            (Value::Literal(lit), Value::Operand(rid)) => {
                 // Only add/mul are commutative; for sub/div use a temp
                 match op {
                     BinaryOp::Add | BinaryOp::Mul => {
                         let ro = self.layout.get_offset(*rid)?;
-                        self.felt_fp_imm_op(op, ro, *imm as i32, dest_off)?;
+                        let imm = Self::literal_to_i32(lit);
+                        self.felt_fp_imm_op(op, ro, imm, dest_off)?;
                     }
                     BinaryOp::Sub | BinaryOp::Div => {
                         // Stage immediate then use fp-fp form
                         let tmp = self.layout.reserve_stack(1);
-                        self.store_immediate(*imm, tmp, format!("[fp + {tmp}] = {imm}"));
+                        let imm = Self::literal_to_i32(lit) as u32;
+                        self.store_immediate(imm, tmp, format!("[fp + {tmp}] = {imm}"));
                         let ro = self.layout.get_offset(*rid)?;
                         self.felt_fp_fp_op(op, tmp, ro, dest_off)?;
                     }
                     _ => unreachable!(),
                 }
             }
-            (Value::Literal(Literal::Integer(l)), Value::Literal(Literal::Integer(r))) => {
-                // Constant fold on host for felt using M31 field arithmetic
-                let l_m31 = M31::from(*l);
-                let r_m31 = M31::from(*r);
+            (Value::Literal(l), Value::Literal(r)) => {
+                // Constant fold on host for felt using M31 field arithmetic, booleans map to 0/1
+                let l_m31 = M31::from(Self::literal_to_i32(l) as u32);
+                let r_m31 = M31::from(Self::literal_to_i32(r) as u32);
                 let res = match op {
                     BinaryOp::Add => l_m31 + r_m31,
                     BinaryOp::Sub => l_m31 - r_m31,
