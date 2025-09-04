@@ -36,16 +36,16 @@ fn test_let_variable_type_inference() {
         .unwrap();
 
     // Test inferred type
-    let (x_def_idx, _) = semantic_index
-        .resolve_name_to_definition("x", func_scope)
+    let x_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "x")
         .unwrap();
     let x_def_id = DefinitionId::new(&db, file, x_def_idx);
     let x_type = definition_semantic_type(&db, crate_id, x_def_id);
     assert!(matches!(x_type.data(&db), TypeData::Felt));
 
     // Test explicit type
-    let (y_def_idx, _) = semantic_index
-        .resolve_name_to_definition("y", func_scope)
+    let y_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "y")
         .unwrap();
     let y_def_id = DefinitionId::new(&db, file, y_def_idx);
     let y_type = definition_semantic_type(&db, crate_id, y_def_id);
@@ -74,8 +74,8 @@ fn test_parameter_type_resolution() {
         .unwrap();
 
     // Test struct parameter
-    let (v_def_idx, _) = semantic_index
-        .resolve_name_to_definition("v", func_scope)
+    let v_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "v")
         .unwrap();
     let v_def_id = DefinitionId::new(&db, file, v_def_idx);
     let v_type = definition_semantic_type(&db, crate_id, v_def_id);
@@ -87,8 +87,8 @@ fn test_parameter_type_resolution() {
     }
 
     // Test felt parameter
-    let (scale_def_idx, _) = semantic_index
-        .resolve_name_to_definition("scale", func_scope)
+    let scale_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "scale")
         .unwrap();
     let scale_def_id = DefinitionId::new(&db, file, scale_def_idx);
     let scale_type = definition_semantic_type(&db, crate_id, scale_def_id);
@@ -110,8 +110,8 @@ fn test_function_type_resolution() {
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Get the function definition
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("get_point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "get_point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
@@ -150,16 +150,16 @@ fn test_const_type_resolution() {
     let root_scope = semantic_index.root_scope().unwrap();
 
     // Test inferred const type
-    let (pi_def_idx, _) = semantic_index
-        .resolve_name_to_definition("PI", root_scope)
+    let pi_def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "PI")
         .unwrap();
     let pi_def_id = DefinitionId::new(&db, file, pi_def_idx);
     let pi_type = definition_semantic_type(&db, crate_id, pi_def_id);
     assert!(matches!(pi_type.data(&db), TypeData::Felt));
 
     // Test explicit const type
-    let (max_def_idx, _) = semantic_index
-        .resolve_name_to_definition("MAX_SIZE", root_scope)
+    let max_def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "MAX_SIZE")
         .unwrap();
     let max_def_id = DefinitionId::new(&db, file, max_def_idx);
     let max_type = definition_semantic_type(&db, crate_id, max_def_id);
@@ -180,8 +180,8 @@ fn test_struct_definition_type() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 

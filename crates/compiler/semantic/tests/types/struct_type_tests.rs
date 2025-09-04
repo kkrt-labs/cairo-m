@@ -22,8 +22,8 @@ fn test_simple_struct_data() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
     let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
@@ -54,8 +54,8 @@ fn test_struct_with_mixed_field_types() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Person", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Person")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
     let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
@@ -97,8 +97,8 @@ fn test_struct_with_struct_fields() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (rect_def_idx, _) = semantic_index
-        .resolve_name_to_definition("Rectangle", root_scope)
+    let rect_def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Rectangle")
         .unwrap();
     let rect_def_id = DefinitionId::new(&db, file, rect_def_idx);
     let rect_struct_data = struct_semantic_data(&db, crate_id, rect_def_id).unwrap();
@@ -134,8 +134,8 @@ fn test_empty_struct() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Empty", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Empty")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
     let struct_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
@@ -160,8 +160,8 @@ fn test_struct_data_consistency() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 

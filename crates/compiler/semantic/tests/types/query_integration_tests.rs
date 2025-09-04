@@ -69,8 +69,8 @@ fn test_struct_type_resolution() {
     };
 
     // 3. Get the struct's semantic data directly and compare.
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
     let semantic_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
@@ -100,8 +100,8 @@ fn test_function_signature_resolution() {
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Get the function definition.
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("get_point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "get_point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
@@ -153,8 +153,8 @@ fn test_parameter_type_resolution() {
         .unwrap();
 
     // 1. Find the parameter definition `v`.
-    let (param_def_idx, _) = semantic_index
-        .resolve_name_to_definition("v", func_scope)
+    let param_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "v")
         .unwrap();
     let param_def_id = DefinitionId::new(&db, file, param_def_idx);
 
@@ -188,7 +188,7 @@ fn test_expression_type_inference() {
 
     // Helper to find an expression by matching against tracked expressions
     let find_expr_id = |target_text: &str| {
-        for (span, expr_id) in &semantic_index.span_to_expression_id {
+        for (span, expr_id) in semantic_index.span_expression_mappings() {
             let source_text = &program[span.start..span.end];
             if source_text == target_text {
                 return *expr_id;
@@ -198,7 +198,7 @@ fn test_expression_type_inference() {
             "Expression '{}' not found in tracked expressions. Available: {:?}",
             target_text,
             semantic_index
-                .span_to_expression_id
+                .span_expression_mappings()
                 .keys()
                 .map(|span| &program[span.into_range()])
                 .collect::<Vec<_>>()
@@ -256,8 +256,8 @@ fn test_let_variable_type_inference() {
 
     // Helper function to get variable type
     let get_var_type = |var_name: &str| {
-        let (def_idx, _) = semantic_index
-            .resolve_name_to_definition(var_name, func_scope)
+        let def_idx = semantic_index
+            .latest_definition_index_by_name(func_scope, var_name)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
         definition_semantic_type(&db, crate_id, def_id)
@@ -300,8 +300,8 @@ fn test_const_variable_type_inference() {
 
     // Helper function to get constant type
     let get_const_type = |const_name: &str| {
-        let (def_idx, _) = semantic_index
-            .resolve_name_to_definition(const_name, root_scope)
+        let def_idx = semantic_index
+            .latest_definition_index_by_name(root_scope, const_name)
             .unwrap_or_else(|| panic!("Constant '{const_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
         definition_semantic_type(&db, crate_id, def_id)
@@ -345,8 +345,8 @@ fn test_explicit_type_annotations_priority() {
 
     // Helper function to get variable type
     let get_var_type = |var_name: &str| {
-        let (def_idx, _) = semantic_index
-            .resolve_name_to_definition(var_name, func_scope)
+        let def_idx = semantic_index
+            .latest_definition_index_by_name(func_scope, var_name)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
         definition_semantic_type(&db, crate_id, def_id)
@@ -401,8 +401,8 @@ fn test_let_variable_inference_without_annotation() {
 
     // Helper function to get variable type
     let get_var_type = |var_name: &str| {
-        let (def_idx, _) = semantic_index
-            .resolve_name_to_definition(var_name, func_scope)
+        let def_idx = semantic_index
+            .latest_definition_index_by_name(func_scope, var_name)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
         definition_semantic_type(&db, crate_id, def_id)
@@ -449,8 +449,8 @@ fn test_mixed_variable_scenarios() {
 
     // Helper function to get variable type
     let get_var_type = |var_name: &str| {
-        let (def_idx, _) = semantic_index
-            .resolve_name_to_definition(var_name, func_scope)
+        let def_idx = semantic_index
+            .latest_definition_index_by_name(func_scope, var_name)
             .unwrap_or_else(|| panic!("Variable '{var_name}' not found"));
         let def_id = DefinitionId::new(&db, file, def_idx);
         definition_semantic_type(&db, crate_id, def_id)
@@ -500,8 +500,8 @@ fn test_multiple_return_type_signature() {
     let root_scope = semantic_index.root_scope().unwrap();
 
     // 1. Get the function definition.
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("my_func", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "my_func")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
@@ -553,7 +553,7 @@ fn test_literal_inference_with_explicit_type() {
 
     // Helper to find an expression and get its type
     let find_expr_type = |target_text: &str| {
-        for (span, expr_id) in &semantic_index.span_to_expression_id {
+        for (span, expr_id) in semantic_index.span_expression_mappings() {
             let source_text = &program[span.start..span.end];
             if source_text == target_text {
                 return expression_semantic_type(&db, crate_id, file, *expr_id, None);
@@ -563,7 +563,7 @@ fn test_literal_inference_with_explicit_type() {
             "Expression '{}' not found in tracked expressions. Available: {:?}",
             target_text,
             semantic_index
-                .span_to_expression_id
+                .span_expression_mappings()
                 .keys()
                 .map(|span| &program[span.into_range()])
                 .collect::<Vec<_>>()

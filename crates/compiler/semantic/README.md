@@ -1,200 +1,175 @@
-# Cairo-M Semantic Analysis
+# Cairo‑M Semantic – Consumer Guide
 
-This crate implements semantic analysis for the Cairo-M compiler, transforming
-parsed AST into a rich semantic model with comprehensive validation and type
-checking.
+This crate provides the semantic layer for Cairo‑M. It exposes a stable,
+consumer‑focused API to:
 
-## 🎯 Purpose
+- Build a semantic index for a file or module (Salsa‑cached)
+- Navigate scopes and definitions (DefinitionIndex‑first)
+- Resolve names (position‑aware, shadowing‑correct, with imports)
+- Run type queries (expression/definition types, signatures)
+- Validate code and collect diagnostics
 
-The semantic crate is the brain of the Cairo-M compiler. It takes the syntactic
-AST from the parser and builds a complete understanding of the program's
-meaning, including:
+The internals deliberately avoid redundant state. Name lookup uses a per‑scope
+`name_index` and use‑def mappings recorded by the builder.
 
-- **Name Resolution**: Links every identifier usage to its definition
-- **Type Inference**: Determines the type of every expression
-- **Scope Analysis**: Tracks variable visibility and lifetime
-- **Semantic Validation**: Detects errors like undeclared variables, type
-  mismatches, and dead code
-- **Incremental Compilation**: Uses Salsa framework for efficient caching and
-  recompilation
+Who should read this:
 
-## 🏗️ Architecture
+- Language Server, MIR, codegen, lint/validation, tools consuming semantic data.
 
-The crate follows a layered architecture inspired by rust-analyzer and Ruff:
-
-```text
-┌─────────────────────────────────────┐
-│        Type System Layer            │ ← Type inference & checking
-├─────────────────────────────────────┤
-│        Validation Layer             │ ← Semantic rules & diagnostics
-├─────────────────────────────────────┤
-│        Semantic Index               │ ← Core semantic model
-├─────────────────────────────────────┤
-│    Definitions & Use-Def Chains     │ ← Symbol resolution
-├─────────────────────────────────────┤
-│      Places & Scope Hierarchy       │ ← Scope tracking
-├─────────────────────────────────────┤
-│          Parser AST                 │ ← Input from parser crate
-└─────────────────────────────────────┘
-```
-
-### Core Components
-
-#### **Semantic Index** (`semantic_index.rs`)
-
-The heart of semantic analysis. Contains:
-
-- Complete scope hierarchy with parent-child relationships
-- Symbol tables (PlaceTable) for each scope
-- Use-def chains linking identifier uses to definitions
-- Expression metadata for type inference
-- Efficient lookups via IndexVec and HashMap
-
-#### **Type System** (`types.rs`, `type_resolution.rs`)
-
-Salsa-based type representation:
-
-- `TypeId`: Interned type identifiers for fast comparison
-- `TypeData`: Actual type information (Felt, Struct, Tuple, Pointer, Function)
-- `StructTypeId` & `FunctionSignatureId`: Interned complex types
-- Type inference for all expressions
-- Type compatibility checking
-
-#### **Scope & Symbol Management** (`place.rs`, `definition.rs`)
-
-- `Scope`: Hierarchical containers (Module, Function, Block)
-- `Place`: Named entities that can hold values
-- `Definition`: Links symbols to their AST nodes and metadata
-- Two-pass analysis enables forward references
-
-#### **Validation Framework** (`validation/`)
-
-Extensible plugin-like system:
-
-- `ScopeValidator`: Undeclared/unused variables, duplicates
-- `TypeValidator`: Type checking for operations and assignments
-- `ControlFlowValidator`: Reachability and return analysis
-- Beautiful diagnostics with source locations
-
-### Key Design Decisions
-
-1. **Salsa Integration**: All major queries are `#[salsa::tracked]` for
-   incremental compilation
-2. **Interned Types**: Complex types are interned for O(1) comparison
-3. **Direct AST Storage**: ExpressionInfo stores AST nodes directly for fast
-   access
-4. **Two-Pass Analysis**: Declaration collection then body processing for
-   forward refs
-5. **Index-Based Storage**: Uses IndexVec for cache-friendly sequential access
-
-## 📋 Current Capabilities
-
-### ✅ Implemented
-
-- **Complete Scope Analysis**: Hierarchical scope tracking with full
-  parent-child relationships
-- **Name Resolution**: Comprehensive use-def chains linking every identifier to
-  its definition
-- **Type System**:
-  - Primitive types (`felt`)
-  - Struct types with field access
-  - Function types with signatures
-  - Tuple types
-  - Pointer types
-  - Type inference for all expressions
-- **Validation**:
-  - Undeclared variable detection
-  - Unused variable warnings
-  - Duplicate definition errors
-  - Type mismatch detection
-  - Basic control flow analysis
-- **Language Features**:
-  - Functions with parameters and return types
-  - Local variables (`let` and `local`)
-  - Struct definitions and literals
-  - Control flow (`if`/`else`)
-  - Binary operations
-  - Member access
-
-### 🚧 Not Yet Implemented
-
-- Arrays (parsing exists, semantic support pending)
-- `for` loops (iterator protocol needed)
-- Advanced type inference (constraint solving)
-- Module/import resolution
-- Generic types
-- Pattern matching
-
-## 🔨 API Usage
-
-### Basic Usage
+## Quick Start
 
 ```rust
-use cairo_m_compiler_semantic::{SemanticDb, semantic_index, validate_semantics};
+use cairo_m_compiler_semantic as sem;
+use sem::{SemanticDb, module_semantic_index};
 
-// Create a database
-let db = SemanticDatabaseImpl::default();
+// Get module index (Salsa‑cached)
+let index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
-// Create a source file
-let file = SourceFile::new(&db, source_code, "main.cm");
+// Resolve a name in a scope chain (DefinitionIndex‑first)
+let root = index.root_scope().unwrap();
+let def_idx = index
+    .latest_definition_index_by_name_in_chain(root, "foo")
+    .expect("definition not found");
+let def = index.definition(def_idx).unwrap();
 
-// Get semantic index (cached by Salsa)
-let index = semantic_index(&db, file)?;
+// Get a type of an expression
+let expr_ty = sem::type_resolution::expression_semantic_type(&db, crate_id, file, expr_id, None);
 
-// Run validation
-let diagnostics = validate_semantics(&db, &parsed_module, file);
+// Validate a whole crate
+let diags = sem::db::project_validate_semantics(&db, crate_id);
 ```
 
-### Querying the Semantic Model
+## Building and Accessing the Index
 
-```rust
-// Resolve a name to its definition
-let (def_index, definition) = index.resolve_name_to_definition("variable_name", scope_id)?;
+- Per module: `module_semantic_index(&db, crate_id, module_name)`
+- Per crate: `project_semantic_index(&db, crate_id)` (map of module name →
+  index)
+- Per file (from a parsed module):
+  `semantic_index_from_module(&db, parsed_module, file, crate_id)`
 
-// Get type of an expression
-let expr_type = expression_semantic_type(&db, file, expression_id);
+Index navigation:
 
-// Check type compatibility
-let compatible = are_types_compatible(&db, actual_type, expected_type);
+- `root_scope() -> Option<FileScopeId>`
+- `scopes() -> Iterator<(FileScopeId, &Scope)>`
+- `child_scopes(parent: FileScopeId) -> Iterator<FileScopeId>`
+- `scope_for_span(span) -> Option<FileScopeId>`
 
-// Walk scope hierarchy
-let root_scope = index.root_scope()?;
-for child_scope_id in index.child_scopes(root_scope) {
-    let scope = index.scope(child_scope_id)?;
-    println!("Found {} scope", scope.kind);
-}
-```
+Expressions:
 
-## 🧪 Testing
+- `all_expressions() -> Iterator<(ExpressionId, &ExpressionInfo)>`
+- `expression(expr_id) -> Option<&ExpressionInfo>`
+- `expression_id_by_span(span) -> Option<ExpressionId>`
+- `span_expression_mappings() -> &FxHashMap<Span, ExpressionId>`
 
-The crate uses a comprehensive testing approach:
+Definitions:
 
-- **Inline Tests**: Unit tests with helper macros like `assert_semantic_ok!` and
-  `assert_semantic_err!`
-- **Snapshot Tests**: Complex scenarios using `.cm` fixture files with `insta`
-- **Organized by Concern**: Tests grouped by feature (scoping/, types/,
-  control_flow/, etc.)
+- `all_definitions() -> Iterator<(DefinitionIndex, &Definition)>`
+- `definitions_in_scope(scope) -> Iterator<(DefinitionIndex, &Definition)>`
+- `definition(def_idx) -> Option<&Definition>`
+- `DefinitionId::new(&db, file, def_idx)` creates a globally unique ID
+- `is_definition_used(def_idx) -> bool` (read or write observed)
 
-See `tests/README.md` for detailed testing documentation.
+## Name Resolution
 
-## 🔧 Contributing
+Use the right tool for the context:
 
-### Adding Validation Rules
+1. Exact identifier site (preferred in MIR/type inference):
 
-1. Create a new validator implementing the `Validator` trait
-2. Add to the default registry in `validation/validator.rs`
-3. Write comprehensive tests
+- `definition_for_identifier_expr(expr_id) -> Option<(DefinitionIndex, &Definition)>`
+- Uses the builder’s single‑source‑of‑truth use‑def mapping (no re‑resolution).
 
-### Extending the Type System
+2. Position‑aware lookup (validators / IDE):
 
-1. Add new variants to `TypeData` if needed
-2. Update `resolve_ast_type` for AST→Type conversion
-3. Update `expression_semantic_type` for inference
-4. Add compatibility rules to `are_types_compatible`
+- `resolve_name_at_position(name, starting_scope, position_span) -> Option<(DefinitionIndex, &Definition)>`
+  - Shadowing‑correct; excludes future `let`s and self‑reference within the
+    initializer.
+- `resolve_name_with_imports_at_position(db, crate, file, name, starting_scope, position_span)`
+  - Same as above, then follows visible imports. Imported module resolution
+    targets top‑level items and allows forward refs for Function/Struct/Use.
 
-### Performance Considerations
+Fast helpers by scope name:
 
-- All type queries should be `#[salsa::tracked]`
-- Use interned types for complex type structures
+- `latest_definition_index_by_name(scope, name)` and
+- `latest_definition_index_by_name_in_chain(scope, name)`
+
+## Use‑Def Mapping
+
+- `identifier_usages() -> &[IdentifierUsage]`
+- `is_usage_resolved(usage_idx) -> bool`
+- `get_use_definition(usage_idx) -> Option<&Definition>`
+
+For consumer crates, prefer `definition_for_identifier_expr(expr_id)` whenever
+you are at an identifier expression — it avoids any re‑resolution and matches
+exactly what the builder recorded.
+
+## Type Queries
+
+- Expression:
+  - `expression_semantic_type(&db, crate_id, file, expr_id, expected_hint) -> TypeId`
+- Definition:
+  - `definition_semantic_type(&db, crate_id, def_id) -> TypeId`
+- AST Types:
+  - `resolve_ast_type(&db, crate_id, file, type_ast, scope_id) -> TypeId`
+- Signatures and struct data:
+  - `function_semantic_signature(&db, crate_id, def_id) -> FunctionSignatureId`
+  - `struct_semantic_data(&db, crate_id, def_id) -> StructTypeId`
+
+## Validation (Diagnostics)
+
+- Whole‑crate validation:
+  `project_validate_semantics(&db, crate_id) -> DiagnosticCollection`
+- Per‑validator usage (example):
+  ```rust
+  use cairo_m_compiler_semantic::validation::{Validator, scope_check::ScopeValidator};
+  let sink = cairo_m_compiler_diagnostics::VecSink::new();
+  ScopeValidator.validate(&db, crate_id, file, &index, &sink);
+  let diagnostics = sink.into_diagnostics();
+  ```
+
+## Language Server Patterns
+
+- Cursor → scope: `scope_for_span(SimpleSpan::from(pos..pos))`
+- Position‑aware resolve: `resolve_name_at_position` first; if not found,
+  `resolve_name_with_imports_at_position`.
+- Goto‑definition: build a `DefinitionId` from `(file, def_idx)` and return
+  spans from `Definition`.
+- Hover: use `definition_semantic_type`/`function_semantic_signature` for types
+  and signatures.
+
+## MIR / Codegen Patterns
+
+- Never re‑resolve identifiers. From an `ExpressionId` for an identifier:
+  - `definition_for_identifier_expr(expr_id)` → `DefinitionIndex`
+  - `DefinitionId::new(&db, file, def_idx)` → use in SSA or downstream layers
+- Use `definition_semantic_type` to determine variable types during lowering.
+
+## Do’s and Don’ts
+
+- Do use DefinitionIndex‑first helpers (`definition_for_identifier_expr`,
+  `latest_definition_index_by_name*`).
+- Do use position‑aware APIs for IDE/validators.
+- Don’t re‑resolve identifier names during type inference/MIR lowering.
+- Don’t depend on internal tables; there is no public PlaceTable or flags.
+
+## Performance Notes
+
+- All major queries are Salsa‑tracked and cached.
+- Lookups are O(1) or better with `IndexVec` and per‑scope `name_index`.
+- Recording use‑def once during building avoids repeated name resolution in
+  consumers.
+
+## Public Re‑exports
+
+From `lib.rs`:
+
+- DB/queries: `module_semantic_index`, `project_semantic_index`, `SemanticDb`,
+  `SemanticDatabaseImpl`
+- Index/IDs: `SemanticIndex`, `DefinitionId`, `ExpressionId`, `FileScopeId`,
+  `Scope`, `ScopeKind`
+- Types: `TypeId`, `TypeData`, `StructTypeId`, `FunctionSignatureId`
+- Definition model: `Definition`, `DefinitionKind`
+
+That’s it — lean, position‑aware, and DefinitionIndex‑first.
+
 - Prefer IndexVec over HashMap where possible
 - Keep hot paths allocation-free

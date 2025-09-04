@@ -100,6 +100,51 @@ impl<'a, 'db> LoweringContext<'a, 'db> {
 }
 
 impl<'a, 'db> MirBuilder<'a, 'db> {
+    /// Bind a variable by its semantic definition to a value (SSA write)
+    pub(crate) fn bind_variable_def(
+        &mut self,
+        def_id: DefinitionId<'db>,
+        value: Value,
+    ) -> Result<(), String> {
+        let mir_def_id = MirDefinitionId {
+            definition_index: def_id.id_in_file(self.ctx.db).index(),
+            file_id: self.ctx.file_id,
+        };
+
+        // Get variable type for proper handling
+        let var_type = definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
+        let mir_type = MirType::from_semantic_type(self.ctx.db, var_type);
+
+        // Convert value to ValueId if needed
+        let value_id = match value {
+            Value::Operand(id) => id,
+            Value::Literal(_) => {
+                // Create assignment instruction for literals
+                let temp_id = self.state.mir_function.new_typed_value_id(mir_type.clone());
+                let assign_instr = Instruction::assign(temp_id, value, mir_type);
+
+                if let Some(block) = self
+                    .state
+                    .mir_function
+                    .basic_blocks
+                    .get_mut(self.state.current_block_id)
+                {
+                    block.push_instruction(assign_instr);
+                }
+                temp_id
+            }
+            Value::Error => {
+                // Create error placeholder
+                self.state.mir_function.new_typed_value_id(mir_type)
+            }
+        };
+
+        // Bind using MirFunction's SSA methods directly
+        self.state
+            .mir_function
+            .write_variable(mir_def_id, self.state.current_block_id, value_id);
+        Ok(())
+    }
     pub(crate) fn new(
         db: &'db dyn SemanticDb,
         file: File,
@@ -159,9 +204,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Get imported module's root scope
         let imported_root = imported_index.root_scope()?;
 
-        // Resolve the actual function definition in the imported module
-        let (imported_def_idx, imported_def) =
-            imported_index.resolve_name_to_definition(function_name, imported_root)?;
+        // Resolve the actual function definition in the imported module using DefinitionIndex helper
+        let imported_def_idx =
+            imported_index.latest_definition_index_by_name(imported_root, function_name)?;
+        let imported_def = imported_index
+            .definition(imported_def_idx)
+            .expect("Definition should exist for imported function");
 
         // Verify it's actually a function
         if !matches!(imported_def.kind, DefinitionKind::Function(_)) {
@@ -372,16 +420,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     .semantic_index
                     .expression_id_by_span(callee.span())
                     .ok_or_else(|| "No ExpressionId found for callee".to_string())?;
-                let callee_expr_info = self
-                    .ctx
-                    .semantic_index
-                    .expression(callee_expr_id)
-                    .ok_or_else(|| "No ExpressionInfo for callee".to_string())?;
+                // We don't need the scope; use builder mapping instead of re-resolution
 
                 if let Some((local_def_idx, local_def)) = self
                     .ctx
                     .semantic_index
-                    .resolve_name_to_definition(func_name.value(), callee_expr_info.scope_id)
+                    .definition_for_identifier_expr(callee_expr_id)
                 {
                     match &local_def.kind {
                         DefinitionKind::Function(_) => {
@@ -606,16 +650,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     pub(crate) fn bind_variable(
         &mut self,
         ident_name: &str,
-        _ident_span: chumsky::prelude::SimpleSpan,
+        ident_span: chumsky::prelude::SimpleSpan,
         value: Value,
         scope_id: cairo_m_compiler_semantic::place::FileScopeId,
     ) -> Result<(), String> {
-        // Resolve to semantic definition
+        // Resolve to the specific definition bound by this pattern in this scope.
+        // For `let x = ...`, we want the definition whose name span matches the pattern span.
+        // Since we don't have the pattern's span here (only the identifier's span), use that.
+        // Filter by scope and exact name span to avoid picking shadowed defs.
         let (def_idx, _definition) = self
             .ctx
             .semantic_index
-            .resolve_name_to_definition(ident_name, scope_id)
-            .ok_or_else(|| format!("Failed to resolve identifier {}", ident_name))?;
+            .definitions_in_scope(scope_id)
+            .find(|(_, d)| d.name == ident_name && d.name_span == ident_span)
+            .ok_or_else(|| format!("Failed to resolve identifier {} in scope", ident_name))?;
 
         let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
         let mir_def_id = MirDefinitionId {
@@ -671,17 +719,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .expression_id_by_span(ident_span)
             .ok_or_else(|| format!("No ExpressionId for identifier {}", ident_name))?;
 
-        let expr_info = self
-            .ctx
-            .semantic_index
-            .expression(expr_id)
-            .ok_or_else(|| format!("No ExpressionInfo for identifier {}", ident_name))?;
-
-        // Resolve to definition
+        // Resolve to definition using the builder-recorded mapping
         let (def_idx, _definition) = self
             .ctx
             .semantic_index
-            .resolve_name_to_definition(ident_name, expr_info.scope_id)
+            .definition_for_identifier_expr(expr_id)
             .ok_or_else(|| format!("Failed to resolve identifier {}", ident_name))?;
 
         let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);

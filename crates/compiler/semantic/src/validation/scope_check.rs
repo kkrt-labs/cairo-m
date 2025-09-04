@@ -27,7 +27,7 @@ use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 
 use crate::db::{Crate, SemanticDb};
 use crate::validation::Validator;
-use crate::{File, PlaceFlags, SemanticIndex};
+use crate::{File, SemanticIndex};
 
 /// Validator for scope-related semantic rules
 ///
@@ -53,9 +53,7 @@ impl Validator for ScopeValidator {
 
         // Check each scope in this module
         for (scope_id, scope) in index.scopes() {
-            if let Some(place_table) = index.place_table(scope_id) {
-                self.check_scope(scope_id, scope, place_table, file, db, index, sink);
-            }
+            self.check_scope(scope_id, scope, file, db, index, sink);
         }
     }
 
@@ -80,14 +78,13 @@ impl ScopeValidator {
         &self,
         scope_id: crate::FileScopeId,
         _scope: &crate::Scope,
-        place_table: &crate::PlaceTable,
         file: File,
         db: &dyn SemanticDb,
         index: &SemanticIndex,
         sink: &dyn DiagnosticSink,
     ) {
         // Check for unused variables (but not in the global scope for functions/structs)
-        self.check_unused_variables(scope_id, place_table, file, db, index, sink);
+        self.check_unused_variables(scope_id, file, db, index, sink);
     }
 
     /// Check for unused variables (warnings for local variables)
@@ -102,38 +99,35 @@ impl ScopeValidator {
     fn check_unused_variables(
         &self,
         scope_id: crate::FileScopeId,
-        place_table: &crate::PlaceTable,
         file: File,
         db: &dyn SemanticDb,
         index: &SemanticIndex,
         sink: &dyn DiagnosticSink,
     ) {
-        for (place_id, place) in place_table.places() {
-            // Only check local variables and parameters, not functions or structs
-            let is_local_or_param = !place.flags.contains(PlaceFlags::FUNCTION)
-                && !place.flags.contains(PlaceFlags::STRUCT);
-
-            // Ignore variables that start with underscore
-            let is_prefixed_with_underscore = place.name.starts_with('_');
-
-            if is_local_or_param
-                && place.flags.contains(PlaceFlags::DEFINED)
-                && !place.is_used()
-                && !is_prefixed_with_underscore
-            {
-                // Get the proper span from the definition
-                let span =
-                    if let Some((_, definition)) = index.definition_for_place(scope_id, place_id) {
-                        definition.name_span
-                    } else {
-                        chumsky::span::SimpleSpan::from(0..0)
-                    };
-                sink.push(Diagnostic::unused_variable(
-                    file.file_path(db).to_string(),
-                    &place.name,
-                    span,
-                ));
+        for (def_idx, def) in index.definitions_in_scope(scope_id) {
+            // Only warn for non-function/struct items
+            let is_func_or_struct = matches!(
+                def.kind,
+                crate::definition::DefinitionKind::Function(_)
+                    | crate::definition::DefinitionKind::Struct(_)
+            );
+            if is_func_or_struct {
+                continue;
             }
+            // Ignore underscore-prefixed names
+            if def.name.starts_with('_') {
+                continue;
+            }
+            // Skip if used
+            if index.is_definition_used(def_idx) {
+                continue;
+            }
+            // Otherwise, report unused variable/const/param
+            sink.push(Diagnostic::unused_variable(
+                file.file_path(db).to_string(),
+                &def.name,
+                def.name_span,
+            ));
         }
     }
 
@@ -158,17 +152,13 @@ impl ScopeValidator {
             if !index.is_usage_resolved(usage_index) {
                 // First, try local resolution but skip let-binding if used within its own initializer.
                 let found_local = index
-                    .resolve_name_to_definition_skip_let_initializer(
-                        &usage.name,
-                        usage.scope_id,
-                        usage.span,
-                    )
+                    .resolve_name_at_position(&usage.name, usage.scope_id, usage.span)
                     .is_some();
 
                 // If not found locally, attempt resolving through imports with the same guard.
                 let found_import = if !found_local {
                     index
-                        .resolve_name_with_imports_skip_let_initializer(
+                        .resolve_name_with_imports_at_position(
                             db,
                             crate_id,
                             file,
@@ -203,7 +193,14 @@ impl ScopeValidator {
             if !index.is_type_usage_resolved(usage_index) {
                 // If not resolved, try to resolve with imports using the centralized method
                 if index
-                    .resolve_name_with_imports(db, crate_id, file, &usage.name, usage.scope_id)
+                    .resolve_name_with_imports_at_position(
+                        db,
+                        crate_id,
+                        file,
+                        &usage.name,
+                        usage.scope_id,
+                        usage.span,
+                    )
                     .is_none()
                 {
                     sink.push(Diagnostic::undeclared_type(
@@ -245,7 +242,7 @@ impl ScopeValidator {
                 // Check if the imported item exists in the target module
                 if let Some(imported_root) = imported_module_index.root_scope() {
                     if imported_module_index
-                        .resolve_name_to_definition(imported_item.value(), imported_root)
+                        .latest_definition_index_by_name(imported_root, imported_item.value())
                         .is_none()
                     {
                         // The imported item doesn't exist in the target module
@@ -301,29 +298,5 @@ impl ScopeValidator {
         }
     }
 
-    /// Helper method to resolve a name in the scope chain
-    fn _resolve_name_in_scope_chain(
-        &self,
-        name: &str,
-        start_scope: crate::FileScopeId,
-        index: &SemanticIndex,
-    ) -> bool {
-        let mut current_scope = Some(start_scope);
-
-        while let Some(scope_id) = current_scope {
-            if let Some(place_table) = index.place_table(scope_id) {
-                // Check if the name exists in this scope
-                for (_, place) in place_table.places() {
-                    if place.name == name && place.flags.contains(PlaceFlags::DEFINED) {
-                        return true; // Found definition
-                    }
-                }
-            }
-
-            // Move to parent scope
-            current_scope = index.scope(scope_id).and_then(|scope| scope.parent);
-        }
-
-        false // Not found in any scope
-    }
+    // Note: legacy helper removed during migration to definition-based APIs.
 }

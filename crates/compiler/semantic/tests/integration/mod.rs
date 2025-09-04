@@ -56,35 +56,6 @@ fn test_program_with_structs_and_functions() {
 }
 
 #[test]
-#[ignore]
-fn test_complex_control_flow_integration() {
-    // TODO: fix this when support for arrays is added
-    assert_semantic_ok!(
-        r#"
-        fn process_number(n: felt) -> felt {
-            if n == 0 {
-                return n / 2;
-            } else {
-                return 0;
-            }
-        }
-
-        fn main() -> felt {
-            let numbers: felt* = [1, 2, 3, 4, 5];
-            let result = 0;
-
-            // Process each number
-            result = result + process_number(numbers[0]);
-            result = result + process_number(numbers[1]);
-            result = result + process_number(numbers[2]);
-
-            return result;
-        }
-    "#
-    );
-}
-
-#[test]
 fn test_error_combination_undeclared_and_unused() {
     // This should catch both undeclared variable and unused variable errors
     assert_semantic_err!(

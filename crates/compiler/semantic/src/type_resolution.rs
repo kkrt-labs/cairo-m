@@ -55,20 +55,19 @@ pub fn resolve_ast_type<'db>(
                 NamedType::Bool => TypeId::new(db, TypeData::Bool),
                 NamedType::U32 => TypeId::new(db, TypeData::U32),
                 NamedType::Custom(name_str) => {
-                    // Try to resolve as a struct type
+                    // Try to resolve as a struct type using scope-chain helper (supports forward refs)
                     semantic_index
-                        .resolve_name_to_definition(name_str, context_scope_id)
-                        .map(|(def_idx, _)| {
+                        .latest_definition_index_by_name_in_chain(context_scope_id, name_str)
+                        .map(|def_idx| {
                             let def_id = DefinitionId::new(db, file, def_idx);
                             let def_type = definition_semantic_type(db, crate_id, def_id);
 
-                            // Ensure it's a struct type, not just any definition
                             match def_type.data(db) {
                                 TypeData::Struct(_) => def_type,
-                                _ => TypeId::new(db, TypeData::Error), // Found a name, but it's not a type
+                                _ => TypeId::new(db, TypeData::Error),
                             }
                         })
-                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error)) // Type not found
+                        .unwrap_or_else(|| TypeId::new(db, TypeData::Error))
                 }
             }
         }
@@ -244,8 +243,8 @@ pub fn definition_semantic_type<'db>(
                 .root_scope()
                 .expect("Imported module should have root scope");
 
-            if let Some((imported_def_idx, _)) =
-                imported_index.resolve_name_to_definition(use_ref.item.value(), imported_root)
+            if let Some(imported_def_idx) =
+                imported_index.latest_definition_index_by_name(imported_root, use_ref.item.value())
             {
                 let imported_file = *crate_id
                     .modules(db)
@@ -316,8 +315,9 @@ pub fn expression_semantic_type<'db>(
             Origin::Arg { callee, index } => {
                 semantic_index.expression(*callee).and_then(|callee_info| {
                     match &callee_info.ast_node {
-                        Expression::Identifier(name) => semantic_index
-                            .resolve_name_to_definition(name.value(), callee_info.scope_id)
+                        // Use builder-recorded mapping for the callee identifier
+                        Expression::Identifier(_name) => semantic_index
+                            .definition_for_identifier_expr(*callee)
                             .and_then(|(def_idx, _)| {
                                 let def_id = DefinitionId::new(db, file, def_idx);
                                 function_semantic_signature(db, crate_id, def_id).and_then(
@@ -390,7 +390,11 @@ pub fn expression_semantic_type<'db>(
                 semantic_index.expression(*parent).and_then(|parent_info| {
                     if let Expression::StructLiteral { name, .. } = &parent_info.ast_node {
                         semantic_index
-                            .resolve_name_to_definition(name.value(), parent_info.scope_id)
+                            .resolve_name_at_position(
+                                name.value(),
+                                parent_info.scope_id,
+                                name.span(),
+                            )
                             .and_then(|(_def_idx, definition)| match &definition.kind {
                                 DefinitionKind::Struct(struct_def) => struct_def
                                     .fields_ast
@@ -472,17 +476,29 @@ pub fn expression_semantic_type<'db>(
             if builtins::is_builtin_function_name(name.value()).is_some() {
                 return TypeId::new(db, TypeData::Tuple(vec![]));
             }
-            if let Some((def_idx, _)) = semantic_index
-                .resolve_name_to_definition_skip_let_initializer(
-                    name.value(),
-                    expr_info.scope_id,
-                    expr_info.ast_span,
-                )
+
+            // Prefer the builder's recorded use-def mapping for this exact identifier expression.
+            if let Some((def_idx, _def)) =
+                semantic_index.definition_for_identifier_expr(expression_id)
             {
                 let def_id = DefinitionId::new(db, file, def_idx);
                 definition_semantic_type(db, crate_id, def_id)
             } else {
-                TypeId::new(db, TypeData::Error)
+                // Fallback: try position-aware local resolution (covers edge edits)
+                if let Some((def_idx, _)) = semantic_index.resolve_name_at_position(
+                    // expr_info.ast_node is an Identifier; unwrap its name string
+                    match &expr_info.ast_node {
+                        Expression::Identifier(name) => name.value(),
+                        _ => unreachable!(),
+                    },
+                    expr_info.scope_id,
+                    expr_info.ast_span,
+                ) {
+                    let def_id = DefinitionId::new(db, file, def_idx);
+                    definition_semantic_type(db, crate_id, def_id)
+                } else {
+                    TypeId::new(db, TypeData::Error)
+                }
             }
         }
         Expression::UnaryOp { expr, op } => {
@@ -627,10 +643,12 @@ pub fn expression_semantic_type<'db>(
             }
         }
         Expression::StructLiteral { name, fields: _ } => {
-            // Resolve the struct name to a definition
-            if let Some((def_idx, _)) =
-                semantic_index.resolve_name_to_definition(name.value(), expr_info.scope_id)
-            {
+            // Resolve the struct name to a definition (position-aware)
+            if let Some((def_idx, _)) = semantic_index.resolve_name_at_position(
+                name.value(),
+                expr_info.scope_id,
+                name.span(),
+            ) {
                 let def_id = DefinitionId::new(db, file, def_idx);
                 let def_type = definition_semantic_type(db, crate_id, def_id);
 

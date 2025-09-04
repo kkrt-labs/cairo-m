@@ -57,13 +57,13 @@ use cairo_m_compiler_parser::parser::{
 use cairo_m_compiler_parser::ParsedModule;
 use chumsky::span::SimpleSpan;
 use index_vec::IndexVec;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::definition::{DefinitionKind, ParameterDefRef, UseDefRef};
-use crate::place::{FileScopeId, PlaceTable, Scope};
+use crate::place::{FileScopeId, Scope};
 use crate::semantic_errors::{SemanticSyntaxChecker, SemanticSyntaxContext};
 use crate::visitor::{walk_type_expr, Visitor};
-use crate::{module_semantic_index, Crate, Definition, File, PlaceFlags, SemanticDb};
+use crate::{module_semantic_index, Crate, Definition, File, SemanticDb};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
 index_vec::define_index_type! {
@@ -201,16 +201,6 @@ impl ProjectSemanticIndex {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SemanticIndex {
-    /// **Core scope management**: List of all place tables in this file, indexed by scope.
-    ///
-    /// Each scope has its own symbol table (PlaceTable) that contains all the symbols
-    /// defined within that scope. This parallel indexing with `scopes` ensures O(1) lookup
-    /// of a scope's symbol table given a `FileScopeId`.
-    ///
-    /// **Used by**: Symbol resolution, IDE features (autocomplete), scope validators
-    /// **Indexed by**: `FileScopeId` - allowing direct access to any scope's symbols
-    place_tables: IndexVec<FileScopeId, PlaceTable>,
-
     /// **Scope hierarchy**: List of all scopes in this file with parent-child relationships.
     ///
     /// Defines the hierarchical structure of scopes (module -> function -> block).
@@ -293,7 +283,20 @@ pub struct SemanticIndex {
     ///
     /// **Used by**: Type inference, validators, IDE features on expressions
     /// **Key**: Source span of expression AST nodes, **Value**: Expression ID
-    pub span_to_expression_id: FxHashMap<SimpleSpan<usize>, ExpressionId>,
+    span_to_expression_id: FxHashMap<SimpleSpan<usize>, ExpressionId>,
+
+    /// Per-scope name index: maps a name to the ordered list of DefinitionIndices (oldest → newest).
+    name_index: IndexVec<FileScopeId, FxHashMap<String, Vec<DefinitionIndex>>>,
+
+    /// Track used definitions (read or write).
+    used_definitions: FxHashSet<DefinitionIndex>,
+
+    /// Mapping from identifier expression IDs to their usage indices.
+    ///
+    /// This links each identifier expression directly to the recorded usage entry,
+    /// enabling downstream systems (like type inference) to reuse the builder's
+    /// single-source-of-truth use-def mapping rather than re-resolving names.
+    identifier_expr_to_usage: FxHashMap<ExpressionId, usize>,
 
     /// **Import tracking**: All use statements in the file with their scope context.
     ///
@@ -303,7 +306,7 @@ pub struct SemanticIndex {
     ///
     /// **Used by**: Cross-module name resolution, import validation
     /// **Key**: Scope where the use statement appears, **Value**: The imported item info
-    pub imports: Vec<(FileScopeId, crate::definition::UseDefRef)>,
+    pub(crate) imports: Vec<(FileScopeId, crate::definition::UseDefRef)>,
 
     /// **Semantic errors**: All semantic errors collected while building the index.
     pub semantic_syntax_errors: DiagnosticCollection,
@@ -312,7 +315,6 @@ pub struct SemanticIndex {
 impl SemanticIndex {
     pub(crate) fn new() -> Self {
         Self {
-            place_tables: IndexVec::new(),
             scopes: IndexVec::new(),
             span_to_scope_id: FxHashMap::default(),
             definitions: IndexVec::new(),
@@ -322,6 +324,9 @@ impl SemanticIndex {
             type_usage_to_definition: FxHashMap::default(),
             expressions: IndexVec::new(),
             span_to_expression_id: FxHashMap::default(),
+            name_index: IndexVec::new(),
+            used_definitions: FxHashSet::default(),
+            identifier_expr_to_usage: FxHashMap::default(),
             imports: Vec::new(),
             semantic_syntax_errors: Default::default(),
         }
@@ -331,23 +336,13 @@ impl SemanticIndex {
     pub(crate) fn add_scope(&mut self, scope: Scope) -> FileScopeId {
         let scope_id = FileScopeId::new(self.scopes.len());
         self.scopes.push(scope);
-        self.place_tables.push(PlaceTable::new());
+        self.name_index.push(FxHashMap::default());
         scope_id
     }
 
     /// Get a scope by ID
     pub fn scope(&self, id: FileScopeId) -> Option<&Scope> {
         self.scopes.get(id.as_usize())
-    }
-
-    /// Get the place table for a scope
-    pub fn place_table(&self, scope_id: FileScopeId) -> Option<&PlaceTable> {
-        self.place_tables.get(scope_id.as_usize())
-    }
-
-    /// Get a mutable reference to the place table for a scope
-    pub(crate) fn place_table_mut(&mut self, scope_id: FileScopeId) -> Option<&mut PlaceTable> {
-        self.place_tables.get_mut(scope_id.as_usize())
     }
 
     /// Map a source span to its containing scope
@@ -383,7 +378,6 @@ impl SemanticIndex {
     /// // For IDE hover/completion
     /// let cursor_span = SimpleSpan::from(cursor_pos..cursor_pos);
     /// let scope_id = index.scope_for_span(cursor_span)?;
-    /// let available_symbols = index.place_table(scope_id)?;
     /// ```
     pub fn scope_for_span(&self, span: SimpleSpan<usize>) -> Option<FileScopeId> {
         self.span_to_scope_id.get(&span).copied()
@@ -415,85 +409,59 @@ impl SemanticIndex {
         })
     }
 
-    /// Resolve a name by walking up the scope chain
-    // TODO(shadowing): this doesn't support shadowing (will only return the first definition)
-    // The place table only stores the last tracked definition for a given name.
-    pub fn resolve_name(
+    /// Resolve a name as of a specific source position by walking up the scope chain,
+    /// respecting temporal ordering for shadowed variables. The returned definition must
+    /// have been declared no later than `position.start`, and `let` initializers that
+    /// contain this usage are skipped to avoid self-referential cycles.
+    pub fn resolve_name_at_position(
         &self,
         name: &str,
         starting_scope: FileScopeId,
-    ) -> Option<(FileScopeId, crate::place::ScopedPlaceId)> {
+        position: SimpleSpan<usize>,
+    ) -> Option<(DefinitionIndex, &Definition)> {
         let mut current_scope = Some(starting_scope);
 
         while let Some(scope_id) = current_scope {
-            if let Some(place_table) = self.place_table(scope_id)
-                && let Some(place_id) = place_table.place_id_by_name(name)
+            // Lookup definition indices for `name` in this scope (oldest → newest), iterate newest-first
+            if let Some(map) = self.name_index.get(scope_id.as_usize())
+                && let Some(def_indices) = map.get(name)
             {
-                return Some((scope_id, place_id));
-            }
+                for &def_idx in def_indices.iter().rev() {
+                    if let Some(def) = self.definition(def_idx) {
+                        // Skip if declared after position for local (non-top-level) definitions only.
+                        // Forward references are allowed for top-level Function/Struct/Use.
+                        let is_top_level_allowed = matches!(
+                            def.kind,
+                            crate::definition::DefinitionKind::Function(_)
+                                | crate::definition::DefinitionKind::Struct(_)
+                                | crate::definition::DefinitionKind::Use(_)
+                        );
+                        if !is_top_level_allowed && def.full_span.start > position.start {
+                            continue;
+                        }
 
-            // Move to parent scope
-            current_scope = self.scope(scope_id)?.parent;
-        }
-
-        None
-    }
-
-    /// Resolve a name to its definition ID, starting from a given scope and walking up the scope chain
-    pub fn resolve_name_to_definition(
-        &self,
-        name: &str,
-        starting_scope: FileScopeId,
-    ) -> Option<(DefinitionIndex, &Definition)> {
-        if let Some((scope_id, place_id)) = self.resolve_name(name, starting_scope) {
-            self.definition_for_place(scope_id, place_id)
-        } else {
-            None
-        }
-    }
-
-    /// Resolve a name to its definition, but skip a `let` binding if the identifier usage is
-    /// inside that binding's own initializer expression. This avoids self-referential cycles
-    /// like `let x = x + 1;`.
-    pub fn resolve_name_to_definition_skip_let_initializer(
-        &self,
-        name: &str,
-        starting_scope: FileScopeId,
-        usage_span: chumsky::span::SimpleSpan<usize>,
-    ) -> Option<(DefinitionIndex, &Definition)> {
-        let mut current_scope = Some(starting_scope);
-
-        while let Some(scope_id) = current_scope {
-            if let Some(place_table) = self.place_table(scope_id) {
-                if let Some(place_ids) = place_table.all_place_ids_by_name(name) {
-                    // Iterate newest-first (supports shadowing)
-                    for &place_id in place_ids.iter().rev() {
-                        if let Some((def_idx, def)) = self.definition_for_place(scope_id, place_id)
+                        // Skip if usage falls inside this let initializer
+                        let skip = if let crate::definition::DefinitionKind::Let(let_ref) = &def.kind
                         {
-                            let skip = if let crate::definition::DefinitionKind::Let(let_ref) =
-                                &def.kind
-                            {
-                                if let Some(init_expr_id) = let_ref.value_expr_id {
-                                    if let Some(init_expr) = self.expression(init_expr_id) {
-                                        let init_span = init_expr.ast_span;
-                                        usage_span.start >= init_span.start
-                                            && usage_span.end <= init_span.end
-                                    } else {
-                                        false
-                                    }
+                            if let Some(init_expr_id) = let_ref.value_expr_id {
+                                if let Some(init_expr) = self.expression(init_expr_id) {
+                                    let init_span = init_expr.ast_span;
+                                    position.start >= init_span.start
+                                        && position.end <= init_span.end
                                 } else {
                                     false
                                 }
                             } else {
                                 false
-                            };
-
-                            if skip {
-                                continue;
                             }
-
-                            return Some((def_idx, def));
+                        } else {
+                            false
+                        };
+                        if skip {
+                            continue;
                         }
+
+                        return Some((def_idx, def));
                     }
                 }
             }
@@ -505,93 +473,47 @@ impl SemanticIndex {
         None
     }
 
-    /// Resolve a name with cross-module support, but skip local `let` definitions
-    /// that are being referenced from within their own initializers.
-    pub fn resolve_name_with_imports_skip_let_initializer(
-        &self,
-        db: &dyn crate::SemanticDb,
-        crate_id: crate::Crate,
-        file: crate::File,
-        name: &str,
-        starting_scope: crate::FileScopeId,
-        usage_span: chumsky::span::SimpleSpan<usize>,
-    ) -> Option<(DefinitionIndex, crate::Definition, crate::File)> {
-        // First try local resolution with skip rule
-        if let Some((def_idx, def)) =
-            self.resolve_name_to_definition_skip_let_initializer(name, starting_scope, usage_span)
-        {
-            if !matches!(def.kind, crate::definition::DefinitionKind::Use(_)) {
-                return Some((def_idx, def.clone(), file));
-            }
-            // If it's an import, let the import resolution handle it below
-        }
-
-        // If not found locally, check imports visible from this scope
-        let imports = self.get_imports_in_scope(starting_scope);
-        for use_def_ref in imports {
-            if use_def_ref.item.value() == name {
-                // Resolve in the imported module
-                let imported_module_index = crate::module_semantic_index(
-                    db,
-                    crate_id,
-                    use_def_ref.imported_module.value().clone(),
-                )
-                .ok()?;
-                if let Some(imported_root) = imported_module_index.root_scope() {
-                    if let Some((imported_def_idx, imported_def)) =
-                        imported_module_index.resolve_name_to_definition(name, imported_root)
-                    {
-                        if let Some(imported_file) = crate_id
-                            .modules(db)
-                            .get(use_def_ref.imported_module.value())
-                        {
-                            return Some((imported_def_idx, imported_def.clone(), *imported_file));
-                        }
-                    }
-                }
-            }
-        }
-
-        None
-    }
-
-    /// Resolve a name with cross-module support
+    /// Resolve a name with cross-module support, using position-aware local resolution first.
+    /// For local resolution, respects temporal ordering and let-initializer exclusion.
     ///
-    /// This is the single source of truth for name resolution. It attempts to resolve names in this order:
-    /// 1. Current scope and its parents (local resolution)
-    /// 2. If not found, check imported items visible from the current scope (cross-module resolution)
-    // TODO: Assess whether it's not dangerous to be doing this here: could we end up resolving something we don't want to?
-    pub fn resolve_name_with_imports(
+    /// Note: imported-module resolution is intended for top-level items only
+    /// (Function/Struct/Use). It is not position-aware within the imported file
+    /// and allows forward references for those top-level kinds.
+    pub fn resolve_name_with_imports_at_position(
         &self,
         db: &dyn SemanticDb,
         crate_id: Crate,
         file: File,
         name: &str,
         starting_scope: FileScopeId,
+        position: SimpleSpan<usize>,
     ) -> Option<(DefinitionIndex, crate::Definition, File)> {
-        // First try local resolution
-        if let Some((def_idx, def)) = self.resolve_name_to_definition(name, starting_scope) {
+        // Try local, position-aware
+        if let Some((def_idx, def)) = self.resolve_name_at_position(name, starting_scope, position)
+        {
             if !matches!(def.kind, DefinitionKind::Use(_)) {
                 return Some((def_idx, def.clone(), file));
             }
-            // We found a definition, but it's an import - resolve the import.
+            // If it's an import, let the import resolution handle it below
         }
 
-        // If not found locally, check imports
+        // Else, check imports visible from this scope
         let imports = self.get_imports_in_scope(starting_scope);
         for use_def_ref in imports {
             if use_def_ref.item.value() == name {
-                // Resolve in the imported module
                 let imported_module_index = module_semantic_index(
                     db,
                     crate_id,
                     use_def_ref.imported_module.value().clone(),
                 )
-                .expect("Failed to resolve index for imported module");
+                .ok()?;
                 if let Some(imported_root) = imported_module_index.root_scope() {
-                    if let Some((imported_def_idx, imported_def)) =
-                        imported_module_index.resolve_name_to_definition(name, imported_root)
+                    if let Some(imported_def_idx) =
+                        imported_module_index.latest_definition_index_by_name(imported_root, name)
                     {
+                        let imported_def = imported_module_index
+                            .definition(imported_def_idx)
+                            .expect("Definition should exist in imported module");
                         if let Some(imported_file) = crate_id
                             .modules(db)
                             .get(use_def_ref.imported_module.value())
@@ -647,27 +569,81 @@ impl SemanticIndex {
         self.definitions.iter_enumerated()
     }
 
+    // Definition-based name lookup helpers
+    /// Return the most recent (shadowing-aware) DefinitionIndex for `name` in `scope_id`.
+    /// Backed by the per-scope `name_index` (oldest → newest), iterating newest-first.
+    pub fn latest_definition_index_by_name(
+        &self,
+        scope_id: FileScopeId,
+        name: &str,
+    ) -> Option<DefinitionIndex> {
+        self.name_index
+            .get(scope_id.as_usize())
+            .and_then(|m| m.get(name))
+            .and_then(|v| v.last().copied())
+    }
+
+    /// Return all DefinitionIndices for `name` in `scope_id`, ordered oldest to newest.
+    pub fn all_definition_indices_by_name(
+        &self,
+        scope_id: FileScopeId,
+        name: &str,
+    ) -> Vec<DefinitionIndex> {
+        self.name_index
+            .get(scope_id.as_usize())
+            .and_then(|m| m.get(name).cloned())
+            .unwrap_or_default()
+    }
+
+    /// Walk the scope chain from `starting_scope` upwards and return the most recent
+    /// (shadowing-aware) DefinitionIndex for `name` in the first scope that contains it.
+    pub fn latest_definition_index_by_name_in_chain(
+        &self,
+        starting_scope: FileScopeId,
+        name: &str,
+    ) -> Option<DefinitionIndex> {
+        let mut current = Some(starting_scope);
+        while let Some(scope_id) = current {
+            if let Some(idx) = self.latest_definition_index_by_name(scope_id, name) {
+                return Some(idx);
+            }
+            current = self.scope(scope_id).and_then(|s| s.parent);
+        }
+        None
+    }
+
     /// Find definition by ID
-    pub(crate) fn definition(&self, id: DefinitionIndex) -> Option<&Definition> {
+    pub fn definition(&self, id: DefinitionIndex) -> Option<&Definition> {
         self.definitions.get(id)
     }
 
-    /// Find definition by place
-    pub(crate) fn definition_for_place(
-        &self,
-        scope_id: FileScopeId,
-        place_id: crate::place::ScopedPlaceId,
-    ) -> Option<(DefinitionIndex, &Definition)> {
-        self.definitions
-            .iter_enumerated()
-            .find(|(_, def)| def.scope_id == scope_id && def.place_id == place_id)
+    /// Check if a definition has been used (reads or writes).
+    /// Uses the centralized `used_definitions` set.
+    pub fn is_definition_used(&self, def_idx: DefinitionIndex) -> bool {
+        self.used_definitions.contains(&def_idx)
     }
+
+    /// Mark a definition as used (read or write).
+    pub(crate) fn mark_definition_used(&mut self, def_idx: DefinitionIndex) {
+        self.used_definitions.insert(def_idx);
+    }
+
+    // definition_for_place was removed; clients should use DefinitionIndex helpers.
 
     /// Add an identifier usage
     pub(crate) fn add_identifier_usage(&mut self, usage: IdentifierUsage) -> usize {
         let index = self.identifier_usages.len();
         self.identifier_usages.push(usage);
         index
+    }
+
+    /// Map an identifier expression to its usage index
+    pub(crate) fn map_identifier_expr_to_usage(
+        &mut self,
+        expr_id: ExpressionId,
+        usage_index: usize,
+    ) {
+        self.identifier_expr_to_usage.insert(expr_id, usage_index);
     }
 
     /// Add a type usage
@@ -719,6 +695,16 @@ impl SemanticIndex {
             .and_then(|def_id| self.definitions.get(*def_id))
     }
 
+    /// Get the definition resolved for a specific identifier expression
+    pub fn definition_for_identifier_expr(
+        &self,
+        expr_id: ExpressionId,
+    ) -> Option<(DefinitionIndex, &Definition)> {
+        let usage_index = *self.identifier_expr_to_usage.get(&expr_id)?;
+        let def_index = *self.uses.get(&usage_index)?;
+        self.definitions.get(def_index).map(|d| (def_index, d))
+    }
+
     /// Add an expression and return its ID
     pub(crate) fn add_expression(&mut self, expression_info: ExpressionInfo) -> ExpressionId {
         let expr_id = self.expressions.push(expression_info.clone());
@@ -735,6 +721,11 @@ impl SemanticIndex {
     /// Get expression ID by span
     pub fn expression_id_by_span(&self, span: SimpleSpan<usize>) -> Option<ExpressionId> {
         self.span_to_expression_id.get(&span).copied()
+    }
+
+    /// Read-only view over span→expression mappings (for tests and IDE).
+    pub const fn span_expression_mappings(&self) -> &FxHashMap<SimpleSpan<usize>, ExpressionId> {
+        &self.span_to_expression_id
     }
 
     /// Get all expressions
@@ -915,35 +906,19 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
         self.pop_scope();
     }
 
-    /// Add a new place to the current scope.
-    fn add_place(
-        &mut self,
-        name: &str,
-        flags: crate::place::PlaceFlags,
-    ) -> crate::place::ScopedPlaceId {
-        let scope_id = self.current_scope();
-        self.index
-            .place_table_mut(scope_id)
-            .expect("current scope should have a place table")
-            .add_place(name.to_string(), flags)
-    }
-
     /// Add a new place to the current scope along with a definition.
     fn add_place_with_definition(
         &mut self,
         name: &str,
-        flags: crate::place::PlaceFlags,
         def_kind: DefinitionKind,
         name_span: SimpleSpan<usize>,
         full_span: SimpleSpan<usize>,
-    ) -> (crate::place::ScopedPlaceId, DefinitionIndex) {
-        let place_id = self.add_place(name, flags);
+    ) -> DefinitionIndex {
         let scope_id = self.current_scope();
 
         let definition = Definition {
             file: self.file,
             scope_id,
-            place_id,
             name: name.to_string(),
             name_span,
             full_span,
@@ -951,14 +926,16 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
         };
 
         let def_id = self.index.add_definition(definition);
-        (place_id, def_id)
+        // Update name index for shadowing-aware lookups
+        if let Some(map) = self.index.name_index.get_mut(scope_id.as_usize()) {
+            map.entry(name.to_string()).or_default().push(def_id);
+        }
+        def_id
     }
 
     /// Declare a function without processing its body (for forward references)
     fn declare_function(&mut self, func: &Spanned<FunctionDef>) {
         use crate::definition::{DefinitionKind, FunctionDefRef};
-        use crate::place::PlaceFlags;
-
         let func_def = func.value();
         let func_span = func.span();
 
@@ -966,7 +943,6 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
         let def_kind = DefinitionKind::Function(FunctionDefRef::from_ast(func));
         self.add_place_with_definition(
             func_def.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::FUNCTION,
             def_kind,
             func_def.name.span(),
             func_span,
@@ -975,8 +951,6 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
 
     fn declare_struct(&mut self, struct_def: &Spanned<StructDef>) {
         use crate::definition::{DefinitionKind, StructDefRef};
-        use crate::place::PlaceFlags;
-
         let struct_def_inner = struct_def.value();
         let struct_span = struct_def.span();
 
@@ -984,7 +958,6 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
         let def_kind = DefinitionKind::Struct(StructDefRef::from_ast(struct_def));
         self.add_place_with_definition(
             struct_def_inner.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::STRUCT,
             def_kind,
             struct_def_inner.name.span(),
             struct_span,
@@ -993,8 +966,6 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
 
     fn declare_use(&mut self, use_stmt: &Spanned<UseStmt>) {
         use crate::definition::{DefinitionKind, UseDefRef};
-        use crate::place::PlaceFlags;
-
         let use_inner = use_stmt.value();
         let use_span = use_stmt.span();
 
@@ -1026,13 +997,7 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                 };
                 let def_kind = DefinitionKind::Use(use_def_ref.clone());
                 let current_scope = self.current_scope();
-                self.add_place_with_definition(
-                    &item,
-                    PlaceFlags::DEFINED,
-                    def_kind,
-                    item_span,
-                    use_span,
-                );
+                self.add_place_with_definition(&item, def_kind, item_span, use_span);
 
                 // Store the import for cross-module resolution
                 self.index.imports.push((current_scope, use_def_ref));
@@ -1048,13 +1013,7 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                     };
                     let def_kind = DefinitionKind::Use(use_def_ref.clone());
                     let current_scope = self.current_scope();
-                    self.add_place_with_definition(
-                        &item,
-                        PlaceFlags::DEFINED,
-                        def_kind,
-                        item_span,
-                        use_span,
-                    );
+                    self.add_place_with_definition(&item, def_kind, item_span, use_span);
 
                     self.index.imports.push((current_scope, use_def_ref));
                 }
@@ -1106,22 +1065,19 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                 };
 
                 let usage_index = self.index.add_identifier_usage(usage);
+                // Link this identifier expression to its usage for later type inference
+                self.index
+                    .map_identifier_expr_to_usage(expr_id, usage_index);
 
                 // This is a use of an identifier - mark it as used if we can resolve it
-                if let Some((def_scope_id, place_id)) =
-                    self.index.resolve_name(name.value(), current_scope)
+                if let Some(def_idx) = self
+                    .index
+                    .latest_definition_index_by_name_in_chain(current_scope, name.value())
                 {
-                    if let Some(place_table) = self.index.place_table_mut(def_scope_id) {
-                        // Mark the place as used
-                        place_table.mark_as_used(place_id);
-
-                        // Find the corresponding definition ID and record the use-def relationship
-                        if let Some((def_id, _)) =
-                            self.index.definition_for_place(def_scope_id, place_id)
-                        {
-                            self.index.add_use(usage_index, def_id);
-                        }
-                    }
+                    // Record the use for unused-variable analysis
+                    self.index.mark_definition_used(def_idx);
+                    // Record the use-def relationship
+                    self.index.add_use(usage_index, def_idx);
                 }
                 // Note: Unresolved symbols will be detected in the validation pass
             }
@@ -1168,15 +1124,27 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                     span: name.span(),
                     scope_id: self.current_scope(),
                 };
-                self.index.add_type_usage(type_usage);
+                let usage_index = self.index.add_type_usage(type_usage);
+
+                // Attempt to link this type usage to its locally visible definition (may be a `use`).
+                // Use non-position-aware resolution here to support forward-declared top-level items
+                // until phase 1 (forward declarations) is fully in place.
+                if let Some(def_idx) = self
+                    .index
+                    .latest_definition_index_by_name(self.current_scope(), name.value())
+                {
+                    self.index
+                        .add_type_usage_to_definition(usage_index, def_idx);
+                }
 
                 // Get struct def to get the types of the fields.
-                let maybe_def = self.index.resolve_name_with_imports(
+                let maybe_def = self.index.resolve_name_with_imports_at_position(
                     self.db,
                     self.crate_id,
                     self.file,
                     name.value(),
                     self.current_scope(),
+                    name.span(),
                 );
 
                 // Process fields with proper type context
@@ -1392,8 +1360,6 @@ where
                 statement_type,
             } => {
                 use crate::definition::{DefinitionKind, LetDefRef};
-                use crate::place::PlaceFlags;
-
                 // Visit the value expression with expected type hint
                 self.with_expected_type(statement_type.clone(), |builder| {
                     builder.visit_expr(value);
@@ -1422,7 +1388,6 @@ where
                         ));
                         self.add_place_with_definition(
                             name.value(),
-                            PlaceFlags::DEFINED,
                             def_kind,
                             name.span(),
                             stmt.span(),
@@ -1460,7 +1425,6 @@ where
                                 ));
                             self.add_place_with_definition(
                                 name.value(),
-                                PlaceFlags::DEFINED,
                                 def_kind,
                                 name.span(),
                                 stmt.span(),
@@ -1586,8 +1550,6 @@ where
             }
             Statement::Const(const_def) => {
                 use crate::definition::{ConstDefRef, DefinitionKind};
-                use crate::place::PlaceFlags;
-
                 // Handle const definitions inline like the original implementation
                 // Map the const's span to its scope for IDE features
                 let current_scope = self.current_scope();
@@ -1614,7 +1576,6 @@ where
                 });
                 self.add_place_with_definition(
                     const_def.name.value(),
-                    PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
                     def_kind,
                     const_def.name.span(),
                     stmt.span(),
@@ -1680,7 +1641,6 @@ where
         let def_kind = DefinitionKind::Parameter(ParameterDefRef::from_ast(param));
         self.add_place_with_definition(
             param.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::PARAMETER,
             def_kind,
             param.name.span(),
             param.name.span(),
@@ -1705,7 +1665,6 @@ where
 
     fn visit_const(&mut self, const_def: &'ast Spanned<ConstDef>) {
         use crate::definition::{ConstDefRef, DefinitionKind};
-        use crate::place::PlaceFlags;
 
         let const_def_inner = const_def.value();
         let const_span = const_def.span();
@@ -1731,7 +1690,6 @@ where
         let def_kind = DefinitionKind::Const(ConstDefRef::from_ast(const_def, Some(value_expr_id)));
         self.add_place_with_definition(
             const_def_inner.name.value(),
-            PlaceFlags::DEFINED | PlaceFlags::CONSTANT,
             def_kind,
             const_def_inner.name.span(),
             const_span,
@@ -1751,17 +1709,14 @@ where
 
                     let usage_index = self.index.add_type_usage(usage);
 
-                    if let Some((def_scope_id, place_id)) =
-                        self.index.resolve_name(name, current_scope)
+                    if let Some(def_idx) = self
+                        .index
+                        .latest_definition_index_by_name_in_chain(current_scope, name)
                     {
-                        if let Some(place_table) = self.index.place_table_mut(def_scope_id) {
-                            place_table.mark_as_used(place_id);
-                            if let Some((def_id, _)) =
-                                self.index.definition_for_place(def_scope_id, place_id)
-                            {
-                                self.index.add_type_usage_to_definition(usage_index, def_id);
-                            }
-                        }
+                        // Mark the referenced type's definition as used
+                        self.index.mark_definition_used(def_idx);
+                        self.index
+                            .add_type_usage_to_definition(usage_index, def_idx);
                     }
                 }
             }

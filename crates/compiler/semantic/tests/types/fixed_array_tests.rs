@@ -131,8 +131,8 @@ fn test_array_element_type_inference() {
         .unwrap();
 
     // Find the type of 'elem' variable
-    let (elem_def_idx, _) = semantic_index
-        .resolve_name_to_definition("elem", func_scope)
+    let elem_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "elem")
         .unwrap();
     let elem_def_id = DefinitionId::new(&db, file, elem_def_idx);
     let elem_type = definition_semantic_type(&db, crate_id, elem_def_id);
@@ -244,8 +244,8 @@ fn test_array_literal_type_inference() {
         .unwrap();
 
     // Check type of 'a'
-    let (a_def_idx, _) = semantic_index
-        .resolve_name_to_definition("a", func_scope)
+    let a_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "a")
         .unwrap();
     let a_def_id = DefinitionId::new(&db, file, a_def_idx);
     let a_type = definition_semantic_type(&db, crate_id, a_def_id);
@@ -258,8 +258,8 @@ fn test_array_literal_type_inference() {
     }
 
     // Check type of 'b'
-    let (b_def_idx, _) = semantic_index
-        .resolve_name_to_definition("b", func_scope)
+    let b_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "b")
         .unwrap();
     let b_def_id = DefinitionId::new(&db, file, b_def_idx);
     let b_type = definition_semantic_type(&db, crate_id, b_def_id);
@@ -272,8 +272,8 @@ fn test_array_literal_type_inference() {
     }
 
     // Check type of 'c'
-    let (c_def_idx, _) = semantic_index
-        .resolve_name_to_definition("c", func_scope)
+    let c_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "c")
         .unwrap();
     let c_def_id = DefinitionId::new(&db, file, c_def_idx);
     let c_type = definition_semantic_type(&db, crate_id, c_def_id);
@@ -382,8 +382,8 @@ fn test_array_with_explicit_type() {
         .unwrap();
 
     // Check type of 'arr'
-    let (arr_def_idx, _) = semantic_index
-        .resolve_name_to_definition("arr", func_scope)
+    let arr_def_idx = semantic_index
+        .latest_definition_index_by_name(func_scope, "arr")
         .unwrap();
     let arr_def_id = DefinitionId::new(&db, file, arr_def_idx);
     let arr_type = definition_semantic_type(&db, crate_id, arr_def_id);

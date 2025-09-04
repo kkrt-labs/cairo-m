@@ -10,7 +10,6 @@ words:
   - arrayindex
   - arrayinsert
   - binop
-  - bitflags
   - bswap
   - bytemuck
   - cairols

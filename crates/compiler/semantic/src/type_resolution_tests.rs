@@ -293,7 +293,7 @@ fn test_member_access_edge_cases() {
     let semantic_index = module_semantic_index(&db, crate_id, "main".to_string()).unwrap();
 
     // Find member access expressions and verify their types
-    for expr_id in semantic_index.span_to_expression_id.values() {
+    for expr_id in semantic_index.span_expression_mappings().values() {
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 
         if let Expression::MemberAccess { object: _, field } = &expr_info.ast_node {
@@ -349,8 +349,8 @@ fn test_typed_const_resolution() {
     let module_index = module_semantic_index(&db, crate_id, "main".into()).unwrap();
 
     // Check SIZE const has felt type
-    let (size_def_idx, _) = module_index
-        .resolve_name_to_definition("SIZE", FileScopeId::new(0))
+    let size_def_idx = module_index
+        .latest_definition_index_by_name(FileScopeId::new(0), "SIZE")
         .expect("SIZE const should be defined");
     let size_def_id = DefinitionId::new(&db, main_file, size_def_idx);
     let size_type = definition_semantic_type(&db, crate_id, size_def_id);
@@ -360,8 +360,8 @@ fn test_typed_const_resolution() {
     );
 
     // Check MAX const has u32 type
-    let (max_def_idx, _) = module_index
-        .resolve_name_to_definition("MAX", FileScopeId::new(0))
+    let max_def_idx = module_index
+        .latest_definition_index_by_name(FileScopeId::new(0), "MAX")
         .expect("MAX const should be defined");
     let max_def_id = DefinitionId::new(&db, main_file, max_def_idx);
     let max_type = definition_semantic_type(&db, crate_id, max_def_id);
@@ -371,8 +371,8 @@ fn test_typed_const_resolution() {
     );
 
     // Check PI const infers felt type
-    let (pi_def_idx, _) = module_index
-        .resolve_name_to_definition("PI", FileScopeId::new(0))
+    let pi_def_idx = module_index
+        .latest_definition_index_by_name(FileScopeId::new(0), "PI")
         .expect("PI const should be defined");
     let pi_def_id = DefinitionId::new(&db, main_file, pi_def_idx);
     let pi_type = definition_semantic_type(&db, crate_id, pi_def_id);
@@ -382,8 +382,8 @@ fn test_typed_const_resolution() {
     );
 
     // Check POW2 const has [u32; 3] type
-    let (pow2_def_idx, _) = module_index
-        .resolve_name_to_definition("POW2", FileScopeId::new(0))
+    let pow2_def_idx = module_index
+        .latest_definition_index_by_name(FileScopeId::new(0), "POW2")
         .expect("POW2 const should be defined");
     let pow2_def_id = DefinitionId::new(&db, main_file, pow2_def_idx);
     let pow2_type = definition_semantic_type(&db, crate_id, pow2_def_id);

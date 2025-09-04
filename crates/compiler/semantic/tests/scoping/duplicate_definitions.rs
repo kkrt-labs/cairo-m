@@ -14,6 +14,9 @@ fn test_duplicate_definitions_and_shadowing() {
             // Multiple shadowing
             "fn test() -> felt { let x = 1; let y = 2; let x = 3; let y = 4; return x + y; }",
 
+            // Shadowing with different types
+            "fn test() -> felt { let x = 1; let y = 2; let z = x+y; let x = 2u32; return z; }",
+
         ],
         err: [
             // Duplicate parameters

@@ -23,7 +23,7 @@ fn test_literal_expression_types() {
 
     // Helper to find an expression by matching against tracked expressions
     let find_expr_id = |target_text: &str| {
-        for (span, expr_id) in &semantic_index.span_to_expression_id {
+        for (span, expr_id) in semantic_index.span_expression_mappings() {
             let source_text = &program[span.start..span.end];
             if source_text == target_text {
                 return Some(*expr_id);
@@ -64,7 +64,7 @@ fn test_identifier_expression_types() {
     // Find identifier usage 'a' in 'let b = a;'
     // This is tricky because there might be multiple 'a' spans
     // We'll look for expressions that are single identifiers
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         if source_text == "a" {
             let expr_info = semantic_index.expression(*expr_id).unwrap();
@@ -95,7 +95,7 @@ fn test_binary_expression_types() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for binary expressions
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 
@@ -130,7 +130,7 @@ fn test_member_access_expression_types() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for member access expressions
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 
@@ -170,7 +170,7 @@ fn test_function_call_expression_types() {
 
     // Look for function call expressions
     let mut found_make_point = false;
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 
@@ -209,7 +209,7 @@ fn test_struct_literal_expression_types() {
     // Look for struct literal expressions
     // Check for struct literals
     let mut found_struct_literal = false;
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 
@@ -252,7 +252,7 @@ fn test_complex_expression_type_inference() {
 
     // Look for the complex expression 'dx * dx + dy * dy'
     let mut found_complex_expression = false;
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 
@@ -290,7 +290,7 @@ fn test_unary_expression_types() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Look for unary expressions
-    for (span, expr_id) in &semantic_index.span_to_expression_id {
+    for (span, expr_id) in semantic_index.span_expression_mappings() {
         let source_text = &program[span.start..span.end];
         let expr_info = semantic_index.expression(*expr_id).unwrap();
 

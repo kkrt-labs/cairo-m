@@ -554,7 +554,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ariadne",
- "bitflags 2.9.3",
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "cairo-m-project",
@@ -603,6 +602,7 @@ dependencies = [
  "cairo-m-compiler-semantic",
  "cairo-m-formatter",
  "cairo-m-project",
+ "chumsky",
  "crossbeam-channel",
  "dashmap 5.5.3",
  "filetime",
