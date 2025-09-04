@@ -280,13 +280,13 @@ pub struct Bitwise {
 }
 
 impl Bitwise {
-    pub fn new(operand_bits: u32) -> Self {
+    pub const fn new(operand_bits: u32) -> Self {
         // Could support other sizes, but for now we only use 8-bit
         Self { operand_bits }
     }
 
     /// Returns the 4 columns needed for bitwise operations
-    pub fn columns(&self) -> [BitwiseStacked; 4] {
+    pub const fn columns(&self) -> [BitwiseStacked; 4] {
         [
             BitwiseStacked::new(0, self.operand_bits),
             BitwiseStacked::new(1, self.operand_bits),
