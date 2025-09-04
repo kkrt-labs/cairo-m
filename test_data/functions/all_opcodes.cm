@@ -137,6 +137,14 @@ fn main() -> felt {
     let add_carry_16_fp_fp = max_u16 + two;
     let add_overflow_fp_fp = max_u32 + two;
 
+    // U32StoreMulFpFp
+    let mul_basic_fp_fp = x_u32 * five;
+    let mul_zero_fp_fp = x_u32 * zero;
+    let mul_one_fp_fp = x_u32 * one;
+    let mul_overflow_lo_fp_fp = max_u16 * two;
+    let mul_overflow_hi_fp_fp = max_u32 * two;
+    let big_mul_fp_fp = max_u32 * max_u32;
+
     // U32StoreDivFpFp
     let div_by_smaller_fp_fp = x_u32 / five;
     let div_by_greater_fp_fp = x_u32 / forty_three;
