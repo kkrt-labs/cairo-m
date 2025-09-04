@@ -50,8 +50,8 @@
 //!   * `- [fp + src1_off + 1, op1_prev_clk_hi, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
 //!   * `- [clk - op1_prev_lo_clk - 1]` and `- [clk - op1_prev_hi_clk - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val_lo] + [fp + dst_off, clk, op0_val_lo - borrow_lo << 16 - op1_val_lo]` in `Memory` Relation
-//!   * `- [fp + dst_off + 1, dst_prev_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, op0_val_hi - borrow_lo + borrow_hi << 16 - op1_val_hi]` in `Memory` Relation
+//!   * `- [fp + dst_off, dst_prev_clk_lo, dst_prev_val_lo] + [fp + dst_off, clk, op0_val_lo + borrow_lo << 16 - op1_val_lo]` in `Memory` Relation
+//!   * `- [fp + dst_off + 1, dst_prev_clk_hi, dst_prev_val_hi] + [fp + dst_off + 1, clk, op0_val_hi - borrow_lo + borrow_hi << 16 - op1_val_hi]` in `Memory` Relation
 //!   * `- [clk - dst_prev_lo_clk - 1]` and `- [clk - dst_prev_hi_clk - 1]` in `RangeCheck20` relation
 //! * limbs of each U32 must be in range [0, 2^16)
 //!   * `- [op0_val_lo]` in `RangeCheck16` relation
