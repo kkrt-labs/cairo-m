@@ -192,6 +192,9 @@ fn relation_entries(
         range_check_20,
         opcodes,
         clock_update,
+        bitwise_and,
+        bitwise_or,
+        bitwise_xor,
     } = components;
 
     let entries: Vec<RelationTrackerEntry> = chain!(
@@ -224,6 +227,9 @@ fn relation_entries(
         add_to_relation_entries(range_check_8, trace),
         add_to_relation_entries(range_check_16, trace),
         add_to_relation_entries(range_check_20, trace),
+        add_to_relation_entries(bitwise_and, trace),
+        add_to_relation_entries(bitwise_or, trace),
+        add_to_relation_entries(bitwise_xor, trace),
     )
     .collect();
 

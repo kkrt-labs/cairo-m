@@ -20,6 +20,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ProverInput;
+use crate::preprocessed::bitwise::{bitwise_and, bitwise_or, bitwise_xor};
 use crate::preprocessed::range_check::{range_check_16, range_check_20, range_check_8};
 use crate::public_data::PublicData;
 use crate::relations;
@@ -34,6 +35,9 @@ pub struct Claim {
     pub range_check_8: range_check_8::Claim,
     pub range_check_16: range_check_16::Claim,
     pub range_check_20: range_check_20::Claim,
+    pub bitwise_and: bitwise_and::Claim,
+    pub bitwise_or: bitwise_or::Claim,
+    pub bitwise_xor: bitwise_xor::Claim,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +49,9 @@ pub struct Relations {
     pub range_check_8: relations::RangeCheck8,
     pub range_check_16: relations::RangeCheck16,
     pub range_check_20: relations::RangeCheck20,
+    pub bitwise_and: relations::BitwiseAnd,
+    pub bitwise_or: relations::BitwiseOr,
+    pub bitwise_xor: relations::BitwiseXor,
 }
 
 pub struct InteractionClaimData {
@@ -56,6 +63,9 @@ pub struct InteractionClaimData {
     pub range_check_8: range_check_8::InteractionClaimData,
     pub range_check_16: range_check_16::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
+    pub bitwise_and: bitwise_and::InteractionClaimData,
+    pub bitwise_or: bitwise_or::InteractionClaimData,
+    pub bitwise_xor: bitwise_xor::InteractionClaimData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -68,6 +78,9 @@ pub struct InteractionClaim {
     pub range_check_8: range_check_8::InteractionClaim,
     pub range_check_16: range_check_16::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
+    pub bitwise_and: bitwise_and::InteractionClaim,
+    pub bitwise_or: bitwise_or::InteractionClaim,
+    pub bitwise_xor: bitwise_xor::InteractionClaim,
 }
 
 impl Claim {
@@ -81,6 +94,9 @@ impl Claim {
             self.range_check_8.log_sizes(),
             self.range_check_16.log_sizes(),
             self.range_check_20.log_sizes(),
+            self.bitwise_and.log_sizes(),
+            self.bitwise_or.log_sizes(),
+            self.bitwise_xor.log_sizes(),
         ];
         TreeVec::concat_cols(trees.into_iter())
     }
@@ -94,6 +110,9 @@ impl Claim {
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
+        self.bitwise_and.mix_into(channel);
+        self.bitwise_or.mix_into(channel);
+        self.bitwise_xor.mix_into(channel);
     }
 
     pub fn write_trace<MC: MerkleChannel>(
@@ -139,6 +158,14 @@ impl Claim {
         let (range_check_20_claim, range_check_20_trace, range_check_20_interaction_claim_data) =
             range_check_20::Claim::write_trace(range_check_20_data);
 
+        // Write bitwise components (empty for now, will be populated when opcodes use them)
+        let (bitwise_and_claim, bitwise_and_trace, bitwise_and_interaction_claim_data) =
+            bitwise_and::Claim::write_trace(rayon::iter::empty());
+        let (bitwise_or_claim, bitwise_or_trace, bitwise_or_interaction_claim_data) =
+            bitwise_or::Claim::write_trace(rayon::iter::empty());
+        let (bitwise_xor_claim, bitwise_xor_trace, bitwise_xor_interaction_claim_data) =
+            bitwise_xor::Claim::write_trace(rayon::iter::empty());
+
         // Gather all lookup data
         let interaction_claim_data = InteractionClaimData {
             opcodes: opcodes_interaction_claim_data,
@@ -149,6 +176,9 @@ impl Claim {
             range_check_8: range_check_8_interaction_claim_data,
             range_check_16: range_check_16_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
+            bitwise_and: bitwise_and_interaction_claim_data,
+            bitwise_or: bitwise_or_interaction_claim_data,
+            bitwise_xor: bitwise_xor_interaction_claim_data,
         };
 
         // Combine all traces
@@ -160,7 +190,10 @@ impl Claim {
             .chain(poseidon2_trace.to_evals())
             .chain(range_check_8_trace)
             .chain(range_check_16_trace)
-            .chain(range_check_20_trace);
+            .chain(range_check_20_trace)
+            .chain(bitwise_and_trace)
+            .chain(bitwise_or_trace)
+            .chain(bitwise_xor_trace);
 
         (
             Self {
@@ -172,6 +205,9 @@ impl Claim {
                 range_check_8: range_check_8_claim,
                 range_check_16: range_check_16_claim,
                 range_check_20: range_check_20_claim,
+                bitwise_and: bitwise_and_claim,
+                bitwise_or: bitwise_or_claim,
+                bitwise_xor: bitwise_xor_claim,
             },
             trace,
             interaction_claim_data,
@@ -234,6 +270,24 @@ impl InteractionClaim {
                 &interaction_claim_data.range_check_20,
             );
 
+        let (bitwise_and_interaction_claim, bitwise_and_interaction_trace) =
+            bitwise_and::InteractionClaim::write_interaction_trace(
+                &relations.bitwise_and,
+                &interaction_claim_data.bitwise_and,
+            );
+
+        let (bitwise_or_interaction_claim, bitwise_or_interaction_trace) =
+            bitwise_or::InteractionClaim::write_interaction_trace(
+                &relations.bitwise_or,
+                &interaction_claim_data.bitwise_or,
+            );
+
+        let (bitwise_xor_interaction_claim, bitwise_xor_interaction_trace) =
+            bitwise_xor::InteractionClaim::write_interaction_trace(
+                &relations.bitwise_xor,
+                &interaction_claim_data.bitwise_xor,
+            );
+
         (
             opcodes_interaction_trace
                 .into_iter()
@@ -243,7 +297,10 @@ impl InteractionClaim {
                 .chain(poseidon2_interaction_trace)
                 .chain(range_check_8_interaction_trace)
                 .chain(range_check_16_interaction_trace)
-                .chain(range_check_20_interaction_trace),
+                .chain(range_check_20_interaction_trace)
+                .chain(bitwise_and_interaction_trace)
+                .chain(bitwise_or_interaction_trace)
+                .chain(bitwise_xor_interaction_trace),
             Self {
                 opcodes: opcodes_interaction_claim,
                 memory: memory_interaction_claim,
@@ -253,6 +310,9 @@ impl InteractionClaim {
                 range_check_8: range_check_8_interaction_claim,
                 range_check_16: range_check_16_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
+                bitwise_and: bitwise_and_interaction_claim,
+                bitwise_or: bitwise_or_interaction_claim,
+                bitwise_xor: bitwise_xor_interaction_claim,
             },
         )
     }
@@ -268,6 +328,9 @@ impl InteractionClaim {
         sum += self.range_check_8.claimed_sum;
         sum += self.range_check_16.claimed_sum;
         sum += self.range_check_20.claimed_sum;
+        sum += self.bitwise_and.claimed_sum;
+        sum += self.bitwise_or.claimed_sum;
+        sum += self.bitwise_xor.claimed_sum;
         sum
     }
 
@@ -280,6 +343,9 @@ impl InteractionClaim {
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
+        self.bitwise_and.mix_into(channel);
+        self.bitwise_or.mix_into(channel);
+        self.bitwise_xor.mix_into(channel);
     }
 }
 
@@ -293,6 +359,9 @@ impl Relations {
             range_check_8: relations::RangeCheck8::draw(channel),
             range_check_16: relations::RangeCheck16::draw(channel),
             range_check_20: relations::RangeCheck20::draw(channel),
+            bitwise_and: relations::BitwiseAnd::draw(channel),
+            bitwise_or: relations::BitwiseOr::draw(channel),
+            bitwise_xor: relations::BitwiseXor::draw(channel),
         }
     }
 }
@@ -306,6 +375,9 @@ pub struct Components {
     pub range_check_8: range_check_8::Component,
     pub range_check_16: range_check_16::Component,
     pub range_check_20: range_check_20::Component,
+    pub bitwise_and: bitwise_and::Component,
+    pub bitwise_or: bitwise_or::Component,
+    pub bitwise_xor: bitwise_xor::Component,
 }
 
 impl Components {
@@ -378,6 +450,33 @@ impl Components {
                 },
                 interaction_claim.range_check_20.claimed_sum,
             ),
+            bitwise_and: bitwise_and::Component::new(
+                location_allocator,
+                bitwise_and::Eval {
+                    claim: claim.bitwise_and,
+                    relation: relations.bitwise_and.clone(),
+                    claimed_sum: interaction_claim.bitwise_and.claimed_sum,
+                },
+                interaction_claim.bitwise_and.claimed_sum,
+            ),
+            bitwise_or: bitwise_or::Component::new(
+                location_allocator,
+                bitwise_or::Eval {
+                    claim: claim.bitwise_or,
+                    relation: relations.bitwise_or.clone(),
+                    claimed_sum: interaction_claim.bitwise_or.claimed_sum,
+                },
+                interaction_claim.bitwise_or.claimed_sum,
+            ),
+            bitwise_xor: bitwise_xor::Component::new(
+                location_allocator,
+                bitwise_xor::Eval {
+                    claim: claim.bitwise_xor,
+                    relation: relations.bitwise_xor.clone(),
+                    claimed_sum: interaction_claim.bitwise_xor.claimed_sum,
+                },
+                interaction_claim.bitwise_xor.claimed_sum,
+            ),
         }
     }
 
@@ -390,6 +489,9 @@ impl Components {
         provers.push(&self.range_check_8);
         provers.push(&self.range_check_16);
         provers.push(&self.range_check_20);
+        provers.push(&self.bitwise_and);
+        provers.push(&self.bitwise_or);
+        provers.push(&self.bitwise_xor);
         provers
     }
 
@@ -402,6 +504,9 @@ impl Components {
         verifiers.push(&self.range_check_8);
         verifiers.push(&self.range_check_16);
         verifiers.push(&self.range_check_20);
+        verifiers.push(&self.bitwise_and);
+        verifiers.push(&self.bitwise_or);
+        verifiers.push(&self.bitwise_xor);
         verifiers
     }
 }
