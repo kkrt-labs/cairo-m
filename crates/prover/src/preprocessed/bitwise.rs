@@ -45,7 +45,7 @@ pub struct Claim {
 
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-        let trace = vec![self.log_size; 5]; // 5 columns: operation_id, input1, input2, result, multiplicity
+        let trace = vec![self.log_size; 1];
         let interaction_trace = vec![self.log_size; SECURE_EXTENSION_DEGREE];
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
@@ -65,7 +65,7 @@ impl Claim {
         lookup_data: impl ParallelIterator<Item = &'a [[PackedM31; 3]]>,
     ) -> (
         Self,
-        [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 5],
+        [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
         InteractionClaimData,
     )
     where
@@ -170,28 +170,10 @@ impl Claim {
             Self {
                 log_size: BITWISE_STACKED_LOG_SIZE,
             },
-            [
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_iter(op_id_col),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_iter(input1_col),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_iter(input2_col),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_iter(result_col),
-                ),
-                CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
-                    domain,
-                    BaseColumn::from_iter(mults),
-                ),
-            ],
+            [CircleEvaluation::<SimdBackend, M31, BitReversedOrder>::new(
+                domain,
+                BaseColumn::from_iter(mults),
+            )],
             InteractionClaimData {
                 bitwise: packed_data,
             },
@@ -223,7 +205,6 @@ impl InteractionClaim {
         (col.par_iter_mut(), &interaction_claim_data.bitwise)
             .into_par_iter()
             .for_each(|(writer, value)| {
-                // value[0] = operation_id, value[1] = input1, value[2] = input2, value[3] = result, value[4] = multiplicity
                 let denom: PackedQM31 = bitwise.combine(&[value[0], value[1], value[2], value[3]]);
                 writer.write_frac(value[4].into(), denom);
             });
@@ -253,10 +234,14 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         // Read the 5 trace columns
-        let operation_id = eval.next_trace_mask();
-        let input1 = eval.next_trace_mask();
-        let input2 = eval.next_trace_mask();
-        let result = eval.next_trace_mask();
+        let operation_id =
+            eval.get_preprocessed_column(BitwiseStacked::new(0, BITWISE_OPERAND_BITS).id());
+        let input1 =
+            eval.get_preprocessed_column(BitwiseStacked::new(1, BITWISE_OPERAND_BITS).id());
+        let input2 =
+            eval.get_preprocessed_column(BitwiseStacked::new(2, BITWISE_OPERAND_BITS).id());
+        let result =
+            eval.get_preprocessed_column(BitwiseStacked::new(3, BITWISE_OPERAND_BITS).id());
         let multiplicity = eval.next_trace_mask();
 
         // Add lookups to the relation
