@@ -153,9 +153,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         range_check_16,
         range_check_20,
         clock_update,
-        bitwise_and,
-        bitwise_or,
-        bitwise_xor,
+        bitwise,
     } = components;
     assert_component(&opcodes.call_abs_imm, &trace);
     assert_component(&opcodes.jmp_imm, &trace);
@@ -186,9 +184,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(range_check_8, &trace);
     assert_component(range_check_16, &trace);
     assert_component(range_check_20, &trace);
-    assert_component(bitwise_and, &trace);
-    assert_component(bitwise_or, &trace);
-    assert_component(bitwise_xor, &trace);
+    assert_component(bitwise, &trace);
 }
 
 fn assert_component<E: FrameworkEval + Sync>(

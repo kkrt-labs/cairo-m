@@ -38,20 +38,10 @@ relation!(Merkle, 4);
 // Structure: 16-element state array for Poseidon2 permutation
 relation!(Poseidon2, 16);
 
-// Bitwise AND operation relation for 8-bit values.
-// Ensures correct bitwise AND computation between two 8-bit operands.
-// Structure: input1, input2, result
-relation!(BitwiseAnd, 3);
-
-// Bitwise OR operation relation for 8-bit values.
-// Ensures correct bitwise OR computation between two 8-bit operands.
-// Structure: input1, input2, result
-relation!(BitwiseOr, 3);
-
-// Bitwise XOR operation relation for 8-bit values.
-// Ensures correct bitwise XOR computation between two 8-bit operands.
-// Structure: input1, input2, result
-relation!(BitwiseXor, 3);
+// Bitwise operation relation for 8-bit values.
+// Handles AND (id=0), OR (id=1), and XOR (id=2) operations.
+// Structure: operation_id, input1, input2, result
+relation!(Bitwise, 4);
 
 /// Proof-of-work bits for interaction argument security.
 pub const INTERACTION_POW_BITS: u32 = 2;
