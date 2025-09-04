@@ -13,6 +13,44 @@ impl DagToMir {
         context: &mut DagToMirContext,
     ) -> Result<Option<ValueId>, DagToMirError> {
         match wasm_op {
+            Op::GlobalGet { global_index } => {
+                let idx = (*global_index) as usize;
+                let global_address = Value::integer(self.global_adresses[&idx]);
+                let ty = self.global_types[&idx].clone();
+                let result_id = context.mir_function.new_typed_value_id(ty.clone());
+                let global_adress_id = context.mir_function.new_typed_value_id(MirType::Felt);
+                let assign_offset =
+                    Instruction::assign(global_adress_id, global_address, MirType::Felt);
+                context.get_current_block()?.push_instruction(assign_offset);
+                let get_instruction = Instruction::load(
+                    result_id,
+                    Value::operand(global_adress_id),
+                    Value::integer(0),
+                    ty,
+                );
+                context
+                    .get_current_block()?
+                    .push_instruction(get_instruction);
+                Ok(Some(result_id))
+            }
+            Op::GlobalSet { global_index } => {
+                let idx = (*global_index) as usize;
+                let global_address = Value::integer(self.global_adresses[&idx]);
+                let ty = self.global_types[&idx].clone();
+                let global_adress_id = context.mir_function.new_typed_value_id(MirType::Felt);
+                let assign_offset =
+                    Instruction::assign(global_adress_id, global_address, MirType::Felt);
+                context.get_current_block()?.push_instruction(assign_offset);
+                let instruction = Instruction::store(
+                    Value::operand(global_adress_id),
+                    Value::integer(0),
+                    inputs[0],
+                    ty,
+                );
+                context.get_current_block()?.push_instruction(instruction);
+                Ok(None)
+            }
+            // TODO: add comments
             Op::I32Load { memarg, .. } => {
                 let base_address = inputs[0];
                 // temp1 = base_address / 2
@@ -30,7 +68,7 @@ impl DagToMir {
                 let instruction3 = Instruction::binary_op(
                     BinaryOp::Sub,
                     temp3,
-                    Value::integer(1 << 30),
+                    Value::integer(self.heap_start),
                     Value::operand(temp2),
                 );
                 context.get_current_block()?.push_instruction(instruction3);
@@ -64,7 +102,7 @@ impl DagToMir {
                 let instruction3 = Instruction::binary_op(
                     BinaryOp::Sub,
                     temp3,
-                    Value::integer(1 << 30),
+                    Value::integer(self.heap_start),
                     Value::operand(temp2),
                 );
                 context.get_current_block()?.push_instruction(instruction3);

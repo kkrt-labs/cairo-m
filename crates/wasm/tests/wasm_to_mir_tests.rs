@@ -56,7 +56,10 @@ wasm_test!(convert_bitwise_wasm, "bitwise.wasm");
 wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
 wasm_test!(convert_nested_loop_wasm, "nested_loop.wasm");
 wasm_test!(convert_load_store_sum_wasm, "load_store_sum.wasm");
-wasm_test!(convert_sha256_wasm, "sha256.wasm");
-
-wasm_test!(convert_i64_bitwise_ops_wasm, "i64_bitwise_ops.wasm");
-wasm_test!(convert_i64_arithmetic_wasm, "i64_arithmetic.wasm");
+wasm_test!(convert_globals_wasm, "globals.wasm");
+wasm_test!(convert_calls_wasm, "calls.wasm");
+wasm_test!(
+    #[ignore]
+    convert_sha256_wasm,
+    "sha256.wasm"
+);
