@@ -2,6 +2,7 @@
 //!
 //! Tests for function calls, parameter validation, return types, and other function-related semantics.
 
+pub mod builtins;
 pub mod function_calls;
 pub mod parameter_validation;
 pub mod return_types;

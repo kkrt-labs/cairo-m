@@ -731,6 +731,14 @@ impl ScalarReplacementOfAggregates {
                     callback(*id);
                 }
             }
+            InstructionKind::AssertEq { left, right } => {
+                if let Value::Operand(id) = left {
+                    callback(*id);
+                }
+                if let Value::Operand(id) = right {
+                    callback(*id);
+                }
+            }
         }
     }
 

@@ -1,0 +1,55 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Complex Expressions in Cairo-M - Assertions"
+input_file: mdtest/01-basics/06-expressions.md
+---
+Source:
+fn test_assert() {
+    let x: u32 = 10;
+    assert(x == 10);
+    assert(x>5 == true);
+    assert(!(x<10) == true);
+
+    let y: felt = 15;
+    assert(y != 12);
+
+    let tt = true;
+    assert(tt == true);
+
+    let ff = false;
+    assert(!ff == true);
+    return;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_assert {
+    entry: 0
+
+    0:
+      %0 = 10 (u32)
+      %1 = %0 U32Eq 10
+      AssertEq %1, 1
+      %2 = %0 U32Greater 5
+      %3 = %2 == true
+      AssertEq %3, 1
+      %4 = %0 U32Less 10
+      %5 = Not %4
+      %6 = %5 == true
+      AssertEq %6, 1
+      %7 = 15
+      %8 = %7 != 12
+      AssertEq %8, 1
+      %9 = true (bool)
+      %10 = %9 == true
+      AssertEq %10, 1
+      %11 = false (bool)
+      %12 = Not %11
+      %13 = %12 == true
+      AssertEq %13, 1
+      return
+
+  }
+
+}

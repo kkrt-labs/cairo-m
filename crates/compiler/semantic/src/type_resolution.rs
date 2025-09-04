@@ -12,6 +12,7 @@
 //! - `function_semantic_signature`: Resolves function signature information
 //! - `are_types_compatible`: Checks type compatibility
 
+use crate::builtins::{self, BuiltinFn};
 use cairo_m_compiler_parser::parser::{
     BinaryOp, Expression, NamedType, Spanned, TypeExpr as AstTypeExpr, UnaryOp,
 };
@@ -467,6 +468,10 @@ pub fn expression_semantic_type<'db>(
             TypeId::new(db, TypeData::Error)
         }
         Expression::Identifier(name) => {
+            // Treat recognized built-in function names as unit when used as bare identifiers
+            if builtins::is_builtin_function_name(name.value()).is_some() {
+                return TypeId::new(db, TypeData::Tuple(vec![]));
+            }
             if let Some((def_idx, _)) = semantic_index
                 .resolve_name_to_definition_skip_let_initializer(
                     name.value(),
@@ -571,6 +576,13 @@ pub fn expression_semantic_type<'db>(
             }
         }
         Expression::FunctionCall { callee, args } => {
+            // Built-in function handling: assert(...)
+            if let Expression::Identifier(name) = callee.value() {
+                if builtins::is_builtin_function_name(name.value()) == Some(BuiltinFn::Assert) {
+                    // No returned value.
+                    return TypeId::new(db, TypeData::Tuple(vec![]));
+                }
+            }
             // Get ExpressionId for the callee
             if let Some(callee_expr_id) = semantic_index.expression_id_by_span(callee.span()) {
                 // Infer callee's type recursively

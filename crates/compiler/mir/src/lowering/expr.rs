@@ -4,6 +4,7 @@
 //! from the AST to MIR values.
 
 use cairo_m_compiler_parser::parser::{BinaryOp, Expression, Spanned, UnaryOp};
+use cairo_m_compiler_semantic::builtins::{is_builtin_function_name, BuiltinFn};
 use cairo_m_compiler_semantic::definition::DefinitionKind;
 use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId};
@@ -179,6 +180,23 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         args: &[Spanned<Expression>],
         expr_id: ExpressionId,
     ) -> Result<Value, String> {
+        // Handle built-in assert(...) in expression position as well.
+        // Emit the same MIR as in statement position, then return unit.
+        if let Expression::Identifier(name) = callee.value() {
+            if is_builtin_function_name(name.value()) == Some(BuiltinFn::Assert) {
+                // Retrieve the call span fom the current expression id
+                let call_span = self
+                    .ctx
+                    .semantic_index
+                    .expression(expr_id)
+                    .map(|info| info.ast_span)
+                    .ok_or_else(|| format!("MIR: No ExpressionInfo for call ID {expr_id:?}"))?;
+
+                self.lower_assert_call(args, call_span)?;
+                return Ok(Value::unit());
+            }
+        }
+
         match self.lower_function_call(callee, args, expr_id)? {
             CallResult::Single(value) => Ok(value),
             CallResult::Tuple(values) => {

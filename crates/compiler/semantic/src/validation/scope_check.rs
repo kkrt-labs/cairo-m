@@ -22,6 +22,7 @@
 
 use std::collections::HashSet;
 
+use crate::builtins::is_builtin_function_name;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 
 use crate::db::{Crate, SemanticDb};
@@ -181,6 +182,10 @@ impl ScopeValidator {
                 };
 
                 if !found_import {
+                    // Built-in function names like `assert` are allowed without local definition
+                    if is_builtin_function_name(&usage.name).is_some() {
+                        continue;
+                    }
                     // Only report each undeclared variable once
                     if seen_undeclared.insert(usage.name.clone()) {
                         sink.push(Diagnostic::undeclared_variable(

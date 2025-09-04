@@ -24,6 +24,7 @@ use cairo_m_compiler_parser as parser;
 // Import file types from parser
 pub use parser::{parse_file, ParsedModule, SourceFile};
 
+pub mod builtins;
 pub mod definition;
 pub mod place;
 pub mod semantic_index;

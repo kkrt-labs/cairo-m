@@ -8,8 +8,8 @@ use cairo_m_common::instruction::Instruction as CasmInstr;
 use cairo_m_common::program::{AbiSlot, AbiType, EntrypointInfo};
 use cairo_m_common::{Program, ProgramMetadata};
 use cairo_m_compiler_mir::{
-    BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, MirFunction, MirModule,
-    MirType, Terminator, Value, ValueId,
+    BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
+    MirModule, MirType, Terminator, Value, ValueId,
 };
 use stwo_prover::core::fields::m31::M31;
 
@@ -324,6 +324,53 @@ impl CodeGenerator {
                 builder.assign(*dest, *source, ty, target_offset)?;
             }
 
+            InstructionKind::AssertEq { left, right } => {
+                // Only felt/bool single-slot values
+                match (left, right) {
+                    (Value::Operand(_), Value::Operand(_)) => {
+                        return Err(CodegenError::InvalidMir(
+                            "AssertEq on operands is not allowed".into(),
+                        ));
+                    }
+                    (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
+                        let lo = builder.layout_mut().get_offset(*lid)?;
+                        builder.assert_eq_fp_imm(
+                            lo,
+                            *imm as i32,
+                            format!("assert [fp + {lo}] == {imm}"),
+                        );
+                    }
+                    (Value::Literal(Literal::Integer(imm)), Value::Operand(rid)) => {
+                        let ro = builder.layout_mut().get_offset(*rid)?;
+                        builder.assert_eq_fp_imm(
+                            ro,
+                            *imm as i32,
+                            format!("assert [fp + {ro}] == {imm}"),
+                        );
+                    }
+                    (Value::Operand(lid), Value::Literal(Literal::Boolean(b))) => {
+                        let lo = builder.layout_mut().get_offset(*lid)?;
+                        let imm = if *b { 1 } else { 0 };
+                        builder.assert_eq_fp_imm(lo, imm, format!("assert [fp + {lo}] == {}", imm));
+                    }
+                    (Value::Literal(Literal::Boolean(b)), Value::Operand(rid)) => {
+                        let ro = builder.layout_mut().get_offset(*rid)?;
+                        let imm = if *b { 1 } else { 0 };
+                        builder.assert_eq_fp_imm(ro, imm, format!("assert [fp + {ro}] == {}", imm));
+                    }
+                    (Value::Literal(left), Value::Literal(right)) => {
+                        if left != right {
+                            return Err(CodegenError::InvalidMir(
+                                "An assert expression was evaluated to false".into(),
+                            ));
+                        }
+                    }
+                    _ => {
+                        unreachable!();
+                    }
+                }
+            }
+
             InstructionKind::UnaryOp { op, dest, source } => {
                 // Direct Argument Placement Optimization
                 let mut target_offset = self.find_direct_argument_placement_offset(
@@ -372,16 +419,7 @@ impl CodeGenerator {
                 if target_offset.is_none()
                     && !matches!(
                         op,
-                        BinaryOp::U32Add
-                            | BinaryOp::U32Sub
-                            | BinaryOp::U32Mul
-                            | BinaryOp::U32Div
-                            | BinaryOp::U32Eq
-                            | BinaryOp::U32Neq
-                            | BinaryOp::U32Less
-                            | BinaryOp::U32Greater
-                            | BinaryOp::U32LessEqual
-                            | BinaryOp::U32GreaterEqual
+                        BinaryOp::U32Add | BinaryOp::U32Sub | BinaryOp::U32Mul | BinaryOp::U32Div
                     )
                 {
                     target_offset = self.get_target_offset_for_dest(*dest, terminator, function);
@@ -928,6 +966,106 @@ impl CodeGenerator {
     /// Get the generated instructions (for testing)
     pub fn instructions(&self) -> &[InstructionBuilder] {
         &self.instructions
+    }
+}
+
+#[cfg(test)]
+mod tests_asserts {
+    use super::*;
+    use cairo_m_compiler_mir::{
+        Instruction, InstructionKind, MirModule, MirType, Terminator, Value,
+    };
+
+    #[test]
+    fn codegen_emits_assert_opcodes_for_mir_asserts() {
+        // Build a simple MIR function with felt and u32 asserts
+        let mut module = MirModule::new();
+        let mut func = MirFunction::new("main".to_string());
+
+        let a = func.new_typed_value_id(MirType::Felt);
+        let b = func.new_typed_value_id(MirType::Felt);
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction::assign(a, Value::integer(5), MirType::Felt));
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction::assign(b, Value::integer(6), MirType::Felt));
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction {
+                kind: InstructionKind::AssertEq {
+                    left: Value::operand(a),
+                    right: Value::Literal(Literal::Integer(1)),
+                },
+                source_span: None,
+                source_expr_id: None,
+                comment: None,
+            });
+
+        let u1 = func.new_typed_value_id(MirType::U32);
+        let u2 = func.new_typed_value_id(MirType::U32);
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction::assign(u1, Value::integer(3), MirType::U32));
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction::assign(u2, Value::integer(4), MirType::U32));
+        // Compute boolean equality then assert == 1
+        let eq_bool = func.new_typed_value_id(MirType::Bool);
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction::binary_op(
+                cairo_m_compiler_mir::BinaryOp::U32Eq,
+                eq_bool,
+                Value::operand(u1),
+                Value::operand(u2),
+            ));
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .push_instruction(Instruction {
+                kind: InstructionKind::AssertEq {
+                    left: Value::operand(eq_bool),
+                    right: Value::integer(1),
+                },
+                source_span: None,
+                source_expr_id: None,
+                comment: None,
+            });
+
+        func.basic_blocks
+            .get_mut(func.entry_block)
+            .unwrap()
+            .set_terminator(Terminator::return_void());
+
+        module.add_function(func);
+
+        let mut gen = CodeGenerator::new();
+        gen.generate_module(&module).unwrap();
+        let program = gen.compile().unwrap();
+
+        let mut assert_fp_fp = 0;
+        let mut assert_fp_imm = 0;
+        for instr in &program.instructions {
+            match instr {
+                CasmInstr::AssertEqFpFp { .. } => assert_fp_fp += 1,
+                CasmInstr::AssertEqFpImm { .. } => assert_fp_imm += 1,
+                _ => {}
+            }
+        }
+
+        assert_eq!(assert_fp_fp, 0);
+        assert!(
+            assert_fp_imm == 2,
+            "expected 2 AssertEqFpImm, got {}",
+            assert_fp_imm
+        );
     }
 }
 

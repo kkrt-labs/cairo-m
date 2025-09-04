@@ -165,7 +165,8 @@ impl PureExpressionKey {
             | InstructionKind::Assign { .. }
             | InstructionKind::Debug { .. }
             | InstructionKind::Phi { .. }
-            | InstructionKind::Nop => None,
+            | InstructionKind::Nop
+            | InstructionKind::AssertEq { .. } => None,
 
             // Aggregate modification operations - skip for conservatism
             InstructionKind::InsertField { .. }

@@ -361,6 +361,10 @@ pub enum InstructionKind {
         new_value: Value,
         array_ty: MirType,
     },
+
+    /// Assert equality between two felt/bool values (single-slot)
+    /// Lowers to AssertEqFpFp / AssertEqFpImm
+    AssertEq { left: Value, right: Value },
 }
 
 impl Instruction {
@@ -670,7 +674,9 @@ impl Instruction {
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
-            InstructionKind::Debug { .. } | InstructionKind::Nop => vec![],
+            InstructionKind::Debug { .. }
+            | InstructionKind::Nop
+            | InstructionKind::AssertEq { .. } => vec![],
         }
     }
 
@@ -823,6 +829,14 @@ impl Instruction {
                     used.insert(id);
                 });
             }
+            InstructionKind::AssertEq { left, right } => {
+                visit_value(left, |id| {
+                    used.insert(id);
+                });
+                visit_value(right, |id| {
+                    used.insert(id);
+                });
+            }
         }
 
         used
@@ -911,6 +925,10 @@ impl Instruction {
                 replace_value_id(index, from, to);
                 replace_value_id(new_value, from, to);
             }
+            InstructionKind::AssertEq { left, right } => {
+                replace_value_id(left, from, to);
+                replace_value_id(right, from, to);
+            }
         }
     }
 
@@ -934,6 +952,7 @@ impl Instruction {
             InstructionKind::MakeFixedArray { .. } => Ok(()),
             InstructionKind::ArrayIndex { .. } => Ok(()),
             InstructionKind::ArrayInsert { .. } => Ok(()),
+            InstructionKind::AssertEq { .. } => Ok(()),
         }
     }
 
@@ -1243,6 +1262,13 @@ impl PrettyPrint for Instruction {
                     array_val.pretty_print(0),
                     index.pretty_print(0),
                     new_value.pretty_print(0)
+                ));
+            }
+            InstructionKind::AssertEq { left, right } => {
+                result.push_str(&format!(
+                    "AssertEq {}, {}",
+                    left.pretty_print(0),
+                    right.pretty_print(0)
                 ));
             }
         }

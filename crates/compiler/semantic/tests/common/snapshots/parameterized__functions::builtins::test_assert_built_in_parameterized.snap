@@ -1,0 +1,66 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+fn test() { let x = 1; assert(x); return; }
+--- Diagnostics ---
+[2001] Error: expected bool, found `felt`
+   ╭─[ semantic_tests::functions::builtins::test_assert_built_in_parameterized:1:31 ]
+   │
+ 1 │ fn test() { let x = 1; assert(x); return; }
+   │                               ┬  
+   │                               ╰── expected bool, found `felt`
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+fn test() { let a: felt = 1; let b: u32 = 2u32; assert(a == b); return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `==`. Expected `felt`, found `u32`
+   ╭─[ semantic_tests::functions::builtins::test_assert_built_in_parameterized:1:61 ]
+   │
+ 1 │ fn test() { let a: felt = 1; let b: u32 = 2u32; assert(a == b); return; }
+   │                                                             ┬  
+   │                                                             ╰── Invalid right operand for arithmetic operator `==`. Expected `felt`, found `u32`
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+fn test() { let a: bool = true; let b: felt = 1; assert(a == b); return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `==`. Expected `bool`, found `felt`
+   ╭─[ semantic_tests::functions::builtins::test_assert_built_in_parameterized:1:62 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: felt = 1; assert(a == b); return; }
+   │                                                              ┬  
+   │                                                              ╰── Invalid right operand for arithmetic operator `==`. Expected `bool`, found `felt`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+struct P { a: felt } fn test() { let p1 = P { a: 1 }; let p2 = P { a: 2 }; assert(p1 == p2); return; }
+--- Diagnostics ---
+[2001] Error: Operator `==` is not supported for type `P`
+   ╭─[ semantic_tests::functions::builtins::test_assert_built_in_parameterized:1:83 ]
+   │
+ 1 │ struct P { a: felt } fn test() { let p1 = P { a: 1 }; let p2 = P { a: 2 }; assert(p1 == p2); return; }
+   │                                                                                   ─┬  
+   │                                                                                    ╰── Operator `==` is not supported for type `P`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+fn test() { let a: [u32; 2] = [1u32, 2u32]; let b: [u32; 2] = [1u32, 2u32]; assert(a == b); return; }
+--- Diagnostics ---
+[2001] Error: Operator `==` is not supported for type `[u32; 2]`
+   ╭─[ semantic_tests::functions::builtins::test_assert_built_in_parameterized:1:84 ]
+   │
+ 1 │ fn test() { let a: [u32; 2] = [1u32, 2u32]; let b: [u32; 2] = [1u32, 2u32]; assert(a == b); return; }
+   │                                                                                    ┬  
+   │                                                                                    ╰── Operator `==` is not supported for type `[u32; 2]`
+───╯

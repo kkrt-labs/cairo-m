@@ -299,6 +299,47 @@ fn test_evaluation_order() -> i64 {
 }
 ```
 
+## Assertions
+
+You can use `assert` to assert a condition at runtime.
+
+```cairo-m
+fn test_assert() {
+    let x: u32 = 10;
+    assert(x == 10);
+    assert(x>5 == true);
+    assert(!(x<10) == true);
+
+    let y: felt = 15;
+    assert(y != 12);
+
+    let tt = true;
+    assert(tt == true);
+
+    let ff = false;
+    assert(!ff == true);
+    return;
+}
+```
+
+```rust
+fn test_assert() {
+    let x = 10;
+    assert!(x == 10);
+    assert!(x>5);
+    assert!(!(x<10));
+
+    let y: i32 = 15;
+    assert!(y != 12);
+
+    let tt = true;
+    assert!(tt);
+
+    let ff = false;
+    assert!(!ff);
+}
+```
+
 ## Expression Side Effects
 
 Expressions should not have side effects in Cairo-M:

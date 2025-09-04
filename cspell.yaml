@@ -66,6 +66,7 @@ words:
   - kkrt
   - krate
   - legalizer
+  - loff
   - logup
   - logups
   - lvalue
@@ -90,6 +91,7 @@ words:
   - println
   - proptest
   - ranlib
+  - roff
   - repr
   - resx
   - rfib
