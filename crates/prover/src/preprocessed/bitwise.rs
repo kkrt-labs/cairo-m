@@ -21,7 +21,6 @@ use stwo_prover::core::poly::circle::{CanonicCoset, CircleEvaluation};
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::PreProcessedColumn;
-use crate::relations::Bitwise;
 
 // Constants for bitwise operations
 /// Number of bits in each operand for bitwise lookups
@@ -211,7 +210,7 @@ impl InteractionClaim {
     }
 
     pub fn write_interaction_trace(
-        bitwise: &Bitwise,
+        bitwise: &crate::relations::Bitwise,
         interaction_claim_data: &InteractionClaimData,
     ) -> (
         Self,
@@ -239,7 +238,7 @@ impl InteractionClaim {
 #[derive(Clone)]
 pub struct Eval {
     pub claim: Claim,
-    pub relation: Bitwise,
+    pub relation: crate::relations::Bitwise,
     pub claimed_sum: SecureField,
 }
 
@@ -274,35 +273,65 @@ impl FrameworkEval for Eval {
 
 pub type Component = FrameworkComponent<Eval>;
 
+/// Bitwise preprocessed columns container
+/// Represents all columns needed for bitwise operations (operation_id, input1, input2, result)
+pub struct Bitwise {
+    operand_bits: u32,
+}
+
+impl Bitwise {
+    pub fn new(operand_bits: u32) -> Self {
+        // Could support other sizes, but for now we only use 8-bit
+        Self { operand_bits }
+    }
+
+    /// Returns the 4 columns needed for bitwise operations
+    pub fn columns(&self) -> [BitwiseStacked; 4] {
+        [
+            BitwiseStacked::new(0, self.operand_bits),
+            BitwiseStacked::new(1, self.operand_bits),
+            BitwiseStacked::new(2, self.operand_bits),
+            BitwiseStacked::new(3, self.operand_bits),
+        ]
+    }
+}
+
 /// Stacked bitwise preprocessed column
 /// Stacks AND, OR, XOR operations into a single column
 pub struct BitwiseStacked {
     col_index: usize, // 0: operation_id, 1: input1, 2: input2, 3: result
+    operand_bits: u32,
 }
 
 impl BitwiseStacked {
-    pub const fn new(col_index: usize) -> Self {
+    pub const fn new(col_index: usize, operand_bits: u32) -> Self {
         assert!(col_index < 4, "col_index must be in range 0..=3");
-        Self { col_index }
+        Self {
+            col_index,
+            operand_bits,
+        }
     }
 }
 
 impl PreProcessedColumn for BitwiseStacked {
     fn log_size(&self) -> u32 {
-        BITWISE_STACKED_LOG_SIZE
+        // For dynamic sizing: 2 * operand_bits for the lookup table + 2 bits for 3 operations
+        self.operand_bits * 2 + 2
     }
 
     fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
-        let total_size = 1 << BITWISE_STACKED_LOG_SIZE;
-        let op_size = 1 << BITWISE_LOOKUP_BITS;
+        let lookup_bits = self.operand_bits * 2;
+        let total_size = 1 << self.log_size();
+        let op_size = 1 << lookup_bits;
+        let operand_mask = (1 << self.operand_bits) - 1;
 
         let mut values = Vec::with_capacity(total_size);
 
         // Stack three operations: AND (0), OR (1), XOR (2)
         for op_id in 0..3 {
             for i in 0..op_size {
-                let input1 = i >> BITWISE_OPERAND_BITS;
-                let input2 = i & BITWISE_OPERAND_MASK;
+                let input1 = i >> self.operand_bits;
+                let input2 = i & operand_mask;
 
                 let value = match self.col_index {
                     0 => M31(op_id),  // operation_id

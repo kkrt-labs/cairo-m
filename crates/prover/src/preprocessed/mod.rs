@@ -56,12 +56,12 @@ impl PreProcessedTraceBuilder {
         self
     }
 
-    pub fn with_bitwise_stacked(mut self) -> Self {
-        // Create 4 columns for the stacked bitwise operations
-        // (operation_id, input1, input2, result)
-        for col_index in 0..4 {
-            let bitwise = bitwise::BitwiseStacked::new(col_index);
-            self.columns.push(Box::new(bitwise));
+    pub fn with_bitwise(mut self, operand_bits: u32) -> Self {
+        // Create the bitwise preprocessed columns
+        // This adds 4 columns: operation_id, input1, input2, result
+        let bitwise = bitwise::Bitwise::new(operand_bits);
+        for column in bitwise.columns() {
+            self.columns.push(Box::new(column));
         }
         self
     }
@@ -74,7 +74,7 @@ impl PreProcessedTraceBuilder {
 impl Default for PreProcessedTraceBuilder {
     fn default() -> Self {
         Self::new()
-            .with_bitwise_stacked()
+            .with_bitwise(8)
             .with_range_check(8)
             .with_range_check(16)
             .with_range_check(20)
