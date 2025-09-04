@@ -89,6 +89,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::{memory::DataAccess, ExecutionBundle};
 use crate::components::Relations;
+use crate::preprocessed::bitwise::BitwiseProvider;
 use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
@@ -116,10 +117,13 @@ impl RangeCheckProvider for InteractionClaimData {
     fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
         self.lookup_data.range_check_16.par_iter().flatten()
     }
+
     fn get_range_check_20(&self) -> impl ParallelIterator<Item = &PackedM31> {
         self.lookup_data.range_check_20.par_iter().flatten()
     }
 }
+
+impl BitwiseProvider for InteractionClaimData {}
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {

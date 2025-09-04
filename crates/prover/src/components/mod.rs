@@ -146,9 +146,10 @@ impl Claim {
         let (range_check_20_claim, range_check_20_trace, range_check_20_interaction_claim_data) =
             range_check_20::Claim::write_trace(range_check_20_data);
 
-        // Write bitwise components (empty for now, will be populated when opcodes use them)
+        // Write bitwise components
+        let bitwise_data = opcodes_interaction_claim_data.bitwise();
         let (bitwise_claim, bitwise_trace, bitwise_interaction_claim_data) =
-            bitwise::Claim::write_trace(rayon::iter::empty());
+            bitwise::Claim::write_trace(bitwise_data);
 
         // Gather all lookup data
         let interaction_claim_data = InteractionClaimData {
