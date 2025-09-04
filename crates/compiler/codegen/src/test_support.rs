@@ -121,11 +121,6 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 let val = a < M31::from(imm.0);
                 mem.set(dst_off.0 as i32, M31::from(val as u32));
             }
-            Instruction::AssertEqFpFp { src0_off, src1_off } => {
-                let a = mem.get(src0_off.0 as i32);
-                let b = mem.get(src1_off.0 as i32);
-                assert_eq!(a, b);
-            }
             Instruction::AssertEqFpImm { src_off, imm } => {
                 let a = mem.get(src_off.0 as i32);
                 let val = a == M31::from(imm.0);

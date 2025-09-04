@@ -1050,17 +1050,14 @@ mod tests_asserts {
         gen.generate_module(&module).unwrap();
         let program = gen.compile().unwrap();
 
-        let mut assert_fp_fp = 0;
         let mut assert_fp_imm = 0;
         for instr in &program.instructions {
             match instr {
-                CasmInstr::AssertEqFpFp { .. } => assert_fp_fp += 1,
                 CasmInstr::AssertEqFpImm { .. } => assert_fp_imm += 1,
                 _ => {}
             }
         }
 
-        assert_eq!(assert_fp_fp, 0);
         assert!(
             assert_fp_imm == 2,
             "expected 2 AssertEqFpImm, got {}",

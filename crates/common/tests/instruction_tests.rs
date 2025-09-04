@@ -691,14 +691,6 @@ fn test_try_from_smallvec() {
             "StoreLowerThanFpImm instruction",
         ),
         (
-            smallvec![M31::from(49), M31::from(1), M31::from(2)],
-            Instruction::AssertEqFpFp {
-                src0_off: M31::from(1),
-                src1_off: M31::from(2),
-            },
-            "AssertEqFpFp instruction",
-        ),
-        (
             smallvec![M31::from(50), M31::from(1), M31::from(2)],
             Instruction::AssertEqFpImm {
                 src_off: M31::from(1),
@@ -941,10 +933,6 @@ fn test_roundtrip_all_instructions() {
             src_off: M31::from(24),
             imm: M31::from(25),
             dst_off: M31::from(26),
-        },
-        Instruction::AssertEqFpFp {
-            src0_off: M31::from(27),
-            src1_off: M31::from(28),
         },
         Instruction::AssertEqFpImm {
             src_off: M31::from(29),
