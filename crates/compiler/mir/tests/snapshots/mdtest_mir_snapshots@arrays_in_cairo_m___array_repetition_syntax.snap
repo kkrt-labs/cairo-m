@@ -21,8 +21,11 @@ module {
 
     0:
       %0, %1 = call 1()
-      %5 = arrayindex %0, 1
-      %6 = arrayindex %1, 2
+      %2 = maketuple %0, %1
+      %3 = extracttuple %2, 0
+      %4 = extracttuple %2, 1
+      %5 = arrayindex %3, 1
+      %6 = arrayindex %4, 2
       %7 = %5 U32Add %6
       return %7
 
@@ -35,7 +38,10 @@ module {
     0:
       %0 = makefixedarray [0, 0, 0]
       %1 = makefixedarray [1, 1, 1, 1]
-      return (%0, %1)
+      %2 = maketuple %0, %1
+      %3 = extracttuple %2, 0
+      %4 = extracttuple %2, 1
+      return (%3, %4)
 
   }
 

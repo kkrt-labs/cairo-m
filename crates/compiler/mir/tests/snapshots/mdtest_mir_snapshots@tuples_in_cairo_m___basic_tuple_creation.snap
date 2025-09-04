@@ -21,8 +21,12 @@ module {
 
     0:
       %0, %1, %2 = call 1()
-      %6 = %0 + %1
-      %8 = %6 + %2
+      %3 = maketuple %0, %1, %2
+      %4 = extracttuple %3, 0
+      %5 = extracttuple %3, 1
+      %6 = %4 + %5
+      %7 = extracttuple %3, 2
+      %8 = %6 + %7
       return %8
 
   }
@@ -32,9 +36,10 @@ module {
     entry: 0
 
     0:
-      %1 = 1
-      %2 = 2
-      %3 = 3
+      %0 = maketuple 1, 2, 3
+      %1 = extracttuple %0, 0
+      %2 = extracttuple %0, 1
+      %3 = extracttuple %0, 2
       return (%1, %2, %3)
 
   }

@@ -17,24 +17,28 @@ Generated CASM:
 test_main:
 test_main:
 test_main_0:
-   0: 10 10 9 _            // call repeat_array_u32_one
-   1: 8 8 2 2              // [fp + 2] = [[fp + 8] + 2] (load array element)
-   2: 8 8 3 3              // [fp + 3] = [[fp + 8] + 3] (load array element slot 1)
-   3: 8 9 4 4              // [fp + 4] = [[fp + 9] + 4] (load array element)
-   4: 8 9 5 5              // [fp + 5] = [[fp + 9] + 5] (load array element slot 1)
-   5: 15 2 4 6             // u32([fp + 6], [fp + 7]) = u32([fp + 2], [fp + 3]) U32Add u32([fp + 4], [fp + 5])
-   6: 4 6 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 6] + 0
-   7: 4 7 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 7] + 0
-   8: 11 _ _ _             // return
+   0: 10 14 11 _           // call repeat_array_u32_one
+   1: 4 12 0 2             // [fp + 2] = [fp + 12] + 0
+   2: 4 13 0 3             // [fp + 3] = [fp + 13] + 0
+   3: 8 2 2 6              // [fp + 6] = [[fp + 2] + 2] (load array element)
+   4: 8 2 3 7              // [fp + 7] = [[fp + 2] + 3] (load array element slot 1)
+   5: 8 3 4 8              // [fp + 8] = [[fp + 3] + 4] (load array element)
+   6: 8 3 5 9              // [fp + 9] = [[fp + 3] + 5] (load array element slot 1)
+   7: 15 6 8 10            // u32([fp + 10], [fp + 11]) = u32([fp + 6], [fp + 7]) U32Add u32([fp + 8], [fp + 9])
+   8: 4 10 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 10] + 0
+   9: 4 11 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 11] + 0
+  10: 11 _ _ _             // return
 repeat_array_u32_one:
 repeat_array_u32_one:
 repeat_array_u32_one_0:
-   9: 43 2 0 _             // [fp + 0] = fp + 2
-  10: 23 1 0 8             // [fp + 8], [fp + 9] = u32(1)
-  11: 23 1 0 10            // [fp + 10], [fp + 11] = u32(1)
+  11: 43 6 0 _             // [fp + 0] = fp + 6
   12: 23 1 0 12            // [fp + 12], [fp + 13] = u32(1)
   13: 23 1 0 14            // [fp + 14], [fp + 15] = u32(1)
-  14: 43 8 1 _             // [fp + 1] = fp + 8
-  15: 4 0 0 2147483643     // Return value 0: [fp -4] = [fp + 0] + 0
-  16: 4 1 0 2147483644     // Return value 1: [fp -3] = [fp + 1] + 0
-  17: 11 _ _ _             // return
+  14: 23 1 0 16            // [fp + 16], [fp + 17] = u32(1)
+  15: 23 1 0 18            // [fp + 18], [fp + 19] = u32(1)
+  16: 43 12 1 _            // [fp + 1] = fp + 12
+  17: 4 0 0 2              // [fp + 2] = [fp + 0] + 0
+  18: 4 1 0 3              // [fp + 3] = [fp + 1] + 0
+  19: 4 2 0 2147483643     // Return value 0: [fp -4] = [fp + 2] + 0
+  20: 4 3 0 2147483644     // Return value 1: [fp -3] = [fp + 3] + 0
+  21: 11 _ _ _             // return

@@ -17,14 +17,20 @@ Generated CASM:
 main_test:
 main_test:
 main_test_0:
-   0: 10 8 4 _             // call create_tuple
-   1: 0 5 6 3              // [fp + 3] = [fp + 5] op [fp + 6]
-   2: 0 3 7 2147483644     // [fp + -3] = [fp + 3] op [fp + 7]
-   3: 11 _ _ _             // return
+   0: 10 14 7 _            // call create_tuple
+   1: 4 11 0 3             // [fp + 3] = [fp + 11] + 0
+   2: 4 12 0 4             // [fp + 4] = [fp + 12] + 0
+   3: 4 13 0 5             // [fp + 5] = [fp + 13] + 0
+   4: 0 3 4 8              // [fp + 8] = [fp + 3] op [fp + 4]
+   5: 0 8 5 2147483644     // [fp + -3] = [fp + 8] op [fp + 5]
+   6: 11 _ _ _             // return
 create_tuple:
 create_tuple:
 create_tuple_0:
-   4: 9 1 2147483642 _     // [fp + -5] = 1
-   5: 9 2 2147483643 _     // [fp + -4] = 2
-   6: 9 3 2147483644 _     // [fp + -3] = 3
-   7: 11 _ _ _             // return
+   7: 9 1 0 _              // [fp + 0] = 1
+   8: 9 2 1 _              // [fp + 1] = 2
+   9: 9 3 2 _              // [fp + 2] = 3
+  10: 4 0 0 2147483642     // Return value 0: [fp -5] = [fp + 0] + 0
+  11: 4 1 0 2147483643     // Return value 1: [fp -4] = [fp + 1] + 0
+  12: 4 2 0 2147483644     // Return value 2: [fp -3] = [fp + 2] + 0
+  13: 11 _ _ _             // return

@@ -17,10 +17,13 @@ module {
     entry: 0
 
     0:
-      %1 = 1 (u32)
-      %3 = 2 (u32)
+      %0 = makefixedarray [1, 2, 4]
+      %1 = arrayindex %0, 0
+      %2 = makefixedarray [1, 2, 4]
+      %3 = arrayindex %2, 1
       %4 = %1 U32Add %3
-      %6 = 4 (u32)
+      %5 = makefixedarray [1, 2, 4]
+      %6 = arrayindex %5, 2
       %7 = %4 U32Add %6
       return %7
 

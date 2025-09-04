@@ -31,8 +31,9 @@ module {
     0:
       %0 = 10
       %1 = 0
+      %2 = %0 != 0
       %7 = %1
-      if %0 then jump 1 else jump 6
+      if %2 then jump 1 else jump 6
 
     1 (block_1):
       ; block_1
@@ -42,7 +43,8 @@ module {
 
     2 (block_2):
       ; block_2
-      if %0 == 5 then jump 3 else jump 4
+      %5 = %0 == 5
+      if %5 then jump 3 else jump 4
 
     3 (block_3):
       ; block_3

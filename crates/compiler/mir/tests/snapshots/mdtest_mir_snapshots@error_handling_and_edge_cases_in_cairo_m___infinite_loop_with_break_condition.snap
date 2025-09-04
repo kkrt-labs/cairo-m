@@ -50,7 +50,8 @@ module {
 
     4 (block_4):
       ; block_4
-      if %2 U32Eq 10 then jump 5 else jump 6
+      %4 = %2 U32Eq 10
+      if %4 then jump 5 else jump 6
 
     5 (block_5):
       ; block_5

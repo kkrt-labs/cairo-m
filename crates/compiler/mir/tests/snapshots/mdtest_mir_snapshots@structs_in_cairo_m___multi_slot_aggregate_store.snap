@@ -24,8 +24,9 @@ module {
     entry: 0
 
     0:
-      %1 = 100 (u32)
-      %2 = 200 (u32)
+      %0 = makestruct { first: 100, second: 200 }
+      %1 = extractfield %0, "first"
+      %2 = extractfield %0, "second"
       %3 = %1 U32Add %2
       return %3
 

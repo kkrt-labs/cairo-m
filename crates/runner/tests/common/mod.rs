@@ -30,10 +30,18 @@ pub fn get_test_by_name(name: &str) -> &mdtest::MdTest {
         .unwrap_or_else(|| panic!("Test '{}' not found", name))
 }
 
-/// Run a differential test for a single mdtest case
+/// Runs the differential test for a single mdtest case with and without optimizations.
 pub fn run_mdtest_diff(test: &mdtest::MdTest) -> Result<(), String> {
+    run_mdtest_diff_inner(test, CompilerOptions::default())?;
+    run_mdtest_diff_inner(test, CompilerOptions::no_opts())
+}
+
+/// Run a differential test for a single mdtest case
+fn run_mdtest_diff_inner(
+    test: &mdtest::MdTest,
+    compiler_options: CompilerOptions,
+) -> Result<(), String> {
     // Compile Cairo-M code
-    let compiler_options = CompilerOptions::default();
     let safe_name = sanitize_test_name(&test.name);
 
     let compiled = match compile_cairo(

@@ -14,9 +14,10 @@ Generated CASM:
 assign_tuple_member:
 assign_tuple_member:
 assign_tuple_member_0:
-   0: 9 4 0 _              // [fp + 0] = 4
+   0: 9 1 0 _              // [fp + 0] = 1
    1: 9 2 1 _              // [fp + 1] = 2
-   2: 0 0 1 2              // [fp + 2] = [fp + 0] op [fp + 1]
-   3: 9 3 3 _              // [fp + 3] = 3
-   4: 0 2 3 2147483644     // [fp + -3] = [fp + 2] op [fp + 3]
-   5: 11 _ _ _             // return
+   2: 9 3 2 _              // [fp + 2] = 3
+   3: 9 4 0 _              // [fp + 0] = 4
+   4: 0 0 1 8              // [fp + 8] = [fp + 0] op [fp + 1]
+   5: 0 8 2 2147483644     // [fp + -3] = [fp + 8] op [fp + 2]
+   6: 11 _ _ _             // return

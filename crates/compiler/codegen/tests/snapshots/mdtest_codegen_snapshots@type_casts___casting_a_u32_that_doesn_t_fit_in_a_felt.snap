@@ -1,0 +1,16 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Type Casts - Casting a u32 that doesn't fit in a felt"
+input_file: mdtest/01-basics/08-type-casts.md
+---
+Source:
+fn test_u32_to_felt_overflow() -> felt {
+    let x: u32 = 2147483647;
+    let y: felt = x as felt;
+    return y;
+}
+============================================================
+Result: EXPECTED ERROR
+Code generation failed: InvalidMir(
+    "Cast source is a literal that does not fit in an M31",
+)

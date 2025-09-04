@@ -13,5 +13,5 @@ Generated CASM:
 test_bitwise_xor_immediates:
 test_bitwise_xor_immediates:
 test_bitwise_xor_immediates_0:
-   0: 23 481 0 2147483643  // u32([fp + -4], [fp + -3]) = u32(481)
+   0: 23 481 0 2147483643  // u32([fp + -4], [fp + -3]) = 481
    1: 11 _ _ _             // return

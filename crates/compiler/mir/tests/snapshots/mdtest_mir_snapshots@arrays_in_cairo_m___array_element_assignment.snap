@@ -18,7 +18,10 @@ module {
     entry: 0
 
     0:
-      %3 = 42
+      %0 = makefixedarray [1, 2, 3]
+      %1 = arrayinsert %0, 0, 42
+      %2 = arrayinsert %1, 1, 24
+      %3 = arrayindex %2, 0
       return %3
 
   }

@@ -19,11 +19,15 @@ module {
     entry: 0
 
     0:
-      jump 1
+      if true then jump 1 else jump 2
 
     1 (block_1):
       ; block_1
       return 2
+
+    2 (block_2):
+      ; block_2
+      return 0
 
   }
 

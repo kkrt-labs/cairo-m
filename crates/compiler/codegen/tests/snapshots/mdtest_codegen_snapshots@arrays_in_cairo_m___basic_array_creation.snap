@@ -13,5 +13,10 @@ Generated CASM:
 create_array:
 create_array:
 create_array_0:
-   0: 9 1 2147483644 _     // [fp + -3] = 1
-   1: 11 _ _ _             // return
+   0: 9 1 2 _              // [fp + 2] = 1
+   1: 9 2 3 _              // [fp + 3] = 2
+   2: 9 3 4 _              // [fp + 4] = 3
+   3: 43 2 0 _             // [fp + 0] = fp + 2
+   4: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load array element)
+   5: 4 1 0 2147483644     // Return value 0: [fp -3] = [fp + 1] + 0
+   6: 11 _ _ _             // return

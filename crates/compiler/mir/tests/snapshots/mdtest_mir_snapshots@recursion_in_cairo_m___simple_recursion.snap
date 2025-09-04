@@ -35,7 +35,8 @@ module {
     entry: 0
 
     0:
-      if %0 then jump 2 else jump 1
+      %1 = %0 == 0
+      if %1 then jump 1 else jump 2
 
     1 (block_1):
       ; block_1

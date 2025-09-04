@@ -31,7 +31,8 @@ module {
 
     1 (loop_header):
       ; loop_header
-      if %3 != 5 then jump 2 else jump 3
+      %4 = %3 != 5
+      if %4 then jump 2 else jump 3
 
     2 (loop_body):
       ; loop_body

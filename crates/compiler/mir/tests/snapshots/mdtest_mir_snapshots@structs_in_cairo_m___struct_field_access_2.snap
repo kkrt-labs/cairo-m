@@ -30,7 +30,8 @@ module {
       %0 = makestruct { width: 5, height: 10 }
       %1 = insertfield %0, "width", 7
       %2 = extractfield %1, "width"
-      if %2 U32Eq 5 then jump 1 else jump 2
+      %3 = %2 U32Eq 5
+      if %3 then jump 1 else jump 2
 
     1 (block_1):
       ; block_1

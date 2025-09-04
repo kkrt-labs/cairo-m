@@ -143,6 +143,7 @@ words:
   - walkdir
   - wasmparser
   - womir
+  - worklist
   - worktree
   - worktrees
   - yarnrc

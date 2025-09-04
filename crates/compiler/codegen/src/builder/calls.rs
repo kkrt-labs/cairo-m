@@ -255,13 +255,28 @@ impl super::CasmBuilder {
             if needs_copy {
                 match return_val {
                     Value::Literal(Literal::Integer(imm)) => {
+                        let imm = { *imm };
                         if matches!(return_type, MirType::U32) {
-                            self.store_u32_immediate(*imm, return_slot_offset, format!(
+                            self.store_u32_immediate(imm, return_slot_offset, format!(
                                 "Return value {i}: [fp {return_slot_offset}, fp {return_slot_offset} + 1] = u32({imm})"
                             ));
                         } else {
                             self.store_immediate(
-                                *imm,
+                                imm,
+                                return_slot_offset,
+                                format!("Return value {i}: [fp {return_slot_offset}] = {imm}"),
+                            );
+                        }
+                    }
+                    Value::Literal(Literal::Boolean(imm)) => {
+                        let imm = *imm as u32;
+                        if matches!(return_type, MirType::U32) {
+                            self.store_u32_immediate(imm, return_slot_offset, format!(
+                                "Return value {i}: [fp {return_slot_offset}, fp {return_slot_offset} + 1] = u32({imm})"
+                            ));
+                        } else {
+                            self.store_immediate(
+                                imm,
                                 return_slot_offset,
                                 format!("Return value {i}: [fp {return_slot_offset}] = {imm}"),
                             );
