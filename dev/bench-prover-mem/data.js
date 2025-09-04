@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756984691980,
+  "lastUpdate": 1756995473046,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1623,6 +1623,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2377285903,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eb202263e672d82fd272a8733bcc964ef82ae831",
+          "message": "feat(prover): add u32_store_x_fp_fp (#291)\n\n* feat: added u32_store_x_fp_fp (untested with real examples)\n\n* feat: add and test store_add and store_div\n\n* feat: add and test store_mul\n\n* feat: add and test store_sub\n\n* test: tested store_sub\n\n* Update crates/prover/src/components/opcodes/u32_store_sub_fp_fp.rs\n\n* Update crates/prover/src/components/opcodes/u32_store_sub_fp_fp.rs\n\n* Update crates/prover/src/components/opcodes/u32_store_sub_fp_fp.rs",
+          "timestamp": "2025-09-04T16:59:42+03:00",
+          "tree_id": "1d3b6f72692ae925093c2d834910c7ec2c9c975b",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/eb202263e672d82fd272a8733bcc964ef82ae831"
+        },
+        "date": 1756995472983,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2377668849,
             "unit": "bytes"
           }
         ]
