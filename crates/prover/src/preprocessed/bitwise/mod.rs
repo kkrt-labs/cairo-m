@@ -55,45 +55,70 @@ pub mod bitwise_xor {
     crate::define_bitwise!(xor, bitwise_xor, BitwiseXor, |a: u32, b: u32| a ^ b);
 }
 
-pub struct Bitwise<F>
-where
-    F: Fn(u32, u32) -> u32 + Send + Sync,
-{
-    operation: F,
-    name: String,
+/// Enum to represent different bitwise operations
+#[derive(Clone, Copy)]
+pub enum BitwiseOperation {
+    And,
+    Or,
+    Xor,
 }
 
-impl<F> Bitwise<F>
-where
-    F: Fn(u32, u32) -> u32 + Send + Sync,
-{
-    pub const fn new(operation: F, name: String) -> Self {
-        Self { operation, name }
+impl BitwiseOperation {
+    const fn apply(&self, a: u32, b: u32) -> u32 {
+        match self {
+            Self::And => a & b,
+            Self::Or => a | b,
+            Self::Xor => a ^ b,
+        }
+    }
+
+    const fn name(&self) -> &'static str {
+        match self {
+            Self::And => "and",
+            Self::Or => "or",
+            Self::Xor => "xor",
+        }
     }
 }
 
-impl<F> PreProcessedColumn for Bitwise<F>
-where
-    F: Fn(u32, u32) -> u32 + Send + Sync,
-{
+pub struct Bitwise {
+    operation: BitwiseOperation,
+    col_index: usize,
+}
+
+impl Bitwise {
+    pub const fn new(operation: BitwiseOperation, col_index: usize) -> Self {
+        assert!(col_index < 3, "col_index must be in range 0..=2");
+        Self {
+            operation,
+            col_index,
+        }
+    }
+}
+
+impl PreProcessedColumn for Bitwise {
     fn log_size(&self) -> u32 {
         BITWISE_LOOKUP_BITS // for all 8-bit × 8-bit combinations
     }
 
     fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
-        // Generate all 8-bit × 8-bit combinations and their results
-        // The layout is: for each row i, we have:
-        // - input1 = i >> BITWISE_OPERAND_BITS (high 8 bits)
-        // - input2 = i & BITWISE_OPERAND_MASK (low 8 bits)
-        // - result = operation(input1, input2)
+        // Generate values based on column index:
+        // Column 0: input1 values (high bits)
+        // Column 1: input2 values (low bits)
+        // Column 2: result values (operation(input1, input2))
         let values: Vec<M31> = (0..1 << BITWISE_LOOKUP_BITS)
             .map(|i| {
                 let input1 = i >> BITWISE_OPERAND_BITS;
                 let input2 = i & BITWISE_OPERAND_MASK;
-                let result = (self.operation)(input1, input2);
-                // We store the result in the column
-                // The inputs are implicit from the row index
-                M31(result)
+                match self.col_index {
+                    0 => M31(input1),
+                    1 => M31(input2),
+                    2 => {
+                        let result = self.operation.apply(input1, input2);
+                        M31(result)
+                    }
+                    _ => unreachable!(),
+                }
             })
             .collect();
 
@@ -105,7 +130,7 @@ where
 
     fn id(&self) -> PreProcessedColumnId {
         PreProcessedColumnId {
-            id: format!("bitwise_{}", self.name),
+            id: format!("bitwise_{}_col_{}", self.operation.name(), self.col_index),
         }
     }
 }
