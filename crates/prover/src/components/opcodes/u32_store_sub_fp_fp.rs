@@ -42,8 +42,8 @@
 //!   * `- [pc, inst_prev_clk, opcode_constant, src0_off, src1_off, dst_off] + [pc, clk, opcode_constant, src0_off, src1_off, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
-//!   * `- [fp + src0_off, op0_prev_clk, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
-//!   * `- [fp + src0_off + 1, op0_prev_clk, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
+//!   * `- [fp + src0_off, op0_prev_clk_lo, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
+//!   * `- [fp + src0_off + 1, op0_prev_clk_hi, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
 //!   * `- [clk - op0_prev_lo_clk - 1]` and `- [clk - op0_prev_hi_clk - 1]` in `RangeCheck20` relation
 //! * read op1
 //!   * `- [fp + src1_off, op1_prev_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
