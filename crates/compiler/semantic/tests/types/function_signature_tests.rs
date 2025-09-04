@@ -21,8 +21,8 @@ fn test_simple_function_signature() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("add", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "add")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
@@ -58,8 +58,8 @@ fn test_function_with_struct_parameters() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("translate", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "translate")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
@@ -110,8 +110,8 @@ fn test_function_with_no_parameters() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("get_constant", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "get_constant")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 
@@ -140,8 +140,8 @@ fn test_function_signature_consistency() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
     let root_scope = semantic_index.root_scope().unwrap();
 
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("create_point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "create_point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
 

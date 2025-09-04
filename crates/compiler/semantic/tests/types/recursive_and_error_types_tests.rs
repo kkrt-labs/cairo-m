@@ -80,8 +80,12 @@ fn test_circular_struct_dependency() {
             // If it succeeds, verify the structures are properly defined
             let root_scope = index.root_scope().unwrap();
 
-            let a_resolution = index.resolve_name("A", root_scope);
-            let b_resolution = index.resolve_name("B", root_scope);
+            let a_resolution = index
+                .latest_definition_index_by_name_in_chain(root_scope, "A")
+                .map(|_| ());
+            let b_resolution = index
+                .latest_definition_index_by_name_in_chain(root_scope, "B")
+                .map(|_| ());
 
             assert!(
                 a_resolution.is_some() || b_resolution.is_some(),
@@ -126,7 +130,9 @@ fn test_deeply_nested_error_recovery() {
         let index = p_index.modules().values().next().unwrap().clone();
         // Should still be able to analyze the valid parts
         let root_scope = index.root_scope().unwrap();
-        let valid_resolution = index.resolve_name("Valid", root_scope);
+        let valid_resolution = index
+            .latest_definition_index_by_name_in_chain(root_scope, "Valid")
+            .map(|_| ());
         assert!(
             valid_resolution.is_some(),
             "Should still resolve valid struct"
@@ -189,8 +195,12 @@ fn test_recursive_type_alias() {
             let root_scope = index.root_scope().unwrap();
 
             // Should resolve both the type alias and the struct
-            let node_resolution = index.resolve_name("Node", root_scope);
-            let nodeptr_resolution = index.resolve_name("NodePtr", root_scope);
+            let node_resolution = index
+                .latest_definition_index_by_name_in_chain(root_scope, "Node")
+                .map(|_| ());
+            let nodeptr_resolution = index
+                .latest_definition_index_by_name_in_chain(root_scope, "NodePtr")
+                .map(|_| ());
 
             // At least one should resolve (depending on implementation)
             assert!(
@@ -291,8 +301,12 @@ fn test_complex_recursive_scenario() {
             let root_scope = index.root_scope().unwrap();
 
             // Should resolve the recursive struct
-            let tree_resolution = index.resolve_name("TreeNode", root_scope);
-            let func_resolution = index.resolve_name("traverse", root_scope);
+            let tree_resolution = index
+                .latest_definition_index_by_name_in_chain(root_scope, "TreeNode")
+                .map(|_| ());
+            let func_resolution = index
+                .latest_definition_index_by_name_in_chain(root_scope, "traverse")
+                .map(|_| ());
 
             assert!(
                 tree_resolution.is_some() || func_resolution.is_some(),

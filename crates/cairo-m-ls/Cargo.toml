@@ -32,6 +32,7 @@ cairo-m-compiler-parser.workspace = true
 cairo-m-compiler-semantic.workspace = true
 cairo-m-project.workspace = true
 cairo-m-formatter.workspace = true
+chumsky.workspace = true
 
 [dev-dependencies]
 tempfile = "3.8"

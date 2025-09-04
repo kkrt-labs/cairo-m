@@ -10,6 +10,7 @@ use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::TypeId;
 use cairo_m_compiler_semantic::DefinitionKind;
+use chumsky::span::Span; // for SimpleSpan::new
 use dashmap::DashMap;
 use salsa::Setter;
 use tokio::task::JoinHandle;
@@ -771,14 +772,17 @@ impl LanguageServer for Backend {
                 .find(|(_, usage)| usage.span.start <= offset && offset <= usage.span.end);
 
             if let Some((usage_idx, usage)) = identifier_usage {
-                // Try to resolve with imports for cross-module support
-                if let Some((_def_idx, def, def_file)) = index.resolve_name_with_imports(
-                    db.upcast(),
-                    crate_id,
-                    source,
-                    &usage.name,
-                    usage.scope_id,
-                ) {
+                // Try to resolve with imports for cross-module support at this position
+                if let Some((_def_idx, def, def_file)) = index
+                    .resolve_name_with_imports_at_position(
+                        db.upcast(),
+                        crate_id,
+                        source,
+                        &usage.name,
+                        usage.scope_id,
+                        usage.span,
+                    )
+                {
                     // If the definition is in a different file, create a location for that file
                     if def_file != source {
                         // Get the URI for the definition file
@@ -910,14 +914,17 @@ impl LanguageServer for Backend {
                 .find(|(_, usage)| usage.span.start <= offset && offset <= usage.span.end);
 
             if let Some((_usage_idx, usage)) = identifier_usage {
-                // Try to resolve with imports for cross-module support
-                if let Some((def_idx, _def, def_file)) = index.resolve_name_with_imports(
-                    db.upcast(),
-                    crate_id,
-                    source,
-                    &usage.name,
-                    usage.scope_id,
-                ) {
+                // Try to resolve with imports for cross-module support at this position
+                if let Some((def_idx, _def, def_file)) = index
+                    .resolve_name_with_imports_at_position(
+                        db.upcast(),
+                        crate_id,
+                        source,
+                        &usage.name,
+                        usage.scope_id,
+                        usage.span,
+                    )
+                {
                     let def_id = DefinitionId::new(db, def_file, def_idx);
                     let type_id = definition_semantic_type(db.upcast(), crate_id, def_id);
                     let type_str = TypeId::format_type(db.upcast(), type_id);
@@ -1013,39 +1020,44 @@ impl LanguageServer for Backend {
             let mut scope = Some(current_scope);
 
             while let Some(scope_id) = scope {
-                if let Some(place_table) = index.place_table(scope_id) {
-                    for (_, place) in place_table.places() {
-                        let name = place.name.clone();
-                        if seen_names.insert(name.clone()) {
-                            if let Some((def_idx, def)) =
-                                index.resolve_name_to_definition(&name, scope_id)
-                            {
-                                let type_str = {
-                                    let def_id = DefinitionId::new(db, source, def_idx);
-                                    let type_id =
-                                        definition_semantic_type(db.upcast(), crate_id, def_id);
-                                    TypeId::format_type(db.upcast(), type_id)
-                                };
-
-                                let kind = match def.kind {
-                                    DefinitionKind::Function(_) => CompletionItemKind::FUNCTION,
-                                    DefinitionKind::Parameter(_) => CompletionItemKind::VARIABLE,
-                                    DefinitionKind::Let(_) => CompletionItemKind::VARIABLE,
-                                    DefinitionKind::Const(_) => CompletionItemKind::CONSTANT,
-                                    DefinitionKind::Struct(_) => CompletionItemKind::STRUCT,
-                                    DefinitionKind::Use(_) => CompletionItemKind::MODULE,
-                                    DefinitionKind::LoopVariable(_) => CompletionItemKind::VARIABLE,
-                                };
-
-                                items.push(CompletionItem {
-                                    label: name,
-                                    kind: Some(kind),
-                                    detail: Some(type_str),
-                                    documentation: None,
-                                    ..Default::default()
-                                });
+                for (def_idx, def) in index.definitions_in_scope(scope_id) {
+                    let name = def.name.clone();
+                    if seen_names.insert(name.clone()) {
+                        // Position-aware check as of cursor offset for visibility/shadowing
+                        let pos = offset;
+                        let position_span = chumsky::span::SimpleSpan::new((), pos..pos);
+                        if let Some((resolved_idx, _)) =
+                            index.resolve_name_at_position(&name, scope_id, position_span)
+                        {
+                            // Only include if this definition is the one visible here
+                            if resolved_idx != def_idx {
+                                continue;
                             }
                         }
+
+                        let type_str = {
+                            let def_id = DefinitionId::new(db, source, def_idx);
+                            let type_id = definition_semantic_type(db.upcast(), crate_id, def_id);
+                            TypeId::format_type(db.upcast(), type_id)
+                        };
+
+                        let kind = match def.kind {
+                            DefinitionKind::Function(_) => CompletionItemKind::FUNCTION,
+                            DefinitionKind::Parameter(_) => CompletionItemKind::VARIABLE,
+                            DefinitionKind::Let(_) => CompletionItemKind::VARIABLE,
+                            DefinitionKind::Const(_) => CompletionItemKind::CONSTANT,
+                            DefinitionKind::Struct(_) => CompletionItemKind::STRUCT,
+                            DefinitionKind::Use(_) => CompletionItemKind::MODULE,
+                            DefinitionKind::LoopVariable(_) => CompletionItemKind::VARIABLE,
+                        };
+
+                        items.push(CompletionItem {
+                            label: name,
+                            kind: Some(kind),
+                            detail: Some(type_str),
+                            documentation: None,
+                            ..Default::default()
+                        });
                     }
                 }
                 scope = index.scope(scope_id).and_then(|s| s.parent);

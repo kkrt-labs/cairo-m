@@ -275,13 +275,15 @@ fn lower_parameter<'a, 'db>(
     param_ast: &Parameter,
     func_inner_scope_id: FileScopeId,
 ) -> Result<(), String> {
+    // Resolve parameter definition by its unique name span within the function scope
     let (def_idx, _) = builder
         .ctx
         .semantic_index
-        .resolve_name_to_definition(param_ast.name.value(), func_inner_scope_id)
+        .definitions_in_scope(func_inner_scope_id)
+        .find(|(_, d)| d.name_span == param_ast.name.span())
         .ok_or_else(|| {
             format!(
-                "Internal Compiler Error: Could not resolve parameter '{}'",
+                "Internal Compiler Error: Could not resolve parameter '{}' by span",
                 param_ast.name.value()
             )
         })?;
@@ -302,12 +304,7 @@ fn lower_parameter<'a, 'db>(
         .push(incoming_param_val);
 
     // 2. Bind the parameter using SSA
-    builder.bind_variable(
-        param_ast.name.value(),
-        param_ast.name.span(),
-        Value::operand(incoming_param_val),
-        func_inner_scope_id,
-    )?;
+    builder.bind_variable_def(def_id, Value::operand(incoming_param_val))?;
     Ok(())
 }
 

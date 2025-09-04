@@ -43,7 +43,7 @@ pub mod visitor;
 
 // Re-export main types and functions
 pub use definition::{Definition, DefinitionKind, Definitions};
-pub use place::{FileScopeId, PlaceFlags, PlaceTable, Scope, ScopeKind, ScopedPlaceId};
+pub use place::{FileScopeId, Scope, ScopeKind};
 pub use semantic_index::{semantic_index_from_module, DefinitionId, ExpressionId, SemanticIndex};
 pub use types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
 

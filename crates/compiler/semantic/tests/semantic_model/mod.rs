@@ -14,7 +14,7 @@
 
 use cairo_m_compiler_semantic::db::module_semantic_index;
 use cairo_m_compiler_semantic::definition::DefinitionKind;
-use cairo_m_compiler_semantic::place::{PlaceFlags, ScopeKind};
+use cairo_m_compiler_semantic::place::ScopeKind;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::File;
 
@@ -137,31 +137,29 @@ fn test_symbol_table_flags() {
             .find(|&scope_id| index.scope(scope_id).unwrap().kind == ScopeKind::Function)
             .expect("Should find function scope");
 
-        let func_table = index.place_table(function_scope).unwrap();
-
-        // Check parameter flags
-        let param_place_id = func_table
-            .place_id_by_name("param")
+        // Parameter exists and is used
+        let param_idx = index
+            .latest_definition_index_by_name(function_scope, "param")
             .expect("Should find parameter");
-        let param_place = func_table.place(param_place_id).unwrap();
-        assert!(param_place.flags.contains(PlaceFlags::PARAMETER));
-        assert!(param_place.flags.contains(PlaceFlags::USED));
+        let param_def = index.definition(param_idx).unwrap();
+        assert!(matches!(param_def.kind, DefinitionKind::Parameter(_)));
+        assert!(index.is_definition_used(param_idx));
 
-        // Check used variable flags
-        let used_var_place_id = func_table
-            .place_id_by_name("used_var")
+        // used_var exists and is used
+        let used_var_idx = index
+            .latest_definition_index_by_name(function_scope, "used_var")
             .expect("Should find used_var");
-        let used_var_place = func_table.place(used_var_place_id).unwrap();
-        assert!(used_var_place.flags.contains(PlaceFlags::DEFINED));
-        assert!(used_var_place.flags.contains(PlaceFlags::USED));
+        let used_var_def = index.definition(used_var_idx).unwrap();
+        assert!(matches!(used_var_def.kind, DefinitionKind::Let(_)));
+        assert!(index.is_definition_used(used_var_idx));
 
-        // Check unused variable flags
-        let unused_var_place_id = func_table
-            .place_id_by_name("unused_var")
+        // unused_var exists and is not used
+        let unused_var_idx = index
+            .latest_definition_index_by_name(function_scope, "unused_var")
             .expect("Should find unused_var");
-        let unused_var_place = func_table.place(unused_var_place_id).unwrap();
-        assert!(unused_var_place.flags.contains(PlaceFlags::DEFINED));
-        assert!(!unused_var_place.flags.contains(PlaceFlags::USED));
+        let unused_var_def = index.definition(unused_var_idx).unwrap();
+        assert!(matches!(unused_var_def.kind, DefinitionKind::Let(_)));
+        assert!(!index.is_definition_used(unused_var_idx));
     });
 }
 
@@ -179,14 +177,14 @@ fn test_span_to_scope_mapping() {
             .expect("Should find function scope");
 
         // Check that we have span mappings
-        let span_mappings_count = index.span_to_expression_id.len();
+        let span_mappings_count = index.span_expression_mappings().len();
         assert!(
             span_mappings_count > 0,
             "Should have span to expression mappings"
         );
 
         // Verify that expressions have proper scope context
-        for expr_id in index.span_to_expression_id.values() {
+        for expr_id in index.span_expression_mappings().values() {
             let expr_info = index.expression(*expr_id).expect("Expression should exist");
             // Expression should be in either root or function scope for this simple example
             assert!(
@@ -349,32 +347,42 @@ fn test_nested_scope_name_resolution() {
             .expect("Should find function scope");
 
         // Test name resolution from function scope
-        let outer_resolution = index.resolve_name("outer", function_scope);
+        let outer_resolution = index
+            .latest_definition_index_by_name_in_chain(function_scope, "outer")
+            .map(|_| ());
         assert!(
             outer_resolution.is_some(),
             "Should resolve 'outer' from function scope"
         );
 
-        let inner_resolution = index.resolve_name("inner", function_scope);
+        let inner_resolution = index
+            .latest_definition_index_by_name_in_chain(function_scope, "inner")
+            .map(|_| ());
         assert!(
             inner_resolution.is_some(),
             "Should resolve 'inner' from function scope"
         );
 
         // Test that inner is not visible from root scope
-        let inner_from_root = index.resolve_name("inner", root_scope);
+        let inner_from_root = index
+            .latest_definition_index_by_name_in_chain(root_scope, "inner")
+            .map(|_| ());
         assert!(
             inner_from_root.is_none(),
             "'inner' should not be visible from root scope"
         );
 
         // Test resolve_name_to_definition
-        let outer_def = index.resolve_name_to_definition("outer", function_scope);
+        let outer_def = index
+            .latest_definition_index_by_name_in_chain(function_scope, "outer")
+            .and_then(|idx| index.definition(idx).map(|d| (idx, d)));
         assert!(outer_def.is_some(), "Should resolve 'outer' to definition");
         let (_, outer_def_info) = outer_def.unwrap();
         assert_eq!(outer_def_info.name, "outer");
 
-        let inner_def = index.resolve_name_to_definition("inner", function_scope);
+        let inner_def = index
+            .latest_definition_index_by_name_in_chain(function_scope, "inner")
+            .and_then(|idx| index.definition(idx).map(|d| (idx, d)));
         assert!(inner_def.is_some(), "Should resolve 'inner' to definition");
         let (_, inner_def_info) = inner_def.unwrap();
         assert_eq!(inner_def_info.name, "inner");
@@ -451,7 +459,9 @@ fn test_variable_shadowing_resolution() {
 
         // From within the function scope, 'x' should resolve to the inner definition
         // TODO(shadowing): this doesn't support shadowing (will only return the last seen definition)
-        let resolved_from_function = index.resolve_name_to_definition("x", function_scope);
+        let resolved_from_function = index
+            .latest_definition_index_by_name_in_chain(function_scope, "x")
+            .and_then(|idx| index.definition(idx).map(|d| (idx, d)));
         assert!(
             resolved_from_function.is_some(),
             "Should resolve 'x' from function scope"
@@ -463,7 +473,9 @@ fn test_variable_shadowing_resolution() {
         );
 
         // From the root scope, 'x' should resolve to the outer definition
-        let resolved_from_root = index.resolve_name_to_definition("x", root_scope);
+        let resolved_from_root = index
+            .latest_definition_index_by_name_in_chain(root_scope, "x")
+            .and_then(|idx| index.definition(idx).map(|d| (idx, d)));
         assert!(
             resolved_from_root.is_some(),
             "Should resolve 'x' from root scope"
@@ -498,24 +510,19 @@ fn test_same_scope_shadowing_resolution() {
             .find(|&scope_id| index.scope(scope_id).unwrap().kind == ScopeKind::Function)
             .expect("Should find function scope");
 
-        let place_table = index.place_table(func_scope).unwrap();
-
         // Check that we have multiple definitions of x in the same scope
-        let all_x_places = place_table
-            .all_place_ids_by_name("x")
-            .expect("Should have x definitions");
+        let all_x_defs = index.all_definition_indices_by_name(func_scope, "x");
         assert_eq!(
-            all_x_places.len(),
+            all_x_defs.len(),
             3,
             "Should have exactly 3 definitions of x"
         );
 
-        // Check that place_id_by_name returns the most recent x
-        let current_x = place_table.place_id_by_name("x").unwrap();
-        assert_eq!(
-            current_x, all_x_places[2],
-            "Should return the most recent x"
-        );
+        // Check that the latest definition index is the last one
+        let current_x_idx = index
+            .latest_definition_index_by_name(func_scope, "x")
+            .unwrap();
+        assert_eq!(current_x_idx, *all_x_defs.last().unwrap());
 
         // Find all usages of x
         let x_usages: Vec<_> = index

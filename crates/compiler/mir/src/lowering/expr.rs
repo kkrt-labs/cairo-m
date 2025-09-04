@@ -79,12 +79,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     fn lower_identifier(
         &mut self,
         name: &Spanned<String>,
-        scope_id: FileScopeId,
+        _scope_id: FileScopeId,
     ) -> Result<Value, String> {
+        // Use the builder-recorded mapping from this identifier expression to its definition
+        let expr_id = self.expr_id(name.span())?;
         if let Some((def_idx, def)) = self
             .ctx
             .semantic_index
-            .resolve_name_to_definition(name.value(), scope_id)
+            .definition_for_identifier_expr(expr_id)
         {
             let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
 

@@ -10,7 +10,7 @@ use cairo_m_compiler_parser::parser::{
 };
 use chumsky::span::SimpleSpan;
 
-use crate::place::{FileScopeId, ScopedPlaceId};
+use crate::place::FileScopeId;
 use crate::semantic_index::ExpressionId;
 use crate::File;
 
@@ -25,8 +25,6 @@ pub struct Definition {
     pub file: File,
     /// The scope containing this definition
     pub scope_id: FileScopeId,
-    /// The place (symbol) this definition defines
-    pub place_id: ScopedPlaceId,
     /// The name of the defined entity
     pub name: String,
     /// The span of the name identifier
@@ -230,7 +228,7 @@ pub struct LoopVariableDefRef {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Definitions {
     /// All definition metadata
-    definitions: Vec<(FileScopeId, ScopedPlaceId, DefinitionKind)>,
+    definitions: Vec<(FileScopeId, DefinitionKind)>,
 }
 
 impl Definitions {

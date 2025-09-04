@@ -6,9 +6,7 @@
 use cairo_m_compiler_parser::parser::{Expression, Pattern, Spanned, Statement};
 use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
-use cairo_m_compiler_semantic::type_resolution::{
-    definition_semantic_type, expression_semantic_type,
-};
+use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::{Instruction, MirType, Terminator, Value, ValueId};
@@ -140,10 +138,22 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .expression(lhs_expr_id)
             .ok_or_else(|| format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}"))?;
 
-        // Early out: plain identifier assignment => SSA rebind
-        if let Expression::Identifier(ref name) = &lhs_expr_info.ast_node {
+        // Early out: plain identifier assignment => SSA rebind to the resolved definition for LHS identifier
+        if let Expression::Identifier(_name) = &lhs_expr_info.ast_node {
             let rhs_value = self.lower_expression(rhs)?;
-            return self.bind_variable(name.value(), lhs.span(), rhs_value, lhs_expr_info.scope_id);
+            // Resolve LHS identifier expression to its definition using builder mapping
+            let (def_idx, _def) = self
+                .ctx
+                .semantic_index
+                .definition_for_identifier_expr(lhs_expr_id)
+                .ok_or_else(|| {
+                    format!(
+                        "Failed to resolve identifier at LHS span {:?} in assignment",
+                        lhs.span()
+                    )
+                })?;
+            let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+            return self.bind_variable_def(def_id, rhs_value);
         }
 
         // Check if this is a field assignment (rect.width = value)
@@ -157,15 +167,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Insert the field using the container (struct) type
             let new_struct_id =
                 self.insert_struct_field(struct_val, field.value(), rhs_value, struct_type);
-            let obj_scope = lhs_expr_info.scope_id;
-            // Rebind the object to the new value for pure SSA form
-            if let Expression::Identifier(obj_name) = object.value() {
-                self.bind_variable(
-                    obj_name.value(),
-                    object.span(),
-                    Value::operand(new_struct_id),
-                    obj_scope,
-                )?;
+            // Rebind the object to the new value for pure SSA form using identifier mapping
+            if let Expression::Identifier(_) = object.value() {
+                let obj_expr_id = self.expr_id(object.span())?;
+                let (def_idx, _def) = self
+                    .ctx
+                    .semantic_index
+                    .definition_for_identifier_expr(obj_expr_id)
+                    .ok_or_else(|| {
+                        "Failed to resolve object identifier in assignment".to_string()
+                    })?;
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                self.bind_variable_def(def_id, Value::operand(new_struct_id))?;
             }
             return Ok(());
         }
@@ -178,15 +191,18 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Query semantic type system for the container (tuple) type, not the element type
             let tuple_type = self.expr_mir_type(tuple.span())?;
             let new_tuple_id = self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
-            let obj_scope = lhs_expr_info.scope_id;
             // Rebind the object to the new value for pure SSA form
-            if let Expression::Identifier(obj_name) = tuple.value() {
-                self.bind_variable(
-                    obj_name.value(),
-                    tuple.span(),
-                    Value::operand(new_tuple_id),
-                    obj_scope,
-                )?;
+            if let Expression::Identifier(_) = tuple.value() {
+                let obj_expr_id = self.expr_id(tuple.span())?;
+                let (def_idx, _def) = self
+                    .ctx
+                    .semantic_index
+                    .definition_for_identifier_expr(obj_expr_id)
+                    .ok_or_else(|| {
+                        "Failed to resolve tuple identifier in assignment".to_string()
+                    })?;
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                self.bind_variable_def(def_id, Value::operand(new_tuple_id))?;
             }
             return Ok(());
         }
@@ -201,14 +217,17 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Use unified ArrayInsert, works for constant and dynamic indices
             let new_array_dest = self.array_insert(array_val, index_val, rhs_value, array_type);
 
-            if let Expression::Identifier(obj_name) = array.value() {
-                // Rebind the array to the new value for pure SSA form
-                self.bind_variable(
-                    obj_name.value(),
-                    array.span(),
-                    Value::operand(new_array_dest),
-                    lhs_expr_info.scope_id,
-                )?;
+            if let Expression::Identifier(_) = array.value() {
+                let obj_expr_id = self.expr_id(array.span())?;
+                let (def_idx, _def) = self
+                    .ctx
+                    .semantic_index
+                    .definition_for_identifier_expr(obj_expr_id)
+                    .ok_or_else(|| {
+                        "Failed to resolve array identifier in assignment".to_string()
+                    })?;
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                self.bind_variable_def(def_id, Value::operand(new_array_dest))?;
             }
 
             return Ok(());
@@ -641,11 +660,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
     ) -> Result<(), String> {
         match pattern {
             Pattern::Identifier(name) => {
-                // Simple identifier binding - use our new helper
+                // Simple identifier binding
                 self.bind_variable(name.value(), name.span(), rhs_value, scope_id)?;
+                Ok(())
             }
             Pattern::Tuple(patterns) => {
-                // Tuple destructuring from a value-based tuple
+                // Tuple destructuring uses the RHS tuple type to drive element types
                 let Value::Operand(tuple_value_id) = rhs_value else {
                     return Err(
                         "Tuple destructuring from non-operand expressions not yet supported"
@@ -653,19 +673,22 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     );
                 };
 
-                // Build element types for this level of the tuple
-                let mut element_types = Vec::new();
-                for pattern in patterns.iter() {
-                    // Get the type for this element (could be another tuple or a simple type)
-                    let element_type = self.get_pattern_type(pattern, scope_id)?;
-                    element_types.push(element_type);
-                }
+                let Some(MirType::Tuple(elem_types)) =
+                    self.state.mir_function.get_value_type(tuple_value_id)
+                else {
+                    return Err("Expected tuple type for destructuring".to_string());
+                };
 
-                // Extract each element from the tuple and recursively handle nested patterns
+                // Clone types to avoid borrow conflicts during mutation
+                let elem_types_cloned = elem_types.clone();
+
+                // Extract each element and recurse with its concrete type
                 for (index, pattern) in patterns.iter().enumerate() {
-                    let element_mir_type = element_types[index].clone();
+                    let element_mir_type = elem_types_cloned
+                        .get(index)
+                        .cloned()
+                        .ok_or_else(|| "Tuple index out of bounds in destructuring".to_string())?;
 
-                    // Extract the element using ExtractTupleElement instruction
                     let elem_value_id = self
                         .state
                         .mir_function
@@ -676,50 +699,72 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                             elem_value_id,
                             Value::operand(tuple_value_id),
                             index,
-                            element_mir_type,
+                            element_mir_type.clone(),
                         ));
 
-                    // Recursively lower the nested pattern
-                    self.lower_pattern(pattern, Value::operand(elem_value_id), scope_id)?;
+                    self.lower_pattern_with_type(
+                        pattern,
+                        Value::operand(elem_value_id),
+                        &element_mir_type,
+                        scope_id,
+                    )?;
                 }
+                Ok(())
             }
         }
-        Ok(())
     }
 
-    /// Helper to get the MIR type for a pattern
-    fn get_pattern_type(
-        &self,
+    /// Pattern lowering that receives the expected MIR type for the RHS value
+    fn lower_pattern_with_type(
+        &mut self,
         pattern: &Pattern,
+        rhs_value: Value,
+        rhs_type: &MirType,
         scope_id: FileScopeId,
-    ) -> Result<MirType, String> {
+    ) -> Result<(), String> {
         match pattern {
             Pattern::Identifier(name) => {
-                // Get the type of this identifier from semantic analysis
-                let (def_idx, _) = self
-                    .ctx
-                    .semantic_index
-                    .resolve_name_to_definition(name.value(), scope_id)
-                    .ok_or_else(|| {
-                        format!(
-                            "Failed to resolve variable '{}' in scope {:?}",
-                            name.value(),
-                            scope_id
-                        )
-                    })?;
-                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                let semantic_type =
-                    definition_semantic_type(self.ctx.db, self.ctx.crate_id, def_id);
-                Ok(MirType::from_semantic_type(self.ctx.db, semantic_type))
+                self.bind_variable(name.value(), name.span(), rhs_value, scope_id)?;
+                Ok(())
             }
             Pattern::Tuple(patterns) => {
-                // Recursively get types for nested patterns
-                let mut element_types = Vec::new();
-                for pattern in patterns {
-                    element_types.push(self.get_pattern_type(pattern, scope_id)?);
+                let Value::Operand(tuple_value_id) = rhs_value else {
+                    return Err("Nested tuple destructuring requires operand value".to_string());
+                };
+
+                let MirType::Tuple(elem_types) = rhs_type else {
+                    return Err("Expected tuple type for nested destructuring".to_string());
+                };
+
+                for (index, pattern) in patterns.iter().enumerate() {
+                    let element_mir_type = elem_types
+                        .get(index)
+                        .cloned()
+                        .ok_or_else(|| "Tuple index out of bounds in destructuring".to_string())?;
+
+                    let elem_value_id = self
+                        .state
+                        .mir_function
+                        .new_typed_value_id(element_mir_type.clone());
+                    self.instr()
+                        .add_instruction(Instruction::extract_tuple_element(
+                            elem_value_id,
+                            Value::operand(tuple_value_id),
+                            index,
+                            element_mir_type.clone(),
+                        ));
+
+                    self.lower_pattern_with_type(
+                        pattern,
+                        Value::operand(elem_value_id),
+                        &element_mir_type,
+                        scope_id,
+                    )?;
                 }
-                Ok(MirType::Tuple(element_types))
+                Ok(())
             }
         }
     }
+
+    // get_pattern_type is no longer needed with RHS-driven typing; kept intentionally removed.
 }

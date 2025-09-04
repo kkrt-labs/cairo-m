@@ -1,0 +1,23 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 59
+description: "Codegen snapshot for mdtest: Variables in Cairo-M - Variable Shadowing"
+input_file: mdtest/01-basics/02-variables.md
+---
+Source:
+fn test_shadowing() -> felt {
+    let x = 5;
+    let x = x + 1;
+    let x = x * 2;
+    return x;
+}
+============================================================
+Generated CASM:
+test_shadowing:
+test_shadowing:
+test_shadowing_0:
+   0: 9 5 0 _              // [fp + 0] = 5
+   1: 4 0 1 1              // [fp + 1] = [fp + 0] + 1
+   2: 6 1 2 2147483644     // [fp + -3] = [fp + 1] * 2
+   3: 11 _ _ _             // return
+

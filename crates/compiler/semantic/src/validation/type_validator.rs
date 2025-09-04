@@ -537,12 +537,9 @@ impl TypeValidator {
             _ => {
                 // Attempting to call a non-function type
                 // But first check if this is an undeclared identifier to avoid duplicate errors
-                if let Expression::Identifier(ident) = callee.value()
+                if let Expression::Identifier(_ident) = callee.value()
                     && index
-                        .resolve_name_to_definition(
-                            ident.value(),
-                            index.expression(callee_expr_id).unwrap().scope_id,
-                        )
+                        .definition_for_identifier_expr(callee_expr_id)
                         .is_none()
                 {
                     // This is an undeclared identifier, let ScopeValidator handle it
@@ -905,7 +902,7 @@ impl TypeValidator {
         sink: &dyn DiagnosticSink,
     ) {
         // Resolve the struct type
-        let Some((def_idx, _)) = index.resolve_name_to_definition(name.value(), scope_id) else {
+        let Some((def_idx, _)) = index.resolve_name_at_position(name.value(), scope_id, name.span()) else {
             // Undeclared struct type - let ScopeValidator handle this
             return;
         };
@@ -1549,30 +1546,23 @@ impl TypeValidator {
                         .expect("No expression info found")
                         .scope_id;
                     if let Some((_def_idx, def)) =
-                        index.resolve_name_to_definition(ident.value(), scope_id)
+                        index.resolve_name_at_position(ident.value(), scope_id, ident.span())
                     {
-                        // Check if the variable is const
-                        if let Some(place_table) = index.place_table(def.scope_id) {
-                            if let Some(place) = place_table.place(def.place_id) {
-                                if place.flags.contains(crate::place::PlaceFlags::CONSTANT) {
-                                    sink.push(
-                                        Diagnostic::error(
-                                            DiagnosticCode::AssignmentToConst,
-                                            format!(
-                                                "cannot assign to const variable `{}`",
-                                                ident.value()
-                                            ),
-                                        )
-                                        .with_location(file.file_path(db).to_string(), lhs.span())
-                                        .with_related_span(
-                                            file.file_path(db).to_string(),
-                                            def.name_span,
-                                            "const variable defined here".to_string(),
-                                        ),
-                                    );
-                                    return;
-                                }
-                            }
+                        // Check const via definition kind
+                        if matches!(def.kind, crate::definition::DefinitionKind::Const(_)) {
+                            sink.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::AssignmentToConst,
+                                    format!("cannot assign to const variable `{}`", ident.value()),
+                                )
+                                .with_location(file.file_path(db).to_string(), lhs.span())
+                                .with_related_span(
+                                    file.file_path(db).to_string(),
+                                    def.name_span,
+                                    "const variable defined here".to_string(),
+                                ),
+                            );
+                            return;
                         }
                     }
                 }

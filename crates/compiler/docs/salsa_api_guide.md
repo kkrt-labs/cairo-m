@@ -443,26 +443,30 @@ pub fn analyze_function_by_id(db: &dyn Db, func_id: FunctionId) -> Analysis {
 ### 4. Fine-Grained Invalidation
 
 ```rust
-/// Fine-grained place table access
-#[salsa::tracked(returns(deref))]
-pub(crate) fn place_table<'db>(
+/// Fine-grained semantic access (DefinitionIndex-first)
+#[salsa::tracked]
+pub(crate) fn scope_definitions<'db>(
     db: &'db dyn Db,
-    scope: ScopeId<'db>
-) -> Arc<PlaceTable> {
+    scope: ScopeId<'db>,
+) -> Vec<(DefinitionIndex, Definition)> {
     let file = scope.file(db);
     let index = semantic_index(db, file);
-    index.place_table(scope.file_scope_id(db))
+    index
+        .definitions_in_scope(scope.file_scope_id(db))
+        .map(|(i, d)| (i, d.clone()))
+        .collect()
 }
 
-/// Fine-grained use-def access
-#[salsa::tracked(returns(deref))]
-pub(crate) fn use_def_map<'db>(
+/// Shadowing-aware lookup by name in a scope chain
+#[salsa::tracked]
+pub(crate) fn resolve_name_in_chain<'db>(
     db: &'db dyn Db,
-    scope: ScopeId<'db>
-) -> Arc<UseDefMap<'db>> {
+    scope: ScopeId<'db>,
+    name: String,
+) -> Option<DefinitionIndex> {
     let file = scope.file(db);
     let index = semantic_index(db, file);
-    index.use_def_map(scope.file_scope_id(db))
+    index.latest_definition_index_by_name_in_chain(scope.file_scope_id(db), &name)
 }
 ```
 

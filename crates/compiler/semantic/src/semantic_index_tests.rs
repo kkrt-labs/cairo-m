@@ -50,16 +50,15 @@ fn test_simple_function() {
 
     // Should have root scope and function scope
     let root = index.root_scope().unwrap();
-    let root_table = index.place_table(root).unwrap();
-
     // Function should be defined in root scope
-    let func_place_id = root_table
-        .place_id_by_name("test")
+    let def_idx = index
+        .latest_definition_index_by_name(root, "test")
         .expect("function should be defined");
-    let func_place = root_table.place(func_place_id).unwrap();
-    assert!(func_place
-        .flags
-        .contains(crate::place::PlaceFlags::FUNCTION));
+    let def = index.definition(def_idx).unwrap();
+    assert!(matches!(
+        def.kind,
+        crate::definition::DefinitionKind::Function(_)
+    ));
 
     // Should have one child scope (the function)
     let child_scopes: Vec<_> = index.child_scopes(root).collect();
@@ -79,20 +78,17 @@ fn test_function_with_parameters() {
     let root = index.root_scope().unwrap();
     let child_scopes: Vec<_> = index.child_scopes(root).collect();
     let func_scope = child_scopes[0];
-    let func_table = index.place_table(func_scope).unwrap();
-
     // Parameters should be defined in function scope
-    let a_place_id = func_table
-        .place_id_by_name("a")
-        .expect("parameter 'a' should be defined");
-    let a_place = func_table.place(a_place_id).unwrap();
-    assert!(a_place.flags.contains(crate::place::PlaceFlags::PARAMETER));
-
-    let b_place_id = func_table
-        .place_id_by_name("b")
-        .expect("parameter 'b' should be defined");
-    let b_place = func_table.place(b_place_id).unwrap();
-    assert!(b_place.flags.contains(crate::place::PlaceFlags::PARAMETER));
+    let names: Vec<_> = index
+        .definitions_in_scope(func_scope)
+        .map(|(_, d)| (d.name.clone(), &d.kind))
+        .collect();
+    assert!(names
+        .iter()
+        .any(|(n, k)| n == "a" && matches!(k, crate::definition::DefinitionKind::Parameter(_))));
+    assert!(names
+        .iter()
+        .any(|(n, k)| n == "b" && matches!(k, crate::definition::DefinitionKind::Parameter(_))));
 }
 
 #[test]
@@ -104,17 +100,24 @@ fn test_variable_resolution() {
     let root = index.root_scope().unwrap();
     let child_scopes: Vec<_> = index.child_scopes(root).collect();
     let func_scope = child_scopes[0];
-    let func_table = index.place_table(func_scope).unwrap();
-
     // Parameter should be marked as used
-    let param_place_id = func_table.place_id_by_name("param").unwrap();
-    let param_place = func_table.place(param_place_id).unwrap();
-    assert!(param_place.is_used(), "parameter should be marked as used");
+    let param_def_idx = index
+        .latest_definition_index_by_name(func_scope, "param")
+        .expect("parameter should be defined");
+    assert!(
+        index.is_definition_used(param_def_idx),
+        "parameter should be marked as used"
+    );
 
     // Local variable should be defined
-    let local_place_id = func_table.place_id_by_name("local_var").unwrap();
-    let local_place = func_table.place(local_place_id).unwrap();
-    assert!(local_place.is_defined(), "local variable should be defined");
+    let local_def_idx = index
+        .latest_definition_index_by_name(func_scope, "local_var")
+        .expect("local variable should be defined");
+    let local_def = index.definition(local_def_idx).unwrap();
+    assert!(matches!(
+        local_def.kind,
+        crate::definition::DefinitionKind::Let(_)
+    ));
 }
 
 #[test]
@@ -149,21 +152,26 @@ fn test_comprehensive_semantic_analysis() {
     assert_eq!(child_scopes.len(), 2, "Should have function scopes");
 
     // Check root scope has the expected symbols
-    let root_table = index.place_table(root).unwrap();
     assert!(
-        root_table.place_id_by_name("PI").is_some(),
+        index.latest_definition_index_by_name(root, "PI").is_some(),
         "PI constant should be defined"
     );
     assert!(
-        root_table.place_id_by_name("Point").is_some(),
+        index
+            .latest_definition_index_by_name(root, "Point")
+            .is_some(),
         "Point struct should be defined"
     );
     assert!(
-        root_table.place_id_by_name("distance").is_some(),
+        index
+            .latest_definition_index_by_name(root, "distance")
+            .is_some(),
         "distance function should be defined"
     );
     assert!(
-        root_table.place_id_by_name("square").is_some(),
+        index
+            .latest_definition_index_by_name(root, "square")
+            .is_some(),
         "square function should be defined"
     );
 
@@ -173,11 +181,13 @@ fn test_comprehensive_semantic_analysis() {
     assert_eq!(all_definitions, 9);
 
     // Find function definition
-    let distance_def =
-        index.definition_for_place(root, root_table.place_id_by_name("distance").unwrap());
+    let distance_idx = index
+        .latest_definition_index_by_name(root, "distance")
+        .unwrap();
+    let distance_def = index.definition(distance_idx).unwrap();
     assert!(matches!(
-        distance_def,
-        Some((_, def)) if matches!(def.kind, crate::definition::DefinitionKind::Function(_))
+        distance_def.kind,
+        crate::definition::DefinitionKind::Function(_)
     ));
 
     // Check parameters and locals in function scope
@@ -186,21 +196,24 @@ fn test_comprehensive_semantic_analysis() {
         .find(|&scope_id| index.scope(*scope_id).unwrap().kind == crate::place::ScopeKind::Function)
         .unwrap();
 
-    let func_table = index.place_table(*func_scope).unwrap();
+    let scope_names: Vec<String> = index
+        .definitions_in_scope(*func_scope)
+        .map(|(_, d)| d.name.clone())
+        .collect();
     assert!(
-        func_table.place_id_by_name("p1").is_some(),
+        scope_names.iter().any(|n| n == "p1"),
         "p1 parameter should be defined"
     );
     assert!(
-        func_table.place_id_by_name("p2").is_some(),
+        scope_names.iter().any(|n| n == "p2"),
         "p2 parameter should be defined"
     );
     assert!(
-        func_table.place_id_by_name("dx").is_some(),
+        scope_names.iter().any(|n| n == "dx"),
         "dx local should be defined"
     );
     assert!(
-        func_table.place_id_by_name("dy").is_some(),
+        scope_names.iter().any(|n| n == "dy"),
         "dy local should be defined"
     );
 }

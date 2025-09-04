@@ -14,7 +14,6 @@ num-traits.workspace = true
 num-derive = "0.4.2"
 salsa = "0.22.0"
 salsa-macros = "0.22.0"
-bitflags = "2.6.0"
 rustc-hash = "2.1.1"
 indexmap = "2.6.0"
 

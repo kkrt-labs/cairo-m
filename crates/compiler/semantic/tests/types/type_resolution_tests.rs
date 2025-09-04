@@ -55,8 +55,8 @@ fn test_struct_type_resolution() {
     };
 
     // 3. Get the struct's semantic data directly and compare.
-    let (def_idx, _) = semantic_index
-        .resolve_name_to_definition("Point", root_scope)
+    let def_idx = semantic_index
+        .latest_definition_index_by_name(root_scope, "Point")
         .unwrap();
     let def_id = DefinitionId::new(&db, file, def_idx);
     let semantic_data = struct_semantic_data(&db, crate_id, def_id).unwrap();
