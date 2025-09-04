@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756918529743,
+  "lastUpdate": 1756984691074,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1649,6 +1649,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6121335812,
             "range": "± 43581590",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fcebc4c498ff245ea61ebf5c70fa0d345287260a",
+          "message": "refactor: remove AssertEqFpFp (#297)",
+          "timestamp": "2025-09-04T13:01:14+02:00",
+          "tree_id": "4845935832a5363b4cb1f1541d7ce48299ea6a95",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/fcebc4c498ff245ea61ebf5c70fa0d345287260a"
+        },
+        "date": 1756984690197,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6074069770,
+            "range": "± 23408509",
             "unit": "ns/iter"
           }
         ]
