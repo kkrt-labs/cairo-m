@@ -98,6 +98,10 @@ impl DagToMirContext {
         }
     }
 
+    pub fn get_current_block_id(&self) -> BasicBlockId {
+        self.current_block_id.unwrap()
+    }
+
     pub fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
         let block_id = self
             .current_block_id
@@ -117,7 +121,7 @@ impl DagToMirContext {
             })
     }
 
-    const fn set_current_block(&mut self, block_id: BasicBlockId) {
+    pub const fn set_current_block(&mut self, block_id: BasicBlockId) {
         self.current_source_block = self.current_block_id;
         self.current_block_id = Some(block_id);
     }

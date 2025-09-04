@@ -26,14 +26,22 @@ impl DagToMir {
         let inputs = inputs?;
 
         match wasm_op {
-            // I32 operations
+            // Usual I32 operations
             Op::I32Add
             | Op::I32Sub
             | Op::I32Mul
             | Op::I32DivU
+            | Op::I32DivS // unsupported
+            | Op::I32RemS // unsupported
+            | Op::I32RemU // unsupported
             | Op::I32And
             | Op::I32Or
             | Op::I32Xor
+            | Op::I32Shl
+            | Op::I32ShrU // unsupported
+            | Op::I32ShrS // unsupported
+            | Op::I32Rotl // unsupported
+            | Op::I32Rotr // unsupported
             | Op::I32Eq
             | Op::I32Ne
             | Op::I32GtU
@@ -49,13 +57,42 @@ impl DagToMir {
                 self.handle_i32_operations(node_idx, wasm_op, &inputs, context)
             }
 
-            // I64 operations (bitwise only for now)
-            Op::I64And | Op::I64Or | Op::I64Xor | Op::I64Const { .. } => {
+            // Usual I64 operations
+            Op::I64Add
+            | Op::I64Sub
+            | Op::I64Mul // unsupported
+            | Op::I64DivU // unsupported
+            | Op::I64DivS // unsupported
+            | Op::I64RemS // unsupported
+            | Op::I64RemU // unsupported
+            | Op::I64And
+            | Op::I64Or
+            | Op::I64Xor
+            | Op::I64Shl // unsupported
+            | Op::I64ShrU // unsupported
+            | Op::I64ShrS // unsupported
+            | Op::I64Rotl // unsupported
+            | Op::I64Rotr // unsupported
+            | Op::I64Eq // unsupported
+            | Op::I64Ne // unsupported
+            | Op::I64GtU // unsupported
+            | Op::I64GeU // unsupported
+            | Op::I64LtU // unsupported
+            | Op::I64LeU // unsupported
+            | Op::I64LtS // unsupported
+            | Op::I64GtS // unsupported
+            | Op::I64LeS // unsupported
+            | Op::I64GeS // unsupported
+            | Op::I64Eqz // unsupported
+            | Op::I64Const { .. } => {
                 self.handle_i64_operations(node_idx, wasm_op, &inputs, context)
             }
 
             // Memory operations
-            Op::I32Load { .. } | Op::I32Store { .. } => {
+            Op::I32Load { .. }
+            | Op::I32Store { .. }
+            | Op::I64Load { .. } // unsupported
+            | Op::I64Store { .. } => { // unsupported
                 self.handle_memory_operations(node_idx, wasm_op, &inputs, context)
             }
 

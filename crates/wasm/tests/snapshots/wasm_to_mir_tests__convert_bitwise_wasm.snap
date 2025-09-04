@@ -9,7 +9,7 @@ expression: wasm_load_result
 WASM File: bitwise.wasm
 ============================================================
 Success: true
-Functions loaded: 3
+Functions loaded: 7
 ============================================================
 Module Output:
 module {
@@ -52,6 +52,148 @@ module {
 
     1:
       return %2
+
+  }
+
+  // Function 3
+  fn shl {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %1 & (u32) 31
+      %3 = cast %2 from u32 to felt
+      jump 1
+
+    1:
+      %4 = φ felt { [%0]: %3, [%2]: %7 }
+      %5 = φ u32 { [%0]: %0, [%2]: %6 }
+      if %4 then jump 2 else jump 3
+
+    2:
+      %6 = %5 U32Mul 2
+      %7 = %4 - 1
+      jump 1
+
+    3:
+      jump 4
+
+    4:
+      return %5
+
+  }
+
+  // Function 4
+  fn shr_u {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %1 & (u32) 31
+      %3 = cast %2 from u32 to felt
+      jump 1
+
+    1:
+      %4 = φ felt { [%0]: %3, [%2]: %7 }
+      %5 = φ u32 { [%0]: %0, [%2]: %6 }
+      if %4 then jump 2 else jump 3
+
+    2:
+      %6 = %5 U32Div 2
+      %7 = %4 - 1
+      jump 1
+
+    3:
+      jump 4
+
+    4:
+      return %5
+
+  }
+
+  // Function 5
+  fn rotl {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %1 & (u32) 31
+      %3 = cast %2 from u32 to felt
+      jump 1
+
+    1:
+      %4 = φ felt { [%0]: %3, [%2]: %7 }
+      %5 = φ u32 { [%0]: %0, [%2]: %6 }
+      if %4 then jump 2 else jump 3
+
+    2:
+      %6 = %5 U32Mul 2
+      %7 = %4 - 1
+      jump 1
+
+    3:
+      %8 = 32 - %3
+      jump 4
+
+    4:
+      %9 = φ felt { [%3]: %8, [%5]: %12 }
+      %10 = φ u32 { [%3]: %0, [%5]: %11 }
+      if %9 then jump 5 else jump 6
+
+    5:
+      %11 = %10 U32Div 2
+      %12 = %9 - 1
+      jump 4
+
+    6:
+      %13 = %5 | (u32) %10
+      jump 7
+
+    7:
+      return %13
+
+  }
+
+  // Function 6
+  fn rotr {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %1 & (u32) 31
+      %3 = cast %2 from u32 to felt
+      jump 1
+
+    1:
+      %4 = φ felt { [%0]: %3, [%2]: %7 }
+      %5 = φ u32 { [%0]: %0, [%2]: %6 }
+      if %4 then jump 2 else jump 3
+
+    2:
+      %6 = %5 U32Div 2
+      %7 = %4 - 1
+      jump 1
+
+    3:
+      %8 = 32 - %3
+      jump 4
+
+    4:
+      %9 = φ felt { [%3]: %8, [%5]: %12 }
+      %10 = φ u32 { [%3]: %0, [%5]: %11 }
+      if %9 then jump 5 else jump 6
+
+    5:
+      %11 = %10 U32Mul 2
+      %12 = %9 - 1
+      jump 4
+
+    6:
+      %13 = %5 | (u32) %10
+      jump 7
+
+    7:
+      return %13
 
   }
 
