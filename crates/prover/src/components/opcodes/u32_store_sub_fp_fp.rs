@@ -719,7 +719,7 @@ impl FrameworkEval for Eval {
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
-                fp.clone() + dst_off.clone() + one,
+                fp.clone() + dst_off.clone() + one.clone(),
                 dst_prev_hi_clock.clone(),
                 dst_prev_val_hi,
             ],
@@ -727,7 +727,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + dst_off, clock.clone(), res_hi.clone()],
+            &[fp + dst_off + one, clock.clone(), res_hi.clone()],
         ));
 
         // Range check 16
