@@ -11,53 +11,124 @@
 //! - src0_off
 //! - src1_off
 //! - dst_off
-//! - op0_val_lo
-//! - op0_val_hi
-//! - op0_prev_lo_clock
-//! - op0_prev_hi_clock
-//! - op1_val_lo
-//! - op1_val_hi
-//! - op1_prev_lo_clock
-//! - op1_prev_hi_clock
+//! - op0_val_lo (n_lo)
+//! - op0_val_hi (n_hi)
+//! - op0_prev_clock_lo
+//! - op0_prev_clock_hi
+//! - op1_val_0 (d_0)
+//! - op1_val_1 (d_1)
+//! - op1_val_2 (d_2)
+//! - op1_val_3 (d_3)
+//! - op1_prev_clock_lo
+//! - op1_prev_clock_hi
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - dst_prev_lo_clock
-//! - dst_prev_hi_clock
-//! - u16_carry
-//! - u32_carry
+//! - dst_prev_clock_lo
+//! - dst_prev_clock_hi
+//! - q_0
+//! - q_1
+//! - q_2
+//! - q_3
+//! - mul_carry_0
+//! - mul_carry_1
+//! - mul_carry_2
+//! - mul_carry_3
+//! - mul_carry_4
+//! - mul_carry_5
+//! - mul_carry_6
+//! - prod_0
+//! - prod_1
+//! - prod_2
+//! - prod_3
+//! - prod_4
+//! - prod_5
+//! - prod_6
+//! - prod_7
+//! - add_carry_0
+//! - add_carry_1
+//! - add_carry_2
+//! - add_carry_3
+//! - sub_borrow_0
+//! - sub_borrow_1
+//! - r_lo
+//! - r_hi
 //!
 //! # Constraints
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
-//! * carries are bools
-//!   * `- u16_carry * (1 - u16_carry)`
-//!   * `- u32_carry * (1 - u32_carry)`
+//! * add_carry_{i<3} and sub_borrow_{j<2} are bools
+//!   * `- add_carry_0 * (1 - add_carry_0)`
+//!   * `- add_carry_1 * (1 - add_carry_1)`
+//!   * `- add_carry_2 * (1 - add_carry_2)`
+//!   * `- sub_borrow_0 * (1 - sub_borrow_0)`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
-//! * read instruction from memory
-//!   * `- [pc, inst_prev_clk, opcode_constant, src0_off, src1_off, dst_off] + [pc, clk, opcode_constant, src0_off, src1_off, dst_off]` in `Memory` relation
+//! * read 2 instruction words from memory
+//!   * `- [pc, inst_prev_clk, src0_off, src1_off, dst_off] + [pc, clk, src0_off, src1_off, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
-//!   * `- [fp + src0_off, op0_prev_lo_clk, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
-//!   * `- [fp + src0_off + 1, op0_prev_hi_clk, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
-//!   * `- [clk - op0_prev_lo_clk - 1]` and `- [clk - op0_prev_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src0_off, op0_prev_clock_lo_clk, op0_val_lo] + [fp + src0_off, clk, op0_val_lo]`
+//!   * `- [fp + src0_off + 1, op0_prev_clock_hi_clk, op0_val_hi] + [fp + src0_off + 1, clk, op0_val_hi]`
+//!   * `- [clk - op0_prev_clock_lo_clk - 1]` and `- [clk - op0_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * read op1
-//!   * `- [fp + src1_off, op1_prev_lo_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
-//!   * `- [fp + src1_off + 1, op1_prev_hi_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
-//!   * `- [clk - op1_prev_lo_clk - 1]` and `- [clk - op1_prev_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src1_off, op1_prev_clock_lo_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
+//!   * `- [fp + src1_off + 1, op1_prev_clock_hi_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
+//!   * `- [clk - op1_prev_clock_lo_clk - 1]` and `- [clk - op1_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
+//! * prove that prod = q * d (u32 * u32 -> u64)
+//!   * `prod_0 - (q_0 * d_0 - mul_carry_0 * 2 ** 8)`
+//!   * `prod_1 - (q_0 * d_1 + q_1 * d_0 + mul_carry_0 - mul_carry_1 * 2 ** 8)`
+//!   * `prod_2 - (q_0 * d_2 + q_2 * d_0 + q_1 * d_1 + mul_carry_1 - mul_carry_2 * 2 ** 8)`
+//!   * `prod_3 - (q_0 * d_3 + q_3 * d_0 + q_1 * d_2 + q_2 * d_1 + mul_carry_2 - mul_carry_3 * 2 ** 8)`
+//!   * `prod_4 - (q_1 * d_3 + q_3 * d_1 + q_2 * d_2 + mul_carry_3 - mul_carry_4 * 2 ** 8)`
+//!   * `prod_5 - (q_2 * d_3 + q_3 * d_2 + mul_carry_4 - mul_carry_5 * 2 ** 8)`
+//!   * `prod_6 - (q_3 * d_3 + mul_carry_5 - mul_carry_6 * 2 ** 8)`
+//!   * `prod_7 - mul_carry_6`
+//! * carry limbs must be in the correct range
+//!   * `- [254 - mul_carry_0]` in `RangeCheck16` relation
+//!   * `- [509 - mul_carry_1]` in `RangeCheck16` relation
+//!   * `- [764 - mul_carry_2]` in `RangeCheck16` relation
+//!   * `- [1019 - mul_carry_3]` in `RangeCheck16` relation
+//!   * `- [1274 - mul_carry_4]` in `RangeCheck16` relation
+//!   * `- [512 - mul_carry_5]` in `RangeCheck16` relation
+//!   * `- [256 - mul_carry_6]` in `RangeCheck16` relation
+//! * prove that n = prod + r
+//!   * `n_lo - (prod_0 + prod_1 * 2 ** 8 + r_lo - add_carry_0 * 2 ** 16)`
+//!   * `n_hi - (prod_2 + prod_3 * 2 ** 8 + r_hi + add_carry_0 - add_carry_1 * 2 ** 16)`
+//!   * `(prod_4 + prod_5 * 2 ** 8 + add_carry_1 - add_carry_2 * 2 ** 16)`
+//!   * `(prod_6 + prod_7 * 2 ** 8 + add_carry_2 - add_carry_3 * 2 ** 16)`
+//!   * `add_carry_3`
+//! * prove that r < d by showing that the u32 operation d - r - 1 doesn't underflow
+//!   * `- [d_0 + d_1 * 2 ** 8 + sub_borrow_0 * 2 ** 16 - r_lo - 1]` in `RangeCheck16` relation
+//!   * `- [d_2 + d_3 * 2 ** 8 + sub_borrow_1 * 2 ** 16 - r_hi]` in `RangeCheck16` relation
+//!   * `sub_borrow_1`
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_lo_clk, dst_prev_val_lo] + [fp + dst_off, clk, op0_val_lo + op1_val_lo - u16_carry << 16]` in `Memory` relation
-//!   * `- [fp + dst_off + 1, dst_prev_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, op0_val_hi + op1_val_hi + u16_carry - u32_carry << 16]` in `Memory` relation
-//!   * `- [clk - dst_prev_lo_clk - 1]` and `- [clk - dst_prev_hi_clk - 1]` in `RangeCheck20` relation
-//! * limbs of each U32 must be in range [0, 2^16)
-//!   * `- [op0_val_lo]` in `RangeCheck16` relation
-//!   * `- [op0_val_hi]` in `RangeCheck16` relation
-//!   * `- [op1_val_lo]` in `RangeCheck16` relation
-//!   * `- [op1_val_hi]` in `RangeCheck16` relation
-//!   * `- [res_lo]` in `RangeCheck16` relation
-//!   * `- [res_hi]` in `RangeCheck16` relation
+//!   * `- [fp + dst_off, dst_prev_clock_lo_clk, dst_prev_val_lo] + [fp + dst_off, clk, q_0 + q_1 * 2 ** 8]` in `Memory` Relation
+//!   * `- [fp + dst_off + 1, dst_prev_clock_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, q_2 + q_3 * 2 ** 8]` in `Memory` Relation
+//!   * `- [clk - dst_prev_clock_lo_clk - 1]` and `- [clk - dst_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
+//! * limbs of each U32 must be either in range [0, 2^16) or in range [0, 2^8)
+//!   * `- [d_0]` in `RangeCheck8` relation
+//!   * `- [d_1]` in `RangeCheck8` relation
+//!   * `- [d_2]` in `RangeCheck8` relation
+//!   * `- [d_3]` in `RangeCheck8` relation
+//!   * `- [q_0]` in `RangeCheck8` relation
+//!   * `- [q_1]` in `RangeCheck8` relation
+//!   * `- [q_2]` in `RangeCheck8` relation
+//!   * `- [q_3]` in `RangeCheck8` relation
+//!   * `- [prod_0]` in `RangeCheck8` relation
+//!   * `- [prod_1]` in `RangeCheck8` relation
+//!   * `- [prod_2]` in `RangeCheck8` relation
+//!   * `- [prod_3]` in `RangeCheck8` relation
+//!   * `- [prod_4]` in `RangeCheck8` relation
+//!   * `- [prod_5]` in `RangeCheck8` relation
+//!   * `- [prod_6]` in `RangeCheck8` relation
+//!   * `- [prod_7]` in `RangeCheck8` relation
+//!   * `- [n_lo]` in `RangeCheck16` relation
+//!   * `- [n_hi]` in `RangeCheck16` relation
+//!   * `- [r_lo]` in `RangeCheck16` relation
+//!   * `- [r_hi]` in `RangeCheck16` relation
 
+use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use cairo_m_common::instruction::U32_STORE_DIV_FP_FP;
 use num_traits::{One, Zero};
 use rayon::iter::{
@@ -83,25 +154,40 @@ use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::adapter::memory::DataAccess;
-use crate::adapter::ExecutionBundle;
+use crate::adapter::{memory::DataAccess, ExecutionBundle};
 use crate::components::Relations;
 use crate::preprocessed::range_check::RangeCheckProvider;
-use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 22;
+const N_TRACE_COLUMNS: usize = 49;
 const N_MEMORY_LOOKUPS: usize = 14;
 const N_REGISTERS_LOOKUPS: usize = 2;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 7;
-const N_RANGE_CHECK_16_LOOKUPS: usize = 6;
+const N_RANGE_CHECK_8_LOOKUPS: usize = 16;
+const N_RANGE_CHECK_16_LOOKUPS: usize = 13;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
+
+// 1 * (255 * 255) = 254 * 2^8 + 1
+// 2 * (255 * 255) + 254 = 509 * 2^8
+// 3 * (255 * 255) + 509 = 764 * 2^8
+// 4 * (255 * 255) + 764 = 1019 * 2^8
+// 3 * (255 * 255) + 1019 = 765 * 2^8 + 254
+// 2 * (255 * 255) + 765 = 510 * 2^8 + 255
+// 1 * (255 * 255) + 510 = 255 * 2^8 + 255
+const MAX_CARRY_0: u32 = 254;
+const MAX_CARRY_1: u32 = 509;
+const MAX_CARRY_2: u32 = 764;
+const MAX_CARRY_3: u32 = 1019;
+const MAX_CARRY_4: u32 = 765;
+const MAX_CARRY_5: u32 = 510;
+const MAX_CARRY_6: u32 = 255;
 
 const N_LOOKUPS_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_MEMORY_LOOKUPS
         + N_REGISTERS_LOOKUPS
         + N_RANGE_CHECK_20_LOOKUPS
-        + N_RANGE_CHECK_16_LOOKUPS)
+        + N_RANGE_CHECK_16_LOOKUPS
+        + N_RANGE_CHECK_8_LOOKUPS)
         .div_ceil(2);
 
 pub struct InteractionClaimData {
@@ -110,6 +196,9 @@ pub struct InteractionClaimData {
 }
 
 impl RangeCheckProvider for InteractionClaimData {
+    fn get_range_check_8(&self) -> impl ParallelIterator<Item = &PackedM31> {
+        self.lookup_data.range_check_8.par_iter().flatten()
+    }
     fn get_range_check_16(&self) -> impl ParallelIterator<Item = &PackedM31> {
         self.lookup_data.range_check_16.par_iter().flatten()
     }
@@ -124,6 +213,7 @@ pub struct LookupData {
     pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
     pub range_check_16: [Vec<PackedM31>; N_RANGE_CHECK_16_LOOKUPS],
+    pub range_check_8: [Vec<PackedM31>; N_RANGE_CHECK_8_LOOKUPS],
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, Debug)]
@@ -142,7 +232,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the U32StoreDivFpFp opcode.
+    /// Writes the trace for the StoreDivFpImm opcode.
     ///
     /// # Important
     /// This function filters the inputs and creates a local vector which is cleared after processing.
@@ -203,44 +293,219 @@ impl Claim {
                 let dst_off = input.inst_value_3;
 
                 // Operand 0 (u32) comes from two separate memory reads
-                let op0_prev_lo_clock = get_prev_clock(input, data_accesses, 0);
-                let op0_val_lo = get_value(input, data_accesses, 0);
-                let op0_prev_hi_clock = get_prev_clock(input, data_accesses, 1);
-                let op0_val_hi = get_value(input, data_accesses, 1);
+                let n_lo = get_value(input, data_accesses, 0); // numerator low
+                let n_hi = get_value(input, data_accesses, 1); // numerator high
+                let op0_prev_clock_lo = get_prev_clock(input, data_accesses, 0);
+                let op0_prev_clock_hi = get_prev_clock(input, data_accesses, 1);
 
                 // Operand 1 (u32) comes from two separate memory reads
-                let op1_prev_lo_clock = get_prev_clock(input, data_accesses, 2);
                 let op1_val_lo = get_value(input, data_accesses, 2);
-                let op1_prev_hi_clock = get_prev_clock(input, data_accesses, 3);
                 let op1_val_hi = get_value(input, data_accesses, 3);
+                let op1_prev_clock_lo = get_prev_clock(input, data_accesses, 2);
+                let op1_prev_clock_hi = get_prev_clock(input, data_accesses, 3);
 
                 // Destination (u32) previous values and clocks for each limb
-                let dst_prev_lo_clock = get_prev_clock(input, data_accesses, 4);
                 let dst_prev_val_lo = get_prev_value(input, data_accesses, 4);
-                let dst_prev_hi_clock = get_prev_clock(input, data_accesses, 5);
                 let dst_prev_val_hi = get_prev_value(input, data_accesses, 5);
+                let dst_prev_clock_lo = get_prev_clock(input, data_accesses, 4);
+                let dst_prev_clock_hi = get_prev_clock(input, data_accesses, 5);
 
-                let u16_carry =
-                    PackedM31::from_array((op0_val_lo + op1_val_lo).to_array().map(|x| {
-                        if x.0 > 0xFFFF {
-                            M31::one()
-                        } else {
-                            M31::zero()
-                        }
-                    }));
+                // Decompose immediate (divisor) into 8-bit limbs: d = d_0 + d_1*2^8 + d_2*2^16 + d_3*2^24
+                let two_pow_8 = PackedM31::from(M31::from(1 << 8));
+                let decompose_8 = |val: PackedM31| -> (PackedM31, PackedM31) {
+                    let lo = PackedM31::from_array(val.to_array().map(|x| M31::from(x.0 & 0xFF)));
+                    let hi =
+                        PackedM31::from_array(val.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF)));
+                    (lo, hi)
+                };
 
-                let u32_carry = PackedM31::from_array(
-                    (op0_val_hi + op1_val_hi + u16_carry).to_array().map(|x| {
-                        if x.0 > 0xFFFF {
-                            M31::one()
-                        } else {
-                            M31::zero()
-                        }
-                    }),
+                let (d_0, d_1) = decompose_8(op1_val_lo);
+                let (d_2, d_3) = decompose_8(op1_val_hi);
+
+                // Compute quotient and remainder
+                let n_lo_array = n_lo.to_array();
+                let n_hi_array = n_hi.to_array();
+                let op1_val_lo_array = op1_val_lo.to_array();
+                let op1_val_hi_array = op1_val_hi.to_array();
+
+                // Convert to u32 iterators and perform euclidean division
+                let n_u32_iter = n_lo_array
+                    .iter()
+                    .zip(n_hi_array.iter())
+                    .map(|(lo, hi)| (lo.0 | (hi.0 << 16)));
+                let d_u32_iter = op1_val_lo_array
+                    .iter()
+                    .zip(op1_val_hi_array.iter())
+                    .map(|(lo, hi)| (lo.0 | (hi.0 << 16)));
+                let q_r_u32_iter =
+                    n_u32_iter.zip(d_u32_iter).map(
+                        |(n, d)| {
+                            if d == 0 {
+                                (0, 0)
+                            } else {
+                                (n / d, n % d)
+                            }
+                        },
+                    );
+
+                // Convert quotient and remainder back to PackedM31
+                let q_lo = PackedM31::from_array(
+                    q_r_u32_iter
+                        .clone()
+                        .map(|(q, _)| M31::from(q & 0xFFFF))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let q_hi = PackedM31::from_array(
+                    q_r_u32_iter
+                        .clone()
+                        .map(|(q, _)| M31::from(q >> 16))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let r_lo = PackedM31::from_array(
+                    q_r_u32_iter
+                        .clone()
+                        .map(|(_, r)| M31::from(r & 0xFFFF))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let r_hi = PackedM31::from_array(
+                    q_r_u32_iter
+                        .map(|(_, r)| M31::from(r >> 16))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
                 );
 
-                let res_lo = op0_val_lo + op1_val_lo - u16_carry * two_pow_16;
-                let res_hi = op0_val_hi + op1_val_hi + u16_carry - u32_carry * two_pow_16;
+                let (q_0, q_1) = decompose_8(q_lo);
+                let (q_2, q_3) = decompose_8(q_hi);
+
+                // Compute multiplication products for verification: q * d
+                // Using 8-bit limbs to prevent overflow
+                let prod_0 = q_0 * d_0;
+                let prod_1_raw = q_0 * d_1 + q_1 * d_0;
+                let prod_2_raw = q_0 * d_2 + q_2 * d_0 + q_1 * d_1;
+                let prod_3_raw = q_0 * d_3 + q_3 * d_0 + q_1 * d_2 + q_2 * d_1;
+                let prod_4_raw = q_1 * d_3 + q_3 * d_1 + q_2 * d_2;
+                let prod_5_raw = q_2 * d_3 + q_3 * d_2;
+                let prod_6_raw = q_3 * d_3;
+
+                // Compute carries for multiplication
+                let mul_carry_0 =
+                    PackedM31::from_array(prod_0.to_array().map(|x| M31::from(x.0 >> 8)));
+                let prod_1_with_carry = prod_1_raw + mul_carry_0;
+                let mul_carry_1 = PackedM31::from_array(
+                    prod_1_with_carry.to_array().map(|x| M31::from(x.0 >> 8)),
+                );
+                let prod_2_with_carry = prod_2_raw + mul_carry_1;
+                let mul_carry_2 = PackedM31::from_array(
+                    prod_2_with_carry.to_array().map(|x| M31::from(x.0 >> 8)),
+                );
+                let prod_3_with_carry = prod_3_raw + mul_carry_2;
+                let mul_carry_3 = PackedM31::from_array(
+                    prod_3_with_carry.to_array().map(|x| M31::from(x.0 >> 8)),
+                );
+                let prod_4_with_carry = prod_4_raw + mul_carry_3;
+                let mul_carry_4 = PackedM31::from_array(
+                    prod_4_with_carry.to_array().map(|x| M31::from(x.0 >> 8)),
+                );
+                let prod_5_with_carry = prod_5_raw + mul_carry_4;
+                let mul_carry_5 = PackedM31::from_array(
+                    prod_5_with_carry.to_array().map(|x| M31::from(x.0 >> 8)),
+                );
+                let prod_6_with_carry = prod_6_raw + mul_carry_5;
+                let mul_carry_6 = PackedM31::from_array(
+                    prod_6_with_carry.to_array().map(|x| M31::from(x.0 >> 8)),
+                );
+
+                // Final product limbs (8-bit)
+                let prod_0 = prod_0 - mul_carry_0 * two_pow_8;
+                let prod_1 = prod_1_with_carry - mul_carry_1 * two_pow_8;
+                let prod_2 = prod_2_with_carry - mul_carry_2 * two_pow_8;
+                let prod_3 = prod_3_with_carry - mul_carry_3 * two_pow_8;
+                let prod_4 = prod_4_with_carry - mul_carry_4 * two_pow_8;
+                let prod_5 = prod_5_with_carry - mul_carry_5 * two_pow_8;
+                let prod_6 = prod_6_with_carry - mul_carry_6 * two_pow_8;
+                let prod_7 = mul_carry_6;
+
+                // Compute addition carries for n = prod + r
+                let add_0_raw = prod_0 + prod_1 * two_pow_8 + r_lo;
+                let add_carry_0 = PackedM31::from_array(add_0_raw.to_array().map(|x| {
+                    if x.0 > 0xFFFF {
+                        M31::one()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+                let add_1_raw = prod_2 + prod_3 * two_pow_8 + r_hi + add_carry_0;
+                let add_carry_1 = PackedM31::from_array(add_1_raw.to_array().map(|x| {
+                    if x.0 > 0xFFFF {
+                        M31::one()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+                let add_2_raw = prod_4 + prod_5 * two_pow_8 + add_carry_1;
+                let add_carry_2 = PackedM31::from_array(add_2_raw.to_array().map(|x| {
+                    if x.0 > 0xFFFF {
+                        M31::one()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+                let add_3_raw = prod_6 + prod_7 * two_pow_8 + add_carry_2;
+                let add_carry_3 = PackedM31::from_array(add_3_raw.to_array().map(|x| {
+                    if x.0 > 0xFFFF {
+                        M31::one()
+                    } else {
+                        M31::zero()
+                    }
+                }));
+
+                // Compute subtraction borrows for r < d check
+                let sub_borrow_0 = PackedM31::from_array(
+                    d_0.to_array()
+                        .iter()
+                        .zip(d_1.to_array().iter())
+                        .zip(r_lo.to_array().iter())
+                        .map(|((d0, d1), r)| {
+                            let d_val = d0.0 | (d1.0 << 8);
+                            if d_val < r.0 + 1 {
+                                M31::one()
+                            } else {
+                                M31::zero()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+                let sub_borrow_1 = PackedM31::from_array(
+                    d_2.to_array()
+                        .iter()
+                        .zip(d_3.to_array().iter())
+                        .zip(r_hi.to_array().iter())
+                        .zip(sub_borrow_0.to_array().iter())
+                        .map(|(((d2, d3), r), b)| {
+                            let d_val = d2.0 | (d3.0 << 8);
+                            if d_val < r.0 + b.0 {
+                                M31::one()
+                            } else {
+                                M31::zero()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .unwrap(),
+                );
+
+                // Result is q_0 + q_1 * 2^8 for lo, q_2 + q_3 * 2^8 for hi
+                let res_lo = q_0 + q_1 * two_pow_8;
+                let res_hi = q_2 + q_3 * two_pow_8;
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -250,25 +515,52 @@ impl Claim {
                 *row[5] = src0_off;
                 *row[6] = src1_off;
                 *row[7] = dst_off;
-                *row[8] = op0_val_lo;
-                *row[9] = op0_val_hi;
-                *row[10] = op0_prev_lo_clock;
-                *row[11] = op0_prev_hi_clock;
-                *row[12] = op1_val_lo;
-                *row[13] = op1_val_hi;
-                *row[14] = op1_prev_lo_clock;
-                *row[15] = op1_prev_hi_clock;
-                *row[16] = dst_prev_val_lo;
-                *row[17] = dst_prev_val_hi;
-                *row[18] = dst_prev_lo_clock;
-                *row[19] = dst_prev_hi_clock;
-                *row[20] = u16_carry;
-                *row[21] = u32_carry;
+                *row[8] = n_lo; // op0_val_lo
+                *row[9] = n_hi; // op0_val_hi
+                *row[10] = op0_prev_clock_lo;
+                *row[11] = op0_prev_clock_hi;
+                *row[12] = d_0;
+                *row[13] = d_1;
+                *row[14] = d_2;
+                *row[15] = d_3;
+                *row[16] = op1_prev_clock_lo;
+                *row[17] = op1_prev_clock_hi;
+                *row[18] = dst_prev_val_lo;
+                *row[19] = dst_prev_val_hi;
+                *row[20] = dst_prev_clock_lo;
+                *row[21] = dst_prev_clock_hi;
+                *row[22] = q_0;
+                *row[23] = q_1;
+                *row[24] = q_2;
+                *row[25] = q_3;
+                *row[26] = mul_carry_0;
+                *row[27] = mul_carry_1;
+                *row[28] = mul_carry_2;
+                *row[29] = mul_carry_3;
+                *row[30] = mul_carry_4;
+                *row[31] = mul_carry_5;
+                *row[32] = mul_carry_6;
+                *row[33] = prod_0;
+                *row[34] = prod_1;
+                *row[35] = prod_2;
+                *row[36] = prod_3;
+                *row[37] = prod_4;
+                *row[38] = prod_5;
+                *row[39] = prod_6;
+                *row[40] = prod_7;
+                *row[41] = add_carry_0;
+                *row[42] = add_carry_1;
+                *row[43] = add_carry_2;
+                *row[44] = add_carry_3;
+                *row[45] = sub_borrow_0;
+                *row[46] = sub_borrow_1;
+                *row[47] = r_lo;
+                *row[48] = r_hi;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
 
-                // Read instruction (single word)
+                // Read first QM31 word for instruction
                 *lookup_data.memory[0] = [
                     input.pc,
                     inst_prev_clock,
@@ -287,31 +579,24 @@ impl Claim {
                 ];
 
                 // Read op0_lo
-                *lookup_data.memory[2] = [
-                    fp + src0_off,
-                    op0_prev_lo_clock,
-                    op0_val_lo,
-                    zero,
-                    zero,
-                    zero,
-                ];
-                *lookup_data.memory[3] = [fp + src0_off, clock, op0_val_lo, zero, zero, zero];
+                *lookup_data.memory[2] = [fp + src0_off, op0_prev_clock_lo, n_lo, zero, zero, zero];
+                *lookup_data.memory[3] = [fp + src0_off, clock, n_lo, zero, zero, zero];
 
                 // Read op0_hi
                 *lookup_data.memory[4] = [
                     fp + src0_off + one,
-                    op0_prev_hi_clock,
-                    op0_val_hi,
+                    op0_prev_clock_hi,
+                    n_hi,
                     zero,
                     zero,
                     zero,
                 ];
-                *lookup_data.memory[5] = [fp + src0_off + one, clock, op0_val_hi, zero, zero, zero];
+                *lookup_data.memory[5] = [fp + src0_off + one, clock, n_hi, zero, zero, zero];
 
                 // Read op1_lo
                 *lookup_data.memory[6] = [
                     fp + src1_off,
-                    op1_prev_lo_clock,
+                    op1_prev_clock_lo,
                     op1_val_lo,
                     zero,
                     zero,
@@ -322,7 +607,7 @@ impl Claim {
                 // Read op1_hi
                 *lookup_data.memory[8] = [
                     fp + src1_off + one,
-                    op1_prev_hi_clock,
+                    op1_prev_clock_hi,
                     op1_val_hi,
                     zero,
                     zero,
@@ -333,7 +618,7 @@ impl Claim {
                 // Write dst_lo
                 *lookup_data.memory[10] = [
                     fp + dst_off,
-                    dst_prev_lo_clock,
+                    dst_prev_clock_lo,
                     dst_prev_val_lo,
                     zero,
                     zero,
@@ -344,7 +629,7 @@ impl Claim {
                 // Write dst_hi
                 *lookup_data.memory[12] = [
                     fp + dst_off + one,
-                    dst_prev_hi_clock,
+                    dst_prev_clock_hi,
                     dst_prev_val_hi,
                     zero,
                     zero,
@@ -352,21 +637,59 @@ impl Claim {
                 ];
                 *lookup_data.memory[13] = [fp + dst_off + one, clock, res_hi, zero, zero, zero];
 
-                // Limbs of each U32 must be in range [0, 2^16)
-                *lookup_data.range_check_16[0] = op0_val_lo;
-                *lookup_data.range_check_16[1] = op0_val_hi;
-                *lookup_data.range_check_16[2] = op1_val_lo;
-                *lookup_data.range_check_16[3] = op1_val_hi;
-                *lookup_data.range_check_16[4] = res_lo;
-                *lookup_data.range_check_16[5] = res_hi;
+                // Range checks as specified in the AIR
+                // 8-bit range checks
+                *lookup_data.range_check_8[0] = d_0;
+                *lookup_data.range_check_8[1] = d_1;
+                *lookup_data.range_check_8[2] = d_2;
+                *lookup_data.range_check_8[3] = d_3;
+                *lookup_data.range_check_8[4] = q_0;
+                *lookup_data.range_check_8[5] = q_1;
+                *lookup_data.range_check_8[6] = q_2;
+                *lookup_data.range_check_8[7] = q_3;
+                *lookup_data.range_check_8[8] = prod_0;
+                *lookup_data.range_check_8[9] = prod_1;
+                *lookup_data.range_check_8[10] = prod_2;
+                *lookup_data.range_check_8[11] = prod_3;
+                *lookup_data.range_check_8[12] = prod_4;
+                *lookup_data.range_check_8[13] = prod_5;
+                *lookup_data.range_check_8[14] = prod_6;
+                *lookup_data.range_check_8[15] = prod_7;
+
+                // 16-bit range checks
+                *lookup_data.range_check_16[0] = n_lo;
+                *lookup_data.range_check_16[1] = n_hi;
+                *lookup_data.range_check_16[2] = r_lo;
+                *lookup_data.range_check_16[3] = r_hi;
+
+                // Carry limbs must be in the correct range
+                let max_carry_0 = PackedM31::from(M31::from(MAX_CARRY_0));
+                let max_carry_1 = PackedM31::from(M31::from(MAX_CARRY_1));
+                let max_carry_2 = PackedM31::from(M31::from(MAX_CARRY_2));
+                let max_carry_3 = PackedM31::from(M31::from(MAX_CARRY_3));
+                let max_carry_4 = PackedM31::from(M31::from(MAX_CARRY_4));
+                let max_carry_5 = PackedM31::from(M31::from(MAX_CARRY_5));
+                let max_carry_6 = PackedM31::from(M31::from(MAX_CARRY_6));
+                *lookup_data.range_check_16[4] = max_carry_0 - mul_carry_0;
+                *lookup_data.range_check_16[5] = max_carry_1 - mul_carry_1;
+                *lookup_data.range_check_16[6] = max_carry_2 - mul_carry_2;
+                *lookup_data.range_check_16[7] = max_carry_3 - mul_carry_3;
+                *lookup_data.range_check_16[8] = max_carry_4 - mul_carry_4;
+                *lookup_data.range_check_16[9] = max_carry_5 - mul_carry_5;
+                *lookup_data.range_check_16[10] = max_carry_6 - mul_carry_6;
+
+                // Subtraction checks for r < d
+                let sub_check_lo = d_0 + d_1 * two_pow_8 + sub_borrow_0 * two_pow_16 - r_lo - one;
+                let sub_check_hi =
+                    d_2 + d_3 * two_pow_8 + sub_borrow_1 * two_pow_16 - r_hi - sub_borrow_0;
+                *lookup_data.range_check_16[11] = sub_check_lo;
+                *lookup_data.range_check_16[12] = sub_check_hi;
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
-                *lookup_data.range_check_20[1] = clock - op0_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[2] = clock - op0_prev_hi_clock - enabler;
-                *lookup_data.range_check_20[3] = clock - op1_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[4] = clock - op1_prev_hi_clock - enabler;
-                *lookup_data.range_check_20[5] = clock - dst_prev_lo_clock - enabler;
-                *lookup_data.range_check_20[6] = clock - dst_prev_hi_clock - enabler;
+                *lookup_data.range_check_20[1] = clock - op0_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi - enabler;
+                *lookup_data.range_check_20[3] = clock - dst_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[4] = clock - dst_prev_clock_hi - enabler;
             });
 
         (
@@ -427,8 +750,8 @@ impl InteractionClaim {
             let mut col = interaction_trace.new_col();
             (
                 col.par_iter_mut(),
-                &interaction_claim_data.lookup_data.memory[i * 2],
-                &interaction_claim_data.lookup_data.memory[i * 2 + 1],
+                &interaction_claim_data.lookup_data.memory[2 * i],
+                &interaction_claim_data.lookup_data.memory[2 * i + 1],
             )
                 .into_par_iter()
                 .enumerate()
@@ -446,13 +769,36 @@ impl InteractionClaim {
             col.finalize_col();
         }
 
-        // Range check 16 lookups
+        // Range checks 8
+        for i in 0..N_RANGE_CHECK_8_LOOKUPS / 2 {
+            let mut col = interaction_trace.new_col();
+            (
+                col.par_iter_mut(),
+                &interaction_claim_data.lookup_data.range_check_8[2 * i],
+                &interaction_claim_data.lookup_data.range_check_8[2 * i + 1],
+            )
+                .into_par_iter()
+                .enumerate()
+                .for_each(|(_i, (writer, range_check_8_0, range_check_8_1))| {
+                    let num = -PackedQM31::one();
+                    let denom_0: PackedQM31 = relations.range_check_8.combine(&[*range_check_8_0]);
+                    let denom_1: PackedQM31 = relations.range_check_8.combine(&[*range_check_8_1]);
+
+                    let numerator = num * denom_1 + num * denom_0;
+                    let denom = denom_0 * denom_1;
+
+                    writer.write_frac(numerator, denom);
+                });
+            col.finalize_col();
+        }
+
+        // Range checks 16
         for i in 0..N_RANGE_CHECK_16_LOOKUPS / 2 {
             let mut col = interaction_trace.new_col();
             (
                 col.par_iter_mut(),
-                &interaction_claim_data.lookup_data.range_check_16[i * 2],
-                &interaction_claim_data.lookup_data.range_check_16[i * 2 + 1],
+                &interaction_claim_data.lookup_data.range_check_16[2 * i],
+                &interaction_claim_data.lookup_data.range_check_16[2 * i + 1],
             )
                 .into_par_iter()
                 .enumerate()
@@ -471,44 +817,63 @@ impl InteractionClaim {
             col.finalize_col();
         }
 
-        // Range check 20 lookups
-        for i in 0..N_RANGE_CHECK_20_LOOKUPS / 2 {
-            let mut col = interaction_trace.new_col();
-            (
-                col.par_iter_mut(),
-                &interaction_claim_data.lookup_data.range_check_20[i * 2],
-                &interaction_claim_data.lookup_data.range_check_20[i * 2 + 1],
-            )
-                .into_par_iter()
-                .enumerate()
-                .for_each(|(_i, (writer, range_check_20_0, range_check_20_1))| {
-                    let num = -PackedQM31::one();
-                    let denom_0: PackedQM31 =
-                        relations.range_check_20.combine(&[*range_check_20_0]);
-                    let denom_1: PackedQM31 =
-                        relations.range_check_20.combine(&[*range_check_20_1]);
-
-                    let numerator = num * denom_1 + num * denom_0;
-                    let denom = denom_0 * denom_1;
-
-                    writer.write_frac(numerator, denom);
-                });
-            col.finalize_col();
-        }
-
-        // Last unpaired range check 20
+        // Range checks 20
         let mut col = interaction_trace.new_col();
         (
             col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.range_check_20[6],
+            &interaction_claim_data.lookup_data.range_check_16[12],
+            &interaction_claim_data.lookup_data.range_check_20[0],
         )
             .into_par_iter()
             .enumerate()
-            .for_each(|(_i, (writer, range_check_20_6))| {
+            .for_each(|(_i, (writer, val1, val2))| {
                 let num = -PackedQM31::one();
-                let denom: PackedQM31 = relations.range_check_20.combine(&[*range_check_20_6]);
-                let numerator = num * denom;
-                let denom = denom * denom;
+                let denom_0: PackedQM31 = relations.range_check_16.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[1],
+            &interaction_claim_data.lookup_data.range_check_20[2],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, val1, val2))| {
+                let num = -PackedQM31::one();
+                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[3],
+            &interaction_claim_data.lookup_data.range_check_20[4],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, val1, val2))| {
+                let num = -PackedQM31::one();
+                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
                 writer.write_frac(numerator, denom);
             });
         col.finalize_col();
@@ -534,10 +899,11 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
+        let two_pow_8 = E::F::from(M31::from(1 << 8));
         let two_pow_16 = E::F::from(M31::from(1 << 16));
         let opcode_constant = E::F::from(M31::from(U32_STORE_DIV_FP_FP));
 
-        // 22 columns
+        // 47 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -546,34 +912,180 @@ impl FrameworkEval for Eval {
         let src0_off = eval.next_trace_mask();
         let src1_off = eval.next_trace_mask();
         let dst_off = eval.next_trace_mask();
-        let op0_val_lo = eval.next_trace_mask();
-        let op0_val_hi = eval.next_trace_mask();
-        let op0_prev_lo_clock = eval.next_trace_mask();
-        let op0_prev_hi_clock = eval.next_trace_mask();
-        let op1_val_lo = eval.next_trace_mask();
-        let op1_val_hi = eval.next_trace_mask();
-        let op1_prev_lo_clock = eval.next_trace_mask();
-        let op1_prev_hi_clock = eval.next_trace_mask();
+        let n_lo = eval.next_trace_mask(); // op0_val_lo (numerator low)
+        let n_hi = eval.next_trace_mask(); // op0_val_hi (numerator high)
+        let op0_prev_clock_lo = eval.next_trace_mask();
+        let op0_prev_clock_hi = eval.next_trace_mask();
+        let d_0 = eval.next_trace_mask(); // op1_val_0 (divisor limb 0)
+        let d_1 = eval.next_trace_mask(); // op1_val_1 (divisor limb 1)
+        let d_2 = eval.next_trace_mask(); // op1_val_2 (divisor limb 2)
+        let d_3 = eval.next_trace_mask(); // op1_val_3 (divisor limb 3)
+        let op1_prev_clock_lo = eval.next_trace_mask();
+        let op1_prev_clock_hi = eval.next_trace_mask();
         let dst_prev_val_lo = eval.next_trace_mask();
         let dst_prev_val_hi = eval.next_trace_mask();
-        let dst_prev_lo_clock = eval.next_trace_mask();
-        let dst_prev_hi_clock = eval.next_trace_mask();
-        let u16_carry = eval.next_trace_mask();
-        let u32_carry = eval.next_trace_mask();
-
-        let res_lo =
-            op0_val_lo.clone() + op1_val_lo.clone() - u16_carry.clone() * two_pow_16.clone();
-        let res_hi = op0_val_hi.clone() + op1_val_hi.clone() + u16_carry.clone()
-            - u32_carry.clone() * two_pow_16;
+        let dst_prev_clock_lo = eval.next_trace_mask();
+        let dst_prev_clock_hi = eval.next_trace_mask();
+        let q_0 = eval.next_trace_mask(); // quotient limb 0
+        let q_1 = eval.next_trace_mask(); // quotient limb 1
+        let q_2 = eval.next_trace_mask(); // quotient limb 2
+        let q_3 = eval.next_trace_mask(); // quotient limb 3
+        let mul_carry_0 = eval.next_trace_mask();
+        let mul_carry_1 = eval.next_trace_mask();
+        let mul_carry_2 = eval.next_trace_mask();
+        let mul_carry_3 = eval.next_trace_mask();
+        let mul_carry_4 = eval.next_trace_mask();
+        let mul_carry_5 = eval.next_trace_mask();
+        let mul_carry_6 = eval.next_trace_mask();
+        let prod_0 = eval.next_trace_mask();
+        let prod_1 = eval.next_trace_mask();
+        let prod_2 = eval.next_trace_mask();
+        let prod_3 = eval.next_trace_mask();
+        let prod_4 = eval.next_trace_mask();
+        let prod_5 = eval.next_trace_mask();
+        let prod_6 = eval.next_trace_mask();
+        let prod_7 = eval.next_trace_mask();
+        let add_carry_0 = eval.next_trace_mask();
+        let add_carry_1 = eval.next_trace_mask();
+        let add_carry_2 = eval.next_trace_mask();
+        let add_carry_3 = eval.next_trace_mask();
+        let sub_borrow_0 = eval.next_trace_mask();
+        let sub_borrow_1 = eval.next_trace_mask();
+        let r_lo = eval.next_trace_mask(); // remainder low
+        let r_hi = eval.next_trace_mask(); // remainder high
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // U16 carry is 1 or 0
-        eval.add_constraint(u16_carry.clone() * (one.clone() - u16_carry));
+        // Add carries and sub borrows are 0 or 1 (according to AIR spec lines 57-60)
+        eval.add_constraint(
+            enabler.clone() * add_carry_0.clone() * (one.clone() - add_carry_0.clone()),
+        );
+        eval.add_constraint(
+            enabler.clone() * add_carry_1.clone() * (one.clone() - add_carry_1.clone()),
+        );
+        eval.add_constraint(
+            enabler.clone() * add_carry_2.clone() * (one.clone() - add_carry_2.clone()),
+        );
+        eval.add_constraint(
+            enabler.clone() * sub_borrow_0.clone() * (one.clone() - sub_borrow_0.clone()),
+        );
 
-        // U32 carry is 1 or 0
-        eval.add_constraint(u32_carry.clone() * (one.clone() - u32_carry));
+        // Reconstitute the immediate (divisor) value from 8-bit limbs
+        let op1_val_lo = d_0.clone() + d_1.clone() * two_pow_8.clone();
+        let op1_val_hi = d_2.clone() + d_3.clone() * two_pow_8.clone();
+
+        // Product verification constraints: prove that prod = q * d
+        eval.add_constraint(
+            enabler.clone()
+                * (q_0.clone() * d_0.clone()
+                    - mul_carry_0.clone() * two_pow_8.clone()
+                    - prod_0.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (q_0.clone() * d_1.clone() + q_1.clone() * d_0.clone() + mul_carry_0.clone()
+                    - mul_carry_1.clone() * two_pow_8.clone()
+                    - prod_1.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (q_0.clone() * d_2.clone()
+                    + q_2.clone() * d_0.clone()
+                    + q_1.clone() * d_1.clone()
+                    + mul_carry_1.clone()
+                    - mul_carry_2.clone() * two_pow_8.clone()
+                    - prod_2.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (q_0.clone() * d_3.clone()
+                    + q_3.clone() * d_0.clone()
+                    + q_1.clone() * d_2.clone()
+                    + q_2.clone() * d_1.clone()
+                    + mul_carry_2.clone()
+                    - mul_carry_3.clone() * two_pow_8.clone()
+                    - prod_3.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (q_1.clone() * d_3.clone()
+                    + q_3.clone() * d_1.clone()
+                    + q_2.clone() * d_2.clone()
+                    + mul_carry_3.clone()
+                    - mul_carry_4.clone() * two_pow_8.clone()
+                    - prod_4.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (q_2.clone() * d_3.clone() + q_3.clone() * d_2.clone() + mul_carry_4.clone()
+                    - mul_carry_5.clone() * two_pow_8.clone()
+                    - prod_5.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (q_3.clone() * d_3.clone() + mul_carry_5.clone()
+                    - mul_carry_6.clone() * two_pow_8.clone()
+                    - prod_6.clone()),
+        );
+
+        // mul_carry_6 = prod_7
+        eval.add_constraint(enabler.clone() * (mul_carry_6.clone() - prod_7.clone()));
+
+        // Prove that n = prod + r
+        eval.add_constraint(
+            enabler.clone()
+                * (n_lo.clone()
+                    - (prod_0.clone() + prod_1.clone() * two_pow_8.clone() + r_lo.clone()
+                        - add_carry_0.clone() * two_pow_16.clone())),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (n_hi.clone()
+                    - (prod_2.clone()
+                        + prod_3.clone() * two_pow_8.clone()
+                        + r_hi.clone()
+                        + add_carry_0
+                        - add_carry_1.clone() * two_pow_16.clone())),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (prod_4.clone() + prod_5.clone() * two_pow_8.clone() + add_carry_1
+                    - add_carry_2.clone() * two_pow_16.clone()),
+        );
+
+        eval.add_constraint(
+            enabler.clone()
+                * (prod_6.clone() + prod_7.clone() * two_pow_8.clone() + add_carry_2
+                    - add_carry_3.clone() * two_pow_16.clone()),
+        );
+
+        eval.add_constraint(enabler.clone() * add_carry_3);
+
+        // Prove that r < d by checking d - r - 1 doesn't underflow
+        // sub_borrow_1 must be 0 for the subtraction to not underflow and sub_check_lo and hi must be u16
+        let sub_check_lo = d_0.clone()
+            + d_1.clone() * two_pow_8.clone()
+            + sub_borrow_0.clone() * two_pow_16.clone()
+            - r_lo.clone()
+            - one.clone();
+        let sub_check_hi =
+            d_2.clone() + d_3.clone() * two_pow_8.clone() + sub_borrow_1.clone() * two_pow_16
+                - r_hi.clone()
+                - sub_borrow_0;
+        eval.add_constraint(enabler.clone() * sub_borrow_1);
+
+        // Result is the quotient
+        let res_lo = q_0.clone() + q_1.clone() * two_pow_8.clone();
+        let res_hi = q_2.clone() + q_3.clone() * two_pow_8;
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
@@ -587,7 +1099,7 @@ impl FrameworkEval for Eval {
             &[pc.clone() + one.clone(), fp.clone()],
         ));
 
-        // Read instruction from memory (single word)
+        // Read instruction
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
@@ -613,34 +1125,30 @@ impl FrameworkEval for Eval {
             ],
         ));
 
-        // Read op0_lo
+        // Read n_lo (numerator low)
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone(),
-                op0_prev_lo_clock.clone(),
-                op0_val_lo.clone(),
+                op0_prev_clock_lo.clone(),
+                n_lo.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + src0_off.clone(),
-                clock.clone(),
-                op0_val_lo.clone(),
-            ],
+            &[fp.clone() + src0_off.clone(), clock.clone(), n_lo.clone()],
         ));
 
-        // Read op0_hi
+        // Read n_hi (numerator high)
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src0_off.clone() + one.clone(),
-                op0_prev_hi_clock.clone(),
-                op0_val_hi.clone(),
+                op0_prev_clock_hi.clone(),
+                n_hi.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
@@ -649,37 +1157,33 @@ impl FrameworkEval for Eval {
             &[
                 fp.clone() + src0_off + one.clone(),
                 clock.clone(),
-                op0_val_hi.clone(),
+                n_hi.clone(),
             ],
         ));
 
-        // Read op1_lo
+        // Read d_lo
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src1_off.clone(),
-                op1_prev_lo_clock.clone(),
+                op1_prev_clock_lo,
                 op1_val_lo.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[
-                fp.clone() + src1_off.clone(),
-                clock.clone(),
-                op1_val_lo.clone(),
-            ],
+            &[fp.clone() + src1_off.clone(), clock.clone(), op1_val_lo],
         ));
 
-        // Read op1_hi
+        // Read d_hi
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + src1_off.clone() + one.clone(),
-                op1_prev_hi_clock.clone(),
+                op1_prev_clock_hi,
                 op1_val_hi.clone(),
             ],
         ));
@@ -689,7 +1193,7 @@ impl FrameworkEval for Eval {
             &[
                 fp.clone() + src1_off + one.clone(),
                 clock.clone(),
-                op1_val_hi.clone(),
+                op1_val_hi,
             ],
         ));
 
@@ -699,14 +1203,14 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone(),
-                dst_prev_lo_clock.clone(),
+                dst_prev_clock_lo.clone(),
                 dst_prev_val_lo,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + dst_off.clone(), clock.clone(), res_lo.clone()],
+            &[fp.clone() + dst_off.clone(), clock.clone(), res_lo],
         ));
 
         // Write dst_hi
@@ -715,46 +1219,114 @@ impl FrameworkEval for Eval {
             -E::EF::from(enabler.clone()),
             &[
                 fp.clone() + dst_off.clone() + one.clone(),
-                dst_prev_hi_clock.clone(),
+                dst_prev_clock_hi.clone(),
                 dst_prev_val_hi,
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + dst_off + one, clock.clone(), res_hi.clone()],
+            &[fp + dst_off + one, clock.clone(), res_hi],
         ));
 
-        // Range check 16
+        // Range checks for 8-bit values (d_i, q_i, prod_i)
+        for val in &[d_0, d_1, d_2, d_3, q_0, q_1, q_2, q_3] {
+            eval.add_to_relation(RelationEntry::new(
+                &self.relations.range_check_8,
+                -E::EF::one(),
+                &[val.clone()],
+            ));
+        }
+
+        // Range checks for product limbs (8-bit)
+        for prod in &[
+            prod_0, prod_1, prod_2, prod_3, prod_4, prod_5, prod_6, prod_7,
+        ] {
+            eval.add_to_relation(RelationEntry::new(
+                &self.relations.range_check_8,
+                -E::EF::one(),
+                &[prod.clone()],
+            ));
+        }
+
+        // Range check 16 for all 16-bit limbs
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             -E::EF::one(),
-            &[op0_val_lo],
+            &[n_lo],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             -E::EF::one(),
-            &[op0_val_hi],
+            &[n_hi],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[r_lo],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             -E::EF::one(),
-            &[op1_val_lo],
+            &[r_hi],
+        ));
+
+        // Range checks for mul_carry values using RangeCheck16
+        let max_carry_0 = E::F::from(M31::from(MAX_CARRY_0));
+        let max_carry_1 = E::F::from(M31::from(MAX_CARRY_1));
+        let max_carry_2 = E::F::from(M31::from(MAX_CARRY_2));
+        let max_carry_3 = E::F::from(M31::from(MAX_CARRY_3));
+        let max_carry_4 = E::F::from(M31::from(MAX_CARRY_4));
+        let max_carry_5 = E::F::from(M31::from(MAX_CARRY_5));
+        let max_carry_6 = E::F::from(M31::from(MAX_CARRY_6));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_0 - mul_carry_0],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             -E::EF::one(),
-            &[op1_val_hi],
+            &[max_carry_1 - mul_carry_1],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             -E::EF::one(),
-            &[res_lo],
+            &[max_carry_2 - mul_carry_2],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             -E::EF::one(),
-            &[res_hi],
+            &[max_carry_3 - mul_carry_3],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_4 - mul_carry_4],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_5 - mul_carry_5],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[max_carry_6 - mul_carry_6],
+        ));
+
+        // Range checks for subtraction verification: d - r - 1
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[sub_check_lo],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_16,
+            -E::EF::one(),
+            &[sub_check_hi],
         ));
 
         // Range check 20
@@ -766,32 +1338,22 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_lo_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op0_prev_hi_clock - enabler.clone()],
+            &[clock.clone() - op0_prev_clock_hi - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op1_prev_lo_clock - enabler.clone()],
+            &[clock.clone() - dst_prev_clock_lo - enabler.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock.clone() - op1_prev_hi_clock - enabler.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_20,
-            -E::EF::one(),
-            &[clock.clone() - dst_prev_lo_clock - enabler.clone()],
-        ));
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.range_check_20,
-            -E::EF::one(),
-            &[clock - dst_prev_hi_clock - enabler],
+            &[clock - dst_prev_clock_hi - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

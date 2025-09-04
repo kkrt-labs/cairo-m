@@ -125,6 +125,28 @@ fn main() -> felt {
     let is_lt1 = x_u32 < forty_three;
 
     // ╔══════════════════════════════════════════════════════════════════════════╗
+    // ║                         Arithmetic U32 FpFp Opcodes                      ║
+    // ╚══════════════════════════════════════════════════════════════════════════╝
+
+    // U32StoreAddFpFp
+    let two = 2u32;
+    let five = 5u32;
+    let fifty = 50u32;
+    let add_basic_fp_fp = x_u32 + fifty;
+    let add_zero_fp_fp = x_u32 + zero;
+    let add_carry_16_fp_fp = max_u16 + two;
+    let add_overflow_fp_fp = max_u32 + two;
+
+    // U32StoreDivFpFp
+    let div_by_smaller_fp_fp = x_u32 / five;
+    let div_by_greater_fp_fp = x_u32 / forty_three;
+    let div_by_itself_fp_fp = x_u32 / x_u32;
+    let div_by_one_fp_fp = x_u32 / one;
+    let div_max_u32_fp_fp = max_u32 / five;
+    let div_quotient_is_max_u32_fp_fp = max_u32 / one;
+    let div_remainder_is_max_u32_fp_fp = one / max_u32;
+
+    // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                               Jump Opcodes                               ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
 
