@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn test_loader_basic() {
         // Test basic loading functionality
-        let result = BlocklessDagModule::from_file("tests/test_cases/add.wasm");
+        let result = BlocklessDagModule::from_file("tests/test_cases/arithmetic.wasm");
         assert!(result.is_ok(), "Should load add.wasm successfully");
 
         let module = result.unwrap();
