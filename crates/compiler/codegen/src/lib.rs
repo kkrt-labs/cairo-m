@@ -25,6 +25,7 @@ pub mod db;
 pub mod generator;
 pub mod layout;
 pub mod mir_passes;
+pub mod passes;
 
 // Test support utilities (only compiled for tests)
 #[cfg(test)]

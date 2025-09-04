@@ -14,6 +14,7 @@ use cairo_m_compiler_mir::{
 use stwo_prover::core::fields::m31::M31;
 
 use crate::mir_passes::legalize::legalize_module_for_vm;
+use crate::passes;
 use crate::{CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
 
 /// Main code generator that orchestrates MIR to CASM translation
@@ -191,8 +192,8 @@ impl CodeGenerator {
 
         self.label_counter += builder.label_counter();
 
-        // Remove duplicate offsets
-        builder.resolve_duplicate_offsets()?;
+        // Run post-builder passes (deduplication, peephole opts, etc.)
+        passes::run_all(&mut builder)?;
 
         // Fix label addresses to be relative to the global instruction stream
         let instruction_offset = self.instructions.len();
