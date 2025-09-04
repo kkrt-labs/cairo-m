@@ -117,6 +117,7 @@ words:
   - smallvec
   - smol
   - softline
+  - srcs
   - sreedhar
   - sroa
   - stackalloc
