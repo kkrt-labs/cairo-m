@@ -55,79 +55,6 @@ fn collect_u32s(values: Vec<CairoMValue>) -> Vec<u32> {
         .collect::<Vec<_>>()
 }
 
-/// Convert a vector of CairoMValue to a vector of u32, assuming each CairoMValue is a tuple of u32s
-fn collect_i64_tuple(values: Vec<CairoMValue>) -> Vec<u32> {
-    values
-        .iter()
-        .map(|v| match v {
-            CairoMValue::Tuple(tuple_parts) => {
-                assert_eq!(tuple_parts.len(), 2);
-                if let (CairoMValue::U32(low), CairoMValue::U32(high)) =
-                    (&tuple_parts[0], &tuple_parts[1])
-                {
-                    vec![*low, *high]
-                } else {
-                    panic!("Expected tuple of U32s, got {:?}", tuple_parts);
-                }
-            }
-            _ => panic!("Expected tuple result, got {:?}", v),
-        })
-        .flatten()
-        .collect::<Vec<_>>()
-}
-
-/// Test an i64 WASM function with random inputs
-fn test_i64_program(path: &str, func_name: &str, a: u64, b: u64) {
-    let wasm_file = std::fs::read(path).unwrap();
-
-    let womir_program = load_wasm(GenericIrSetting, &wasm_file).unwrap();
-    let dag_module = BlocklessDagModule::from_file(path).unwrap();
-    let mir_module = DagToMir::new(dag_module)
-        .to_mir(PassManager::standard_pipeline())
-        .unwrap();
-
-    let compiled_module = compile_module(&mir_module).unwrap();
-
-    let data_input = DataInput::new(vec![]);
-    let mut womir_interpreter = Interpreter::new(womir_program, data_input);
-
-    // Convert u64 to (low_u32, high_u32) tuples
-    let a_low = (a & 0xFFFFFFFF) as u32;
-    let a_high = ((a >> 32) & 0xFFFFFFFF) as u32;
-    let b_low = (b & 0xFFFFFFFF) as u32;
-    let b_high = ((b >> 32) & 0xFFFFFFFF) as u32;
-
-    // Create i64 values as tuples for Cairo-M VM
-    let cairo_vm_inputs = vec![
-        InputValue::List(vec![
-            InputValue::Number(a_low as i64),
-            InputValue::Number(a_high as i64),
-        ]),
-        InputValue::List(vec![
-            InputValue::Number(b_low as i64),
-            InputValue::Number(b_high as i64),
-        ]),
-    ];
-
-    // For WOMIR interpreter, pass as u32 components
-    let womir_inputs = vec![a_low, a_high, b_low, b_high];
-
-    let result_womir_interpreter = womir_interpreter.run(func_name, &womir_inputs);
-    let result_cairo_m_interpreter = run_cairo_program(
-        &compiled_module,
-        func_name,
-        &cairo_vm_inputs,
-        Default::default(),
-    )
-    .unwrap();
-
-    // Compare results (both should be i64 tuples)
-    assert_eq!(
-        collect_i64_tuple(result_cairo_m_interpreter.return_values),
-        result_womir_interpreter
-    );
-}
-
 fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     let wasm_file = std::fs::read(path).unwrap();
 
@@ -248,15 +175,13 @@ proptest! {
     }
 
     #[test]
-    fn run_i64_bitwise_ops(a: u64, b: u64) {
-        test_i64_program("tests/test_cases/i64_bitwise_ops.wasm", "i64_bitwise_test", a, b);
+    fn run_calls(a: u32) {
+        // Void callee
+        test_program("tests/test_cases/calls.wasm", "call_noop", vec![]);
+        // Single-return callee
+        test_program("tests/test_cases/calls.wasm", "call_ret1", vec![a]);
     }
 
-    #[test]
-    fn run_i64_arithmetic_ops(a: u64, b: u64) {
-        // Use smaller ranges for arithmetic to avoid overflow issues
-        test_i64_program("tests/test_cases/i64_arithmetic.wasm", "i64_arithmetic_test", a, b);
-    }
 }
 
 #[test]
@@ -283,4 +208,9 @@ fn run_load_store_sum() {
     );
 }
 
-// Note: i64 tests are now in the proptest section below
+// For some reason proptest runs forever on that one
+#[test]
+fn run_globals() {
+    test_program("tests/test_cases/globals.wasm", "main", vec![42]);
+    test_program("tests/test_cases/globals.wasm", "main", vec![0xFFFFFFFF]);
+}

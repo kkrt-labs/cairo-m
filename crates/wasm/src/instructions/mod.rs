@@ -1,5 +1,4 @@
 pub mod i32;
-pub mod i64;
 pub mod memory;
 
 use crate::flattening::{DagToMir, DagToMirContext, DagToMirError};
@@ -33,15 +32,15 @@ impl DagToMir {
             | Op::I32DivU
             | Op::I32DivS // unsupported
             | Op::I32RemS // unsupported
-            | Op::I32RemU // unsupported
+            | Op::I32RemU
             | Op::I32And
             | Op::I32Or
             | Op::I32Xor
             | Op::I32Shl
-            | Op::I32ShrU // unsupported
+            | Op::I32ShrU
             | Op::I32ShrS // unsupported
-            | Op::I32Rotl // unsupported
-            | Op::I32Rotr // unsupported
+            | Op::I32Rotl
+            | Op::I32Rotr
             | Op::I32Eq
             | Op::I32Ne
             | Op::I32GtU
@@ -57,42 +56,12 @@ impl DagToMir {
                 self.handle_i32_operations(node_idx, wasm_op, &inputs, context)
             }
 
-            // Usual I64 operations
-            Op::I64Add
-            | Op::I64Sub
-            | Op::I64Mul // unsupported
-            | Op::I64DivU // unsupported
-            | Op::I64DivS // unsupported
-            | Op::I64RemS // unsupported
-            | Op::I64RemU // unsupported
-            | Op::I64And
-            | Op::I64Or
-            | Op::I64Xor
-            | Op::I64Shl // unsupported
-            | Op::I64ShrU // unsupported
-            | Op::I64ShrS // unsupported
-            | Op::I64Rotl // unsupported
-            | Op::I64Rotr // unsupported
-            | Op::I64Eq // unsupported
-            | Op::I64Ne // unsupported
-            | Op::I64GtU // unsupported
-            | Op::I64GeU // unsupported
-            | Op::I64LtU // unsupported
-            | Op::I64LeU // unsupported
-            | Op::I64LtS // unsupported
-            | Op::I64GtS // unsupported
-            | Op::I64LeS // unsupported
-            | Op::I64GeS // unsupported
-            | Op::I64Eqz // unsupported
-            | Op::I64Const { .. } => {
-                self.handle_i64_operations(node_idx, wasm_op, &inputs, context)
-            }
-
             // Memory operations
             Op::I32Load { .. }
             | Op::I32Store { .. }
-            | Op::I64Load { .. } // unsupported
-            | Op::I64Store { .. } => { // unsupported
+            | Op::GlobalGet { .. }
+            | Op::GlobalSet { .. }
+            => {
                 self.handle_memory_operations(node_idx, wasm_op, &inputs, context)
             }
 
@@ -102,7 +71,6 @@ impl DagToMir {
             }
 
             Op::Call { function_index } => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
                 let callee_id = FunctionId::new(*function_index as usize);
 
                 // Get signature from wasm module
@@ -138,14 +106,23 @@ impl DagToMir {
                 let param_types = param_types?;
                 let return_types = return_types?;
 
-                let signature = CalleeSignature {
-                    param_types,
-                    return_types,
-                };
+                let signature = CalleeSignature { param_types, return_types };
 
-                let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
+                // Allocate one destination per return type
+                let mut dests: Vec<ValueId> = Vec::new();
+                for ty in &signature.return_types {
+                    let id = context.mir_function.new_typed_value_id(ty.clone());
+                    dests.push(id);
+                }
+
+                let instruction = Instruction::call(dests.clone(), callee_id, inputs, signature);
                 context.get_current_block()?.push_instruction(instruction);
-                Ok(Some(result_id))
+
+                match dests.len() {
+                    0 => Ok(None),
+                    1 => Ok(Some(dests[0])),
+                    _ => unreachable!(),
+                }
             }
 
             _ => {

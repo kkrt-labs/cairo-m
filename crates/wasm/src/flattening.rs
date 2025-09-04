@@ -7,8 +7,10 @@ use cairo_m_compiler_mir::{
 };
 use std::collections::HashMap;
 use thiserror::Error;
+use wasmparser::ValType;
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
+use womir::loader::Global;
 
 #[derive(Error, Debug)]
 pub enum DagToMirError {
@@ -51,6 +53,9 @@ pub enum DagToMirError {
 
 pub struct DagToMir {
     pub module: BlocklessDagModule,
+    pub global_adresses: HashMap<usize, u32>,
+    pub global_types: HashMap<usize, MirType>,
+    pub heap_start: u32,
 }
 
 /// Context for converting a single DAG to MIR
@@ -210,8 +215,53 @@ impl DagToMirContext {
 }
 
 impl DagToMir {
-    pub const fn new(module: BlocklessDagModule) -> Self {
-        Self { module }
+    pub fn new(module: BlocklessDagModule) -> Self {
+        let mut dag_to_mir = Self {
+            module,
+            global_adresses: HashMap::new(),
+            global_types: HashMap::new(),
+            heap_start: 0,
+        };
+        dag_to_mir.allocate_globals().unwrap();
+        dag_to_mir
+    }
+
+    pub fn allocate_globals(&mut self) -> Result<(), DagToMirError> {
+        let mut current_address = 1 << 30;
+        let mut error: Option<DagToMirError> = None;
+        self.module.with_program(|program| {
+            for (i, global) in program.c.globals.iter().enumerate() {
+                if let Global::Mutable(allocated_var) = global {
+                    let size = match allocated_var.val_type {
+                        ValType::I32 => 2,
+                        _ => {
+                            error = Some(DagToMirError::UnsupportedWasmType {
+                                wasm_type: allocated_var.val_type,
+                                function_name: "Global scope".to_string(),
+                                context: "global type".to_string(),
+                            });
+                            return;
+                        }
+                    };
+                    current_address -= size;
+                    self.global_adresses.insert(i, current_address);
+                    self.global_types.insert(
+                        i,
+                        Self::wasm_type_to_mir_type(
+                            &allocated_var.val_type,
+                            "Global scope",
+                            "global type",
+                        )
+                        .unwrap(),
+                    );
+                }
+            }
+        });
+        if let Some(e) = error {
+            return Err(e);
+        }
+        self.heap_start = current_address;
+        Ok(())
     }
 
     /// Convert WASM type to MIR type
@@ -223,7 +273,6 @@ impl DagToMir {
     ) -> Result<MirType, DagToMirError> {
         match wasm_type {
             wasmparser::ValType::I32 => Ok(MirType::U32),
-            wasmparser::ValType::I64 => Ok(MirType::Tuple(vec![MirType::U32, MirType::U32])),
             _ => Err(DagToMirError::UnsupportedWasmType {
                 wasm_type: *wasm_type,
                 function_name: function_name.to_string(),
