@@ -358,10 +358,12 @@ impl CodeGenerator {
                         let imm = if *b { 1 } else { 0 };
                         builder.assert_eq_fp_imm(ro, imm, format!("assert [fp + {ro}] == {}", imm));
                     }
-                    (Value::Literal(_), Value::Literal(_)) => {
-                        return Err(CodegenError::InvalidMir(
-                            "assert on literal == literal is not allowed".into(),
-                        ));
+                    (Value::Literal(left), Value::Literal(right)) => {
+                        if left != right {
+                            return Err(CodegenError::InvalidMir(
+                                "An assert expression was evaluated to false".into(),
+                            ));
+                        }
                     }
                     _ => {
                         unreachable!();
@@ -996,7 +998,7 @@ mod tests_asserts {
             .push_instruction(Instruction {
                 kind: InstructionKind::AssertEq {
                     left: Value::operand(a),
-                    right: Value::operand(b),
+                    right: Value::Literal(Literal::Integer(1)),
                 },
                 source_span: None,
                 source_expr_id: None,
@@ -1058,14 +1060,10 @@ mod tests_asserts {
             }
         }
 
+        assert_eq!(assert_fp_fp, 0);
         assert!(
-            assert_fp_fp >= 1,
-            "expected at least 1 AssertEqFpFp, got {}",
-            assert_fp_fp
-        );
-        assert!(
-            assert_fp_imm >= 1,
-            "expected at least 1 AssertEqFpImm, got {}",
+            assert_fp_imm == 2,
+            "expected 2 AssertEqFpImm, got {}",
             assert_fp_imm
         );
     }
