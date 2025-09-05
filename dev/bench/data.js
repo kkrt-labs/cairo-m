@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756984010051,
+  "lastUpdate": 1757067816411,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2233,6 +2233,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 343988283,
             "range": "± 1767848",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e5ff1be3d8e7d04ff4622369496c600f25188563",
+          "message": "feat(mir): implement constant propagation optimization pass (#303)\n\n* feat(mir): implement constant propagation optimization pass\n\nAdds a new constant propagation pass to the MIR optimization pipeline that:\n- Evaluates arithmetic operations on constant values at compile time\n- Propagates known constant values through the IR\n- Folds operations like 1 + 2 + 4 into 7\n\nThis significantly reduces the number of runtime operations needed for\nconstant expressions, improving both code size and execution performance.\n\nCloses https://linear.app/kkrt-labs/issue/CORE-1165\n* prevent deadcode pass from optimizing out array inserts",
+          "timestamp": "2025-09-05T12:18:01+02:00",
+          "tree_id": "6b76cf321c964c7a3936e9ee6b208aae6201a10f",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/e5ff1be3d8e7d04ff4622369496c600f25188563"
+        },
+        "date": 1757067815700,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 344205317,
+            "range": "± 1171634",
             "unit": "ns/iter"
           }
         ]
