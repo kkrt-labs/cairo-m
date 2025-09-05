@@ -63,7 +63,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Convert WASM to MIR
-    let mir_module = DagToMir::new(module).to_mir(PassManager::standard_pipeline())?;
+    let dag_to_mir = DagToMir::new(module)?;
+    let mir_module = dag_to_mir.to_mir(PassManager::standard_pipeline())?;
 
     if args.verbose {
         println!("Successfully converted to MIR");

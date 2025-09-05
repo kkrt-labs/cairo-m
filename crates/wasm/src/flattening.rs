@@ -12,8 +12,7 @@ use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, T
 use womir::loader::dag::ValueOrigin;
 use womir::loader::Global;
 
-// TODO : set vm value to public or put this in the commons crate?
-pub const VM_MEMORY_SIZE: u32 = 1 << 30;
+use cairo_m_runner::memory::MAX_ADDRESS;
 
 #[derive(Error, Debug)]
 pub enum DagToMirError {
@@ -104,10 +103,6 @@ impl DagToMirContext {
             loop_stack: Vec::new(),
             deferred_phi_operands: Vec::new(),
         }
-    }
-
-    pub const fn get_current_block_id(&self) -> BasicBlockId {
-        self.current_block_id.unwrap()
     }
 
     pub fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
@@ -218,21 +213,21 @@ impl DagToMirContext {
 }
 
 impl DagToMir {
-    pub fn new(module: BlocklessDagModule) -> Self {
+    pub fn new(module: BlocklessDagModule) -> Result<Self, DagToMirError> {
         let mut dag_to_mir = Self {
             module,
             global_addresses: HashMap::new(),
             global_types: HashMap::new(),
             heap_start: 0,
         };
-        dag_to_mir.allocate_globals().unwrap();
-        dag_to_mir
+        dag_to_mir.allocate_globals()?;
+        Ok(dag_to_mir)
     }
 
     /// Map each global to its address in memory and computes the address of the heap as
     /// heap_start = VM_MEMORY_SIZE - 1 - size of all globals
     pub fn allocate_globals(&mut self) -> Result<(), DagToMirError> {
-        let mut next_free_address = VM_MEMORY_SIZE - 1;
+        let mut next_free_address = MAX_ADDRESS as u32;
         let mut error: Option<DagToMirError> = None;
         self.module.with_program(|program| {
             for (i, global) in program.c.globals.iter().enumerate() {
@@ -249,20 +244,24 @@ impl DagToMir {
                         }
                     };
 
+                    let ty = match Self::wasm_type_to_mir_type(
+                        &allocated_var.val_type,
+                        "Global scope",
+                        "global type",
+                    ) {
+                        Ok(ty) => ty,
+                        Err(e) => {
+                            error = Some(e);
+                            return;
+                        }
+                    };
+
+                    self.global_types.insert(i, ty);
+
                     self.global_addresses
                         .insert(i, next_free_address - size + 1);
 
                     next_free_address -= size;
-
-                    self.global_types.insert(
-                        i,
-                        Self::wasm_type_to_mir_type(
-                            &allocated_var.val_type,
-                            "Global scope",
-                            "global type",
-                        )
-                        .unwrap(),
-                    );
                 }
             }
         });
