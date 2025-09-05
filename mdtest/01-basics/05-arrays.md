@@ -202,8 +202,6 @@ fn const_arr_access_const_value() -> u32 {
 When the index is not known at compile-time, the array will be fully
 materialized every time it's called.
 
-<!-- TODO: optimize this by pre-materializing the array -->
-
 ```cairo-m
 const POW2: [u32; 3] = [1, 2, 4];
 

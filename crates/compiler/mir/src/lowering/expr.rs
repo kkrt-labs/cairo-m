@@ -99,7 +99,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                         // Lower the constant's value expression
                         let const_expr =
                             Spanned::new(expr_info.ast_node.clone(), expr_info.ast_span);
-                        return self.lower_expression(&const_expr);
+                        // Lower under const context to mark aggregates as read-only
+                        let prev = self.state.in_const_context;
+                        self.state.in_const_context = true;
+                        let value = self.lower_expression(&const_expr);
+                        self.state.in_const_context = prev;
+                        return value;
                     }
                 }
                 return Err(format!(
@@ -404,7 +409,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => return Err("ArrayLiteral does not have array type".to_string()),
         };
 
-        // Create the array using MakeFixedArray instruction
+        // Create the array using MakeFixedArray instruction (const context respected in builder)
         let array_dest = self.make_fixed_array(element_values, element_mir_type);
 
         Ok(Value::operand(array_dest))
@@ -429,7 +434,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Build element values by repetition
         let elements: Vec<Value> = std::iter::repeat_n(elem_value, count).collect();
 
-        // Create the array using MakeFixedArray instruction
+        // Create the array using MakeFixedArray instruction (const context respected)
         let array_dest = self.make_fixed_array(elements, element_mir_type);
 
         Ok(Value::operand(array_dest))
