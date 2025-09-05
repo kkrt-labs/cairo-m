@@ -337,10 +337,12 @@ pub enum InstructionKind {
 
     /// Create a fixed-size array from values: `dest = make_fixed_array([v0, v1, ...])`
     /// Arrays are value-based aggregates in MIR but materialize to memory when necessary
+    /// `is_const` marks arrays originating from semantic `const` contexts and guarantees read-only
     MakeFixedArray {
         dest: ValueId,
         elements: Vec<Value>,
         element_ty: MirType,
+        is_const: bool,
     },
 
     /// Index into a fixed-size array: `dest = arrayindex array, index`
@@ -581,7 +583,7 @@ impl Instruction {
         }
     }
 
-    /// Creates a new make fixed array instruction
+    /// Creates a new make fixed array instruction (non-const)
     pub const fn make_fixed_array(
         dest: ValueId,
         elements: Vec<Value>,
@@ -592,6 +594,26 @@ impl Instruction {
                 dest,
                 elements,
                 element_ty,
+                is_const: false,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new const make fixed array instruction
+    pub const fn make_const_fixed_array(
+        dest: ValueId,
+        elements: Vec<Value>,
+        element_ty: MirType,
+    ) -> Self {
+        Self {
+            kind: InstructionKind::MakeFixedArray {
+                dest,
+                elements,
+                element_ty,
+                is_const: true,
             },
             source_span: None,
             source_expr_id: None,
@@ -1221,11 +1243,7 @@ impl PrettyPrint for Instruction {
                 ));
             }
 
-            InstructionKind::MakeFixedArray {
-                dest,
-                elements,
-                element_ty: _, // Type info not shown for cleaner output
-            } => {
+            InstructionKind::MakeFixedArray { dest, elements, .. } => {
                 let elements_str = elements
                     .iter()
                     .map(|elem| elem.pretty_print(0))

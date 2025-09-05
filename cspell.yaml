@@ -18,6 +18,7 @@ words:
   - callees
   - callsite
   - casm
+  - cblock
   - chrono
   - chumsky
   - clippy
@@ -91,6 +92,7 @@ words:
   - println
   - proptest
   - ranlib
+  - rodata
   - roff
   - repr
   - resx
@@ -139,6 +141,7 @@ words:
   - typechecks
   - upcasting
   - usize
+  - unioning
   - unsuffixed
   - vulns
   - walkdir

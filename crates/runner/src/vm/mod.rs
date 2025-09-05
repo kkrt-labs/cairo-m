@@ -7,7 +7,7 @@ use std::path::Path;
 
 use cairo_m_common::execution::Segment;
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::{Instruction, Program, State};
+use cairo_m_common::{Instruction, Program, ProgramData, State};
 use instructions::instruction_to_fn;
 use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
@@ -47,7 +47,7 @@ pub enum VmError {
 /// - `initial_memory`: the memory right before the first step.
 /// - `memory`: Flat address space storing instructions and data
 /// - `state`: Current processor state (PC, FP)
-/// - `program_length`: Length of the program in instructions
+/// - `program_length`: Length of linearized program data (instructions + rodata)
 /// - `trace`: Execution trace
 /// - `segments`: chunks of execution containing necessary data for continuation.
 #[derive(Debug, Default, Clone)]
@@ -82,10 +82,15 @@ impl TryFrom<&Program> for VM {
     ///
     /// Returns a [`VmError::Memory`] if memory insertion fails.
     fn try_from(program: &Program) -> Result<Self, Self::Error> {
-        // Flatten variable-sized instructions into memory words
+        // Flatten program data (instructions + rodata) into memory words
         let mut memory_words = Vec::new();
-        for instruction in &program.instructions {
-            memory_words.extend(instruction.to_qm31_vec());
+        for item in &program.data {
+            match item {
+                ProgramData::Instruction(instruction) => {
+                    memory_words.extend(instruction.to_qm31_vec());
+                }
+                ProgramData::Value(q) => memory_words.push(*q),
+            }
         }
 
         // Create memory and load instructions starting at address 0
@@ -93,7 +98,7 @@ impl TryFrom<&Program> for VM {
         let final_pc = program_length;
         let memory = Memory::from_iter(memory_words);
 
-        // Create state with PC at entrypoint and FP just after the bytecode
+        // Create state with PC at entrypoint and FP just after the loaded data
         let state = State {
             pc: M31::zero(),
             fp: final_pc,

@@ -6,6 +6,7 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::Instruction;
+use stwo_prover::core::fields::qm31::QM31;
 
 /// ABI-visible Cairo-M type description for parameters and return values
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,12 +136,29 @@ pub struct ProgramMetadata {
     pub extra: HashMap<String, serde_json::Value>,
 }
 
-/// A compiled Cairo-M program with instructions and metadata
+/// Either an decoded instruction or a raw QM31 value
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value")]
+pub enum ProgramData {
+    Instruction(Instruction),
+    Value(QM31),
+}
+
+impl ProgramData {
+    pub fn to_qm31_vec(&self) -> Vec<QM31> {
+        match self {
+            Self::Instruction(instruction) => instruction.to_qm31_vec(),
+            Self::Value(q) => vec![*q],
+        }
+    }
+}
+
+/// A compiled Cairo-M program with linear data (instructions + rodata) and metadata
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Program {
-    /// The program instructions
-    pub instructions: Vec<Instruction>,
+    /// Linear program data: instructions followed by rodata values
+    pub data: Vec<ProgramData>,
     /// Entrypoint names mapped to their information
     pub entrypoints: HashMap<String, EntrypointInfo>,
     /// Program metadata
@@ -299,8 +317,12 @@ impl<'de> Deserialize<'de> for AbiType {
 
 impl From<Vec<Instruction>> for Program {
     fn from(instructions: Vec<Instruction>) -> Self {
+        let data = instructions
+            .into_iter()
+            .map(ProgramData::Instruction)
+            .collect();
         Self {
-            instructions,
+            data,
             entrypoints: HashMap::new(),
             metadata: ProgramMetadata::default(),
         }
@@ -310,12 +332,12 @@ impl From<Vec<Instruction>> for Program {
 impl Program {
     /// Create a new program
     pub const fn new(
-        instructions: Vec<Instruction>,
+        data: Vec<ProgramData>,
         entrypoints: HashMap<String, EntrypointInfo>,
         metadata: ProgramMetadata,
     ) -> Self {
         Self {
-            instructions,
+            data,
             entrypoints,
             metadata,
         }
@@ -326,13 +348,13 @@ impl Program {
         self.entrypoints.get(name)
     }
 
-    /// Get the total number of instructions
+    /// Get the total number of data entries
     pub const fn len(&self) -> usize {
-        self.instructions.len()
+        self.data.len()
     }
 
     /// Check if the program is empty
     pub const fn is_empty(&self) -> bool {
-        self.instructions.is_empty()
+        self.data.is_empty()
     }
 }

@@ -26,14 +26,19 @@ test_main_0:
 const_arr_access_const_value:
 const_arr_access_const_value:
 const_arr_access_const_value_0:
-   5: 23 1 0 3             // [fp + 3], [fp + 4] = u32(1)
-   6: 23 2 0 5             // [fp + 5], [fp + 6] = u32(2)
-   7: 23 4 0 7             // [fp + 7], [fp + 8] = u32(4)
-   8: 43 3 0 _             // [fp + 0] = fp + 3
-   9: 6 2147483642 2 9     // [fp + 9] = [fp + -5] * 2 - Scale index by element size
-  10: 42 0 9 1             // [fp + 1] = [[fp + 0] + [fp + 9]]
-  11: 4 9 1 10             // [fp + 10] = [fp + 9] + 1 (offset for slot 1)
-  12: 42 0 10 2            // [fp + 2] = [[fp + 0] + [fp + 10]] (slot 1)
-  13: 4 1 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 1] + 0
-  14: 4 2 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 2] + 0
-  15: 11 _ _ _             // return
+   5: 9 13 0 _             // [fp + 0] = <RODATA_0>
+   6: 6 2147483642 2 3     // [fp + 3] = [fp + -5] * 2 - Scale index by element size
+   7: 42 0 3 1             // [fp + 1] = [[fp + 0] + [fp + 3]]
+   8: 4 3 1 4              // [fp + 4] = [fp + 3] + 1 (offset for slot 1)
+   9: 42 0 4 2             // [fp + 2] = [[fp + 0] + [fp + 4]] (slot 1)
+  10: 4 1 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 1] + 0
+  11: 4 2 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 2] + 0
+  12: 11 _ _ _             // return
+---- rodata (base 13) ----
+; blob 0 (6 words)
+  13: 1 0 0 0
+  14: 0 0 0 0
+  15: 2 0 0 0
+  16: 0 0 0 0
+  17: 4 0 0 0
+  18: 0 0 0 0
