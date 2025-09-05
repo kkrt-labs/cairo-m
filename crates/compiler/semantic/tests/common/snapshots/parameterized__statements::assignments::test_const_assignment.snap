@@ -29,3 +29,123 @@ fn test() { const x = 42; x = 100; return; }
    │                                           ──┬──  
    │                                             ╰──── Array element at index 2 has type `felt`, but expected `u32` to match first element
 ───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+const POW2: [u32; 5] = [1u32, 2, 4, 8, 16]; fn test() { POW2[0] = 10u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to element of const variable `POW2`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:57 ]
+   │
+ 1 │ const POW2: [u32; 5] = [1u32, 2, 4, 8, 16]; fn test() { POW2[0] = 10u32; return; }
+   │       ──┬─                                              ───┬──  
+   │         ╰─────────────────────────────────────────────────────── const variable defined here
+   │                                                            │    
+   │                                                            ╰──── cannot assign to element of const variable `POW2`
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+struct Point { x: felt, y: felt } const P: Point = Point { x: 1, y: 2 }; fn test() { P.x = 3; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to field of const variable `P`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:86 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } const P: Point = Point { x: 1, y: 2 }; fn test() { P.x = 3; return; }
+   │                                         ┬                                            ─┬─  
+   │                                         ╰───────────────────────────────────────────────── const variable defined here
+   │                                                                                       │   
+   │                                                                                       ╰─── cannot assign to field of const variable `P`
+───╯
+
+============================================================
+
+--- Input 5 (ERROR) ---
+const T = (1u32, 2u32); fn test() { T.0 = 3u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to element of const variable `T`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:37 ]
+   │
+ 1 │ const T = (1u32, 2u32); fn test() { T.0 = 3u32; return; }
+   │       ┬                             ─┬─  
+   │       ╰────────────────────────────────── const variable defined here
+   │                                      │   
+   │                                      ╰─── cannot assign to element of const variable `T`
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
+struct Point { x: u32, y: u32 } const ARR: [Point; 2] = [Point { x: 1u32, y: 2u32 }, Point { x: 3u32, y: 4u32 }]; fn test() { ARR[0].x = 7u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to field of const variable `ARR`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:127 ]
+   │
+ 1 │ struct Point { x: u32, y: u32 } const ARR: [Point; 2] = [Point { x: 1u32, y: 2u32 }, Point { x: 3u32, y: 4u32 }]; fn test() { ARR[0].x = 7u32; return; }
+   │                                       ─┬─                                                                                     ────┬───  
+   │                                        ╰──────────────────────────────────────────────────────────────────────────────────────────────── const variable defined here
+   │                                                                                                                                   │     
+   │                                                                                                                                   ╰───── cannot assign to field of const variable `ARR`
+───╯
+
+============================================================
+
+--- Input 7 (ERROR) ---
+const POW2A: [u32; 2] = [1u32, 2u32]; fn test() { (POW2A)[1] = 1u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to element of const variable `POW2A`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:51 ]
+   │
+ 1 │ const POW2A: [u32; 2] = [1u32, 2u32]; fn test() { (POW2A)[1] = 1u32; return; }
+   │       ──┬──                                       ────┬────  
+   │         ╰──────────────────────────────────────────────────── const variable defined here
+   │                                                       │      
+   │                                                       ╰────── cannot assign to element of const variable `POW2A`
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+const TA: ([u32; 3], u32) = ([1u32, 2u32, 3u32], 0u32); fn test() { TA.0[1] = 5u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to element of const variable `TA`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:69 ]
+   │
+ 1 │ const TA: ([u32; 3], u32) = ([1u32, 2u32, 3u32], 0u32); fn test() { TA.0[1] = 5u32; return; }
+   │       ─┬                                                            ───┬──  
+   │        ╰──────────────────────────────────────────────────────────────────── const variable defined here
+   │                                                                        │    
+   │                                                                        ╰──── cannot assign to element of const variable `TA`
+───╯
+
+============================================================
+
+--- Input 9 (ERROR) ---
+struct Point { x: felt, y: felt } const P2: Point = Point { x: 1, y: 2 }; fn test() { (P2).x = 2; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to field of const variable `P2`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:87 ]
+   │
+ 1 │ struct Point { x: felt, y: felt } const P2: Point = Point { x: 1, y: 2 }; fn test() { (P2).x = 2; return; }
+   │                                         ─┬                                            ───┬──  
+   │                                          ╰──────────────────────────────────────────────────── const variable defined here
+   │                                                                                          │    
+   │                                                                                          ╰──── cannot assign to field of const variable `P2`
+───╯
+
+============================================================
+
+--- Input 10 (ERROR) ---
+struct Point { x: u32, y: u32 } const TP: (Point, u32) = (Point { x: 1u32, y: 2u32 }, 5u32); fn test() { TP.0.x = 2u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to field of const variable `TP`
+   ╭─[ semantic_tests::statements::assignments::test_const_assignment:1:106 ]
+   │
+ 1 │ struct Point { x: u32, y: u32 } const TP: (Point, u32) = (Point { x: 1u32, y: 2u32 }, 5u32); fn test() { TP.0.x = 2u32; return; }
+   │                                       ─┬                                                                 ───┬──  
+   │                                        ╰───────────────────────────────────────────────────────────────────────── const variable defined here
+   │                                                                                                             │    
+   │                                                                                                             ╰──── cannot assign to field of const variable `TP`
+───╯
