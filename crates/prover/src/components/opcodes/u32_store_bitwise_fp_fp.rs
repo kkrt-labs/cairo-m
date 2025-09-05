@@ -46,17 +46,17 @@
 //!   * `- [pc, inst_prev_clk, opcode_constant, src0_off, src1_off, dst_off] + [pc, clk, opcode_constant, src0_off, src1_off, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
-//!   * `- [fp + src0_off, op0_prev_clock_lo_clk, op0_val_0 + op0_val_1 * 2 ** 8] + [fp + src0_off, clk, op0_val_0 + op0_val_1 * 2 ** 8]`
-//!   * `- [fp + src0_off + 1, op0_prev_clock_hi_clk, op0_val_2 + op0_val_3 * 2 ** 8] + [fp + src0_off + 1, clk, op0_val_2 + op0_val_3 * 2 ** 8]`
-//!   * `- [clk - op0_prev_clock_lo_clk - 1]` and `- [clk - op0_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src0_off, op0_prev_clock_lo, op0_val_0 + op0_val_1 * 2 ** 8] + [fp + src0_off, clk, op0_val_0 + op0_val_1 * 2 ** 8]`
+//!   * `- [fp + src0_off + 1, op0_prev_clock_hi, op0_val_2 + op0_val_3 * 2 ** 8] + [fp + src0_off + 1, clk, op0_val_2 + op0_val_3 * 2 ** 8]`
+//!   * `- [clk - op0_prev_clock_lo - 1]` and `- [clk - op0_prev_clock_hi - 1]` in `RangeCheck20` relation
 //! * read op1
-//!   * `- [fp + src1_off, op1_prev_clock_lo_clk, op1_val_0 + op1_val_1 * 2 ** 8] + [fp + src1_off, clk, op1_val_0 + op1_val_1 * 2 ** 8]`
-//!   * `- [fp + src1_off + 1, op1_prev_clock_hi_clk, op1_val_2 + op1_val_3 * 2 ** 8] + [fp + src1_off + 1, clk, op1_val_2 + op1_val_3 * 2 ** 8]`
-//!   * `- [clk - op1_prev_clock_lo_clk - 1]` and `- [clk - op1_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + src1_off, op1_prev_clock_lo, op1_val_0 + op1_val_1 * 2 ** 8] + [fp + src1_off, clk, op1_val_0 + op1_val_1 * 2 ** 8]`
+//!   * `- [fp + src1_off + 1, op1_prev_clock_hi, op1_val_2 + op1_val_3 * 2 ** 8] + [fp + src1_off + 1, clk, op1_val_2 + op1_val_3 * 2 ** 8]`
+//!   * `- [clk - op1_prev_clock_lo - 1]` and `- [clk - op1_prev_clock_hi - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clock_lo_clk, dst_prev_val_lo] + [fp + dst_off, clk, res_0 + res_1 * 2 ** 8]` in `Memory` relation
-//!   * `- [fp + dst_off + 1, dst_prev_clock_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, res_2 + res_3 * 2 ** 8]` in `Memory` relation
-//!   * `- [clk - dst_prev_clock_lo_clk - 1]` and `- [clk - dst_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
+//!   * `- [fp + dst_off, dst_prev_clock_lo, dst_prev_val_lo] + [fp + dst_off, clk, res_0 + res_1 * 2 ** 8]` in `Memory` relation
+//!   * `- [fp + dst_off + 1, dst_prev_clock_hi, dst_prev_val_hi] + [fp + dst_off + 1, clk, res_2 + res_3 * 2 ** 8]` in `Memory` relation
+//!   * `- [clk - dst_prev_clock_lo - 1]` and `- [clk - dst_prev_clock_hi - 1]` in `RangeCheck20` relation
 //! * check the validity of the bitwise operation
 //!   * `- [bitwise_op, op0_val_0, op1_val_0, res_0]` in Bitwise relation
 //!   * `- [bitwise_op, op0_val_1, op1_val_1, res_1]` in Bitwise relation
