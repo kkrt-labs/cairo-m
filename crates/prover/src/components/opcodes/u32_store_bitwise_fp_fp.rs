@@ -26,10 +26,10 @@
 //! - op1_prev_clock_hi
 //! - dst_prev_val_lo
 //! - dst_prev_val_hi
-//! - res_0
-//! - res_1
-//! - res_2
-//! - res_3
+//! - dst_val_0
+//! - dst_val_1
+//! - dst_val_2
+//! - dst_val_3
 //! - dst_prev_clock_lo
 //! - dst_prev_clock_hi
 //!
@@ -52,17 +52,17 @@
 //!   * `- [fp + src1_off + 1, op1_prev_clock_hi, op1_val_2 + op1_val_3 * 2 ** 8] + [fp + src1_off + 1, clk, op1_val_2 + op1_val_3 * 2 ** 8]`
 //!   * `- [clk - op1_prev_clock_lo - 1]` and `- [clk - op1_prev_clock_hi - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clock_lo, dst_prev_val_lo] + [fp + dst_off, clk, res_0 + res_1 * 2 ** 8]` in `Memory` relation
-//!   * `- [fp + dst_off + 1, dst_prev_clock_hi, dst_prev_val_hi] + [fp + dst_off + 1, clk, res_2 + res_3 * 2 ** 8]` in `Memory` relation
+//!   * `- [fp + dst_off, dst_prev_clock_lo, dst_prev_val_lo] + [fp + dst_off, clk, dst_val_0 + dst_val_1 * 2 ** 8]` in `Memory` relation
+//!   * `- [fp + dst_off + 1, dst_prev_clock_hi, dst_prev_val_hi] + [fp + dst_off + 1, clk, dst_val_2 + dst_val_3 * 2 ** 8]` in `Memory` relation
 //!   * `- [clk - dst_prev_clock_lo - 1]` and `- [clk - dst_prev_clock_hi - 1]` in `RangeCheck20` relation
 //! * check the validity of the bitwise operation
-//!   * `- [bitwise_op, op0_val_0, op1_val_0, res_0]` in Bitwise relation
-//!   * `- [bitwise_op, op0_val_1, op1_val_1, res_1]` in Bitwise relation
-//!   * `- [bitwise_op, op0_val_2, op1_val_2, res_2]` in Bitwise relation
-//!   * `- [bitwise_op, op0_val_3, op1_val_3, res_3]` in Bitwise relation
+//!   * `- [bitwise_op, op0_val_0, op1_val_0, dst_val_0]` in Bitwise relation
+//!   * `- [bitwise_op, op0_val_1, op1_val_1, dst_val_1]` in Bitwise relation
+//!   * `- [bitwise_op, op0_val_2, op1_val_2, dst_val_2]` in Bitwise relation
+//!   * `- [bitwise_op, op0_val_3, op1_val_3, dst_val_3]` in Bitwise relation
 //! * no need to 8-bit range_check since the bitwise lookup does it
 
-use cairo_m_common::instruction::{U32_STORE_AND_FP_FP, U32_STORE_OR_FP_FP, U32_STORE_XOR_FP_FP};
+use cairo_m_common::instruction::U32_STORE_AND_FP_FP;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -219,6 +219,8 @@ impl Claim {
                 let op1_prev_clock_hi = get_prev_clock(input, data_accesses, 3);
 
                 // Write dst
+                let dst_val_lo = get_value(input, data_accesses, 4);
+                let dst_val_hi = get_value(input, data_accesses, 5);
                 let dst_prev_val_lo = get_prev_value(input, data_accesses, 4);
                 let dst_prev_val_hi = get_prev_value(input, data_accesses, 5);
                 let dst_prev_clock_lo = get_prev_clock(input, data_accesses, 4);
@@ -235,17 +237,14 @@ impl Claim {
                 let (op0_val_2, op0_val_3) = decompose_8(op0_val_hi);
                 let (op1_val_0, op1_val_1) = decompose_8(op1_val_lo);
                 let (op1_val_2, op1_val_3) = decompose_8(op1_val_hi);
+                let (dst_val_0, dst_val_1) = decompose_8(dst_val_lo);
+                let (dst_val_2, dst_val_3) = decompose_8(dst_val_hi);
 
                 // Compute the result based on the operation
                 let bitwise_op = opcode_constant - PackedM31::from(M31::from(U32_STORE_AND_FP_FP));
 
-                let res_0 = compute_bitwise_result(opcode_constant, op0_val_0, op1_val_0);
-                let res_1 = compute_bitwise_result(opcode_constant, op0_val_1, op1_val_1);
-                let res_2 = compute_bitwise_result(opcode_constant, op0_val_2, op1_val_2);
-                let res_3 = compute_bitwise_result(opcode_constant, op0_val_3, op1_val_3);
-
-                let res_lo = res_0 + res_1 * two_pow_8;
-                let res_hi = res_2 + res_3 * two_pow_8;
+                let res_lo = dst_val_0 + dst_val_1 * two_pow_8;
+                let res_hi = dst_val_2 + dst_val_3 * two_pow_8;
 
                 // Write trace columns
                 *row[0] = enabler;
@@ -271,10 +270,10 @@ impl Claim {
                 *row[20] = op1_prev_clock_hi;
                 *row[21] = dst_prev_val_lo;
                 *row[22] = dst_prev_val_hi;
-                *row[23] = res_0;
-                *row[24] = res_1;
-                *row[25] = res_2;
-                *row[26] = res_3;
+                *row[23] = dst_val_0;
+                *row[24] = dst_val_1;
+                *row[25] = dst_val_2;
+                *row[26] = dst_val_3;
                 *row[27] = dst_prev_clock_lo;
                 *row[28] = dst_prev_clock_hi;
 
@@ -361,10 +360,10 @@ impl Claim {
                 *lookup_data.memory[13] = [fp + dst_off + one, clock, res_hi, zero, zero, zero];
 
                 // Bitwise lookups - only store operation_id and inputs, result is verified by lookup
-                *lookup_data.bitwise[0] = [bitwise_op, op0_val_0, op1_val_0, res_0];
-                *lookup_data.bitwise[1] = [bitwise_op, op0_val_1, op1_val_1, res_1];
-                *lookup_data.bitwise[2] = [bitwise_op, op0_val_2, op1_val_2, res_2];
-                *lookup_data.bitwise[3] = [bitwise_op, op0_val_3, op1_val_3, res_3];
+                *lookup_data.bitwise[0] = [bitwise_op, op0_val_0, op1_val_0, dst_val_0];
+                *lookup_data.bitwise[1] = [bitwise_op, op0_val_1, op1_val_1, dst_val_1];
+                *lookup_data.bitwise[2] = [bitwise_op, op0_val_2, op1_val_2, dst_val_2];
+                *lookup_data.bitwise[3] = [bitwise_op, op0_val_3, op1_val_3, dst_val_3];
 
                 // Range checks
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
@@ -385,43 +384,6 @@ impl Claim {
             },
         )
     }
-}
-
-fn compute_bitwise_result(opcode: PackedM31, a: PackedM31, b: PackedM31) -> PackedM31 {
-    // This is just for computing the trace values
-    // The actual verification happens in the bitwise relation
-    let and_result = a
-        .to_array()
-        .iter()
-        .zip(b.to_array().iter())
-        .map(|(a, b)| M31::from(a.0 & b.0))
-        .collect::<Vec<_>>();
-    let or_result = a
-        .to_array()
-        .iter()
-        .zip(b.to_array().iter())
-        .map(|(a, b)| M31::from(a.0 | b.0))
-        .collect::<Vec<_>>();
-    let xor_result = a
-        .to_array()
-        .iter()
-        .zip(b.to_array().iter())
-        .map(|(a, b)| M31::from(a.0 ^ b.0))
-        .collect::<Vec<_>>();
-
-    // Select based on opcode
-    let mut result = [M31::zero(); N_LANES];
-    for i in 0..N_LANES {
-        let op = opcode.to_array()[i].0;
-        result[i] = match op {
-            U32_STORE_AND_FP_FP => and_result[i], // AND
-            U32_STORE_OR_FP_FP => or_result[i],   // OR
-            U32_STORE_XOR_FP_FP => xor_result[i], // XOR
-            _ => M31::zero(),
-        };
-    }
-
-    PackedM31::from_array(result)
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -597,10 +559,10 @@ impl FrameworkEval for Eval {
         let op1_prev_clock_hi = eval.next_trace_mask();
         let dst_prev_val_lo = eval.next_trace_mask();
         let dst_prev_val_hi = eval.next_trace_mask();
-        let res_0 = eval.next_trace_mask();
-        let res_1 = eval.next_trace_mask();
-        let res_2 = eval.next_trace_mask();
-        let res_3 = eval.next_trace_mask();
+        let dst_val_0 = eval.next_trace_mask();
+        let dst_val_1 = eval.next_trace_mask();
+        let dst_val_2 = eval.next_trace_mask();
+        let dst_val_3 = eval.next_trace_mask();
         let dst_prev_clock_lo = eval.next_trace_mask();
         let dst_prev_clock_hi = eval.next_trace_mask();
 
@@ -616,8 +578,8 @@ impl FrameworkEval for Eval {
         let op0_val_hi = op0_val_2.clone() + op0_val_3.clone() * two_pow_8.clone();
         let op1_val_lo = op1_val_0.clone() + op1_val_1.clone() * two_pow_8.clone();
         let op1_val_hi = op1_val_2.clone() + op1_val_3.clone() * two_pow_8.clone();
-        let res_lo = res_0.clone() + res_1.clone() * two_pow_8.clone();
-        let res_hi = res_2.clone() + res_3.clone() * two_pow_8;
+        let res_lo = dst_val_0.clone() + dst_val_1.clone() * two_pow_8.clone();
+        let res_hi = dst_val_2.clone() + dst_val_3.clone() * two_pow_8;
 
         // Register lookups
         eval.add_to_relation(RelationEntry::new(
@@ -759,22 +721,22 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.bitwise,
             -E::EF::one(),
-            &[bitwise_op.clone(), op0_val_0, op1_val_0, res_0],
+            &[bitwise_op.clone(), op0_val_0, op1_val_0, dst_val_0],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.bitwise,
             -E::EF::one(),
-            &[bitwise_op.clone(), op0_val_1, op1_val_1, res_1],
+            &[bitwise_op.clone(), op0_val_1, op1_val_1, dst_val_1],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.bitwise,
             -E::EF::one(),
-            &[bitwise_op.clone(), op0_val_2, op1_val_2, res_2],
+            &[bitwise_op.clone(), op0_val_2, op1_val_2, dst_val_2],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.bitwise,
             -E::EF::one(),
-            &[bitwise_op, op0_val_3, op1_val_3, res_3],
+            &[bitwise_op, op0_val_3, op1_val_3, dst_val_3],
         ));
 
         // Range checks
