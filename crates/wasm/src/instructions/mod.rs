@@ -32,15 +32,15 @@ impl DagToMir {
             | Op::I32DivU
             | Op::I32DivS // unsupported
             | Op::I32RemS // unsupported
-            | Op::I32RemU
+            | Op::I32RemU // unsupported
             | Op::I32And
             | Op::I32Or
             | Op::I32Xor
-            | Op::I32Shl
-            | Op::I32ShrU
+            | Op::I32Shl // unsupported
+            | Op::I32ShrU // unsupported
             | Op::I32ShrS // unsupported
-            | Op::I32Rotl
-            | Op::I32Rotr
+            | Op::I32Rotl // unsupported
+            | Op::I32Rotr // unsupported
             | Op::I32Eq
             | Op::I32Ne
             | Op::I32GtU

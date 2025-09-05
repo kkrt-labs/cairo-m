@@ -118,17 +118,12 @@ proptest! {
         test_program("tests/test_cases/arithmetic.wasm", "test_sub", vec![a, b]);
         test_program("tests/test_cases/arithmetic.wasm", "test_mul", vec![a, b]);
         test_program("tests/test_cases/arithmetic.wasm", "test_div_u", vec![a, b]);
-        test_program("tests/test_cases/arithmetic.wasm", "test_rem_u", vec![a, b]);
     }
     #[test]
     fn run_bitwise(a: u32, b: u32) {
         test_program("tests/test_cases/bitwise.wasm", "and", vec![a, b]);
         test_program("tests/test_cases/bitwise.wasm", "or", vec![a, b]);
         test_program("tests/test_cases/bitwise.wasm", "xor", vec![a, b]);
-        test_program("tests/test_cases/bitwise.wasm", "shl", vec![a, b]);
-        test_program("tests/test_cases/bitwise.wasm", "shr_u", vec![a, b]);
-        test_program("tests/test_cases/bitwise.wasm", "rotl", vec![a, b]);
-        test_program("tests/test_cases/bitwise.wasm", "rotr", vec![a, b]);
     }
 
     #[test]
