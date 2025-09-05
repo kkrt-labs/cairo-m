@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756995473046,
+  "lastUpdate": 1757061937757,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1652,6 +1652,35 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2377668849,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "87b854ed16c711a248878632f73b1a670bc9aa35",
+          "message": "feat(prover): add bitwise preprocessed column (#298)\n\n* feat: add bitwise macro\n\n* feat: add col_index to bitwise traces\n\n* stack bitwise operators in the preprocessed trace\n\n* change API to pick word sizes\n\n* clippy warnings\n\n* use preprocessed trace in bitwise\n\n* review",
+          "timestamp": "2025-09-05T10:28:17+02:00",
+          "tree_id": "f3fd417436606422173bf944daa9db3854b171a3",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/87b854ed16c711a248878632f73b1a670bc9aa35"
+        },
+        "date": 1757061937696,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2411237652,
             "unit": "bytes"
           }
         ]
