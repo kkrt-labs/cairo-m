@@ -63,6 +63,64 @@ fn test_const_assignment() {
             r#"
             const POW2: [u32; 3] = [1, 2, 4felt];
             "#,
+            format!(
+                "const POW2: [u32; 5] = [1u32, 2, 4, 8, 16]; {}",
+                in_function("POW2[0] = 10u32;")
+            ),
+            // Field assignment on const struct
+            format!(
+                "struct Point {{ x: felt, y: felt }} const P: Point = Point {{ x: 1, y: 2 }}; {}",
+                in_function("P.x = 3;")
+            ),
+            // Tuple element assignment on const tuple
+            format!(
+                "const T = (1u32, 2u32); {}",
+                in_function("T.0 = 3u32;")
+            ),
+            // Nested: array of structs, assign field of element
+            format!(
+                "struct Point {{ x: u32, y: u32 }} const ARR: [Point; 2] = [Point {{ x: 1u32, y: 2u32 }}, Point {{ x: 3u32, y: 4u32 }}]; {}",
+                in_function("ARR[0].x = 7u32;")
+            ),
+            // Parenthesized const root
+            format!(
+                "const POW2A: [u32; 2] = [1u32, 2u32]; {}",
+                in_function("(POW2A)[1] = 1u32;")
+            ),
+            // Tuple containing array: assign into array element through tuple index
+            format!(
+                "const TA: ([u32; 3], u32) = ([1u32, 2u32, 3u32], 0u32); {}",
+                in_function("TA.0[1] = 5u32;")
+            ),
+            // Parenthesized const struct root
+            format!(
+                "struct Point {{ x: felt, y: felt }} const P2: Point = Point {{ x: 1, y: 2 }}; {}",
+                in_function("(P2).x = 2;")
+            ),
+            // Tuple of struct: assign field via tuple index
+            format!(
+                "struct Point {{ x: u32, y: u32 }} const TP: (Point, u32) = (Point {{ x: 1u32, y: 2u32 }}, 5u32); {}",
+                in_function("TP.0.x = 2u32;")
+            ),
+
+            // Cross-module const: import and mutate should be rejected
+            // constants.cm defines a const array; main imports and tries to assign
+            crate::multi_file(
+                "main.cm",
+                &[
+                    (
+                        "constants.cm",
+                        "const ARR: [u32; 3] = [1u32, 2u32, 3u32];",
+                    ),
+                    (
+                        "main.cm",
+                        &format!(
+                            "use constants::ARR; {}",
+                            in_function("ARR[0] = 9u32;")
+                        ),
+                    ),
+                ],
+            ),
         ]
     }
 }

@@ -1536,6 +1536,102 @@ impl TypeValidator {
         // Pass LHS type as context for RHS to support literal type inference
         let rhs_type = expression_semantic_type(db, crate_id, file, rhs_expr_id, Some(lhs_type));
 
+        // Helper: detect if an lvalue ultimately refers to a const definition
+        fn lvalue_resolves_to_const(
+            db: &dyn SemanticDb,
+            crate_id: Crate,
+            file: File,
+            index: &SemanticIndex,
+            expr: &Spanned<Expression>,
+        ) -> Option<(String, crate::Definition)> {
+            match expr.value() {
+                Expression::Identifier(name) => {
+                    if let Some(id) = index.expression_id_by_span(name.span()) {
+                        if let Some((_def_idx, def)) = index.definition_for_identifier_expr(id) {
+                            match &def.kind {
+                                crate::definition::DefinitionKind::Const(_) => {
+                                    return Some((name.value().clone(), def.clone()));
+                                }
+                                crate::definition::DefinitionKind::Use(_use_ref) => {
+                                    // Try cross-module resolution to find the imported item's real definition
+                                    let scope_id = index
+                                        .expression(id)
+                                        .expect("No expression info found")
+                                        .scope_id;
+                                    if let Some((_imp_idx, imported_def, _imp_file)) = index
+                                        .resolve_name_with_imports_at_position(
+                                            db,
+                                            crate_id,
+                                            file,
+                                            name.value(),
+                                            scope_id,
+                                            name.span(),
+                                        )
+                                    {
+                                        if matches!(
+                                            imported_def.kind,
+                                            crate::definition::DefinitionKind::Const(_)
+                                        ) {
+                                            return Some((name.value().clone(), imported_def));
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        } else {
+                            // Fallback: attempt positional resolution (handles some edge cases)
+                            let scope_id = index
+                                .expression(id)
+                                .expect("No expression info found")
+                                .scope_id;
+                            if let Some((_def_idx, def)) =
+                                index.resolve_name_at_position(name.value(), scope_id, name.span())
+                            {
+                                if matches!(def.kind, crate::definition::DefinitionKind::Const(_)) {
+                                    return Some((name.value().clone(), def.clone()));
+                                }
+                            }
+                            // Try cross-module resolution via imports
+                            if let Some((_def_idx, imported_def, _imported_file)) = index
+                                .resolve_name_with_imports_at_position(
+                                    db,
+                                    crate_id,
+                                    file,
+                                    name.value(),
+                                    scope_id,
+                                    name.span(),
+                                )
+                            {
+                                if matches!(
+                                    imported_def.kind,
+                                    crate::definition::DefinitionKind::Const(_)
+                                ) {
+                                    return Some((name.value().clone(), imported_def));
+                                }
+                            }
+                        }
+                    }
+                    None
+                }
+                Expression::MemberAccess { object, .. } => {
+                    lvalue_resolves_to_const(db, crate_id, file, index, object)
+                }
+                Expression::TupleIndex { tuple, .. } => {
+                    lvalue_resolves_to_const(db, crate_id, file, index, tuple)
+                }
+                Expression::IndexAccess { array, .. } => {
+                    lvalue_resolves_to_const(db, crate_id, file, index, array)
+                }
+                Expression::Cast { expr, .. } => {
+                    lvalue_resolves_to_const(db, crate_id, file, index, expr)
+                }
+                Expression::Parenthesized(inner) => {
+                    lvalue_resolves_to_const(db, crate_id, file, index, inner)
+                }
+                _ => None,
+            }
+        }
+
         // Check if LHS is assignable
         match lhs.value() {
             Expression::Identifier(_) => {
@@ -1565,20 +1661,94 @@ impl TypeValidator {
                             return;
                         }
                     }
+                    // Try via imports as well, to catch imported consts
+                    if let Some((_def_idx, def, _file_imp)) = index
+                        .resolve_name_with_imports_at_position(
+                            db,
+                            crate_id,
+                            file,
+                            ident.value(),
+                            scope_id,
+                            ident.span(),
+                        )
+                    {
+                        if matches!(def.kind, crate::definition::DefinitionKind::Const(_)) {
+                            sink.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::AssignmentToConst,
+                                    format!("cannot assign to const variable `{}`", ident.value()),
+                                )
+                                .with_location(file.file_path(db).to_string(), lhs.span())
+                                .with_related_span(
+                                    file.file_path(db).to_string(),
+                                    def.name_span,
+                                    "const variable defined here".to_string(),
+                                ),
+                            );
+                            return;
+                        }
+                    }
                 }
             }
             Expression::MemberAccess {
                 object: _,
                 field: _,
             } => {
-                // Member access (struct fields) are valid assignment targets
-                // TODO: Check if the field/member is mutable once mutability is implemented
+                // Member access (struct fields) are valid assignment targets unless rooted in const
+                if let Some((name, def)) = lvalue_resolves_to_const(db, crate_id, file, index, lhs)
+                {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::AssignmentToConst,
+                            format!("cannot assign to field of const variable `{}`", name),
+                        )
+                        .with_location(file.file_path(db).to_string(), lhs.span())
+                        .with_related_span(
+                            file.file_path(db).to_string(),
+                            def.name_span,
+                            "const variable defined here".to_string(),
+                        ),
+                    );
+                    return;
+                }
             }
             Expression::TupleIndex { .. } => {
-                // Tuple index is valid assignment target
+                // Tuple element is valid assignment target unless rooted in const
+                if let Some((name, def)) = lvalue_resolves_to_const(db, crate_id, file, index, lhs)
+                {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::AssignmentToConst,
+                            format!("cannot assign to element of const variable `{}`", name),
+                        )
+                        .with_location(file.file_path(db).to_string(), lhs.span())
+                        .with_related_span(
+                            file.file_path(db).to_string(),
+                            def.name_span,
+                            "const variable defined here".to_string(),
+                        ),
+                    );
+                    return;
+                }
             }
             Expression::IndexAccess { array: _, index: _ } => {
-                // TODO: Check if the array element is mutable
+                // Array element is valid assignment target unless rooted in const
+                if let Some((name, def)) = lvalue_resolves_to_const(db, crate_id, file, index, lhs)
+                {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::AssignmentToConst,
+                            format!("cannot assign to element of const variable `{}`", name),
+                        )
+                        .with_location(file.file_path(db).to_string(), lhs.span())
+                        .with_related_span(
+                            file.file_path(db).to_string(),
+                            def.name_span,
+                            "const variable defined here".to_string(),
+                        ),
+                    );
+                    return;
+                }
             }
             _ => {
                 sink.push(
