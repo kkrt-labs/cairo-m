@@ -3,40 +3,9 @@ use cairo_m_compiler_mir::{BinaryOp, Instruction, MirType, Terminator, Value, Va
 use wasmparser::Operator as Op;
 
 impl DagToMir {
-    /// Convert a WASM binary opcode to a MIR binary opcode
-    /// TODO : bit shifts, rotations, u8 operations, etc.
-    fn wasm_binary_opcode_to_mir(
-        &self,
-        wasm_op: &Op,
-        node_idx: usize,
-        context: &DagToMirContext,
-    ) -> Result<BinaryOp, DagToMirError> {
-        match wasm_op {
-            Op::I32Add => Ok(BinaryOp::U32Add),
-            Op::I32Sub => Ok(BinaryOp::U32Sub),
-            Op::I32Mul => Ok(BinaryOp::U32Mul),
-            Op::I32DivU => Ok(BinaryOp::U32Div),
-            Op::I32Eq => Ok(BinaryOp::U32Eq),
-            Op::I32Ne => Ok(BinaryOp::U32Neq),
-            Op::I32GtU => Ok(BinaryOp::U32Greater),
-            Op::I32GeU => Ok(BinaryOp::U32GreaterEqual),
-            Op::I32LtU => Ok(BinaryOp::U32Less),
-            Op::I32LeU => Ok(BinaryOp::U32LessEqual),
-            Op::I32And => Ok(BinaryOp::U32BitwiseAnd),
-            Op::I32Or => Ok(BinaryOp::U32BitwiseOr),
-            Op::I32Xor => Ok(BinaryOp::U32BitwiseXor),
-            _ => Err(DagToMirError::UnsupportedOperation {
-                op: format!("{:?}", wasm_op),
-                function_name: context.mir_function.name.clone(),
-                node_idx,
-                suggestion: "".to_string(),
-            }),
-        }
-    }
-
+    /// Convert a WASM binary operations to the immediately corresponding Mir operation
     pub fn convert_wasm_binop_to_mir(
         &self,
-        node_idx: usize,
         wasm_op: &Op,
         left: Value,
         right: Value,
@@ -44,7 +13,22 @@ impl DagToMir {
         context: &mut DagToMirContext,
     ) -> Result<Option<ValueId>, DagToMirError> {
         let result_id = context.mir_function.new_typed_value_id(dest_type);
-        let mir_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx, context)?;
+        let mir_op = match wasm_op {
+            Op::I32Add => BinaryOp::U32Add,
+            Op::I32Sub => BinaryOp::U32Sub,
+            Op::I32Mul => BinaryOp::U32Mul,
+            Op::I32DivU => BinaryOp::U32Div,
+            Op::I32Eq => BinaryOp::U32Eq,
+            Op::I32Ne => BinaryOp::U32Neq,
+            Op::I32GtU => BinaryOp::U32Greater,
+            Op::I32GeU => BinaryOp::U32GreaterEqual,
+            Op::I32LtU => BinaryOp::U32Less,
+            Op::I32LeU => BinaryOp::U32LessEqual,
+            Op::I32And => BinaryOp::U32BitwiseAnd,
+            Op::I32Or => BinaryOp::U32BitwiseOr,
+            Op::I32Xor => BinaryOp::U32BitwiseXor,
+            _ => unreachable!(),
+        };
         let instruction = Instruction::binary_op(mir_op, result_id, left, right);
         context.get_current_block()?.push_instruction(instruction);
         Ok(Some(result_id))
@@ -180,14 +164,9 @@ impl DagToMir {
             | Op::I32DivU
             | Op::I32And
             | Op::I32Or
-            | Op::I32Xor => self.convert_wasm_binop_to_mir(
-                node_idx,
-                wasm_op,
-                inputs[0],
-                inputs[1],
-                MirType::U32,
-                context,
-            ),
+            | Op::I32Xor => {
+                self.convert_wasm_binop_to_mir(wasm_op, inputs[0], inputs[1], MirType::U32, context)
+            }
 
             // Unsigned remainder: a % b = a - (a / b) * b
             Op::I32RemU => {
@@ -218,14 +197,7 @@ impl DagToMir {
             // This is not WASM compliant, but works if these values are only used in conditional branches
             // TODO : cast everything correctly or sync with VM so that comparisons between u32 produce u32 booleans
             Op::I32Eq | Op::I32Ne | Op::I32GtU | Op::I32GeU | Op::I32LtU | Op::I32LeU => self
-                .convert_wasm_binop_to_mir(
-                    node_idx,
-                    wasm_op,
-                    inputs[0],
-                    inputs[1],
-                    MirType::Bool,
-                    context,
-                ),
+                .convert_wasm_binop_to_mir(wasm_op, inputs[0], inputs[1], MirType::Bool, context),
 
             // Signed comparison instructions, constructed by shifting the inputs by 2^31 and then comparing the results with unsigned opcodes
             Op::I32LtS | Op::I32GtS | Op::I32LeS | Op::I32GeS => {
@@ -304,8 +276,7 @@ impl DagToMir {
             Op::I32Rotl => {
                 // Mask amount and build left/right shifts using helper
                 let count_felt = self.mask_shift_to_felt(node_idx, wasm_op, inputs[1], context)?;
-                let left_val =
-                    self.emit_shift(context, inputs[0], count_felt.clone(), BinaryOp::U32Mul)?;
+                let left_val = self.emit_shift(context, inputs[0], count_felt, BinaryOp::U32Mul)?;
 
                 // Compute (32 - n) and emit right shift
                 let comp_id = context.mir_function.new_typed_value_id(MirType::Felt);
@@ -335,8 +306,7 @@ impl DagToMir {
             Op::I32Rotr => {
                 // Mask amount and build left/right shifts using helper
                 let count_felt = self.mask_shift_to_felt(node_idx, wasm_op, inputs[1], context)?;
-                let left_val =
-                    self.emit_shift(context, inputs[0], count_felt.clone(), BinaryOp::U32Div)?;
+                let left_val = self.emit_shift(context, inputs[0], count_felt, BinaryOp::U32Div)?;
 
                 // Compute (32 - n) and emit right shift
                 let comp_id = context.mir_function.new_typed_value_id(MirType::Felt);

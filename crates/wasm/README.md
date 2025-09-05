@@ -29,18 +29,17 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | `i32.mul`                 | ✅        | Maps to `BinaryOp::U32Mul`                   |
 | `i32.div_u`               | ✅        | Maps to `BinaryOp::U32Div`                   |
 | `i32.div_s`               | ❌        | Not yet implemented                          |
-| `i32.rem_u`               | ❌        | Not yet implemented                          |
+| `i32.rem_u`               | ✅        | Maps to 3 opcodes                            |
 | `i32.rem_s`               | ❌        | Not yet implemented                          |
 | **Bitwise Operations**    |           |                                              |
 | `i32.and`                 | ✅        | Maps to `BinaryOp::U32BitwiseAnd`            |
 | `i32.or`                  | ✅        | Maps to `BinaryOp::U32BitwiseOr`             |
 | `i32.xor`                 | ✅        | Maps to `BinaryOp::U32BitwiseXor`            |
-| `i32.shl`                 | ❌        | TODO: bit shifts, rotations, u8 operations   |
-| `i32.shr_u`               | ❌        | TODO: bit shifts, rotations, u8 operations   |
+| `i32.shl`                 | ✅        | Implemented with a loop                      |
+| `i32.shr_u`               | ✅        | Implemented with a loop                      |
 | `i32.shr_s`               | ❌        | TODO: bit shifts, rotations, u8 operations   |
-| `i32.rotl`                | ❌        | TODO: bit shifts, rotations, u8 operations   |
-| `i32.rotr`                | ❌        | TODO: bit shifts, rotations, u8 operations   |
-| **Comparison Operations** |           |                                              |
+| `i32.rotl`                | ✅        | Implemented with two bit shifts              |
+| `i32.rotr`                | ✅        | Implemented with two bit shifts              |
 | `i32.eq`                  | ✅        | Maps to `BinaryOp::U32Eq`                    |
 | `i32.ne`                  | ✅        | Maps to `BinaryOp::U32Neq`                   |
 | `i32.lt_u`                | ✅        | Maps to `BinaryOp::U32Less`                  |
@@ -58,8 +57,8 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | `local.set`               | ✅        | Handled by WOMIR preprocessing               |
 | `local.tee`               | ✅        | Handled by WOMIR preprocessing               |
 | **Global Variables**      |           |                                              |
-| `global.get`              | ❌        | Not yet implemented                          |
-| `global.set`              | ❌        | Not yet implemented                          |
+| `global.get`              | ✅        | Full support for i32 globals                 |
+| `global.set`              | ✅        |                                              |
 | **Function Operations**   |           |                                              |
 | Function parameters       | ✅        | Full support with proper type mapping        |
 | Function return values    | ✅        | Full support with proper type mapping        |
@@ -76,8 +75,8 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | Loop-carried values       | ✅        | Phi nodes for loop variables                 |
 | Continue operations       | ✅        | Proper loop continuation handling            |
 | **Memory Operations**     |           |                                              |
-| `i32.load`                | ❌        | Not yet implemented                          |
-| `i32.store`               | ❌        | Not yet implemented                          |
+| `i32.load`                | ✅        |                                              |
+| `i32.store`               | ✅        |                                              |
 | `i32.load8_u`             | ❌        | Not yet implemented                          |
 | `i32.store8`              | ❌        | Not yet implemented                          |
 | **Advanced Features**     |           |                                              |
@@ -225,5 +224,3 @@ module {
 ## What's next?
 
 - Missing opcodes for i32
-- Vector types
-- End-to-end compilation from rust of fibonacci and SHA256

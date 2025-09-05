@@ -366,7 +366,6 @@ pub enum InstructionKind {
 
     /// Experimental : only used by WASM crate
     /// Load value from an absolute address in the VM
-    /// Offset will be multiplied by the type size
     Load {
         dest: ValueId,
         base_address: Value,
@@ -376,7 +375,6 @@ pub enum InstructionKind {
 
     /// Experimental : only used by WASM crate
     /// Store value to an absolute address in the VM
-    /// Offset will be multiplied by the type size
     Store {
         base_address: Value,
         offset: Value,
@@ -681,7 +679,6 @@ impl Instruction {
     }
 
     // Creates a new store instruction
-
     pub const fn store(
         base_address: Value,
         offset: Value,

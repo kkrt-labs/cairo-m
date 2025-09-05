@@ -50,12 +50,11 @@ wasm_test!(convert_fib_wasm, "fib.wasm");
 wasm_test!(convert_arithmetic_wasm, "arithmetic.wasm");
 wasm_test!(convert_simple_if_wasm, "simple_if.wasm");
 wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
-wasm_test!(convert_func_call_wasm, "func_call.wasm");
 wasm_test!(convert_variables_wasm, "variables.wasm");
 wasm_test!(convert_bitwise_wasm, "bitwise.wasm");
 wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
 wasm_test!(convert_nested_loop_wasm, "nested_loop.wasm");
-wasm_test!(convert_load_store_sum_wasm, "load_store_sum.wasm");
+wasm_test!(convert_load_store, "load_store.wasm");
 wasm_test!(convert_globals_wasm, "globals.wasm");
 wasm_test!(convert_calls_wasm, "calls.wasm");
 wasm_test!(

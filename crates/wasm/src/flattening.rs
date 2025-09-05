@@ -12,6 +12,9 @@ use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, T
 use womir::loader::dag::ValueOrigin;
 use womir::loader::Global;
 
+// TODO : set vm value to public or put this in the commons crate?
+pub const VM_MEMORY_SIZE: u32 = 1 << 30;
+
 #[derive(Error, Debug)]
 pub enum DagToMirError {
     #[error("Failed to load Wasm module: {0}")]
@@ -53,7 +56,7 @@ pub enum DagToMirError {
 
 pub struct DagToMir {
     pub module: BlocklessDagModule,
-    pub global_adresses: HashMap<usize, u32>,
+    pub global_addresses: HashMap<usize, u32>,
     pub global_types: HashMap<usize, MirType>,
     pub heap_start: u32,
 }
@@ -103,7 +106,7 @@ impl DagToMirContext {
         }
     }
 
-    pub fn get_current_block_id(&self) -> BasicBlockId {
+    pub const fn get_current_block_id(&self) -> BasicBlockId {
         self.current_block_id.unwrap()
     }
 
@@ -218,7 +221,7 @@ impl DagToMir {
     pub fn new(module: BlocklessDagModule) -> Self {
         let mut dag_to_mir = Self {
             module,
-            global_adresses: HashMap::new(),
+            global_addresses: HashMap::new(),
             global_types: HashMap::new(),
             heap_start: 0,
         };
@@ -226,8 +229,10 @@ impl DagToMir {
         dag_to_mir
     }
 
+    /// Map each global to its address in memory and computes the address of the heap as
+    /// heap_start = VM_MEMORY_SIZE - 1 - size of all globals
     pub fn allocate_globals(&mut self) -> Result<(), DagToMirError> {
-        let mut current_address = 1 << 30;
+        let mut next_free_address = VM_MEMORY_SIZE - 1;
         let mut error: Option<DagToMirError> = None;
         self.module.with_program(|program| {
             for (i, global) in program.c.globals.iter().enumerate() {
@@ -243,8 +248,12 @@ impl DagToMir {
                             return;
                         }
                     };
-                    current_address -= size;
-                    self.global_adresses.insert(i, current_address);
+
+                    self.global_addresses
+                        .insert(i, next_free_address - size + 1);
+
+                    next_free_address -= size;
+
                     self.global_types.insert(
                         i,
                         Self::wasm_type_to_mir_type(
@@ -260,7 +269,7 @@ impl DagToMir {
         if let Some(e) = error {
             return Err(e);
         }
-        self.heap_start = current_address;
+        self.heap_start = next_free_address;
         Ok(())
     }
 

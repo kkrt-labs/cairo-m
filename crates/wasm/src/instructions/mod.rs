@@ -118,6 +118,7 @@ impl DagToMir {
                 let instruction = Instruction::call(dests.clone(), callee_id, inputs, signature);
                 context.get_current_block()?.push_instruction(instruction);
 
+                // The most widespread versions of WASM only support single return values
                 match dests.len() {
                     0 => Ok(None),
                     1 => Ok(Some(dests[0])),
