@@ -178,7 +178,6 @@ impl Claim {
 
         let zero = PackedM31::from(M31::zero());
         let one = PackedM31::from(M31::one());
-        let two_pow_8 = PackedM31::from(M31::from(1 << 8));
         let enabler_col = Enabler::new(non_padded_length);
 
         (
@@ -241,9 +240,6 @@ impl Claim {
                 let (dst_val_2, dst_val_3) = decompose_8(dst_val_hi);
 
                 let bitwise_op = opcode_constant - PackedM31::from(M31::from(U32_STORE_AND_FP_FP));
-
-                let dst_val_lo = dst_val_0 + dst_val_1 * two_pow_8;
-                let dst_val_hi = dst_val_2 + dst_val_3 * two_pow_8;
 
                 // Write trace columns
                 *row[0] = enabler;
