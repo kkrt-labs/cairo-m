@@ -190,9 +190,6 @@ macro_rules! define_opcodes {
                     )*
                     // TODO: Add support for these opcodes
                     Instruction::StoreLowerThanFpImm { .. } => {},
-                    Instruction::U32StoreAndFpImm { .. } => {},
-                    Instruction::U32StoreOrFpImm { .. } => {},
-                    Instruction::U32StoreXorFpImm { .. } => {},
                     // Unsound opcodes
                     Instruction::PrintM31 { .. } => {},
                     Instruction::PrintU32 { .. } => {} ,
@@ -264,5 +261,9 @@ define_opcodes!(
     (
         [U32StoreAndFpFp, U32StoreOrFpFp, U32StoreXorFpFp],
         u32_store_bitwise_fp_fp
+    ),
+    (
+        [U32StoreAndFpImm, U32StoreOrFpImm, U32StoreXorFpImm],
+        u32_store_bitwise_fp_imm
     ),
 );
