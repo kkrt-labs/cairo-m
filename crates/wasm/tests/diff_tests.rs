@@ -191,7 +191,7 @@ fn run_simple_loop() {
 
 #[test]
 fn run_func_call() {
-    test_program("tests/test_cases/func_call.wasm", "main", vec![]);
+    test_program("tests/test_cases/calls.wasm", "main", vec![]);
 }
 
 #[test]
@@ -202,15 +202,31 @@ fn run_variables() {
 #[test]
 fn run_load_store_sum() {
     test_program(
-        "tests/test_cases/load_store_sum.wasm",
+        "tests/test_cases/load_store.wasm",
         "load_store_sum",
-        vec![10],
+        vec![100],
     );
 }
 
-// For some reason proptest runs forever on that one
+// For some reason proptest runs forever on these ones
+// This likely comes from the VM having a hard time handling large addresses
+
+#[test]
+fn run_load_store_add() {
+    test_program("tests/test_cases/load_store.wasm", "add", vec![100, 200]);
+    test_program(
+        "tests/test_cases/load_store.wasm",
+        "add",
+        vec![0xFFFFFFFF, 0xFFFFFFFF],
+    );
+}
+
 #[test]
 fn run_globals() {
-    test_program("tests/test_cases/globals.wasm", "main", vec![42]);
-    test_program("tests/test_cases/globals.wasm", "main", vec![0xFFFFFFFF]);
+    test_program("tests/test_cases/globals.wasm", "main", vec![42, 69]);
+    test_program(
+        "tests/test_cases/globals.wasm",
+        "main",
+        vec![0xFFFFFFFF, 0xFFFFFFFF],
+    );
 }

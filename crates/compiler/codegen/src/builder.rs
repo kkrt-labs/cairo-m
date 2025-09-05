@@ -350,7 +350,7 @@ impl CasmBuilder {
         self.label_counter
     }
 
-    pub fn handle_load(
+    pub fn load(
         &mut self,
         dest: ValueId,
         base_address: Value,
@@ -431,7 +431,7 @@ impl CasmBuilder {
         Ok(())
     }
 
-    pub fn handle_store(
+    pub fn store(
         &mut self,
         base_address: Value,
         offset: Value,

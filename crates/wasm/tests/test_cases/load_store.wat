@@ -1,5 +1,32 @@
 (module
   (type (;0;) (func (param i32) (result i32)))
+  (type (;1;) (func (param i32 i32) (result i32)))
+
+
+  ;; Simple add function with memory interaction:
+  ;; stores a at address 0 and b at address 4, then loads both and returns their sum
+  (func $add (type 1) (param $a i32) (param $b i32) (result i32)
+    ;; store a at address 0
+    i32.const 0
+    local.get $a
+    i32.store
+    ;; store b at address 4
+    i32.const 4
+    local.get $b
+    i32.store
+    ;; load a from address 0
+    i32.const 0
+    i32.load
+    ;; load b from address 4 and add
+    i32.const 4
+    i32.load
+    i32.add
+  )
+
+
+
+  ;; Store numbers 1 to n in memory and then load them and sum them
+  ;; This checks that the store and load work as expected and that there are no collisions between the u32 values
   (func $load_store_sum (type 0) (param $n i32) (result i32)
     (local $i i32)
     (local $sum i32)
@@ -81,5 +108,6 @@
   )
   (memory (;0;) 1)  ;; 1 page = 64KB of memory
   (export "load_store_sum" (func $load_store_sum))
+  (export "add" (func $add))
   (export "memory" (memory 0))
 )

@@ -1,25 +1,22 @@
 (module
   ;; Mutable globals
-  (global $g32 (mut i32) (i32.const 0))
+  (global $g1 (mut i32) (i32.const 0))
+  (global $g2 (mut i32) (i32.const 0))
 
-(func $set_g32 (param $v i32)
-  local.get $v
-  global.set $g32
-)
 
-(func $get_g32 (result i32)
-  global.get $g32
-)
-
-(func $main (param $a i32) (result i32)
+;; Store two values in globals and add them
+;; This checks that the get and set work as expected and that there are no collisions between the globals
+(func $main (param $a i32) (param $b i32) (result i32)
   local.get $a
-  call $set_g32
-  call $get_g32
+  global.set $g1
+  local.get $b
+  global.set $g2
+  global.get $g1
+  global.get $g2
+  i32.add
 )
 
 (memory 1)
 (export "memory" (memory 0))
 (export "main" (func $main))
-(export "get_g32" (func $get_g32))
-(export "set_g32" (func $set_g32))
 )

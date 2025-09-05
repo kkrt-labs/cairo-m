@@ -9,7 +9,7 @@ expression: wasm_load_result
 WASM File: calls.wasm
 ============================================================
 Success: true
-Functions loaded: 4
+Functions loaded: 6
 ============================================================
 Module Output:
 module {
@@ -61,6 +61,35 @@ module {
 
     1:
       return %1
+
+  }
+
+  // Function 4
+  fn func_4 {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = %0 U32Add %1
+      jump 1
+
+    1:
+      return %2
+
+  }
+
+  // Function 5
+  fn main {
+    entry: 0
+
+    0:
+      %0 = 15 (u32)
+      %1 = 25 (u32)
+      %2 = call 4(%0, %1)
+      jump 1
+
+    1:
+      return %2
 
   }
 

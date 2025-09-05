@@ -150,7 +150,9 @@ impl ConstantPropagation {
             | K::Call { .. }
             | K::Debug { .. }
             | K::Nop
-            | K::AssertEq { .. } => NonConst,
+            | K::AssertEq { .. }
+            | K::Load { .. }
+            | K::Store { .. } => NonConst,
         };
 
         Some((dest, lattice))
@@ -253,6 +255,13 @@ impl ConstantPropagation {
                         replace_value(right);
                     }
                     InstructionKind::Nop => {}
+                    InstructionKind::Load { offset, .. } => {
+                        replace_value(offset);
+                    }
+                    InstructionKind::Store { offset, source, .. } => {
+                        replace_value(offset);
+                        replace_value(source);
+                    }
                 }
             }
 
