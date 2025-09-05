@@ -148,6 +148,33 @@ fn prepare_sha256_input(msg: &[u8]) -> (Vec<InputValue>, usize) {
     (input_values, num_chunks)
 }
 
+/// Prepares a fixed 1KB message for the `sha256_hash_1024` entrypoint.
+fn prepare_sha256_input_1kb(msg: &[u8]) -> (Vec<InputValue>, usize) {
+    let mut padded_bytes = msg.to_vec();
+    padded_bytes.push(0x80);
+    while padded_bytes.len() % 64 != 56 {
+        padded_bytes.push(0x00);
+    }
+    let bit_len = (msg.len() as u64) * 8;
+    padded_bytes.extend_from_slice(&bit_len.to_be_bytes());
+
+    let num_chunks = padded_bytes.len() / 64;
+    assert_eq!(num_chunks, 17, "Expected 17 chunks for 1KB message");
+
+    let mut padded_words: Vec<u32> = padded_bytes
+        .chunks_exact(4)
+        .map(|chunk| u32::from_be_bytes(chunk.try_into().expect("Chunk size mismatch")))
+        .collect();
+    padded_words.resize(272, 0);
+
+    let input_values = padded_words
+        .into_iter()
+        .map(|word| InputValue::Number(i64::from(word)))
+        .collect();
+
+    (input_values, num_chunks)
+}
+
 // Note: Each SHA-256 test case is kept as a separate test function rather than
 // combining them into a single test. This provides:
 // - Better test reporting: failures are isolated to specific test cases
@@ -196,6 +223,18 @@ fn test_sha256_message_digest() {
 #[test]
 fn test_sha256_quick_brown_fox() {
     test_sha256(b"The quick brown fox jumps over the lazy dog");
+}
+
+#[test]
+fn test_sha256_1kb_message() {
+    let msg: Vec<u8> = (0..1024).map(|i| (i & 0xFF) as u8).collect();
+    let (padded_buffer, num_chunks) = prepare_sha256_input_1kb(&msg);
+    let args = vec![
+        InputValue::List(padded_buffer),
+        InputValue::Number(num_chunks as i64),
+    ];
+    let expected = sha256_hash(&msg);
+    assert_cairo_array_result!(&COMPILED_PROGRAM, "sha256_hash_1024", args, expected);
 }
 
 // === Edge cases and patterns ===

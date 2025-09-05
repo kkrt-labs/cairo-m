@@ -10,6 +10,9 @@ use cairo_m_runner::run_cairo_program;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
+mod sha_bench_utils;
+use sha_bench_utils::{compile_sha256, prepare_sha256_input_1kb};
+
 const BENCHMARK_DURATION_SECS: u64 = 30;
 const N_ITERATIONS: u32 = 100_000;
 
@@ -68,5 +71,53 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, fibonacci_prove_benchmark);
+// =============================
+// SHA-256 (1024-byte message)
+// =============================
+
+fn sha256_prove_benchmark(c: &mut Criterion) {
+    let program = compile_sha256();
+
+    // Create exactly 1024 bytes of data
+    let msg: Vec<u8> = (0..1024).map(|i| (i & 0xFF) as u8).collect();
+    let (padded_buffer, num_chunks) = prepare_sha256_input_1kb(&msg);
+
+    let runner_output = run_cairo_program(
+        &program,
+        "sha256_hash_1024",
+        &[
+            InputValue::List(padded_buffer),
+            InputValue::Number(num_chunks as i64),
+        ],
+        Default::default(),
+    )
+    .expect("Failed to run sha256 program");
+
+    let segment = runner_output.vm.segments.into_iter().next().unwrap();
+    let trace_length = segment.trace.len();
+    println!(
+        "SHA256 (1024 bytes) - chunks: {}, trace length: {}",
+        num_chunks, trace_length
+    );
+
+    let mut group = c.benchmark_group("prover_sha256_1kb");
+    group.throughput(Throughput::Elements(trace_length as u64));
+    group.measurement_time(Duration::from_secs(BENCHMARK_DURATION_SECS));
+    group.sample_size(20);
+
+    let prover_input = import_from_runner_output(segment, runner_output.public_address_ranges)
+        .expect("Failed to import runner output");
+
+    group.bench_function("prove", |b| {
+        b.iter(|| {
+            let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input.clone(), None)
+                .expect("Proving failed");
+            black_box(proof)
+        })
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, fibonacci_prove_benchmark, sha256_prove_benchmark);
 criterion_main!(benches);

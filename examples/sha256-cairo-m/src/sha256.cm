@@ -128,3 +128,28 @@ fn sha256_hash(padded_message: [u32; 32], num_chunks: felt) -> [u32; 8] {
     }
     return H;
 }
+
+/// Same as `sha256_hash` but supports longer pre-padded messages.
+/// This variant accepts a 272-word buffer (17 chunks), sufficient for hashing
+/// a 1024-byte message (which becomes 17 chunks after padding).
+fn sha256_hash_1024(padded_message: [u32; 272], num_chunks: felt) -> [u32; 8] {
+    let H: [u32; 8] = [
+        1779033703,
+        3144134277,
+        1013904242,
+        2773480762,
+        1359893119,
+        2600822924,
+        528734635,
+        1541459225
+    ];
+
+    for (let chunk_index: felt = 0; chunk_index != num_chunks; chunk_index = chunk_index + 1) {
+        let current_chunk: [u32; 16] = [0u32; 16];
+        for (let i: felt = 0; i != 16; i = i + 1) {
+            current_chunk[i] = padded_message[chunk_index * 16 + i];
+        }
+        process_chunk(current_chunk, H);
+    }
+    return H;
+}
