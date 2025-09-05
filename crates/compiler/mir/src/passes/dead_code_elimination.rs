@@ -264,4 +264,50 @@ mod tests {
         // All three instructions should be gone
         assert!(block.instructions.is_empty());
     }
+
+    #[test]
+    fn test_preserve_array_insert_side_effect() {
+        // Build a function with an ArrayInsert whose destination is unused.
+        // Because ArrayInsert mutates the array (arrays passed by pointer), it has
+        // side effects and must not be removed by DCE.
+
+        let mut f = MirFunction::new("array_insert_side_effect".to_string());
+        let b = f.entry_block;
+
+        // Define a fixed array type: [felt; 3]
+        let array_ty = MirType::FixedArray {
+            element_type: Box::new(MirType::felt()),
+            size: 3,
+        };
+
+        // Parameter representing the array (passed by pointer at ABI level)
+        let arr = f.new_typed_value_id(array_ty.clone());
+        f.parameters.push(arr);
+
+        // Destination value for ArrayInsert (intentionally unused)
+        let new_arr = f.new_typed_value_id(array_ty.clone());
+
+        // Perform arr[1] = 42 (in-place mutation semantics)
+        let block = f.get_basic_block_mut(b).unwrap();
+        block.push_instruction(Instruction::array_insert(
+            new_arr,
+            Value::operand(arr),
+            Value::integer(1),
+            Value::integer(42),
+            array_ty,
+        ));
+
+        // Return something unrelated so the insert's dest remains unused
+        block.set_terminator(Terminator::return_value(Value::integer(0)));
+
+        let mut dce = DeadCodeElimination::new();
+        dce.run(&mut f);
+
+        let block = f.get_basic_block(f.entry_block).unwrap();
+        assert_eq!(block.instructions.len(), 1);
+        assert!(matches!(
+            block.instructions[0].kind,
+            InstructionKind::ArrayInsert { .. }
+        ));
+    }
 }

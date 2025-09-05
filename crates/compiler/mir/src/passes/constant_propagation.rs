@@ -471,9 +471,10 @@ mod tests {
         block1.set_terminator(Terminator::return_value(Value::operand(r)));
 
         let mut cp = ConstantPropagation::new();
-        let modified = cp.run(&mut f);
-        // Might still rewrite other uses, but not the phi use to a literal
-        assert!(!modified || modified);
+        let _modified = cp.run(&mut f);
+        // We specifically assert that the use of the phi result is NOT rewritten
+        // to a literal when phi sources conflict, i.e., the left operand remains
+        // an operand reference rather than a literal.
 
         let block1 = f.get_basic_block(b1).unwrap();
         if let InstructionKind::BinaryOp { left, .. } = &block1.instructions[1].kind {

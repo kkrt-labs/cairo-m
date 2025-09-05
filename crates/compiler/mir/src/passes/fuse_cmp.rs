@@ -142,3 +142,317 @@ impl MirPass for FuseCmpBranch {
         "FuseCmpBranch"
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{BinaryOp, Instruction, MirType};
+
+    #[test]
+    fn test_fuse_basic_eq_to_branchcmp() {
+        let mut f = MirFunction::new("fuse_eq".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let y = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        // %cond = %x == %y
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::Eq,
+            cond,
+            Value::operand(x),
+            Value::operand(y),
+        ));
+        // if %cond then then_b else else_b
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        let modified = pass.run(&mut f);
+        assert!(modified);
+
+        let b = f.get_basic_block(entry).unwrap();
+        // Binary op should be removed
+        assert!(b.instructions.is_empty());
+        // Terminator becomes BranchCmp with same operands
+        assert_eq!(
+            b.terminator,
+            Terminator::branch_cmp(
+                BinaryOp::Eq,
+                Value::operand(x),
+                Value::operand(y),
+                then_b,
+                else_b
+            )
+        );
+    }
+
+    #[test]
+    fn test_fuse_u32eq_to_branchcmp() {
+        let mut f = MirFunction::new("fuse_u32eq".to_string());
+        let entry = f.add_basic_block();
+        let t = f.add_basic_block();
+        let e = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::u32());
+        let y = f.new_typed_value_id(MirType::u32());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::U32Eq,
+            cond,
+            Value::operand(x),
+            Value::operand(y),
+        ));
+        b.set_terminator(Terminator::branch(Value::operand(cond), t, e));
+
+        let mut pass = FuseCmpBranch::new();
+        assert!(pass.run(&mut f));
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(b.instructions.is_empty());
+        assert_eq!(
+            b.terminator,
+            Terminator::branch_cmp(BinaryOp::U32Eq, Value::operand(x), Value::operand(y), t, e)
+        );
+    }
+
+    #[test]
+    fn test_fuse_eq_zero_left_swaps_targets() {
+        let mut f = MirFunction::new("fuse_eq_zero_left".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        // %cond = 0 == %x  -> branch on %x with swapped targets
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::Eq,
+            cond,
+            Value::integer(0),
+            Value::operand(x),
+        ));
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        assert!(pass.run(&mut f));
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(b.instructions.is_empty());
+        // 0 == x  => !x, so jump else on true x, then on false -> swapped
+        assert_eq!(
+            b.terminator,
+            Terminator::branch(Value::operand(x), else_b, then_b)
+        );
+    }
+
+    #[test]
+    fn test_fuse_eq_zero_right_swaps_targets() {
+        let mut f = MirFunction::new("fuse_eq_zero_right".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        // %cond = %x == 0  -> branch on %x with swapped targets
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::Eq,
+            cond,
+            Value::operand(x),
+            Value::integer(0),
+        ));
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        assert!(pass.run(&mut f));
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(b.instructions.is_empty());
+        assert_eq!(
+            b.terminator,
+            Terminator::branch(Value::operand(x), else_b, then_b)
+        );
+    }
+
+    #[test]
+    fn test_fuse_neq_zero_uses_direct_condition() {
+        let mut f = MirFunction::new("fuse_neq_zero".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        // %cond = %x != 0  -> branch on %x as-is
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::Neq,
+            cond,
+            Value::operand(x),
+            Value::integer(0),
+        ));
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        assert!(pass.run(&mut f));
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(b.instructions.is_empty());
+        assert_eq!(
+            b.terminator,
+            Terminator::branch(Value::operand(x), then_b, else_b)
+        );
+    }
+
+    #[test]
+    fn test_fuse_neq_zero_left_uses_direct_condition() {
+        let mut f = MirFunction::new("fuse_neq_zero_left".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        // %cond = 0 != %x  -> branch on %x as-is
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::Neq,
+            cond,
+            Value::integer(0),
+            Value::operand(x),
+        ));
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        assert!(pass.run(&mut f));
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(b.instructions.is_empty());
+        assert_eq!(
+            b.terminator,
+            Terminator::branch(Value::operand(x), then_b, else_b)
+        );
+    }
+
+    #[test]
+    fn test_not_condition_flips_targets() {
+        let mut f = MirFunction::new("fuse_not".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::bool());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        // %cond = !%x
+        b.push_instruction(Instruction::unary_op(UnaryOp::Not, cond, Value::operand(x)));
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        assert!(pass.run(&mut f));
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(b.instructions.is_empty());
+        // !x then T else E  => x then E else T
+        assert_eq!(
+            b.terminator,
+            Terminator::branch(Value::operand(x), else_b, then_b)
+        );
+    }
+
+    #[test]
+    fn test_no_fuse_when_last_instr_is_not_condition_def() {
+        let mut f = MirFunction::new("no_fuse_last".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let y = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        let b = f.get_basic_block_mut(entry).unwrap();
+        b.push_instruction(Instruction::binary_op(
+            BinaryOp::Eq,
+            cond,
+            Value::operand(x),
+            Value::operand(y),
+        ));
+        // Add another instruction after the comparison so it's not last
+        b.push_instruction(Instruction::debug(
+            "use".to_string(),
+            vec![Value::operand(x)],
+        ));
+        b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+
+        let mut pass = FuseCmpBranch::new();
+        let modified = pass.run(&mut f);
+        assert!(!modified);
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(matches!(b.terminator, Terminator::If { .. }));
+    }
+
+    #[test]
+    fn test_no_fuse_when_condition_used_multiple_times() {
+        let mut f = MirFunction::new("no_fuse_multiuse".to_string());
+        let entry = f.add_basic_block();
+        let then_b = f.add_basic_block();
+        let else_b = f.add_basic_block();
+        f.entry_block = entry;
+
+        let x = f.new_typed_value_id(MirType::felt());
+        let y = f.new_typed_value_id(MirType::felt());
+        let cond = f.new_typed_value_id(MirType::bool());
+
+        // Entry: define cond as last instruction and branch on it
+        {
+            let b = f.get_basic_block_mut(entry).unwrap();
+            b.push_instruction(Instruction::binary_op(
+                BinaryOp::Eq,
+                cond,
+                Value::operand(x),
+                Value::operand(y),
+            ));
+            b.set_terminator(Terminator::branch(Value::operand(cond), then_b, else_b));
+        }
+
+        // Also use cond in the then-block (second use) to prevent fusion
+        {
+            let tb = f.get_basic_block_mut(then_b).unwrap();
+            tb.push_instruction(Instruction::debug(
+                "use cond".to_string(),
+                vec![Value::operand(cond)],
+            ));
+            tb.set_terminator(Terminator::return_void());
+        }
+
+        let mut pass = FuseCmpBranch::new();
+        let modified = pass.run(&mut f);
+        assert!(!modified);
+
+        let b = f.get_basic_block(entry).unwrap();
+        assert!(matches!(b.terminator, Terminator::If { .. }));
+    }
+}

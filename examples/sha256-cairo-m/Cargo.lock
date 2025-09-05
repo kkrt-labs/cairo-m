@@ -432,7 +432,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ariadne",
- "bitflags",
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
  "cairo-m-project",

@@ -11,6 +11,7 @@ words:
   - arrayinsert
   - binop
   - bswap
+  - branchcmp
   - bytemuck
   - cairols
   - cairom
