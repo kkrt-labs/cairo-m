@@ -3,6 +3,7 @@ use peak_alloc::PeakAlloc;
 #[global_allocator]
 static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
+use std::convert::TryInto;
 use std::fs;
 use std::path::Path;
 
@@ -33,7 +34,7 @@ fn compile_fibonacci() -> Program {
 }
 
 fn main() {
-    eprintln!("Setting up benchmark: Compiling and running fibonacci...");
+    eprintln!("Setting up memory benchmark: fibonacci + sha256(1024B)");
     let program = compile_fibonacci();
 
     let runner_output = run_cairo_program(
@@ -48,7 +49,7 @@ fn main() {
 
     eprintln!("Running fibonacci with n={}", N_ITERATIONS);
     eprintln!("Trace length: {}", segment.trace.len());
-    eprintln!("Setup complete. Starting prover benchmark...");
+    eprintln!("Fibonacci setup complete. Starting prover benchmark...");
 
     // Reset peak memory tracking before proving
     PEAK_ALLOC.reset_peak_usage();
@@ -60,15 +61,87 @@ fn main() {
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).expect("Proving failed");
     let peak_mem = PEAK_ALLOC.peak_usage();
 
-    eprintln!("Benchmark finished. Peak memory usage: {} bytes", peak_mem);
+    eprintln!("Fibonacci finished. Peak memory usage: {} bytes", peak_mem);
 
-    // Output in JSON format for github-action-benchmark
+    // =============================
+    // SHA-256 (1024-byte message)
+    // =============================
+
+    // Compile SHA-256 program
+    fn compile_sha256() -> Program {
+        let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(|p| p.parent())
+            .unwrap();
+        let source_path = format!(
+            "{}/examples/sha256-cairo-m/src/sha256.cm",
+            workspace_root.display()
+        );
+        let source_text = fs::read_to_string(&source_path).expect("Failed to read sha256.cm");
+        let options = CompilerOptions::default();
+        let output =
+            compile_cairo(source_text, source_path, options).expect("Failed to compile sha256.cm");
+        (*output.program).clone()
+    }
+
+    fn prepare_sha256_input_1kb(msg: &[u8]) -> (Vec<InputValue>, usize) {
+        let mut padded_bytes = msg.to_vec();
+        padded_bytes.push(0x80);
+        while padded_bytes.len() % 64 != 56 {
+            padded_bytes.push(0x00);
+        }
+        let bit_len = (msg.len() as u64) * 8;
+        padded_bytes.extend_from_slice(&bit_len.to_be_bytes());
+
+        let num_chunks = padded_bytes.len() / 64;
+        let mut padded_words: Vec<u32> = padded_bytes
+            .chunks_exact(4)
+            .map(|chunk| u32::from_be_bytes(chunk.try_into().expect("Chunk size mismatch")))
+            .collect();
+        padded_words.resize(272, 0);
+        let input_values = padded_words
+            .into_iter()
+            .map(|w| InputValue::Number(i64::from(w)))
+            .collect::<Vec<_>>();
+        (input_values, num_chunks)
+    }
+
+    let sha_program = compile_sha256();
+    let msg: Vec<u8> = (0..1024).map(|i| (i & 0xFF) as u8).collect();
+    let (padded_buffer, num_chunks) = prepare_sha256_input_1kb(&msg);
+    let sha_runner_output = run_cairo_program(
+        &sha_program,
+        "sha256_hash_1024",
+        &[
+            InputValue::List(padded_buffer),
+            InputValue::Number(num_chunks as i64),
+        ],
+        Default::default(),
+    )
+    .expect("Failed to run sha256 program");
+    let sha_segment = sha_runner_output.vm.segments.into_iter().next().unwrap();
+    eprintln!("SHA256(1024B) trace length: {}", sha_segment.trace.len());
+
+    PEAK_ALLOC.reset_peak_usage();
+    let mut sha_prover_input =
+        import_from_runner_output(sha_segment, sha_runner_output.public_address_ranges)
+            .expect("Failed to import runner output");
+    let _sha_proof =
+        prove_cairo_m::<Blake2sMerkleChannel>(&mut sha_prover_input, None).expect("Proving failed");
+    let sha_peak_mem = PEAK_ALLOC.peak_usage();
+    eprintln!("SHA256 finished. Peak memory usage: {} bytes", sha_peak_mem);
+
+    // Output both in JSON format for github-action-benchmark
     println!(
         r#"[{{
     "name": "fibonacci_prove_peak_mem",
     "unit": "bytes",
     "value": {}
+}},{{
+    "name": "sha256_1kb_prove_peak_mem",
+    "unit": "bytes",
+    "value": {}
 }}]"#,
-        peak_mem
+        peak_mem, sha_peak_mem
     );
 }
