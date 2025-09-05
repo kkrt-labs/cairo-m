@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, OPCODE_SIZE_TABLE};
 use cairo_m_common::state::MemoryEntry;
@@ -45,9 +46,9 @@ pub enum MemoryError {
 /// Memory is addressable by `M31` field elements and stores `QM31` values.
 #[derive(Debug, Clone, Default)]
 pub struct Memory {
-    /// The index of the vector corresponds to the memory address.
     /// Instructions and data are stored as `QM31` values.
-    pub data: Vec<QM31>,
+    /// Key is the memory address (0 to 2^30 - 1).
+    pub data: HashMap<u32, QM31>,
     /// A trace of memory accesses.
     ///
     /// The trace is wrapped in a `RefCell` to enable interior mutability. This
@@ -92,10 +93,10 @@ impl Memory {
         addr: M31,
     ) -> Result<SmallVec<[M31; INSTRUCTION_MAX_SIZE]>, MemoryError> {
         // Fetch first QM31 word
-        let address = addr.0 as usize;
+        let address = addr.0;
         let first_qm31 = self
             .data
-            .get(address)
+            .get(&address)
             .copied()
             .ok_or(MemoryError::UninitializedMemoryCell { addr })?;
         let mut trace = self.trace.borrow_mut();
@@ -136,7 +137,7 @@ impl Memory {
             let next_addr = addr + M31::from(i as u32);
             let qm31_word = self
                 .data
-                .get(next_addr.0 as usize)
+                .get(&(next_addr.0))
                 .copied()
                 .ok_or(MemoryError::UninitializedMemoryCell { addr: next_addr })?;
 
@@ -168,8 +169,8 @@ impl Memory {
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
-        let address = addr.0 as usize;
-        let value = self.data.get(address).copied().unwrap_or_default();
+        let address = addr.0;
+        let value = self.data.get(&address).copied().unwrap_or_default();
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
@@ -190,8 +191,8 @@ impl Memory {
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
-        let address = addr.0 as usize;
-        let value = self.data.get(address).copied().unwrap_or_default();
+        let address = addr.0;
+        let value = self.data.get(&address).copied().unwrap_or_default();
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
@@ -213,13 +214,9 @@ impl Memory {
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub fn insert(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
-        let address = addr.0 as usize;
+        let address = addr.0;
 
-        // Resize vector if necessary
-        if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
-        }
-        self.data[address] = value;
+        self.data.insert(address, value);
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(())
     }
@@ -236,11 +233,8 @@ impl Memory {
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub(crate) fn insert_no_trace(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
-        let address = addr.0 as usize;
-        if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
-        }
-        self.data[address] = value;
+        let address = addr.0;
+        self.data.insert(address, value);
         Ok(())
     }
 
@@ -264,7 +258,7 @@ impl Memory {
         }
 
         // Check that the entire slice fits within memory limits
-        let start_address = start_addr.0 as usize;
+        let start_address = start_addr.0;
         let slice_len = values.len();
         // Since we already checked for empty slice, slice_len >= 1
         let last_addr = start_addr.0.checked_add((slice_len - 1) as u32).ok_or(
@@ -275,21 +269,15 @@ impl Memory {
         )?;
         Self::validate_address(last_addr.into())?;
 
-        let end_address = last_addr as usize + 1;
-
-        // Resize vector if necessary
-        if end_address > self.data.len() {
-            self.data.resize(end_address, QM31::zero());
-        }
-
-        // Copy the slice into memory
-        self.data[start_address..end_address].copy_from_slice(values);
-        self.trace
-            .borrow_mut()
-            .extend(values.iter().enumerate().map(|(i, value)| MemoryEntry {
+        // Insert the slice into memory and record the trace
+        for (i, value) in values.iter().enumerate() {
+            let addr = start_address + i as u32;
+            self.data.insert(addr, *value);
+            self.trace.borrow_mut().push(MemoryEntry {
                 addr: start_addr + M31(i as u32),
                 value: *value,
-            }));
+            });
+        }
         Ok(())
     }
 
@@ -324,14 +312,17 @@ impl Memory {
         Self::validate_address(fp_min_two)?;
         Self::validate_address(fp_min_one)?;
 
-        let fp_min_two_addr = fp_min_two.0 as usize;
-        let fp_min_one_addr = fp_min_one.0 as usize;
-        if fp_min_one_addr >= self.data.len() {
-            self.data.resize(fp_min_one_addr + 1, QM31::zero());
-        }
-
-        self.data[fp_min_two_addr] = QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into));
-        self.data[fp_min_one_addr] = QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into));
+        let fp_min_two_addr = fp_min_two.0;
+        let fp_min_one_addr = fp_min_one.0;
+        // Insert values without tracing
+        self.data.insert(
+            fp_min_two_addr,
+            QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into)),
+        );
+        self.data.insert(
+            fp_min_one_addr,
+            QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into)),
+        );
 
         Ok(())
     }
@@ -345,7 +336,18 @@ impl Memory {
     where
         I: IntoIterator<Item = QM31>,
     {
-        self.data.extend(iter);
+        // Append values starting at the next available numeric key
+        let start: u32 = self
+            .data
+            .keys()
+            .copied()
+            .max()
+            .map(|v| v.saturating_add(1))
+            .unwrap_or(0);
+        for (i, value) in iter.into_iter().enumerate() {
+            let addr = start + i as u32;
+            self.data.insert(addr, value);
+        }
     }
 
     /// Serializes the trace to a byte vector.
@@ -423,16 +425,32 @@ impl Memory {
 
 impl FromIterator<QM31> for Memory {
     fn from_iter<I: IntoIterator<Item = QM31>>(iter: I) -> Self {
+        let mut data: HashMap<u32, QM31> = HashMap::new();
+        for (i, value) in iter.into_iter().enumerate() {
+            data.insert(i as u32, value);
+        }
         Self {
-            data: iter.into_iter().collect(),
+            data,
             trace: RefCell::new(Vec::new()),
         }
+    }
+}
+
+impl Memory {
+    /// Returns a linear snapshot of memory values for addresses [0, len).
+    pub fn linear_snapshot(&self, len: u32) -> Vec<QM31> {
+        let mut out = Vec::with_capacity(len as usize);
+        for addr in 0..len {
+            out.push(self.data.get(&addr).copied().unwrap_or_default());
+        }
+        out
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
+    use std::collections::HashMap;
 
     use super::*;
 
@@ -448,8 +466,8 @@ mod tests {
         let addr = M31(42);
         // Create a valid store_imm instruction (opcode 5)
         let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
-        let mut data = vec![QM31::zero(); 43];
-        data[42] = value;
+        let mut data: HashMap<u32, QM31> = HashMap::new();
+        data.insert(42, value);
 
         let memory = Memory {
             data,
@@ -478,8 +496,8 @@ mod tests {
         let addr = M31(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
 
-        let mut data: Vec<QM31> = vec![QM31::zero(); 43];
-        data[42] = value;
+        let mut data: HashMap<u32, QM31> = HashMap::new();
+        data.insert(42, value);
         let memory = Memory {
             data,
             trace: RefCell::new(Vec::new()),
@@ -525,8 +543,8 @@ mod tests {
         let addr = M31(100);
         let value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.data.len(), 101);
-        assert_eq!(memory.data[100], value);
+        assert_eq!(memory.data.len(), 1);
+        assert_eq!(memory.data[&100], value);
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
@@ -541,7 +559,7 @@ mod tests {
         memory.insert(addr, value).unwrap();
         let instruction_m31s = memory.get_instruction(addr).unwrap();
         assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
-        assert_eq!(memory.data.len(), 43);
+        assert_eq!(memory.data.len(), 1);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
         assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
@@ -555,7 +573,7 @@ mod tests {
 
         memory.insert(addr, value).unwrap();
         assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
-        assert_eq!(memory.data.len(), 43);
+        assert_eq!(memory.data.len(), 1);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
         assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
@@ -594,8 +612,8 @@ mod tests {
         memory.insert_slice(start_addr, &values).unwrap();
 
         // Verify data is stored correctly by checking raw data
-        assert_eq!(memory.data[10], values[0]);
-        assert_eq!(memory.data[11], values[1]);
+        assert_eq!(memory.data[&10], values[0]);
+        assert_eq!(memory.data[&11], values[1]);
 
         assert_eq!(memory.trace.borrow().len(), 2);
         // Trace entries from `insert_slice`
@@ -699,11 +717,11 @@ mod tests {
         assert_eq!(memory.data.len(), 2);
         // Verify data is stored correctly by checking raw data
         assert_eq!(
-            memory.data[0],
+            memory.data[&0],
             QM31::from_m31_array([100, 0, 0, 0].map(Into::into))
         );
         assert_eq!(
-            memory.data[1],
+            memory.data[&1],
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
         );
     }
