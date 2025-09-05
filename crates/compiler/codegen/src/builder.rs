@@ -13,6 +13,7 @@
 
 use cairo_m_compiler_mir::{BinaryOp, DataLayout, Literal, MirType, Value, ValueId};
 use cairo_m_compiler_parser::parser::UnaryOp;
+use stwo_prover::core::fields::m31::M31;
 
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
 
@@ -372,16 +373,30 @@ impl CasmBuilder {
                 const U16_MAX_PLUS_ONE: i32 = 2i32.pow(16); // 65536 = 2^16
                 const U16_MAX: i32 = U16_MAX_PLUS_ONE - 1; // 65535 = 2^16 - 1
 
+                let dest_off = self.layout.allocate_local(dest, 1)?;
                 let src_off = match source {
                     Value::Operand(id) => self.layout.get_offset(id)?,
+                    Value::Literal(Literal::Integer(imm)) => {
+                        let m31_imm = M31::from(imm);
+                        if m31_imm.0 == imm {
+                            self.store_immediate(
+                                imm,
+                                dest_off,
+                                format!("[fp + {dest_off}] = {imm}"),
+                            );
+                            return Ok(());
+                        } else {
+                            return Err(CodegenError::InvalidMir(
+                                "Cast source is a literal that does not fit in an M31".to_string(),
+                            ));
+                        }
+                    }
                     _ => {
                         return Err(CodegenError::InvalidMir(
                             "Cast source must be an operand".to_string(),
                         ))
                     }
                 };
-
-                let dest_off = self.layout.allocate_local(dest, 1)?;
 
                 // Compute hi < 32767 (fast path)
                 let hi_lt_32767 = self.layout.reserve_stack(1);

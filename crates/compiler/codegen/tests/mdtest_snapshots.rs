@@ -5,7 +5,7 @@
 mod common;
 
 use cairo_m_compiler_codegen::CodeGenerator;
-use cairo_m_compiler_mir::generate_mir;
+use cairo_m_compiler_mir::{generate_mir_with_config, PipelineConfig};
 use cairo_m_compiler_semantic::db::project_validate_semantics;
 use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
 use common::{create_test_crate, TestDatabase};
@@ -31,7 +31,8 @@ fn test_mdtest_codegen_snapshots() {
             }
 
             // First generate MIR
-            let mir_module = match generate_mir(&db, crate_id) {
+            let mir_module = match generate_mir_with_config(&db, crate_id, PipelineConfig::no_opt())
+            {
                 Ok(module) => module,
                 Err(diagnostics) => {
                     return Err(format!("MIR generation failed: {:#?}", diagnostics));

@@ -23,15 +23,21 @@ test_loop_optimization_0:
    2: 4 1 0 2              // [fp + 2] = [fp + 1] + 0
    3: 4 0 0 3              // [fp + 3] = [fp + 0] + 0
 test_loop_optimization_1:
-   4: 4 3 2147483642 6     // [fp + 6] = [fp + 3] + (-5) (-5 as M31 -> 2147483642 (=-5 mod M31))
-   5: 14 6 2 _             // if [fp + 6] != 0 jmp rel test_loop_optimization_2
-   6: 12 12 _ _            // jump abs test_loop_optimization_3
+   4: 4 3 2147483642 4     // [fp + 4] = [fp + 3] + (-5) (-5 as M31 -> 2147483642 (=-5 mod M31))
+   5: 14 4 3 _             // if [fp + 4] != 0 jmp rel neq_non_zero_0
+   6: 9 0 4 _              // [fp + 4] = 0
+   7: 12 9 _ _             // jump abs neq_end_1
+neq_non_zero_0:
+   8: 9 1 4 _              // [fp + 4] = 1
+neq_end_1:
+   9: 14 4 2 _             // if [fp + 4] != 0 jmp rel test_loop_optimization_2
+  10: 12 16 _ _            // jump abs test_loop_optimization_3
 test_loop_optimization_2:
-   7: 0 2 3 4              // [fp + 4] = [fp + 2] op [fp + 3]
-   8: 4 3 1 5              // [fp + 5] = [fp + 3] + 1
-   9: 4 4 0 2              // [fp + 2] = [fp + 4] + 0
-  10: 4 5 0 3              // [fp + 3] = [fp + 5] + 0
-  11: 12 4 _ _             // jump abs test_loop_optimization_1
+  11: 0 2 3 5              // [fp + 5] = [fp + 2] op [fp + 3]
+  12: 4 3 1 6              // [fp + 6] = [fp + 3] + 1
+  13: 4 5 0 2              // [fp + 2] = [fp + 5] + 0
+  14: 4 6 0 3              // [fp + 3] = [fp + 6] + 0
+  15: 12 4 _ _             // jump abs test_loop_optimization_1
 test_loop_optimization_3:
-  12: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
-  13: 11 _ _ _             // return
+  16: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
+  17: 11 _ _ _             // return

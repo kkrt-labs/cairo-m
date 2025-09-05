@@ -15,6 +15,11 @@ Generated CASM:
 test_simple_if:
 test_simple_if:
 test_simple_if_0:
+   0: 12 2 _ _             // jump abs test_simple_if_1
+   1: 12 4 _ _             // jump abs test_simple_if_2
 test_simple_if_1:
-   0: 9 2 2147483644 _     // Return value 0: [fp -3] = 2
-   1: 11 _ _ _             // return
+   2: 9 2 2147483644 _     // Return value 0: [fp -3] = 2
+   3: 11 _ _ _             // return
+test_simple_if_2:
+   4: 9 0 2147483644 _     // Return value 0: [fp -3] = 0
+   5: 11 _ _ _             // return

@@ -359,12 +359,25 @@ impl CodeGenerator {
                         let imm = if *b { 1 } else { 0 };
                         builder.assert_eq_fp_imm(ro, imm, format!("assert [fp + {ro}] == {}", imm));
                     }
-                    (Value::Literal(left), Value::Literal(right)) => {
-                        if left != right {
-                            return Err(CodegenError::InvalidMir(
-                                "An assert expression was evaluated to false".into(),
-                            ));
-                        }
+                    (Value::Literal(left_literal), Value::Literal(right_literal)) => {
+                        let right_imm = right_literal
+                            .as_integer()
+                            .expect("Right literal is not an integer");
+                        let left_imm = left_literal
+                            .as_integer()
+                            .expect("Left literal is not an integer");
+                        let is_eq = left_imm == right_imm;
+                        let store_eq_dst = builder.layout_mut().reserve_stack(1);
+                        builder.store_immediate(
+                            is_eq as u32,
+                            store_eq_dst,
+                            format!("[fp + {store_eq_dst}] == {is_eq}"),
+                        );
+                        builder.assert_eq_fp_imm(
+                            store_eq_dst,
+                            1,
+                            format!("assert [fp + {store_eq_dst}] == {is_eq}"),
+                        );
                     }
                     _ => {
                         unreachable!();

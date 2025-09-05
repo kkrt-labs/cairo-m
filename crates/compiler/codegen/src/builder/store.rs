@@ -73,7 +73,7 @@ impl super::CasmBuilder {
     }
 
     /// Store a felt/boolean/pointer immediate and track the write.
-    pub(super) fn store_immediate(&mut self, value: u32, offset: i32, comment: String) {
+    pub(crate) fn store_immediate(&mut self, value: u32, offset: i32, comment: String) {
         let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::StoreImm {
             imm: M31::from(value),
             dst_off: M31::from(offset),

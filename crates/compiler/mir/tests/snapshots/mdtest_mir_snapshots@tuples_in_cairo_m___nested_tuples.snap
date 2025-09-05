@@ -22,8 +22,8 @@ module {
 
     0:
       %0 = maketuple 3, 4
-      %4 = maketuple 1, 2, %0
-      %2 = call 1(%4)
+      %1 = maketuple 1, 2, %0
+      %2 = call 1(%1)
       return %2
 
   }

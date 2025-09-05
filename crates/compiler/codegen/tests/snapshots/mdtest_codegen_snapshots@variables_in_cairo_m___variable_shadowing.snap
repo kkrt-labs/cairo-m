@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
-assertion_line: 59
 description: "Codegen snapshot for mdtest: Variables in Cairo-M - Variable Shadowing"
 input_file: mdtest/01-basics/02-variables.md
 ---
@@ -20,4 +19,3 @@ test_shadowing_0:
    1: 4 0 1 1              // [fp + 1] = [fp + 0] + 1
    2: 6 1 2 2147483644     // [fp + -3] = [fp + 1] * 2
    3: 11 _ _ _             // return
-

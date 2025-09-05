@@ -4,7 +4,7 @@
 
 mod common;
 
-use cairo_m_compiler_mir::{generate_mir, PrettyPrint};
+use cairo_m_compiler_mir::{generate_mir_with_config, PipelineConfig, PrettyPrint};
 use cairo_m_compiler_semantic::db::project_validate_semantics;
 use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
 use common::{create_test_crate, TestDatabase};
@@ -29,7 +29,9 @@ fn test_mdtest_mir_snapshots() {
                 ));
             }
 
-            match generate_mir(&db, crate_id) {
+            // Generate MIR with no optimizations to make snapshots stable and
+            // focused on lowering semantics rather than optimization outcomes.
+            match generate_mir_with_config(&db, crate_id, PipelineConfig::no_opt()) {
                 Ok(module) => Ok(module.pretty_print(0)),
                 Err(diagnostics) => Err(format!(
                     "MIR generation failed with diagnostics:\n{:#?}",

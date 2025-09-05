@@ -27,7 +27,8 @@ module {
 
     1 (for_header):
       ; for_header
-      if %2 != 10 then jump 2 else jump 4
+      %3 = %2 != 10
+      if %3 then jump 2 else jump 4
 
     2 (for_body):
       ; for_body

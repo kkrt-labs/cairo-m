@@ -29,7 +29,8 @@ module {
 
     1 (loop_header):
       ; loop_header
-      if %2 != 5 then jump 2 else jump 3
+      %3 = %2 != 5
+      if %3 then jump 2 else jump 3
 
     2 (loop_body):
       ; loop_body

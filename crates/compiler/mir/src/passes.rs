@@ -23,6 +23,8 @@ use arithmetic_simplify::ArithmeticSimplify;
 pub mod constant_folding;
 use constant_folding::ConstantFolding;
 
+pub mod constant_propagation;
+use constant_propagation::ConstantPropagation;
 pub mod copy_propagation;
 use copy_propagation::CopyPropagation;
 
@@ -92,6 +94,7 @@ impl PassManager {
         Self::new()
             .add_pass(ScalarReplacementOfAggregates::new()) // Run SROA early to expose scalars
             .add_pass(ArithmeticSimplify::new())
+            .add_pass(ConstantPropagation::new())
             .add_pass(ConstantFolding::new())
             .add_pass(CopyPropagation::new())
             .add_pass(LocalCSE::new())

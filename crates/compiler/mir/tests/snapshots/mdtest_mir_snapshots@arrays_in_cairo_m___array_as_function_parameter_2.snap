@@ -51,7 +51,8 @@ module {
 
     1 (block_1):
       ; block_1
-      if %4 == %1 then jump 3 else jump 4
+      %6 = %4 == %1
+      if %6 then jump 3 else jump 4
 
     2 (block_2):
       ; block_2

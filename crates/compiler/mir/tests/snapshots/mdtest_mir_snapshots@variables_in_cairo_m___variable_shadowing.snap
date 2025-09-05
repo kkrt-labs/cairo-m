@@ -1,6 +1,5 @@
 ---
 source: crates/compiler/mir/tests/mdtest_snapshots.rs
-assertion_line: 50
 description: "MIR snapshot for mdtest: Variables in Cairo-M - Variable Shadowing"
 input_file: mdtest/01-basics/02-variables.md
 ---
@@ -27,4 +26,3 @@ module {
   }
 
 }
-

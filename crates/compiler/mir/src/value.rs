@@ -116,6 +116,7 @@ impl Value {
     pub const fn as_const_integer(&self) -> Option<u32> {
         match self {
             Self::Literal(Literal::Integer(value)) => Some(*value),
+            Self::Literal(Literal::Boolean(value)) => Some(*value as u32),
             _ => None,
         }
     }
@@ -149,6 +150,7 @@ impl Literal {
     pub const fn as_integer(&self) -> Option<u32> {
         match self {
             Self::Integer(value) => Some(*value),
+            Self::Boolean(value) => Some(*value as u32),
             _ => None,
         }
     }

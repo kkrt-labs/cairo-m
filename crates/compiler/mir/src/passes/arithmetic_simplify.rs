@@ -303,6 +303,74 @@ mod tests {
     }
 
     #[test]
+    fn test_self_inequality_false() {
+        let mut function = MirFunction::new("test".to_string());
+        let entry = function.add_basic_block();
+        function.entry_block = entry;
+
+        // %x is some felt, %r = %x != %x  -> false
+        let val_x = function.new_typed_value_id(MirType::felt());
+        let val_result = function.new_typed_value_id(MirType::bool());
+        let block = function.get_basic_block_mut(entry).unwrap();
+        block.push_instruction(crate::Instruction::assign(
+            val_x,
+            Value::integer(7),
+            MirType::felt(),
+        ));
+        block.push_instruction(crate::Instruction::binary_op(
+            BinaryOp::Neq,
+            val_result,
+            Value::operand(val_x),
+            Value::operand(val_x),
+        ));
+        block.set_terminator(Terminator::return_value(Value::operand(val_result)));
+
+        let mut pass = ArithmeticSimplify::new();
+        let modified = pass.run(&mut function);
+        assert!(modified);
+        let block = function.get_basic_block(entry).unwrap();
+        if let InstructionKind::Assign { source, .. } = &block.instructions[1].kind {
+            assert_eq!(*source, Value::boolean(false));
+        } else {
+            panic!("Expected assignment instruction");
+        }
+    }
+
+    #[test]
+    fn test_self_subtraction_zero() {
+        let mut function = MirFunction::new("test".to_string());
+        let entry = function.add_basic_block();
+        function.entry_block = entry;
+
+        // %x - %x  -> 0
+        let val_x = function.new_typed_value_id(MirType::felt());
+        let val_result = function.new_typed_value_id(MirType::felt());
+        let block = function.get_basic_block_mut(entry).unwrap();
+        block.push_instruction(crate::Instruction::assign(
+            val_x,
+            Value::integer(11),
+            MirType::felt(),
+        ));
+        block.push_instruction(crate::Instruction::binary_op(
+            BinaryOp::Sub,
+            val_result,
+            Value::operand(val_x),
+            Value::operand(val_x),
+        ));
+        block.set_terminator(Terminator::return_value(Value::operand(val_result)));
+
+        let mut pass = ArithmeticSimplify::new();
+        let modified = pass.run(&mut function);
+        assert!(modified);
+        let block = function.get_basic_block(entry).unwrap();
+        if let InstructionKind::Assign { source, .. } = &block.instructions[1].kind {
+            assert_eq!(*source, Value::integer(0));
+        } else {
+            panic!("Expected assignment instruction");
+        }
+    }
+
+    #[test]
     fn test_boolean_and_identity() {
         let mut function = MirFunction::new("test".to_string());
         let entry = function.add_basic_block();

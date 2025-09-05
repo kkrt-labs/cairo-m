@@ -26,13 +26,20 @@ test_factorial_0:
    2: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
    3: 11 _ _ _             // return
 factorial:
-   4: 14 2147483643 4 _    // if [fp + -4] != 0 jmp rel factorial_2
-   5: 12 6 _ _             // jump abs factorial_1
+   4: 4 2147483643 0 0     // [fp + 0] = [fp + -4] + (-0) (-0 as M31 -> 0)
+   5: 14 0 3 _             // if [fp + 0] != 0 jmp rel not_zero_0
+   6: 9 1 0 _              // [fp + 0] = 1
+   7: 12 9 _ _             // jump abs end_1
+not_zero_0:
+   8: 9 0 0 _              // [fp + 0] = 0
+end_1:
+   9: 14 0 2 _             // if [fp + 0] != 0 jmp rel factorial_1
+  10: 12 13 _ _            // jump abs factorial_2
 factorial_1:
-   6: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
-   7: 11 _ _ _             // return
+  11: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
+  12: 11 _ _ _             // return
 factorial_2:
-   8: 4 2147483643 2147483646 3 // [fp + 3] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
-   9: 10 5 4 _             // call factorial
-  10: 2 2147483643 4 2147483644 // [fp + -3] = [fp + -4] op [fp + 4]
-  11: 11 _ _ _             // return
+  13: 4 2147483643 2147483646 4 // [fp + 4] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+  14: 10 6 4 _             // call factorial
+  15: 2 2147483643 5 2147483644 // [fp + -3] = [fp + -4] op [fp + 5]
+  16: 11 _ _ _             // return

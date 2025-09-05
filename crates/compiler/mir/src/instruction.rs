@@ -956,10 +956,14 @@ impl Instruction {
     }
 
     /// Returns true if this instruction has side effects
+    ///
+    /// Inserting into an array: because arrays are passed by pointer, this has side effects, as it modifies the array in place.
     pub const fn has_side_effects(&self) -> bool {
         matches!(
             self.kind,
-            InstructionKind::Call { .. } | InstructionKind::Debug { .. }
+            InstructionKind::Call { .. }
+                | InstructionKind::Debug { .. }
+                | InstructionKind::ArrayInsert { .. }
         )
     }
 

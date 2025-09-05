@@ -57,9 +57,9 @@ pub use mir_types::MirType;
 pub use module::MirModule;
 pub use passes::{
     arithmetic_simplify::ArithmeticSimplify, constant_folding::ConstantFolding,
-    copy_propagation::CopyPropagation, dead_code_elimination::DeadCodeElimination,
-    fuse_cmp::FuseCmpBranch, local_cse::LocalCSE, simplify_branches::SimplifyBranches,
-    sroa::ScalarReplacementOfAggregates, MirPass, PassManager,
+    constant_propagation::ConstantPropagation, copy_propagation::CopyPropagation,
+    dead_code_elimination::DeadCodeElimination, fuse_cmp::FuseCmpBranch, local_cse::LocalCSE,
+    simplify_branches::SimplifyBranches, sroa::ScalarReplacementOfAggregates, MirPass, PassManager,
 };
 pub use pipeline::{OptimizationLevel, PipelineConfig};
 pub use terminator::Terminator;

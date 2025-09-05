@@ -25,6 +25,12 @@ impl super::CasmBuilder {
         // Get the condition value offset
         let cond_off = match condition {
             Value::Operand(cond_id) => self.layout.get_offset(cond_id)?,
+            Value::Literal(Literal::Boolean(b)) => {
+                if b {
+                    self.jump(target_label);
+                }
+                return Ok(());
+            }
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Condition must be a value operand".to_string(),
