@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757061937014,
+  "lastUpdate": 1757070416340,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1739,6 +1739,36 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6207092808,
             "range": "± 26383469",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "antoine.fondeur@gmail.com",
+            "name": "Antoine Fondeur",
+            "username": "AntoineFONDEUR"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "49ed9a7c20ed73b5be2be8dc99bc965d515457a5",
+          "message": "feat(prover): add u32_store_bitwise_fp_fp (#302)\n\n* feat: add and test bitwise_fp_fp\n\n* remove assert eq fp fp\n\n* typo\n\n* removed uneccessary constraint\n\n* remove res computation\n\n* rename\n\n* remove unecessary variables",
+          "timestamp": "2025-09-05T13:48:58+03:00",
+          "tree_id": "43a7d5a663ad55e29442576f2727590636e386ae",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/49ed9a7c20ed73b5be2be8dc99bc965d515457a5"
+        },
+        "date": 1757070415312,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6251770919,
+            "range": "± 22219236",
             "unit": "ns/iter"
           }
         ]
