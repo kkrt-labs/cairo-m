@@ -63,6 +63,8 @@ pub struct MirState<'db> {
     /// - continue_target: where 'continue' jumps (header for while/loop, step for for)
     /// - loop_exit: where 'break' jumps
     pub(super) loop_stack: Vec<(BasicBlockId, BasicBlockId)>,
+    /// True while lowering the body of a semantic `const` value
+    pub(super) in_const_context: bool,
 }
 
 /// A builder that constructs a `MirFunction` from a semantic AST function definition
@@ -180,6 +182,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             function_def_id: None,
             is_terminated: false,
             loop_stack: Vec::new(),
+            in_const_context: false,
         };
 
         Self { ctx, state }
@@ -770,8 +773,20 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             size,
         };
         let dest = self.state.mir_function.new_typed_value_id(array_type);
-        self.instr()
-            .add_instruction(Instruction::make_fixed_array(dest, elements, element_type));
+        if self.state.in_const_context {
+            self.instr()
+                .add_instruction(Instruction::make_const_fixed_array(
+                    dest,
+                    elements,
+                    element_type,
+                ));
+        } else {
+            self.instr().add_instruction(Instruction::make_fixed_array(
+                dest,
+                elements,
+                element_type,
+            ));
+        }
         dest
     }
 

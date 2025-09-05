@@ -420,9 +420,9 @@ fn test_fibonacci_public_memory_contents() {
     // Convert compiled program instructions to QM31 for comparison
     let compiled_instructions: Vec<QM31> = compiled_fib
         .program
-        .instructions
+        .data
         .iter()
-        .flat_map(|instruction| instruction.to_qm31_vec())
+        .flat_map(|pg_data| pg_data.to_qm31_vec())
         .collect();
 
     assert_eq!(

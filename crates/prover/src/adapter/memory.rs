@@ -359,19 +359,19 @@ where
                 None => return Some(Err(VmImportError::UnexpectedEndOfTrace)),
             };
 
-            let operand_entry = MemoryEntry {
+            let mem_entry = MemoryEntry {
                 address: operand_memory.addr,
                 value: operand_memory.value,
                 clock: self.clock.into(),
             };
 
-            let operand_arg = self.memory.push(operand_entry);
+            let mem_arg = self.memory.push(mem_entry);
 
-            let data_access = DataAccess {
-                address: operand_arg.address,
-                prev_clock: operand_arg.prev_clock,
-                prev_value: operand_arg.prev_val.0 .0,
-                value: operand_arg.value.0 .0,
+            let data_access: DataAccess = DataAccess {
+                address: mem_arg.address,
+                prev_clock: mem_arg.prev_clock,
+                prev_value: mem_arg.prev_val.0 .0,
+                value: mem_arg.value.0 .0,
             };
 
             self.data_accesses.push(data_access);

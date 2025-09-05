@@ -132,8 +132,8 @@ fn multiply(a: felt, b: felt) -> felt {
 
     // Verify that the program contains instructions
     assert!(
-        !program.instructions.is_empty(),
-        "Generated program should contain instructions"
+        !program.data.is_empty(),
+        "Generated program should contain data"
     );
 }
 
@@ -216,8 +216,8 @@ fn main() -> felt {
 
     let program = compilation_result.unwrap();
     assert!(
-        !program.instructions.is_empty(),
-        "Generated program should contain instructions"
+        !program.data.is_empty(),
+        "Generated program should contain data"
     );
 }
 
@@ -284,8 +284,8 @@ fn another_unused() -> felt {
 
     let program = compilation_result.unwrap();
     assert!(
-        !program.instructions.is_empty(),
-        "Generated program should contain instructions"
+        !program.data.is_empty(),
+        "Generated program should contain data"
     );
 }
 
@@ -391,9 +391,6 @@ fn main() -> felt {
         );
 
         let program = compilation_result.unwrap();
-        assert!(
-            !program.instructions.is_empty(),
-            "Should generate instructions"
-        );
+        assert!(!program.data.is_empty(), "Should generate data");
     }
 }

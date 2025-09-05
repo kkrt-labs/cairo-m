@@ -1,6 +1,8 @@
 // Cairo-M combination test file demonstrating all compilable opcodes
 // This program exercises all implemented opcodes for comprehensive testing
 
+const POW2: [u32; 3] = [1, 2, 4];
+
 fn main() -> felt {
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                         Arithmetic Felt Opcodes                          ║
@@ -69,6 +71,9 @@ fn main() -> felt {
 
     // StoreToDoubleDerefFpFp
     my_arr[one_felt] = 42;
+
+    // Load from rodata
+    let pow2_0 = POW2[0];
 
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                         Arithmetic U32 Opcodes                           ║
