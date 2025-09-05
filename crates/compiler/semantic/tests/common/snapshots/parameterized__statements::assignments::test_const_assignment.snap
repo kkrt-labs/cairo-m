@@ -149,3 +149,20 @@ struct Point { x: u32, y: u32 } const TP: (Point, u32) = (Point { x: 1u32, y: 2u
    │                                                                                                             │    
    │                                                                                                             ╰──── cannot assign to field of const variable `TP`
 ───╯
+
+============================================================
+
+--- Input 11 (ERROR) ---
+const ARR: [u32; 3] = [1u32, 2u32, 3u32];
+// --- main.cm ---
+use constants::ARR; fn test() { ARR[0] = 9u32; return; }
+--- Diagnostics ---
+[2014] Error: cannot assign to element of const variable `ARR`
+   ╭─[ main.cm:1:33 ]
+   │
+ 1 │ const ARR: [u32; 3] = [1u32, 2u32, 3u32];
+   │       ─┬─                       ──┬──  
+   │        ╰─────────────────────────────── const variable defined here
+   │                                   │    
+   │                                   ╰──── cannot assign to element of const variable `ARR`
+───╯

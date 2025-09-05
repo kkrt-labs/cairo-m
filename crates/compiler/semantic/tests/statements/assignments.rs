@@ -102,6 +102,25 @@ fn test_const_assignment() {
                 "struct Point {{ x: u32, y: u32 }} const TP: (Point, u32) = (Point {{ x: 1u32, y: 2u32 }}, 5u32); {}",
                 in_function("TP.0.x = 2u32;")
             ),
+
+            // Cross-module const: import and mutate should be rejected
+            // constants.cm defines a const array; main imports and tries to assign
+            crate::multi_file(
+                "main.cm",
+                &[
+                    (
+                        "constants.cm",
+                        "const ARR: [u32; 3] = [1u32, 2u32, 3u32];",
+                    ),
+                    (
+                        "main.cm",
+                        &format!(
+                            "use constants::ARR; {}",
+                            in_function("ARR[0] = 9u32;")
+                        ),
+                    ),
+                ],
+            ),
         ]
     }
 }
