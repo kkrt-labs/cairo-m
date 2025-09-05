@@ -8,8 +8,10 @@ use stwo_prover::core::fields::m31::BaseField;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
+use crate::preprocessed::bitwise::Bitwise;
 use crate::preprocessed::range_check::RangeCheck;
 
+pub mod bitwise;
 pub mod range_check;
 
 pub trait PreProcessedColumn {
@@ -55,6 +57,16 @@ impl PreProcessedTraceBuilder {
         self
     }
 
+    pub fn with_bitwise(mut self, operand_bits: u32) -> Self {
+        // Create the bitwise preprocessed columns
+        // This adds 4 columns: operation_id, input1, input2, result
+        let bitwise = Bitwise::new(operand_bits);
+        for column in bitwise.columns() {
+            self.columns.push(Box::new(column));
+        }
+        self
+    }
+
     pub fn build(self) -> PreProcessedTrace {
         PreProcessedTrace::new(self.columns)
     }
@@ -63,6 +75,7 @@ impl PreProcessedTraceBuilder {
 impl Default for PreProcessedTraceBuilder {
     fn default() -> Self {
         Self::new()
+            .with_bitwise(8)
             .with_range_check(8)
             .with_range_check(16)
             .with_range_check(20)

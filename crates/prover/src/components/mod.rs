@@ -20,6 +20,7 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ProverInput;
+use crate::preprocessed::bitwise;
 use crate::preprocessed::range_check::{range_check_16, range_check_20, range_check_8};
 use crate::public_data::PublicData;
 use crate::relations;
@@ -34,6 +35,7 @@ pub struct Claim {
     pub range_check_8: range_check_8::Claim,
     pub range_check_16: range_check_16::Claim,
     pub range_check_20: range_check_20::Claim,
+    pub bitwise: bitwise::Claim,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +47,7 @@ pub struct Relations {
     pub range_check_8: relations::RangeCheck8,
     pub range_check_16: relations::RangeCheck16,
     pub range_check_20: relations::RangeCheck20,
+    pub bitwise: relations::Bitwise,
 }
 
 pub struct InteractionClaimData {
@@ -56,6 +59,7 @@ pub struct InteractionClaimData {
     pub range_check_8: range_check_8::InteractionClaimData,
     pub range_check_16: range_check_16::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
+    pub bitwise: bitwise::InteractionClaimData,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -68,6 +72,7 @@ pub struct InteractionClaim {
     pub range_check_8: range_check_8::InteractionClaim,
     pub range_check_16: range_check_16::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
+    pub bitwise: bitwise::InteractionClaim,
 }
 
 impl Claim {
@@ -81,6 +86,7 @@ impl Claim {
             self.range_check_8.log_sizes(),
             self.range_check_16.log_sizes(),
             self.range_check_20.log_sizes(),
+            self.bitwise.log_sizes(),
         ];
         TreeVec::concat_cols(trees.into_iter())
     }
@@ -94,6 +100,7 @@ impl Claim {
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
+        self.bitwise.mix_into(channel);
     }
 
     pub fn write_trace<MC: MerkleChannel>(
@@ -139,6 +146,10 @@ impl Claim {
         let (range_check_20_claim, range_check_20_trace, range_check_20_interaction_claim_data) =
             range_check_20::Claim::write_trace(range_check_20_data);
 
+        // Write bitwise components (empty for now, will be populated when opcodes use them)
+        let (bitwise_claim, bitwise_trace, bitwise_interaction_claim_data) =
+            bitwise::Claim::write_trace(rayon::iter::empty());
+
         // Gather all lookup data
         let interaction_claim_data = InteractionClaimData {
             opcodes: opcodes_interaction_claim_data,
@@ -149,6 +160,7 @@ impl Claim {
             range_check_8: range_check_8_interaction_claim_data,
             range_check_16: range_check_16_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
+            bitwise: bitwise_interaction_claim_data,
         };
 
         // Combine all traces
@@ -160,7 +172,8 @@ impl Claim {
             .chain(poseidon2_trace.to_evals())
             .chain(range_check_8_trace)
             .chain(range_check_16_trace)
-            .chain(range_check_20_trace);
+            .chain(range_check_20_trace)
+            .chain(bitwise_trace);
 
         (
             Self {
@@ -172,6 +185,7 @@ impl Claim {
                 range_check_8: range_check_8_claim,
                 range_check_16: range_check_16_claim,
                 range_check_20: range_check_20_claim,
+                bitwise: bitwise_claim,
             },
             trace,
             interaction_claim_data,
@@ -234,6 +248,12 @@ impl InteractionClaim {
                 &interaction_claim_data.range_check_20,
             );
 
+        let (bitwise_interaction_claim, bitwise_interaction_trace) =
+            bitwise::InteractionClaim::write_interaction_trace(
+                &relations.bitwise,
+                &interaction_claim_data.bitwise,
+            );
+
         (
             opcodes_interaction_trace
                 .into_iter()
@@ -243,7 +263,8 @@ impl InteractionClaim {
                 .chain(poseidon2_interaction_trace)
                 .chain(range_check_8_interaction_trace)
                 .chain(range_check_16_interaction_trace)
-                .chain(range_check_20_interaction_trace),
+                .chain(range_check_20_interaction_trace)
+                .chain(bitwise_interaction_trace),
             Self {
                 opcodes: opcodes_interaction_claim,
                 memory: memory_interaction_claim,
@@ -253,6 +274,7 @@ impl InteractionClaim {
                 range_check_8: range_check_8_interaction_claim,
                 range_check_16: range_check_16_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
+                bitwise: bitwise_interaction_claim,
             },
         )
     }
@@ -268,6 +290,7 @@ impl InteractionClaim {
         sum += self.range_check_8.claimed_sum;
         sum += self.range_check_16.claimed_sum;
         sum += self.range_check_20.claimed_sum;
+        sum += self.bitwise.claimed_sum;
         sum
     }
 
@@ -280,6 +303,7 @@ impl InteractionClaim {
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
+        self.bitwise.mix_into(channel);
     }
 }
 
@@ -293,6 +317,7 @@ impl Relations {
             range_check_8: relations::RangeCheck8::draw(channel),
             range_check_16: relations::RangeCheck16::draw(channel),
             range_check_20: relations::RangeCheck20::draw(channel),
+            bitwise: relations::Bitwise::draw(channel),
         }
     }
 }
@@ -306,6 +331,7 @@ pub struct Components {
     pub range_check_8: range_check_8::Component,
     pub range_check_16: range_check_16::Component,
     pub range_check_20: range_check_20::Component,
+    pub bitwise: bitwise::Component,
 }
 
 impl Components {
@@ -378,6 +404,15 @@ impl Components {
                 },
                 interaction_claim.range_check_20.claimed_sum,
             ),
+            bitwise: bitwise::Component::new(
+                location_allocator,
+                bitwise::Eval {
+                    claim: claim.bitwise,
+                    relation: relations.bitwise.clone(),
+                    claimed_sum: interaction_claim.bitwise.claimed_sum,
+                },
+                interaction_claim.bitwise.claimed_sum,
+            ),
         }
     }
 
@@ -390,6 +425,7 @@ impl Components {
         provers.push(&self.range_check_8);
         provers.push(&self.range_check_16);
         provers.push(&self.range_check_20);
+        provers.push(&self.bitwise);
         provers
     }
 
@@ -402,6 +438,7 @@ impl Components {
         verifiers.push(&self.range_check_8);
         verifiers.push(&self.range_check_16);
         verifiers.push(&self.range_check_20);
+        verifiers.push(&self.bitwise);
         verifiers
     }
 }
