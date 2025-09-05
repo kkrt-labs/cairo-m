@@ -106,10 +106,6 @@ impl DagToMirContext {
         }
     }
 
-    pub const fn get_current_block_id(&self) -> BasicBlockId {
-        self.current_block_id.unwrap()
-    }
-
     pub fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
         let block_id = self
             .current_block_id
@@ -218,15 +214,15 @@ impl DagToMirContext {
 }
 
 impl DagToMir {
-    pub fn new(module: BlocklessDagModule) -> Self {
+    pub fn new(module: BlocklessDagModule) -> Result<Self, DagToMirError> {
         let mut dag_to_mir = Self {
             module,
             global_addresses: HashMap::new(),
             global_types: HashMap::new(),
             heap_start: 0,
         };
-        dag_to_mir.allocate_globals().unwrap();
-        dag_to_mir
+        dag_to_mir.allocate_globals()?;
+        Ok(dag_to_mir)
     }
 
     /// Map each global to its address in memory and computes the address of the heap as
@@ -249,20 +245,24 @@ impl DagToMir {
                         }
                     };
 
+                    let ty = match Self::wasm_type_to_mir_type(
+                        &allocated_var.val_type,
+                        "Global scope",
+                        "global type",
+                    ) {
+                        Ok(ty) => ty,
+                        Err(e) => {
+                            error = Some(e);
+                            return;
+                        }
+                    };
+
+                    self.global_types.insert(i, ty);
+
                     self.global_addresses
                         .insert(i, next_free_address - size + 1);
 
                     next_free_address -= size;
-
-                    self.global_types.insert(
-                        i,
-                        Self::wasm_type_to_mir_type(
-                            &allocated_var.val_type,
-                            "Global scope",
-                            "global type",
-                        )
-                        .unwrap(),
-                    );
                 }
             }
         });

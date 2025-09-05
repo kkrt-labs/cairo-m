@@ -22,7 +22,8 @@ macro_rules! wasm_test {
             // Load the WASM module
             let module = BlocklessDagModule::from_file(&file_path).unwrap();
             // Flatten to MIR without any optimizations
-            let mir_module = DagToMir::new(module).to_mir(PassManager::new()).unwrap();
+            let dag_to_mir = DagToMir::new(module).expect("failed to construct DagToMir");
+            let mir_module = dag_to_mir.to_mir(PassManager::new()).unwrap();
 
             // Create snapshot content
             let snapshot_content = {
