@@ -37,8 +37,6 @@
 //!
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
-//! * opcode_constant is 36, 37 or 38
-//!   * `(36 - opcode_constant) * (37 - opcode_constant) * (38 - opcode_constant)`
 //! * define `bitwise_op = opcode_constant - 36`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
@@ -416,9 +414,9 @@ fn compute_bitwise_result(opcode: PackedM31, a: PackedM31, b: PackedM31) -> Pack
     for i in 0..N_LANES {
         let op = opcode.to_array()[i].0;
         result[i] = match op {
-            36 => and_result[i], // AND
-            37 => or_result[i],  // OR
-            38 => xor_result[i], // XOR
+            U32_STORE_AND_FP_FP => and_result[i], // AND
+            U32_STORE_OR_FP_FP => or_result[i],   // OR
+            U32_STORE_XOR_FP_FP => xor_result[i], // XOR
             _ => M31::zero(),
         };
     }
@@ -611,13 +609,6 @@ impl FrameworkEval for Eval {
 
         // Constraint: enabler is boolean
         eval.add_constraint(enabler.clone() * (enabler.clone() - one.clone()));
-
-        // Constraint: opcode_constant is 36, 37, or 38
-        eval.add_constraint(
-            (opcode_constant.clone() - E::F::from(BaseField::from(U32_STORE_AND_FP_FP)))
-                * (opcode_constant.clone() - E::F::from(BaseField::from(U32_STORE_OR_FP_FP)))
-                * (opcode_constant.clone() - E::F::from(BaseField::from(U32_STORE_XOR_FP_FP))),
-        );
 
         let bitwise_op = opcode_constant.clone() - E::F::from(BaseField::from(U32_STORE_AND_FP_FP));
 
