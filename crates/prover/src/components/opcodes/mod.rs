@@ -97,6 +97,12 @@ macro_rules! define_opcodes {
                 rayon::iter::empty()
                     $(.chain(self.$opcode.get_range_check_8()))*
             }
+
+            pub fn bitwise(&self) -> impl ParallelIterator<Item = &[[PackedM31; 4]]> {
+                use $crate::preprocessed::bitwise::BitwiseProvider;
+                rayon::iter::empty()
+                    $(.chain(self.$opcode.get_bitwise()))*
+            }
         }
 
         // Implement InteractionClaim methods
@@ -184,9 +190,6 @@ macro_rules! define_opcodes {
                     )*
                     // TODO: Add support for these opcodes
                     Instruction::StoreLowerThanFpImm { .. } => {},
-                    Instruction::U32StoreAndFpFp { .. } => {},
-                    Instruction::U32StoreOrFpFp { .. } => {},
-                    Instruction::U32StoreXorFpFp { .. } => {},
                     Instruction::U32StoreAndFpImm { .. } => {},
                     Instruction::U32StoreOrFpImm { .. } => {},
                     Instruction::U32StoreXorFpImm { .. } => {},
@@ -258,4 +261,8 @@ define_opcodes!(
     ([U32StoreSubFpFp], u32_store_sub_fp_fp),
     ([U32StoreMulFpFp], u32_store_mul_fp_fp),
     ([U32StoreDivFpFp], u32_store_div_fp_fp),
+    (
+        [U32StoreAndFpFp, U32StoreOrFpFp, U32StoreXorFpFp],
+        u32_store_bitwise_fp_fp
+    ),
 );

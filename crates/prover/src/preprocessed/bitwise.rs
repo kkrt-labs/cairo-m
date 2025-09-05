@@ -34,6 +34,14 @@ pub const BITWISE_NUM_OPS: u32 = 3;
 /// Total log size for stacked bitwise operations
 pub const BITWISE_STACKED_LOG_SIZE: u32 = BITWISE_LOOKUP_BITS + 2; // 16 + 2 = 18 (for 3 ops, need next power of 2)
 
+// Trait for components that provide bitwise data
+pub trait BitwiseProvider {
+    /// Returns bitwise data
+    fn get_bitwise(&self) -> impl ParallelIterator<Item = &[[PackedM31; 4]]> {
+        rayon::iter::empty()
+    }
+}
+
 pub struct InteractionClaimData {
     pub bitwise: Vec<[PackedM31; 5]>, // operation_id, input1, input2, result, multiplicity
 }
@@ -62,7 +70,7 @@ impl Claim {
     /// write_trace creates columns for:
     /// - All operations stacked: 3 * 2^BITWISE_LOOKUP_BITS entries
     pub fn write_trace<'a, MC: MerkleChannel>(
-        lookup_data: impl ParallelIterator<Item = &'a [[PackedM31; 3]]>,
+        lookup_data: impl ParallelIterator<Item = &'a [[PackedM31; 4]]>,
     ) -> (
         Self,
         [CircleEvaluation<SimdBackend, M31, BitReversedOrder>; 1],
