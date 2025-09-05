@@ -240,11 +240,10 @@ impl Claim {
                 let (dst_val_0, dst_val_1) = decompose_8(dst_val_lo);
                 let (dst_val_2, dst_val_3) = decompose_8(dst_val_hi);
 
-                // Compute the result based on the operation
                 let bitwise_op = opcode_constant - PackedM31::from(M31::from(U32_STORE_AND_FP_FP));
 
-                let res_lo = dst_val_0 + dst_val_1 * two_pow_8;
-                let res_hi = dst_val_2 + dst_val_3 * two_pow_8;
+                let dst_val_lo = dst_val_0 + dst_val_1 * two_pow_8;
+                let dst_val_hi = dst_val_2 + dst_val_3 * two_pow_8;
 
                 // Write trace columns
                 *row[0] = enabler;
@@ -348,7 +347,7 @@ impl Claim {
                     zero,
                     zero,
                 ];
-                *lookup_data.memory[11] = [fp + dst_off, clock, res_lo, zero, zero, zero];
+                *lookup_data.memory[11] = [fp + dst_off, clock, dst_val_lo, zero, zero, zero];
                 *lookup_data.memory[12] = [
                     fp + dst_off + one,
                     dst_prev_clock_hi,
@@ -357,7 +356,7 @@ impl Claim {
                     zero,
                     zero,
                 ];
-                *lookup_data.memory[13] = [fp + dst_off + one, clock, res_hi, zero, zero, zero];
+                *lookup_data.memory[13] = [fp + dst_off + one, clock, dst_val_hi, zero, zero, zero];
 
                 // Bitwise lookups - only store operation_id and inputs, result is verified by lookup
                 *lookup_data.bitwise[0] = [bitwise_op, op0_val_0, op1_val_0, dst_val_0];
@@ -578,8 +577,8 @@ impl FrameworkEval for Eval {
         let op0_val_hi = op0_val_2.clone() + op0_val_3.clone() * two_pow_8.clone();
         let op1_val_lo = op1_val_0.clone() + op1_val_1.clone() * two_pow_8.clone();
         let op1_val_hi = op1_val_2.clone() + op1_val_3.clone() * two_pow_8.clone();
-        let res_lo = dst_val_0.clone() + dst_val_1.clone() * two_pow_8.clone();
-        let res_hi = dst_val_2.clone() + dst_val_3.clone() * two_pow_8;
+        let dst_val_lo = dst_val_0.clone() + dst_val_1.clone() * two_pow_8.clone();
+        let dst_val_hi = dst_val_2.clone() + dst_val_3.clone() * two_pow_8;
 
         // Register lookups
         eval.add_to_relation(RelationEntry::new(
@@ -700,7 +699,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp.clone() + dst_off.clone(), clock.clone(), res_lo],
+            &[fp.clone() + dst_off.clone(), clock.clone(), dst_val_lo],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
@@ -714,7 +713,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + dst_off + one, clock.clone(), res_hi],
+            &[fp + dst_off + one, clock.clone(), dst_val_hi],
         ));
 
         // Bitwise lookups
