@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757075211106,
+  "lastUpdate": 1757092745307,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1799,6 +1799,42 @@ window.BENCHMARK_DATA = {
             "name": "prover_fibonacci/prove",
             "value": 6252957368,
             "range": "± 45026876",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a4221d4fc98b33974ea25626c3c8e6ea599ce63",
+          "message": "dev: add benchmarks for sha256 (#308)\n\n* dev: add benchmarks for sha256\n\n* suggestions",
+          "timestamp": "2025-09-05T18:58:58+02:00",
+          "tree_id": "02559426b9027b54c580a54ba6a025694f4ae43b",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/4a4221d4fc98b33974ea25626c3c8e6ea599ce63"
+        },
+        "date": 1757092744810,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6228184220,
+            "range": "± 25687033",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "prover_sha256_1kb/prove",
+            "value": 7848108024,
+            "range": "± 20983437",
             "unit": "ns/iter"
           }
         ]
