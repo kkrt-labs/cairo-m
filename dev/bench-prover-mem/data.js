@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757075212093,
+  "lastUpdate": 1757092746044,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1739,6 +1739,40 @@ window.BENCHMARK_DATA = {
           {
             "name": "fibonacci_prove_peak_mem",
             "value": 2409846632,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a4221d4fc98b33974ea25626c3c8e6ea599ce63",
+          "message": "dev: add benchmarks for sha256 (#308)\n\n* dev: add benchmarks for sha256\n\n* suggestions",
+          "timestamp": "2025-09-05T18:58:58+02:00",
+          "tree_id": "02559426b9027b54c580a54ba6a025694f4ae43b",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/4a4221d4fc98b33974ea25626c3c8e6ea599ce63"
+        },
+        "date": 1757092745981,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2409846632,
+            "unit": "bytes"
+          },
+          {
+            "name": "sha256_1kb_prove_peak_mem",
+            "value": 2957774883,
             "unit": "bytes"
           }
         ]
