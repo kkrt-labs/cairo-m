@@ -176,6 +176,15 @@ fn main() -> felt {
     // U32StoreXorFpFp
     let xor_res = x_u32 ^ one;
 
+    // U32StoreAndFpImm
+    let and_res_imm = x_u32 & 1u32;
+
+    // U32StoreOrFpImm
+    let or_res_imm = x_u32 | 1u32;
+
+    // U32StoreXorFpImm
+    let xor_res_imm = x_u32 ^ 1u32;
+
     // ╔══════════════════════════════════════════════════════════════════════════╗
     // ║                               Jump Opcodes                               ║
     // ╚══════════════════════════════════════════════════════════════════════════╝
