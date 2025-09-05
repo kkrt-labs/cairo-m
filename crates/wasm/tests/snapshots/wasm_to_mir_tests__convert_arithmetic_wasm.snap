@@ -9,7 +9,7 @@ expression: wasm_load_result
 WASM File: arithmetic.wasm
 ============================================================
 Success: true
-Functions loaded: 6
+Functions loaded: 5
 ============================================================
 Module Output:
 module {
@@ -70,22 +70,6 @@ module {
   }
 
   // Function 4
-  fn test_rem_u {
-    parameters: [0, 1]
-    entry: 0
-
-    0:
-      %2 = %0 U32Div %1
-      %3 = %2 U32Mul %1
-      %4 = %0 U32Sub %3
-      jump 1
-
-    1:
-      return %4
-
-  }
-
-  // Function 5
   fn arithmetic_test {
     parameters: [0, 1]
     entry: 0

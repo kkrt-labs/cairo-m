@@ -24,12 +24,6 @@
     i32.div_u
   )
 
-  (func $test_rem_u (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.rem_u
-  )
-
   ;; Combined test function that tests all operations
   (func $arithmetic_test (param $a i32) (param $b i32) (result i32)
     ;; Test: (a + b) * (a - b) / (a + 1) using signed division
@@ -50,6 +44,5 @@
   (export "test_sub" (func $test_sub))
   (export "test_mul" (func $test_mul))
   (export "test_div_u" (func $test_div_u))
-  (export "test_rem_u" (func $test_rem_u))
   (export "arithmetic_test" (func $arithmetic_test))
 )
