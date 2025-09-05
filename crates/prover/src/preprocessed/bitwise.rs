@@ -93,6 +93,8 @@ impl Claim {
                         + (input2.0 as usize);
                     if index < total_size {
                         mults_atomic[index].fetch_add(1, Ordering::Relaxed);
+                    } else {
+                        dbg!("Couldn't increase multiplicity for bitwise preprocessed because of index >= total_size", index, total_size);
                     }
                 }
             }
@@ -104,38 +106,14 @@ impl Claim {
             .map(|atomic| M31(atomic.into_inner()))
             .collect();
 
-        // Generate all columns
-        let mut op_id_col = Vec::with_capacity(total_size);
-        let mut input1_col = Vec::with_capacity(total_size);
-        let mut input2_col = Vec::with_capacity(total_size);
-        let mut result_col = Vec::with_capacity(total_size);
-
-        // Stack three operations: AND (0), OR (1), XOR (2)
-        for op_id in 0..3 {
-            for i in 0..op_size {
-                let input1 = (i >> BITWISE_OPERAND_BITS) as u32;
-                let input2 = (i & BITWISE_OPERAND_MASK as usize) as u32;
-                let result = match op_id {
-                    0 => input1 & input2, // AND
-                    1 => input1 | input2, // OR
-                    2 => input1 ^ input2, // XOR
-                    _ => unreachable!(),
-                };
-
-                op_id_col.push(M31(op_id));
-                input1_col.push(M31(input1));
-                input2_col.push(M31(input2));
-                result_col.push(M31(result));
-            }
-        }
-
-        // Pad with zeros to reach power of 2
-        while op_id_col.len() < total_size {
-            op_id_col.push(M31(0));
-            input1_col.push(M31(0));
-            input2_col.push(M31(0));
-            result_col.push(M31(0));
-        }
+        // Generate all columns using the helper method
+        let op_id_col = BitwiseCol::new(0, BITWISE_OPERAND_BITS).generate_column_values(total_size);
+        let input1_col =
+            BitwiseCol::new(1, BITWISE_OPERAND_BITS).generate_column_values(total_size);
+        let input2_col =
+            BitwiseCol::new(2, BITWISE_OPERAND_BITS).generate_column_values(total_size);
+        let result_col =
+            BitwiseCol::new(3, BITWISE_OPERAND_BITS).generate_column_values(total_size);
 
         // Pack data for interaction
         let packed_data: Vec<[PackedM31; 5]> = (0..total_size)
@@ -145,21 +123,11 @@ impl Claim {
             .map(|(chunk_idx, _chunk)| {
                 let base_idx = chunk_idx * N_LANES;
                 [
-                    PackedM31::from_array(std::array::from_fn(|i| {
-                        op_id_col.get(base_idx + i).copied().unwrap_or(M31(0))
-                    })),
-                    PackedM31::from_array(std::array::from_fn(|i| {
-                        input1_col.get(base_idx + i).copied().unwrap_or(M31(0))
-                    })),
-                    PackedM31::from_array(std::array::from_fn(|i| {
-                        input2_col.get(base_idx + i).copied().unwrap_or(M31(0))
-                    })),
-                    PackedM31::from_array(std::array::from_fn(|i| {
-                        result_col.get(base_idx + i).copied().unwrap_or(M31(0))
-                    })),
-                    PackedM31::from_array(std::array::from_fn(|i| {
-                        mults.get(base_idx + i).copied().unwrap_or(M31(0))
-                    })),
+                    PackedM31::from_array(std::array::from_fn(|i| op_id_col[base_idx + i])),
+                    PackedM31::from_array(std::array::from_fn(|i| input1_col[base_idx + i])),
+                    PackedM31::from_array(std::array::from_fn(|i| input2_col[base_idx + i])),
+                    PackedM31::from_array(std::array::from_fn(|i| result_col[base_idx + i])),
+                    PackedM31::from_array(std::array::from_fn(|i| mults[base_idx + i])),
                 ]
             })
             .collect();
@@ -233,15 +201,10 @@ impl FrameworkEval for Eval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        // Read the 5 trace columns
-        let operation_id =
-            eval.get_preprocessed_column(BitwiseStacked::new(0, BITWISE_OPERAND_BITS).id());
-        let input1 =
-            eval.get_preprocessed_column(BitwiseStacked::new(1, BITWISE_OPERAND_BITS).id());
-        let input2 =
-            eval.get_preprocessed_column(BitwiseStacked::new(2, BITWISE_OPERAND_BITS).id());
-        let result =
-            eval.get_preprocessed_column(BitwiseStacked::new(3, BITWISE_OPERAND_BITS).id());
+        // Read the 4 preprocessed columns
+        let ids = Bitwise::new(BITWISE_OPERAND_BITS).ids();
+        let [operation_id, input1, input2, result] =
+            std::array::from_fn(|i| eval.get_preprocessed_column(ids[i].clone()));
         let multiplicity = eval.next_trace_mask();
 
         // Add lookups to the relation
@@ -271,24 +234,34 @@ impl Bitwise {
     }
 
     /// Returns the 4 columns needed for bitwise operations
-    pub const fn columns(&self) -> [BitwiseStacked; 4] {
+    pub(crate) const fn columns(&self) -> [BitwiseCol; 4] {
         [
-            BitwiseStacked::new(0, self.operand_bits),
-            BitwiseStacked::new(1, self.operand_bits),
-            BitwiseStacked::new(2, self.operand_bits),
-            BitwiseStacked::new(3, self.operand_bits),
+            BitwiseCol::new(0, self.operand_bits),
+            BitwiseCol::new(1, self.operand_bits),
+            BitwiseCol::new(2, self.operand_bits),
+            BitwiseCol::new(3, self.operand_bits),
+        ]
+    }
+
+    /// Returns the column IDs for the 4 columns
+    pub fn ids(&self) -> [PreProcessedColumnId; 4] {
+        [
+            BitwiseCol::new(0, self.operand_bits).id(),
+            BitwiseCol::new(1, self.operand_bits).id(),
+            BitwiseCol::new(2, self.operand_bits).id(),
+            BitwiseCol::new(3, self.operand_bits).id(),
         ]
     }
 }
 
 /// Stacked bitwise preprocessed column
 /// Stacks AND, OR, XOR operations into a single column
-pub struct BitwiseStacked {
+pub(crate) struct BitwiseCol {
     col_index: usize, // 0: operation_id, 1: input1, 2: input2, 3: result
     operand_bits: u32,
 }
 
-impl BitwiseStacked {
+impl BitwiseCol {
     pub const fn new(col_index: usize, operand_bits: u32) -> Self {
         assert!(col_index < 4, "col_index must be in range 0..=3");
         Self {
@@ -296,17 +269,11 @@ impl BitwiseStacked {
             operand_bits,
         }
     }
-}
 
-impl PreProcessedColumn for BitwiseStacked {
-    fn log_size(&self) -> u32 {
-        // For dynamic sizing: 2 * operand_bits for the lookup table + 2 bits for 3 operations
-        self.operand_bits * 2 + 2
-    }
-
-    fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
+    /// Generate column values for a specific column index
+    /// Returns values for all stacked operations (AND, OR, XOR)
+    fn generate_column_values(&self, total_size: usize) -> Vec<M31> {
         let lookup_bits = self.operand_bits * 2;
-        let total_size = 1 << self.log_size();
         let op_size = 1 << lookup_bits;
         let operand_mask = (1 << self.operand_bits) - 1;
 
@@ -339,9 +306,20 @@ impl PreProcessedColumn for BitwiseStacked {
         }
 
         // Pad with zeros to reach power of 2
-        while values.len() < total_size {
-            values.push(M31(0));
-        }
+        values.resize(total_size, M31(0));
+        values
+    }
+}
+
+impl PreProcessedColumn for BitwiseCol {
+    fn log_size(&self) -> u32 {
+        // For dynamic sizing: 2 * operand_bits for the lookup table + 2 bits for 3 operations
+        self.operand_bits * 2 + 2
+    }
+
+    fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
+        let total_size = 1 << self.log_size();
+        let values = self.generate_column_values(total_size);
 
         CircleEvaluation::new(
             CanonicCoset::new(self.log_size()).circle_domain(),
