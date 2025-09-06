@@ -596,6 +596,24 @@ impl CodeGenerator {
                     function,
                 )?;
             }
+
+            InstructionKind::Load {
+                dest,
+                base_address,
+                offset,
+                element_ty,
+            } => {
+                builder.load(*dest, *base_address, *offset, element_ty)?;
+            }
+
+            InstructionKind::Store {
+                base_address,
+                offset,
+                source,
+                element_ty,
+            } => {
+                builder.store(*base_address, *offset, *source, element_ty)?;
+            }
         }
 
         Ok(())

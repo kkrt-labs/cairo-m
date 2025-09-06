@@ -4,4 +4,5 @@
 //! as part of the Cairo-M compiler toolchain.
 
 pub mod flattening;
+pub mod instructions;
 pub mod loader;

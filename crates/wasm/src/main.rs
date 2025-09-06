@@ -1,4 +1,5 @@
 mod flattening;
+mod instructions;
 mod loader;
 
 use cairo_m_common::InputValue;
@@ -30,6 +31,10 @@ struct Args {
     #[arg(long)]
     mir_only: bool,
 
+    /// Show DAG without compiling to MIR
+    #[arg(long)]
+    dag_only: bool,
+
     /// Function name to run after compilation (entrypoint)
     #[arg(short = 'f', long)]
     function: Option<String>,
@@ -45,6 +50,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load WASM file into WOMIR representation
     let module = BlocklessDagModule::from_file(&args.input.to_string_lossy())?;
 
+    // If user wants DAG only, print it and exit
+    if args.dag_only {
+        println!("{:?}", module);
+        return Ok(());
+    }
+
     if args.verbose {
         println!("Successfully loaded WASM file: {}", args.input.display());
         let function_count = module.with_program(|program| program.functions.len());
@@ -52,7 +63,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Convert WASM to MIR
-    let mir_module = DagToMir::new(module).to_mir(PassManager::standard_pipeline())?;
+    let dag_to_mir = DagToMir::new(module)?;
+    let mir_module = dag_to_mir.to_mir(PassManager::standard_pipeline())?;
 
     if args.verbose {
         println!("Successfully converted to MIR");
