@@ -1,0 +1,22 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+
+                        use constants::ARR;
+                        fn f(a: [u32; 2]) { let _ = a[0]; return; }
+                        fn main() { f(ARR); return; }
+                        
+--- Diagnostics ---
+[2017] Error: cannot pass const array `ARR` by pointer; make a writable copy first
+   ╭─[ semantic_tests::arrays::const_arrays::test_const_arrays_cross_module_via_use:3:25 ]
+   │
+ 1 │                         use constants::ARR;
+   │                                   ───┬──  
+   │                                      ╰──── const defined here
+ 3 │                         fn main() { f(ARR); return; }
+   │                                           ─┬─  
+   │                                            ╰─── cannot pass const array `ARR` by pointer; make a writable copy first
+───╯
+

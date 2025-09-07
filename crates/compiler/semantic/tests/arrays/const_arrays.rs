@@ -55,3 +55,27 @@ fn test_const_arrays_blocked_in_calls_and_aggregates() {
         ]
     }
 }
+
+#[test]
+fn test_const_arrays_cross_module_via_use() {
+    use crate::multi_file;
+    assert_semantic_parameterized! {
+        ok: [],
+        err: [
+            multi_file(
+                "main.cm",
+                &[
+                    ("constants.cm", "const ARR: [u32; 2] = [1u32, 2u32];"),
+                    (
+                        "main.cm",
+                        r#"
+                        use constants::ARR;
+                        fn f(a: [u32; 2]) { let _ = a[0]; return; }
+                        fn main() { f(ARR); return; }
+                        "#,
+                    ),
+                ],
+            ),
+        ]
+    }
+}
