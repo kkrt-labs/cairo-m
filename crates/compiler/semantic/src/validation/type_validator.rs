@@ -102,6 +102,55 @@ impl Validator for TypeValidator {
 }
 
 impl TypeValidator {
+    /// Returns Some((name, name_span)) if the expression resolves to a const array
+    fn expr_resolves_to_const_array(
+        &self,
+        db: &dyn SemanticDb,
+        crate_id: Crate,
+        file: File,
+        index: &SemanticIndex,
+        expr: &Spanned<Expression>,
+    ) -> Option<(String, SimpleSpan<usize>)> {
+        let expr_id = index.expression_id_by_span(expr.span())?;
+        let expr_info = index.expression(expr_id)?;
+        match &expr_info.ast_node {
+            Expression::Identifier(name) => {
+                // Resolve identifier at its scope position
+                let scope_id = expr_info.scope_id;
+                if let Some((_, def)) =
+                    index.resolve_name_at_position(name.value(), scope_id, name.span())
+                {
+                    if matches!(def.kind, DefinitionKind::Const(_)) {
+                        let ty = expression_semantic_type(db, crate_id, file, expr_id, None);
+                        if matches!(ty.data(db), TypeData::FixedArray { .. }) {
+                            return Some((name.value().clone(), def.name_span));
+                        }
+                    }
+                }
+                // Try imports fallback
+                if let Some((_, def, _)) = index.resolve_name_with_imports_at_position(
+                    db,
+                    crate_id,
+                    file,
+                    name.value(),
+                    scope_id,
+                    name.span(),
+                ) {
+                    if matches!(def.kind, DefinitionKind::Const(_)) {
+                        let ty = expression_semantic_type(db, crate_id, file, expr_id, None);
+                        if matches!(ty.data(db), TypeData::FixedArray { .. }) {
+                            return Some((name.value().clone(), def.name_span));
+                        }
+                    }
+                }
+                None
+            }
+            Expression::Parenthesized(inner) => {
+                self.expr_resolves_to_const_array(db, crate_id, file, index, inner)
+            }
+            _ => None,
+        }
+    }
     fn check_builtin_assert(
         &self,
         db: &dyn SemanticDb,
@@ -287,6 +336,30 @@ impl TypeValidator {
                     expr_info,
                     sink,
                 );
+            }
+            Expression::Tuple(elements) => {
+                // Disallow embedding const arrays inside tuple literals
+                for elem in elements {
+                    if let Some((name, def_span)) =
+                        self.expr_resolves_to_const_array(db, crate_id, file, index, elem)
+                    {
+                        sink.push(
+                            Diagnostic::error(
+                                cairo_m_compiler_diagnostics::DiagnosticCode::ConstArrayByPointer,
+                                format!(
+                                    "cannot embed const array `{}` in tuple; make a writable copy first",
+                                    name
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), elem.span())
+                            .with_related_span(
+                                file.file_path(db).to_string(),
+                                def_span,
+                                "const defined here".to_string(),
+                            ),
+                        );
+                    }
+                }
             }
             // Literals, identifiers, and tuples don't need additional type validation
             // beyond what's already done in type_resolution.rs
@@ -526,6 +599,29 @@ impl TypeValidator {
                             }
 
                             sink.push(diag);
+                        }
+
+                        // Additional rule: disallow passing const arrays to array parameters
+                        if let TypeData::FixedArray { .. } = param_type.data(db) {
+                            if let Some((name, def_span)) =
+                                self.expr_resolves_to_const_array(db, crate_id, file, index, arg)
+                            {
+                                sink.push(
+                                    Diagnostic::error(
+                                        cairo_m_compiler_diagnostics::DiagnosticCode::ConstArrayByPointer,
+                                        format!(
+                                            "cannot pass const array `{}` by pointer; make a writable copy first",
+                                            name
+                                        ),
+                                    )
+                                    .with_location(file.file_path(db).to_string(), arg.span())
+                                    .with_related_span(
+                                        file.file_path(db).to_string(),
+                                        def_span,
+                                        "const defined here".to_string(),
+                                    ),
+                                );
+                            }
                         }
                     }
                 }
@@ -982,6 +1078,37 @@ impl TypeValidator {
                                     ),
                                 )
                                 .with_location(file.file_path(db).to_string(), field_value.span()),
+                            );
+                        }
+                    }
+
+                    // Additional rule: disallow embedding const arrays in struct fields
+                    if let TypeData::FixedArray { .. } = expected_type.data(db) {
+                        if let Some((name_str, def_span)) = self.expr_resolves_to_const_array(
+                            db,
+                            crate_id,
+                            file,
+                            index,
+                            field_value,
+                        ) {
+                            sink.push(
+                                Diagnostic::error(
+                                    cairo_m_compiler_diagnostics::DiagnosticCode::ConstArrayByPointer,
+                                    format!(
+                                        "cannot embed const array `{}` in struct field `{}`; make a writable copy first",
+                                        name_str,
+                                        field_name.value()
+                                    ),
+                                )
+                                .with_location(
+                                    file.file_path(db).to_string(),
+                                    field_value.span(),
+                                )
+                                .with_related_span(
+                                    file.file_path(db).to_string(),
+                                    def_span,
+                                    "const defined here".to_string(),
+                                ),
                             );
                         }
                     }
@@ -1873,6 +2000,29 @@ impl TypeValidator {
                     );
 
                     sink.push(diag);
+                }
+
+                // Additional rule: if function returns an array type, disallow returning a const array
+                if matches!(expected_return_type.data(db), TypeData::FixedArray { .. }) {
+                    if let Some((name, def_span)) =
+                        self.expr_resolves_to_const_array(db, crate_id, file, index, return_expr)
+                    {
+                        sink.push(
+                            Diagnostic::error(
+                                cairo_m_compiler_diagnostics::DiagnosticCode::ConstArrayByPointer,
+                                format!(
+                                    "cannot return const array `{}` by pointer; make a writable copy first",
+                                    name
+                                ),
+                            )
+                            .with_location(file.file_path(db).to_string(), return_expr.span())
+                            .with_related_span(
+                                file.file_path(db).to_string(),
+                                def_span,
+                                "const defined here".to_string(),
+                            ),
+                        );
+                    }
                 }
             }
             (None, false) => {

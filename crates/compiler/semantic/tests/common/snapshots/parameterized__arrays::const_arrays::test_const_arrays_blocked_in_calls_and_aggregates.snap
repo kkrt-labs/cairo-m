@@ -1,0 +1,80 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+
+            const ARR: [u32; 2] = [1u32, 2u32];
+            fn f(a: [u32; 2]) { let _ = a[0]; return; }
+            fn main() { f(ARR); return; }
+            
+--- Diagnostics ---
+[2017] Error: cannot pass const array `ARR` by pointer; make a writable copy first
+   ╭─[ semantic_tests::arrays::const_arrays::test_const_arrays_blocked_in_calls_and_aggregates:4:27 ]
+   │
+ 2 │             const ARR: [u32; 2] = [1u32, 2u32];
+   │                   ─┬─  
+   │                    ╰─── const defined here
+   │ 
+ 4 │             fn main() { f(ARR); return; }
+   │                           ─┬─  
+   │                            ╰─── cannot pass const array `ARR` by pointer; make a writable copy first
+───╯
+
+============================================================
+
+--- Input 2 (ERROR) ---
+
+            struct S { a: [u32; 2] }
+            const ARR: [u32; 2] = [1u32, 2u32];
+            fn main() { let _s = S { a: ARR }; return; }
+            
+--- Diagnostics ---
+[2017] Error: cannot embed const array `ARR` in struct field `a`; make a writable copy first
+   ╭─[ semantic_tests::arrays::const_arrays::test_const_arrays_blocked_in_calls_and_aggregates:4:41 ]
+   │
+ 3 │             const ARR: [u32; 2] = [1u32, 2u32];
+   │                   ─┬─  
+   │                    ╰─── const defined here
+ 4 │             fn main() { let _s = S { a: ARR }; return; }
+   │                                         ─┬─  
+   │                                          ╰─── cannot embed const array `ARR` in struct field `a`; make a writable copy first
+───╯
+
+============================================================
+
+--- Input 3 (ERROR) ---
+
+            const ARR: [u32; 2] = [1u32, 2u32];
+            fn give() -> [u32; 2] { return ARR; }
+            
+--- Diagnostics ---
+[2017] Error: cannot return const array `ARR` by pointer; make a writable copy first
+   ╭─[ semantic_tests::arrays::const_arrays::test_const_arrays_blocked_in_calls_and_aggregates:3:44 ]
+   │
+ 2 │             const ARR: [u32; 2] = [1u32, 2u32];
+   │                   ─┬─  
+   │                    ╰─── const defined here
+ 3 │             fn give() -> [u32; 2] { return ARR; }
+   │                                            ─┬─  
+   │                                             ╰─── cannot return const array `ARR` by pointer; make a writable copy first
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+
+            const ARR: [u32; 2] = [1u32, 2u32];
+            fn main() { let _t = (ARR, 1u32); return; }
+            
+--- Diagnostics ---
+[2017] Error: cannot embed const array `ARR` in tuple; make a writable copy first
+   ╭─[ semantic_tests::arrays::const_arrays::test_const_arrays_blocked_in_calls_and_aggregates:3:35 ]
+   │
+ 2 │             const ARR: [u32; 2] = [1u32, 2u32];
+   │                   ─┬─  
+   │                    ╰─── const defined here
+ 3 │             fn main() { let _t = (ARR, 1u32); return; }
+   │                                   ─┬─  
+   │                                    ╰─── cannot embed const array `ARR` in tuple; make a writable copy first
+───╯

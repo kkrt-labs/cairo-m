@@ -120,6 +120,8 @@ pub enum DiagnosticCode {
     AssignmentToConst,
     IndexOutOfBounds,
     TypeInferenceError,
+    /// Passing or embedding a const array by pointer (disallowed); user must copy first
+    ConstArrayByPointer,
     // TODO: Add more type-related diagnostic codes:
     // - InvalidTypeAnnotation
     // - TypeArgumentMismatch
@@ -184,6 +186,7 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::AssignmentToConst => 2014,
             DiagnosticCode::IndexOutOfBounds => 2015,
             DiagnosticCode::TypeInferenceError => 2016,
+            DiagnosticCode::ConstArrayByPointer => 2017,
             DiagnosticCode::InternalError => 9001,
         }
     }
