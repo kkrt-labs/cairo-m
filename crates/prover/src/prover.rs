@@ -9,6 +9,7 @@ use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps};
 use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
 use tracing::{info, span, Level};
+use tracing_subscriber;
 
 use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
@@ -27,6 +28,7 @@ pub fn prove_cairo_m<MC: MerkleChannel>(
 where
     SimdBackend: BackendForChannel<MC>,
 {
+    tracing_subscriber::fmt().init();
     let _span = span!(Level::INFO, "prove_cairo_m").entered();
 
     // Setup protocol.
@@ -117,6 +119,13 @@ where
         let summary = track_and_summarize_relations(&commitment_scheme, &components, &public_data);
         println!("Relations summary: {:?}", summary);
     }
+    info!(
+        "tree widths: {:?}",
+        commitment_scheme
+            .trees
+            .as_ref()
+            .map(|tree| tree.evaluations.len())
+    );
 
     let proving_start = Instant::now();
 
