@@ -9,7 +9,6 @@ use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps};
 use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
 use tracing::{info, span, Level};
-use tracing_subscriber;
 
 use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
@@ -28,9 +27,6 @@ pub fn prove_cairo_m<MC: MerkleChannel>(
 where
     SimdBackend: BackendForChannel<MC>,
 {
-    // Initialize tracing only if not already initialized
-    // This avoids panics when tracing is already initialized elsewhere
-    tracing_subscriber::fmt().try_init().ok();
     let _span = span!(Level::INFO, "prove_cairo_m").entered();
 
     // Setup protocol.

@@ -22,6 +22,10 @@ use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
+fn init_tracing() {
+    tracing_subscriber::fmt().try_init().ok();
+}
+
 /// Tests proof generation and verification with static memory (no program execution).
 ///
 /// This test creates a minimal proof scenario with only initial memory entries
@@ -110,6 +114,7 @@ fn test_prove_and_verify_unchanged_memory() {
 /// and verifies a STARK proof of correct execution.
 #[test]
 fn test_prove_and_verify_fibonacci_program() {
+    init_tracing();
     let source = read_fixture("functions/fibonacci.cm");
     let compiled = compile_cairo(
         source,
