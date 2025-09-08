@@ -1,0 +1,20 @@
+---
+source: crates/compiler/semantic/tests/common/mod.rs
+expression: snapshot
+---
+--- Input 1 (ERROR) ---
+
+            const ARR: [u32; 2] = [1u32, 2u32];
+            fn main() { ARR[0] = 3u32; return; }
+            
+--- Diagnostics ---
+[2014] Error: cannot assign to element of const variable `ARR`
+   ╭─[ semantic_tests::arrays::const_arrays::test_const_arrays_cant_be_written_to:3:25 ]
+   │
+ 2 │             const ARR: [u32; 2] = [1u32, 2u32];
+   │                   ─┬─  
+   │                    ╰─── const variable defined here
+ 3 │             fn main() { ARR[0] = 3u32; return; }
+   │                         ──┬──  
+   │                           ╰──── cannot assign to element of const variable `ARR`
+───╯
