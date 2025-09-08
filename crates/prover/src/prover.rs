@@ -117,6 +117,13 @@ where
         let summary = track_and_summarize_relations(&commitment_scheme, &components, &public_data);
         println!("Relations summary: {:?}", summary);
     }
+    info!(
+        "commitment scheme tree widths: {:?} (evaluations per tree)",
+        commitment_scheme
+            .trees
+            .as_ref()
+            .map(|tree| tree.evaluations.len())
+    );
 
     let proving_start = Instant::now();
 

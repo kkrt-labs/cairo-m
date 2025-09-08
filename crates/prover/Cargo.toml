@@ -22,6 +22,7 @@ num-traits.workspace = true
 rand.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+tracing-subscriber.workspace = true
 bytemuck.workspace = true
 sonic-rs.workspace = true
 cairo-m-runner.workspace = true
