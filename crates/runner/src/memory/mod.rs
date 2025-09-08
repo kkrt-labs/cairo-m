@@ -9,6 +9,10 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
+mod paged_memory;
+
+use paged_memory::PagedMemory;
+
 /// The number of M31 values that make up a single QM31.
 const M31S_IN_QM31: usize = 4;
 
@@ -47,7 +51,7 @@ pub enum MemoryError {
 pub struct Memory {
     /// The index of the vector corresponds to the memory address.
     /// Instructions and data are stored as `QM31` values.
-    pub data: Vec<QM31>,
+    pub data: PagedMemory,
     /// A trace of memory accesses.
     ///
     /// The trace is wrapped in a `RefCell` to enable interior mutability. This
@@ -215,10 +219,6 @@ impl Memory {
         Self::validate_address(addr)?;
         let address = addr.0 as usize;
 
-        // Resize vector if necessary
-        if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
-        }
         self.data[address] = value;
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(())
@@ -237,9 +237,6 @@ impl Memory {
     pub(crate) fn insert_no_trace(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
         let address = addr.0 as usize;
-        if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
-        }
         self.data[address] = value;
         Ok(())
     }
@@ -275,15 +272,10 @@ impl Memory {
         )?;
         Self::validate_address(last_addr.into())?;
 
-        let end_address = last_addr as usize + 1;
-
-        // Resize vector if necessary
-        if end_address > self.data.len() {
-            self.data.resize(end_address, QM31::zero());
-        }
-
         // Copy the slice into memory
-        self.data[start_address..end_address].copy_from_slice(values);
+        for (i, value) in values.iter().enumerate() {
+            self.data[start_address + i] = *value;
+        }
         self.trace
             .borrow_mut()
             .extend(values.iter().enumerate().map(|(i, value)| MemoryEntry {
@@ -326,9 +318,6 @@ impl Memory {
 
         let fp_min_two_addr = fp_min_two.0 as usize;
         let fp_min_one_addr = fp_min_one.0 as usize;
-        if fp_min_one_addr >= self.data.len() {
-            self.data.resize(fp_min_one_addr + 1, QM31::zero());
-        }
 
         self.data[fp_min_two_addr] = QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into));
         self.data[fp_min_one_addr] = QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into));
@@ -430,6 +419,17 @@ impl FromIterator<QM31> for Memory {
     }
 }
 
+impl Memory {
+    /// Returns a linear snapshot of memory values for addresses [0, len).
+    pub fn linear_snapshot(&self, len: u32) -> Vec<QM31> {
+        let mut out = Vec::with_capacity(len as usize);
+        for addr in 0..(len as usize) {
+            out.push(self.data.get(addr).copied().unwrap_or_default());
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
@@ -448,7 +448,8 @@ mod tests {
         let addr = M31(42);
         // Create a valid store_imm instruction (opcode 5)
         let value = QM31::from_m31_array([9, 123, 0, 0].map(Into::into));
-        let mut data = vec![QM31::zero(); 43];
+        let mut data = PagedMemory::default();
+
         data[42] = value;
 
         let memory = Memory {
@@ -478,7 +479,8 @@ mod tests {
         let addr = M31(42);
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
 
-        let mut data: Vec<QM31> = vec![QM31::zero(); 43];
+        let mut data: PagedMemory = PagedMemory::default();
+
         data[42] = value;
         let memory = Memory {
             data,

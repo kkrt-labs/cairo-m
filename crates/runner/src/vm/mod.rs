@@ -191,7 +191,7 @@ impl VM {
             self.segments.push(Segment {
                 initial_memory: std::mem::replace(
                     &mut self.initial_memory,
-                    self.memory.data.clone(),
+                    self.memory.linear_snapshot(self.program_length.0),
                 ),
                 memory_trace: std::mem::take(&mut self.memory.trace),
                 trace: std::mem::take(&mut self.trace),
@@ -244,7 +244,7 @@ impl VM {
 
         self.memory
             .insert_entrypoint_call(&self.final_pc, &self.state.fp)?;
-        self.initial_memory = self.memory.data.clone();
+        self.initial_memory = self.memory.linear_snapshot(self.program_length.0);
 
         loop {
             match self.execute(options.max_steps) {
