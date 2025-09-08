@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 
 use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, OPCODE_SIZE_TABLE};
+use cairo_m_common::paged_memory::PagedMemory;
 use cairo_m_common::state::MemoryEntry;
 use num_traits::identities::Zero;
 use num_traits::One;
@@ -8,10 +9,6 @@ use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
-
-mod paged_memory;
-
-use paged_memory::PagedMemory;
 
 /// The number of M31 values that make up a single QM31.
 const M31S_IN_QM31: usize = 4;

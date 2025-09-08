@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::Read;
 
 use cairo_m_common::instruction::InstructionError;
+use cairo_m_common::paged_memory::PagedMemory;
 use cairo_m_common::{Instruction, Program, ProgramData, State};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
@@ -235,7 +236,7 @@ fn test_execute_with_error() {
     let initial_memory = Memory::from_iter(instructions);
     let mut vm = VM {
         final_pc: M31::from(instructions.len() as u32),
-        initial_memory: instructions.to_vec(),
+        initial_memory: PagedMemory::from_iter(instructions),
         memory: initial_memory,
         state: State {
             pc: M31::zero(),

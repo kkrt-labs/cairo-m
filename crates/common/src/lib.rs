@@ -2,6 +2,7 @@
 pub mod abi_codec;
 pub mod execution;
 pub mod instruction;
+pub mod paged_memory;
 pub mod program;
 pub mod state;
 

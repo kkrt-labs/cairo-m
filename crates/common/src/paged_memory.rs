@@ -1,5 +1,11 @@
+use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
 use stwo_prover::core::fields::qm31::QM31;
+
+// TODO sync this with VM crate
+pub const DEFAULT_MEMORY_SIZE: usize = 1 << 28;
+/// The default page size is 64K elements.
+pub const DEFAULT_PAGE_SIZE: usize = 1 << 16;
 
 /// Sparse, paged memory optimized for large logical address spaces.
 ///
@@ -16,7 +22,14 @@ pub struct PagedMemory {
     page_size: usize,
     num_pages: usize,
     len: usize,
-    pages: Vec<Option<Box<[QM31]>>>, // index = page_number; lazy-allocated pages
+    pages: Vec<Option<Page>>, // index = page_number; lazy-allocated pages
+}
+
+#[derive(Debug, Clone)]
+struct Page {
+    data: Box<[QM31]>,
+    /// Bitmap tracking which cells in the page have been initialized.
+    init_bits: Box<[u64]>,
 }
 
 impl PagedMemory {
@@ -25,10 +38,12 @@ impl PagedMemory {
     pub fn new(mem_size: usize, page_size: usize) -> Self {
         assert!(
             mem_size % page_size == 0,
-            "mem_size must be multiple of page_size"
+            "mem_size must be multiple of page_size, mem_size={}, page_size={}",
+            mem_size,
+            page_size
         );
         let num_pages = mem_size / page_size;
-        PagedMemory {
+        Self {
             page_size,
             num_pages,
             len: 0,
@@ -37,29 +52,32 @@ impl PagedMemory {
     }
 
     /// Translate a linear address into `(page_number, offset_within_page)`.
-    fn page_index(&self, addr: usize) -> (usize, usize) {
+    const fn page_index(&self, addr: usize) -> (usize, usize) {
         let page_num = addr / self.page_size;
         let offset = addr % self.page_size;
         (page_num, offset)
     }
 
     /// Get a mutable view of a page, allocating it if it doesn't exist yet.
-    fn get_page_mut(&mut self, page_num: usize) -> &mut [QM31] {
-        self.pages[page_num]
-            .get_or_insert_with(|| vec![QM31::from(0); self.page_size].into_boxed_slice())
-            .as_mut()
+    fn get_page_mut(&mut self, page_num: usize) -> &mut Page {
+        self.pages[page_num].get_or_insert_with(|| Page {
+            data: vec![QM31::from(0); self.page_size].into_boxed_slice(),
+            init_bits: vec![0u64; self.page_size.div_ceil(64)].into_boxed_slice(),
+        })
     }
 
     /// Get an immutable view of a page if it exists. Does not allocate.
-    fn get_page(&self, page_num: usize) -> Option<&[QM31]> {
-        self.pages.get(page_num).and_then(|opt| opt.as_deref())
+    fn get_page(&self, page_num: usize) -> Option<&Page> {
+        self.pages.get(page_num).and_then(|opt| opt.as_ref())
     }
 
     /// Write a single cell. Allocates the corresponding page on demand and updates `len`.
     pub fn set(&mut self, addr: usize, value: QM31) {
         let (page_num, offset) = self.page_index(addr);
         assert!(page_num < self.num_pages, "address out of range");
-        self.get_page_mut(page_num)[offset] = value;
+        let page = self.get_page_mut(page_num);
+        page.data[offset] = value;
+        set_bit(&mut page.init_bits, offset);
         if addr >= self.len {
             self.len = addr + 1;
         }
@@ -71,7 +89,13 @@ impl PagedMemory {
         if page_num >= self.num_pages {
             return None;
         }
-        self.get_page(page_num).and_then(|page| page.get(offset))
+        self.get_page(page_num).and_then(|page| {
+            if get_bit(&page.init_bits, offset) {
+                Some(&page.data[offset])
+            } else {
+                None
+            }
+        })
     }
 
     /// Read a single cell mutably. Returns `None` if the address is out of range.
@@ -81,16 +105,18 @@ impl PagedMemory {
         if page_num >= self.num_pages {
             return None;
         }
-        Some(&mut self.get_page_mut(page_num)[offset])
+        let page = self.get_page_mut(page_num);
+        set_bit(&mut page.init_bits, offset);
+        Some(&mut page.data[offset])
     }
 
     /// Logical length (highest initialized index + 1, or latest resize).
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
     /// Whether there are no initialized elements (i.e., `len == 0`).
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
@@ -104,9 +130,35 @@ impl PagedMemory {
             assert!(idx < self.num_pages * self.page_size, "extend out of range");
             let (page_num, offset) = self.page_index(idx);
             let page = self.get_page_mut(page_num);
-            page[offset] = value;
+            page.data[offset] = value;
+            set_bit(&mut page.init_bits, offset);
             self.len += 1;
         }
+    }
+
+    /// Returns a sparse map of all initialized cells
+    /// Keys are absolute addresses; values are the stored QM31.
+    pub fn to_initialized_map(&self) -> HashMap<u32, QM31> {
+        let mut map = HashMap::new();
+        for (page_idx, page_opt) in self.pages.iter().enumerate() {
+            if let Some(page) = page_opt {
+                let base_addr = (page_idx * self.page_size) as u32;
+                for word_index in 0..page.init_bits.len() {
+                    let mut bits = page.init_bits[word_index];
+                    while bits != 0 {
+                        let tz = bits.trailing_zeros() as usize;
+                        let off = word_index * 64 + tz;
+                        if off >= self.page_size {
+                            break;
+                        }
+                        let addr = base_addr + off as u32;
+                        map.insert(addr, page.data[off]);
+                        bits &= bits - 1;
+                    }
+                }
+            }
+        }
+        map
     }
 }
 
@@ -114,9 +166,9 @@ impl Default for PagedMemory {
     /// Default configuration used by the VM: total capacity of 2^MAX_MEMORY_SIZE_BITS
     /// and a page size of 64Ki elements.
     fn default() -> Self {
-        // 64kB page size, total capacity 2^MAX_MEMORY_SIZE_BITS
-        let mem_size: usize = 1usize << (super::MAX_MEMORY_SIZE_BITS as usize);
-        let page_size: usize = 1 << 16;
+        // 4kB page size, total capacity 2^MAX_MEMORY_SIZE_BITS
+        let mem_size: usize = DEFAULT_MEMORY_SIZE;
+        let page_size: usize = DEFAULT_PAGE_SIZE;
         Self::new(mem_size, page_size)
     }
 }
@@ -138,9 +190,12 @@ impl Index<usize> for PagedMemory {
     fn index(&self, index: usize) -> &Self::Output {
         assert!(index < self.len, "index out of bounds");
         let (page_num, offset) = self.page_index(index);
-        self.get_page(page_num)
-            .and_then(|page| page.get(offset))
-            .expect("uninitialized memory cell")
+        let page = self.get_page(page_num).expect("page not allocated");
+        if get_bit(&page.init_bits, offset) {
+            &page.data[offset]
+        } else {
+            panic!("uninitialized memory cell");
+        }
     }
 }
 
@@ -157,8 +212,21 @@ impl IndexMut<usize> for PagedMemory {
         }
         let (page_num, offset) = self.page_index(index);
         let page = self.get_page_mut(page_num);
-        &mut page[offset]
+        set_bit(&mut page.init_bits, offset);
+        &mut page.data[offset]
     }
+}
+
+fn set_bit(bits: &mut [u64], idx: usize) {
+    let word = idx >> 6;
+    let bit = idx & 63;
+    bits[word] |= 1u64 << bit;
+}
+
+fn get_bit(bits: &[u64], idx: usize) -> bool {
+    let word = idx >> 6;
+    let bit = idx & 63;
+    ((bits[word] >> bit) & 1) == 1
 }
 
 impl PartialEq for PagedMemory {
@@ -185,9 +253,9 @@ impl PartialEq<Vec<QM31>> for PagedMemory {
         if self.len != other.len() {
             return false;
         }
-        for i in 0..self.len {
+        for (i, b) in other.iter().enumerate() {
             let a = self.get(i).copied().unwrap_or_default();
-            if a != other[i] {
+            if a != *b {
                 return false;
             }
         }

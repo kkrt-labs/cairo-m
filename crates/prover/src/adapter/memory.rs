@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::iter::Peekable;
 
 use cairo_m_common::instruction::{Instruction, INSTRUCTION_MAX_SIZE};
+use cairo_m_common::paged_memory::PagedMemory;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::State as VmRegisters;
 use num_traits::{One, Zero};
@@ -233,7 +234,7 @@ where
     ///
     /// ## Returns
     /// A new iterator that will produce execution bundles
-    pub fn new(trace_iter: T, memory_iter: M, initial_memory: Vec<QM31>) -> Self {
+    pub fn new(trace_iter: T, memory_iter: M, initial_memory: PagedMemory) -> Self {
         Self {
             trace_iter: trace_iter.peekable(),
             memory_iter: memory_iter.peekable(),
@@ -408,11 +409,11 @@ impl Memory {
     ///
     /// ## Returns
     /// A new Memory instance ready for execution trace processing
-    pub fn new(initial_memory: Vec<QM31>) -> Self {
+    pub fn new(initial_memory: PagedMemory) -> Self {
         let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31)> = initial_memory
-            .iter()
-            .enumerate()
-            .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero())))
+            .to_initialized_map()
+            .into_iter()
+            .map(|(addr, value)| (M31::from(addr), (value, M31::zero(), M31::zero())))
             .collect();
         Self {
             initial_memory: initial_memory_hashmap.clone(),
@@ -537,6 +538,8 @@ impl Memory {
 mod tests {
     use stwo_prover::core::fields::m31::M31;
     use stwo_prover::core::fields::qm31::QM31;
+
+    use cairo_m_common::paged_memory::DEFAULT_PAGE_SIZE;
 
     use super::*;
 
@@ -766,11 +769,12 @@ mod tests {
             QM31::from_u32_unchecked(10, 20, 30, 40),
             QM31::from_u32_unchecked(50, 60, 70, 80),
         ];
-        let mut memory = Memory::new(initial_memory);
+        let mut memory = Memory::new(initial_memory.into_iter().collect());
 
         // Verify initial state
-        assert_eq!(memory.initial_memory.len(), 2);
-        assert_eq!(memory.final_memory.len(), 2);
+        // The initial memory is one page large
+        assert_eq!(memory.initial_memory.len(), DEFAULT_PAGE_SIZE);
+        assert_eq!(memory.final_memory.len(), DEFAULT_PAGE_SIZE);
         assert_eq!(
             memory.initial_memory[&M31::from(0)],
             (

@@ -6,12 +6,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use cairo_m_common::execution::Segment;
+use cairo_m_common::paged_memory::PagedMemory;
 use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::{PublicAddressRanges, State as VmRegisters};
 use io::VmImportError;
 pub use memory::ExecutionBundle;
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
@@ -97,7 +97,7 @@ pub struct Instructions {
 fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
-    initial_memory: Vec<QM31>,
+    initial_memory: PagedMemory,
     public_address_ranges: PublicAddressRanges,
 ) -> Result<ProverInput, VmImportError>
 where
@@ -227,7 +227,7 @@ pub fn import_from_runner_artifacts(
     import_internal(
         trace_iter,
         memory_iter,
-        vec![],
+        PagedMemory::default(),
         PublicAddressRanges::default(),
     )
 }

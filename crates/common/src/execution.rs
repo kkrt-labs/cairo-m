@@ -1,13 +1,13 @@
 use std::cell::RefCell;
 
-use stwo_prover::core::fields::qm31::QM31;
+use crate::paged_memory::PagedMemory;
 
 use crate::state::MemoryEntry;
 use crate::State;
 
 #[derive(Debug, Default, Clone)]
 pub struct Segment {
-    pub initial_memory: Vec<QM31>,
+    pub initial_memory: PagedMemory,
     pub memory_trace: RefCell<Vec<MemoryEntry>>,
     pub trace: Vec<State>,
 }

@@ -7,6 +7,7 @@ use std::path::Path;
 
 use cairo_m_common::execution::Segment;
 use cairo_m_common::instruction::InstructionError;
+use cairo_m_common::paged_memory::PagedMemory;
 use cairo_m_common::{Instruction, Program, ProgramData, State};
 use instructions::instruction_to_fn;
 use num_traits::Zero;
@@ -53,7 +54,7 @@ pub enum VmError {
 #[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
-    pub initial_memory: Vec<QM31>,
+    pub initial_memory: PagedMemory,
     pub memory: Memory,
     pub state: State,
     pub program_length: M31,
@@ -106,7 +107,7 @@ impl TryFrom<&Program> for VM {
 
         Ok(Self {
             final_pc,
-            initial_memory: vec![],
+            initial_memory: PagedMemory::default(),
             memory,
             state,
             program_length,
@@ -191,7 +192,7 @@ impl VM {
             self.segments.push(Segment {
                 initial_memory: std::mem::replace(
                     &mut self.initial_memory,
-                    self.memory.linear_snapshot(self.program_length.0),
+                    self.memory.data.clone(),
                 ),
                 memory_trace: std::mem::take(&mut self.memory.trace),
                 trace: std::mem::take(&mut self.trace),
@@ -244,7 +245,7 @@ impl VM {
 
         self.memory
             .insert_entrypoint_call(&self.final_pc, &self.state.fp)?;
-        self.initial_memory = self.memory.linear_snapshot(self.program_length.0);
+        self.initial_memory = self.memory.data.clone();
 
         loop {
             match self.execute(options.max_steps) {

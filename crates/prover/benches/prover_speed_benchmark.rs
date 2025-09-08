@@ -55,6 +55,7 @@ fn fibonacci_prove_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("prover_fibonacci");
     group.throughput(Throughput::Elements(trace_length as u64));
     group.measurement_time(Duration::from_secs(BENCHMARK_DURATION_SECS));
+    group.sample_size(10);
 
     let prover_input = import_from_runner_output(segment, runner_output.public_address_ranges)
         .expect("Failed to import runner output");
