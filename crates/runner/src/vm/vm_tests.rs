@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::Read;
 
 use cairo_m_common::instruction::InstructionError;
-use cairo_m_common::{Instruction, Program, State};
+use cairo_m_common::{Instruction, Program, ProgramData, State};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -29,7 +29,48 @@ fn test_program_from_vec_instructions() {
     ];
     let program: Program = Program::from(instructions.clone());
 
-    assert_eq!(program.instructions, instructions);
+    // Ensure data contains the instruction variants in order
+    let got: Vec<Instruction> = program
+        .data
+        .iter()
+        .filter_map(|d| match d {
+            ProgramData::Instruction(i) => Some(*i),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(got, instructions);
+}
+
+#[test]
+fn test_vm_try_from_with_rodata_values() {
+    // Two 1-QM31 instructions followed by one rodata value
+    let instructions = vec![
+        Instruction::StoreImm {
+            imm: M31(1),
+            dst_off: M31(0),
+        },
+        Instruction::StoreImm {
+            imm: M31(2),
+            dst_off: M31(1),
+        },
+    ];
+    let mut data: Vec<ProgramData> = instructions
+        .into_iter()
+        .map(ProgramData::Instruction)
+        .collect();
+    // Append a raw value 0x63 (99) to be loaded after code
+    let ro_val = QM31::from_m31_array([M31::from(99), M31::from(0), M31::from(0), M31::from(0)]);
+    data.push(ProgramData::Value(ro_val));
+    let program = Program {
+        data,
+        entrypoints: Default::default(),
+        metadata: Default::default(),
+    };
+
+    let vm = VM::try_from(&program).unwrap();
+    // Code length = 2 QM31 (two simple instructions); rodata at address 2
+    assert_eq!(vm.program_length, M31::from(3));
+    assert_eq!(vm.memory.get_data(M31::from(2)).unwrap(), M31::from(99));
 }
 
 #[test]

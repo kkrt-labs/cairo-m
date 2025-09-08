@@ -5,8 +5,8 @@ input_file: mdtest/01-basics/05-arrays.md
 ---
 Source:
 fn create_array() -> felt {
-    let arr: [felt; 3] = [1, 2, 3];
-    return arr[0];
+    let arr: [felt; 5] = [1, 2, 3, 0, 0];
+    return arr[4];
 }
 ============================================================
 Generated CASM:
@@ -17,6 +17,6 @@ create_array_0:
    1: 9 2 3 _              // [fp + 3] = 2
    2: 9 3 4 _              // [fp + 4] = 3
    3: 43 2 0 _             // [fp + 0] = fp + 2
-   4: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load array element)
+   4: 8 0 4 1              // [fp + 1] = [[fp + 0] + 4] (load array element)
    5: 4 1 0 2147483644     // Return value 0: [fp -3] = [fp + 1] + 0
    6: 11 _ _ _             // return

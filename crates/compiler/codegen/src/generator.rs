@@ -6,12 +6,13 @@ use std::collections::HashMap;
 
 use cairo_m_common::instruction::Instruction as CasmInstr;
 use cairo_m_common::program::{AbiSlot, AbiType, EntrypointInfo};
-use cairo_m_common::{Program, ProgramMetadata};
+use cairo_m_common::{Program, ProgramData, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
     MirModule, MirType, Terminator, Value, ValueId,
 };
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 
 use crate::mir_passes::legalize::legalize_module_for_vm;
 use crate::passes;
@@ -32,6 +33,15 @@ pub struct CodeGenerator {
     memory_layout: Vec<u32>,
 
     label_counter: usize,
+
+    /// Read-only data blobs to append after code
+    rodata_blobs: Vec<Vec<QM31>>,
+    /// For deduplication: key -> blob index
+    rodata_dedup: std::collections::HashMap<Vec<u32>, usize>,
+    /// Map of rodata label -> blob index
+    rodata_label_to_blob: std::collections::HashMap<String, usize>,
+    /// Map of blob index -> rodata label (one label per blob)
+    rodata_blob_to_label: std::collections::HashMap<usize, String>,
 }
 
 impl CodeGenerator {
@@ -44,6 +54,10 @@ impl CodeGenerator {
             function_layouts: HashMap::new(),
             memory_layout: Vec::new(),
             label_counter: 0,
+            rodata_blobs: Vec::new(),
+            rodata_dedup: std::collections::HashMap::new(),
+            rodata_label_to_blob: std::collections::HashMap::new(),
+            rodata_blob_to_label: std::collections::HashMap::new(),
         }
     }
 
@@ -70,11 +84,22 @@ impl CodeGenerator {
 
     /// Compile the generated code into a CompiledProgram.
     pub(crate) fn compile(self) -> CodegenResult<Program> {
-        let instructions = self
+        let instructions: Vec<cairo_m_common::Instruction> = self
             .instructions
             .iter()
             .map(|instr| instr.build())
             .collect::<CodegenResult<_>>()?;
+
+        // Build linear program data: instructions then rodata
+        let mut data: Vec<ProgramData> = instructions
+            .into_iter()
+            .map(ProgramData::Instruction)
+            .collect();
+        for blob in &self.rodata_blobs {
+            for &q in blob.iter() {
+                data.push(ProgramData::Value(q));
+            }
+        }
 
         Ok(Program {
             // TODO: Link source file / crates once supported
@@ -85,7 +110,7 @@ impl CodeGenerator {
                 extra: HashMap::new(),
             },
             entrypoints: self.function_entrypoints,
-            instructions,
+            data,
         })
     }
 
@@ -120,6 +145,71 @@ impl CodeGenerator {
         }
 
         Ok(())
+    }
+
+    /// Linearize a literal array into a rodata blob of QM31 values
+    fn linearize_rodata_blob(elements: &[Value], element_ty: &MirType) -> CodegenResult<Vec<QM31>> {
+        use cairo_m_compiler_mir::value::Literal as Lit;
+        let mut out = Vec::new();
+        match element_ty {
+            MirType::Felt | MirType::Bool => {
+                for v in elements {
+                    let m = match v {
+                        Value::Literal(Lit::Integer(n)) => *n,
+                        Value::Literal(Lit::Boolean(b)) => {
+                            if *b {
+                                1
+                            } else {
+                                0
+                            }
+                        }
+                        _ => {
+                            return Err(CodegenError::InvalidMir(
+                                "Non-literal element in rodata array".to_string(),
+                            ))
+                        }
+                    };
+                    out.push(QM31::from_m31_array([
+                        M31::from(m),
+                        0.into(),
+                        0.into(),
+                        0.into(),
+                    ]));
+                }
+            }
+            MirType::U32 => {
+                for v in elements {
+                    let Lit::Integer(n) = v
+                        .as_literal()
+                        .ok_or_else(|| CodegenError::InvalidMir("Non-literal u32 element".into()))?
+                    else {
+                        return Err(CodegenError::InvalidMir(
+                            "Non-integer element for u32 array".to_string(),
+                        ));
+                    };
+                    let lo = n & 0xFFFF;
+                    let hi = (n >> 16) & 0xFFFF;
+                    out.push(QM31::from_m31_array([
+                        M31::from(lo),
+                        0.into(),
+                        0.into(),
+                        0.into(),
+                    ]));
+                    out.push(QM31::from_m31_array([
+                        M31::from(hi),
+                        0.into(),
+                        0.into(),
+                        0.into(),
+                    ]));
+                }
+            }
+            _ => {
+                return Err(CodegenError::UnsupportedInstruction(
+                    "Const arrays only supported for felt, bool, u32".to_string(),
+                ))
+            }
+        }
+        Ok(out)
     }
 
     /// Generate code for all functions
@@ -187,7 +277,6 @@ impl CodeGenerator {
 
         builder.emit_add_label(func_label);
 
-        // Generate code for all basic blocks
         self.generate_basic_blocks(function, module, &mut builder)?;
 
         self.label_counter += builder.label_counter();
@@ -214,7 +303,7 @@ impl CodeGenerator {
 
     /// Generate code for all basic blocks in a function
     fn generate_basic_blocks(
-        &self,
+        &mut self,
         function: &MirFunction,
         module: &MirModule,
         builder: &mut CasmBuilder,
@@ -227,15 +316,73 @@ impl CodeGenerator {
             builder.emit_add_label(block_label);
 
             for (idx, instruction) in block.instructions.iter().enumerate() {
-                self.generate_instruction(
-                    instruction,
-                    function,
-                    module,
-                    builder,
-                    &block.instructions,
-                    idx,
-                    &block.terminator,
-                )?;
+                match &instruction.kind {
+                    InstructionKind::MakeFixedArray {
+                        dest,
+                        elements,
+                        element_ty,
+                        is_const,
+                    } => {
+                        let all_literals = elements.iter().all(|v| matches!(v, Value::Literal(_)));
+                        let is_scalar_elem =
+                            matches!(element_ty, MirType::Felt | MirType::Bool | MirType::U32);
+                        if *is_const && all_literals && is_scalar_elem {
+                            // Register (or dedup) rodata blob
+                            let blob = Self::linearize_rodata_blob(elements, element_ty)?;
+                            // Build dedup key as flattened u32 limbs
+                            let mut key: Vec<u32> = Vec::with_capacity(blob.len() * 4);
+                            for q in &blob {
+                                let arr = q.to_m31_array();
+                                key.push(arr[0].0);
+                                key.push(arr[1].0);
+                                key.push(arr[2].0);
+                                key.push(arr[3].0);
+                            }
+                            let blob_index = if let Some(&idx) = self.rodata_dedup.get(&key) {
+                                idx
+                            } else {
+                                let idx = self.rodata_blobs.len();
+                                self.rodata_blobs.push(blob);
+                                self.rodata_dedup.insert(key, idx);
+                                idx
+                            };
+                            // Reserve dest slot for array pointer and emit placeholder StoreImm 0 with label
+                            let dest_off = builder.layout_mut().allocate_local(*dest, 1)?;
+                            // Reuse a single label per unique blob
+                            let ro_label =
+                                if let Some(lbl) = self.rodata_blob_to_label.get(&blob_index) {
+                                    lbl.clone()
+                                } else {
+                                    let lbl = format!("RODATA_{}", self.label_counter);
+                                    self.label_counter += 1;
+                                    self.rodata_blob_to_label.insert(blob_index, lbl.clone());
+                                    self.rodata_label_to_blob.insert(lbl.clone(), blob_index);
+                                    lbl
+                                };
+                            let ib = InstructionBuilder::from(CasmInstr::StoreImm {
+                                imm: M31::from(0),
+                                dst_off: M31::from(dest_off),
+                            })
+                            .with_comment(format!("[fp + {dest_off}] = <{}>", ro_label))
+                            .with_label(ro_label.clone());
+                            builder.emit_push(ib);
+                        } else {
+                            // Fallback to stack materialization
+                            builder.make_fixed_array(*dest, elements, element_ty)?;
+                        }
+                    }
+                    _ => {
+                        self.generate_instruction(
+                            instruction,
+                            function,
+                            module,
+                            builder,
+                            &block.instructions,
+                            idx,
+                            &block.terminator,
+                        )?;
+                    }
+                }
             }
 
             // Determine the next block in sequence (if any)
@@ -538,15 +685,13 @@ impl CodeGenerator {
                 builder.insert_tuple_element(*dest, *tuple_val, *index, *new_value, tuple_ty)?;
             }
 
-            // Array operations - initially treat like tuples/structs (value-based)
-            // TODO: Implement proper array materialization and pointer-based passing
+            // Array creation handled at the basic-block level for rodata lowering
             InstructionKind::MakeFixedArray {
                 dest,
                 elements,
                 element_ty,
+                ..
             } => {
-                // For now, treat arrays like tuples - store elements sequentially
-                // This will need to be updated for proper pointer-based arrays
                 builder.make_fixed_array(*dest, elements, element_ty)?;
             }
 
@@ -556,7 +701,6 @@ impl CodeGenerator {
                 index,
                 element_ty,
             } => {
-                // Use unified array operation for loading
                 use crate::builder::ArrayOperation;
                 builder.array_operation(
                     *array,
@@ -858,12 +1002,50 @@ impl CodeGenerator {
             }
         }
 
+        // Before resolving instruction labels, add rodata labels to the map
+        if !self.rodata_blobs.is_empty() && !self.rodata_label_to_blob.is_empty() {
+            // Compute total code length in QM31 words
+            let mut code_len_qm31: u32 = 0;
+            for instr_builder in &self.instructions {
+                let opcode = instr_builder.inner_instr().opcode_value();
+                let sz = cairo_m_common::Instruction::size_in_qm31s_for_opcode(opcode).ok_or_else(
+                    || CodegenError::InvalidMir(format!("Unknown opcode: {}", opcode)),
+                )?;
+                code_len_qm31 += sz;
+            }
+
+            // Assign addresses to rodata blobs in insertion order
+            let mut offsets: Vec<u32> = Vec::with_capacity(self.rodata_blobs.len());
+            let mut running: u32 = 0;
+            for blob in &self.rodata_blobs {
+                offsets.push(code_len_qm31 + running);
+                running += blob.len() as u32;
+            }
+
+            // Sanity check: program size bound (2^30)
+            let total = code_len_qm31 + running;
+            let limit: u32 = 1 << 30;
+            if total >= limit {
+                return Err(CodegenError::InternalError(format!(
+                    "Program (code + rodata) too large: {} >= {}",
+                    total, limit
+                )));
+            }
+            // Add rodata labels to label_map with their absolute addresses
+            for (lbl, &blob_idx) in &self.rodata_label_to_blob {
+                let addr = *offsets.get(blob_idx).ok_or_else(|| {
+                    CodegenError::InternalError("Invalid rodata blob index".into())
+                })?;
+                label_map.insert(lbl.clone(), addr as usize);
+            }
+        }
+
         // Resolve label references in instructions (typed API)
         for (logical_pc, instruction) in self.instructions.iter_mut().enumerate() {
             // Only process instructions that carry a label placeholder
             let Some(label_name) = instruction.label.clone() else {
-                continue;
-            };
+                    continue;
+                };
 
             let physical_pc = self.memory_layout.get(logical_pc).copied().ok_or_else(|| {
                 CodegenError::UnresolvedLabel(format!("Invalid PC {} for instruction", logical_pc))
@@ -892,6 +1074,13 @@ impl CodeGenerator {
                     *target = M31::from(target_addr as i32);
                     instruction.label = None;
                 }
+                CasmInstr::StoreImm { imm, .. } => {
+                    let &target_addr = label_map
+                        .get(&label_name)
+                        .ok_or_else(|| CodegenError::UnresolvedLabel(label_name.clone()))?;
+                    *imm = M31::from(target_addr as i32);
+                    instruction.label = None;
+                }
                 _ => {
                     return Err(CodegenError::UnresolvedLabel(format!(
                         "Unexpected label for opcode {}: {}",
@@ -901,7 +1090,6 @@ impl CodeGenerator {
                 }
             }
         }
-
         Ok(())
     }
 
@@ -974,6 +1162,33 @@ impl CodeGenerator {
             result.push_str(&format!("{:4}: {}\n", pc, instruction));
         }
 
+        // Append rodata view (if any) after instructions
+        if !self.rodata_blobs.is_empty() {
+            // Compute code length in QM31 units for absolute base
+            let mut code_len_qm31: u32 = 0;
+            for ib in &self.instructions {
+                if let Some(sz) = cairo_m_common::Instruction::size_in_qm31s_for_opcode(
+                    ib.inner_instr().opcode_value(),
+                ) {
+                    code_len_qm31 += sz;
+                }
+            }
+
+            result.push_str(&format!("---- rodata (base {}) ----\n", code_len_qm31));
+            let mut addr = code_len_qm31 as usize;
+            for (blob_idx, blob) in self.rodata_blobs.iter().enumerate() {
+                result.push_str(&format!("; blob {} ({} words)\n", blob_idx, blob.len()));
+                for q in blob {
+                    let arr = q.to_m31_array();
+                    let parts = [arr[0].0, arr[1].0, arr[2].0, arr[3].0];
+                    result.push_str(&format!(
+                        "{:4}: {} {} {} {}\n",
+                        addr, parts[0], parts[1], parts[2], parts[3]
+                    ));
+                    addr += 1;
+                }
+            }
+        }
         result
     }
 
@@ -1065,10 +1280,11 @@ mod tests_asserts {
         let program = gen.compile().unwrap();
 
         let mut assert_fp_imm = 0;
-        for instr in &program.instructions {
-            match instr {
-                CasmInstr::AssertEqFpImm { .. } => assert_fp_imm += 1,
-                _ => {}
+        for item in &program.data {
+            if let ProgramData::Instruction(instr) = item {
+                if matches!(instr, CasmInstr::AssertEqFpImm { .. }) {
+                    assert_fp_imm += 1;
+                }
             }
         }
 
@@ -1078,6 +1294,281 @@ mod tests_asserts {
             assert_fp_imm
         );
     }
+}
+
+#[cfg(test)]
+mod tests_rodata {
+    use super::*;
+    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, MirType, Terminator, Value};
+    use stwo_prover::core::fields::m31::M31;
+    use stwo_prover::core::fields::qm31::QM31;
+
+    // Focused test: literal u32 array lowered to rodata and dynamic index loads from rodata base
+    #[test]
+    fn rodata_u32_array_dynamic_index() {
+        // Build MIR: fn main(i: felt) -> u32 { let arr: [u32;3] = [1,2,4]; return arr[i]; }
+        let mut module = MirModule::new();
+        let mut f = MirFunction::new("main".to_string());
+
+        // Parameter i: felt
+        let i_id = f.new_typed_value_id(MirType::Felt);
+        f.parameters.push(i_id);
+
+        // Create array value
+        let arr_id = f.new_typed_value_id(MirType::FixedArray {
+            element_type: Box::new(MirType::U32),
+            size: 3,
+        });
+        let mut block = BasicBlock::new();
+        block.push_instruction(cairo_m_compiler_mir::Instruction {
+            kind: cairo_m_compiler_mir::InstructionKind::MakeFixedArray {
+                dest: arr_id,
+                elements: vec![Value::integer(1), Value::integer(2), Value::integer(4)],
+                element_ty: MirType::U32,
+                is_const: true,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        });
+
+        // Dynamic index: dest is u32
+        let res_id = f.new_typed_value_id(MirType::U32);
+        block.push_instruction(cairo_m_compiler_mir::Instruction {
+            kind: cairo_m_compiler_mir::InstructionKind::ArrayIndex {
+                dest: res_id,
+                array: Value::operand(arr_id),
+                index: Value::operand(i_id),
+                element_ty: MirType::U32,
+            },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        });
+
+        // Return the loaded u32
+        block.terminator = Terminator::return_value(Value::operand(res_id));
+        f.return_values.push(res_id);
+        f.basic_blocks.push(block);
+
+        module.add_function(f);
+
+        // Generate CASM and compile to Program
+        let mut gen = CodeGenerator::new();
+        gen.generate_module(&module).unwrap();
+        let program = gen.compile().unwrap();
+
+        // Compute rodata base by summing instruction sizes in QM31 units
+        let mut code_len_qm31: u32 = 0;
+        let mut first_value_idx: Option<usize> = None;
+        for (idx, item) in program.data.iter().enumerate() {
+            match item {
+                ProgramData::Instruction(instr) => {
+                    code_len_qm31 += instr.size_in_qm31s();
+                }
+                ProgramData::Value(_) => {
+                    first_value_idx = Some(idx);
+                    break;
+                }
+            }
+        }
+        let ro_base = code_len_qm31;
+        assert!(
+            first_value_idx.is_some(),
+            "Program should contain rodata values"
+        );
+
+        // Assert that some StoreImm immediate equals rodata base (array pointer setup)
+        let mut saw_ptr = false;
+        for item in &program.data {
+            if let ProgramData::Instruction(CasmInstr::StoreImm { imm, .. }) = item {
+                if imm.0 == ro_base {
+                    saw_ptr = true;
+                    break;
+                }
+            }
+        }
+        assert!(
+            saw_ptr,
+            "Expected a StoreImm with imm == rodata base {}",
+            ro_base
+        );
+
+        // Validate rodata blob contents for [1u32, 2u32, 4u32]
+        // For u32: two words per element (lo then hi limb), each as QM31([limb, 0, 0, 0])
+        let expected_limbs = [1u32, 0, 2, 0, 4, 0];
+        // Collect the raw QM31 rodata values after the first Value item
+        let mut ro_values: Vec<QM31> = Vec::new();
+        for item in &program.data[first_value_idx.unwrap()..] {
+            if let ProgramData::Value(q) = item {
+                ro_values.push(*q);
+            }
+        }
+        // Compare prefix of rodata sequence equal to expected limbs x QM31
+        assert!(
+            ro_values.len() >= expected_limbs.len(),
+            "Rodata too short: have {} values, need {}",
+            ro_values.len(),
+            expected_limbs.len()
+        );
+        for (i, limb) in expected_limbs.iter().enumerate() {
+            let arr = ro_values[i].to_m31_array();
+            assert_eq!(arr[0], M31::from(*limb), "rodata limb {} mismatch", i);
+            assert_eq!(arr[1], M31::from(0));
+            assert_eq!(arr[2], M31::from(0));
+            assert_eq!(arr[3], M31::from(0));
+        }
+    }
+
+    // Ensure identical literal arrays are deduplicated into one rodata blob
+    #[test]
+    fn rodata_deduplication_for_identical_arrays() {
+        let mut module = MirModule::new();
+        let mut f = MirFunction::new("main".to_string());
+
+        // Parameter i: felt
+        let i_id = f.new_typed_value_id(MirType::Felt);
+        f.parameters.push(i_id);
+
+        // Three arrays with identical contents
+        let arr1 = f.new_typed_value_id(MirType::FixedArray {
+            element_type: Box::new(MirType::U32),
+            size: 3,
+        });
+        let arr2 = f.new_typed_value_id(MirType::FixedArray {
+            element_type: Box::new(MirType::U32),
+            size: 3,
+        });
+        let arr3 = f.new_typed_value_id(MirType::FixedArray {
+            element_type: Box::new(MirType::U32),
+            size: 3,
+        });
+
+        let mut block = BasicBlock::new();
+        for &arr in &[arr1, arr2, arr3] {
+            block.push_instruction(cairo_m_compiler_mir::Instruction::make_const_fixed_array(
+                arr,
+                vec![Value::integer(1), Value::integer(2), Value::integer(4)],
+                MirType::U32,
+            ));
+        }
+
+        // Use dynamic index to force load path (not immediate fold)
+        let d1 = f.new_typed_value_id(MirType::U32);
+        let d2 = f.new_typed_value_id(MirType::U32);
+        let d3 = f.new_typed_value_id(MirType::U32);
+        for (arr, dest) in [arr1, arr2, arr3].iter().copied().zip([d1, d2, d3]) {
+            block.push_instruction(cairo_m_compiler_mir::Instruction::array_index(
+                dest,
+                Value::operand(arr),
+                Value::operand(i_id),
+                MirType::U32,
+            ));
+        }
+
+        block.terminator = Terminator::return_value(Value::operand(d1));
+        f.return_values.push(d1);
+        f.basic_blocks.push(block);
+        module.add_function(f);
+
+        let mut gen = CodeGenerator::new();
+        gen.generate_module(&module).unwrap();
+
+        // Expect exactly one rodata blob due to deduplication
+        assert_eq!(
+            gen.rodata_blobs.len(),
+            1,
+            "Expected rodata deduplication to a single blob"
+        );
+    }
+
+    // Ensure arrays that escape via call are not rodata-optimized
+    #[test]
+    fn rodata_not_emitted_for_escaping_arrays() {
+        // module with callee that stores into array
+        let mut module = MirModule::new();
+
+        // callee: fn store_it(arr: [u32;3], idx: felt) -> u32 { arr[idx] = 0; return 0u32 }
+        let mut callee = MirFunction::new("store_it".to_string());
+        let arr_param = callee.new_typed_value_id(MirType::FixedArray {
+            element_type: Box::new(MirType::U32),
+            size: 3,
+        });
+        let idx_param = callee.new_typed_value_id(MirType::Felt);
+        callee.parameters.push(arr_param);
+        callee.parameters.push(idx_param);
+        let mut cblock = BasicBlock::new();
+        // store arr[idx] = 0
+        let zero_u32 = Value::integer(0);
+        cblock.push_instruction(cairo_m_compiler_mir::Instruction::array_insert(
+            arr_param,
+            Value::operand(arr_param),
+            Value::operand(idx_param),
+            zero_u32,
+            MirType::FixedArray {
+                element_type: Box::new(MirType::U32),
+                size: 3,
+            },
+        ));
+        // return 0u32
+        let ret0 = callee.new_typed_value_id(MirType::U32);
+        cblock.push_instruction(cairo_m_compiler_mir::Instruction::assign(
+            ret0,
+            Value::integer(0),
+            MirType::U32,
+        ));
+        cblock.terminator = Terminator::return_value(Value::operand(ret0));
+        callee.return_values.push(ret0);
+        callee.basic_blocks.push(cblock);
+        let callee_id = module.add_function(callee);
+
+        // caller: creates literal array and passes to callee
+        let mut caller = MirFunction::new("main".to_string());
+        let idx = caller.new_typed_value_id(MirType::Felt);
+        caller.parameters.push(idx);
+        let arr = caller.new_typed_value_id(MirType::FixedArray {
+            element_type: Box::new(MirType::U32),
+            size: 3,
+        });
+        let mut b = BasicBlock::new();
+        b.push_instruction(cairo_m_compiler_mir::Instruction::make_fixed_array(
+            arr,
+            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
+            MirType::U32,
+        ));
+        // call store_it(arr, idx)
+        let ret = caller.new_typed_value_id(MirType::U32);
+        let sig = cairo_m_compiler_mir::instruction::CalleeSignature {
+            param_types: vec![
+                MirType::FixedArray {
+                    element_type: Box::new(MirType::U32),
+                    size: 3,
+                },
+                MirType::Felt,
+            ],
+            return_types: vec![MirType::U32],
+        };
+        b.push_instruction(cairo_m_compiler_mir::Instruction::call(
+            vec![ret],
+            callee_id,
+            vec![Value::operand(arr), Value::operand(idx)],
+            sig,
+        ));
+        b.terminator = Terminator::return_value(Value::operand(ret));
+        caller.return_values.push(ret);
+        caller.basic_blocks.push(b);
+        module.add_function(caller);
+
+        let mut gen = CodeGenerator::new();
+        gen.generate_module(&module).unwrap();
+        // No rodata should be emitted because the only candidate array escapes via call
+        assert!(
+            gen.rodata_blobs.is_empty(),
+            "Escaping arrays must not be placed in rodata"
+        );
+    }
+
+    // Constant-index folding is handled by MIR; no codegen folding test here.
 }
 
 /// Convert MIR types to ABI types for program metadata
@@ -1192,15 +1683,12 @@ mod tests {
         // Check the store immediate instruction (should be first)
         // With the direct return optimization, the immediate is stored directly
         // to the return slot at [fp - 3], which is offset -3
-        let store_imm = &compiled.instructions[0];
-
-        // Check for StoreImm opcode
-        assert_eq!(
-            store_imm,
-            &CasmInstr::StoreImm {
-                imm: M31::from(42),
-                dst_off: M31::from(-3)
+        match &compiled.data[0] {
+            ProgramData::Instruction(CasmInstr::StoreImm { imm, dst_off }) => {
+                assert_eq!(*imm, M31::from(42));
+                assert_eq!(*dst_off, M31::from(-3));
             }
-        );
+            other => panic!("Expected first data to be StoreImm, got: {:?}", other),
+        }
     }
 }

@@ -59,10 +59,16 @@ fn maj(x: u32, y: u32, z: u32) -> u32 {
 /// Updates the hash state H in-place.
 fn process_chunk(chunk: [u32; 16], H: [u32; 8]) {
     // Message schedule array
-    let W: [u32; 64] = [0u32; 64];
-    for (let t: felt = 0; t != 16; t = t + 1) {
-        W[t] = chunk[t];
-    } // Extend the message schedule
+    let W: [u32; 64] = [
+        chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
+        chunk[8], chunk[9], chunk[10], chunk[11], chunk[12], chunk[13], chunk[14], chunk[15],
+        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32,
+        0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32, 0u32
+    ]; // Extend the message schedule
     for (let t: felt = 16; t != 64; t = t + 1) {
         let s0 = small_sigma0(W[t - 15]);
         let s1 = small_sigma1(W[t - 2]);

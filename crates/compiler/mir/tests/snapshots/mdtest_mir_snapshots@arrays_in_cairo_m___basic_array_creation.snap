@@ -5,8 +5,8 @@ input_file: mdtest/01-basics/05-arrays.md
 ---
 Source:
 fn create_array() -> felt {
-    let arr: [felt; 3] = [1, 2, 3];
-    return arr[0];
+    let arr: [felt; 5] = [1, 2, 3, 0, 0];
+    return arr[4];
 }
 ============================================================
 Generated MIR:
@@ -16,8 +16,8 @@ module {
     entry: 0
 
     0:
-      %0 = makefixedarray [1, 2, 3]
-      %1 = arrayindex %0, 0
+      %0 = makefixedarray [1, 2, 3, 0, 0]
+      %1 = arrayindex %0, 4
       return %1
 
   }

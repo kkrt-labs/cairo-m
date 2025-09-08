@@ -83,7 +83,7 @@ impl super::CasmBuilder {
     }
 
     /// Store a u32 immediate split into two slots and track the write.
-    pub(super) fn store_u32_immediate(&mut self, value: u32, offset: i32, comment: String) {
+    pub(crate) fn store_u32_immediate(&mut self, value: u32, offset: i32, comment: String) {
         let (lo, hi) = super::split_u32_value(value);
         let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::U32StoreImm {
             imm_lo: M31::from(lo),
