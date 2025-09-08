@@ -255,7 +255,7 @@ fn test_u32_multiplication() -> u32 {
 }
 ```
 
-### U32 Division - U32StoreDivFpFp and U32StoreDivFpImm
+### U32 Division - U32StoreDivRemFpFp and U32StoreDivRemFpImm
 
 32-bit unsigned integer division:
 
@@ -264,10 +264,10 @@ fn test_u32_division() -> u32 {
     let a: u32 = 100;
     let b: u32 = 5;
 
-    // U32StoreDivFpFp: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
+    // U32StoreDivRemFpFp: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
     let div1: u32 = a / b;
 
-    // U32StoreDivFpImm: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+    // U32StoreDivRemFpImm: u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
     let div2: u32 = a / 4;
 
     return div1 + div2;

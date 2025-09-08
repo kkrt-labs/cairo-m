@@ -449,33 +449,47 @@ proptest! {
     fn test_u32_store_div_fp_imm(src_value: u32, imm_val_hi in 0..=u16::MAX as u32, imm_val_lo in 0..=u16::MAX as u32) {
         let imm_val = (imm_val_hi << 16) | imm_val_lo;
         prop_assume!(imm_val != 0, "attempt to divide by zero");
-        let expected_res = src_value / imm_val;
-        run_u32_fp_imm_test(
-            src_value,
-            Instruction::U32StoreDivFpImm {
+        let expected_q = src_value / imm_val;
+        let expected_r = src_value % imm_val;
+
+        // Prepare memory and state
+        let mut memory = Memory::default();
+        let initial_fp = M31(10);
+        memory.insert_u32(initial_fp, src_value).unwrap();
+        let state = State { pc: M31(0), fp: initial_fp };
+
+        // Execute
+        let new_state = u32_store_div_rem_fp_imm(
+            &mut memory,
+            state,
+            &Instruction::U32StoreDivRemFpImm {
                 src_off: M31(0),
                 imm_hi: M31(imm_val_hi),
                 imm_lo: M31(imm_val_lo),
                 dst_off: M31(2),
-            },
-            u32_store_div_fp_imm,
-            expected_res,
-            2,
-            2,
+                dst_rem_off: M31(4),
+            }
         ).unwrap();
+
+        // Verify quotient and remainder stored at expected offsets
+        assert_eq!(memory.get_u32(initial_fp + M31(2)).unwrap(), expected_q);
+        assert_eq!(memory.get_u32(initial_fp + M31(4)).unwrap(), expected_r);
+        assert_eq!(new_state.pc, M31(2));
+        assert_eq!(new_state.fp, initial_fp);
     }
 
     #[test]
     fn test_u32_store_div_fp_imm_by_zero(src_value in 0..u16::MAX as u32) {
         let result = run_u32_fp_imm_test(
             src_value,
-            Instruction::U32StoreDivFpImm {
+            Instruction::U32StoreDivRemFpImm {
                 src_off: M31(0),
                 imm_lo: M31(0x0000),
                 imm_hi: M31(0x0000),
                 dst_off: M31(2),
+                dst_rem_off: M31(4),
             },
-            u32_store_div_fp_imm,
+            u32_store_div_rem_fp_imm,
             0,
             2,
             2,
@@ -490,17 +504,18 @@ proptest! {
 
 
     #[test]
-    fn test_u32_store_div_fp_imm_invalid_limbs(imm_val_lo: u32, imm_val_hi: u32) {
+    fn test_u32_store_div_rem_fp_imm_invalid_limbs(imm_val_lo: u32, imm_val_hi: u32) {
         prop_assume!(imm_val_lo > U32_LIMB_MASK || imm_val_hi > U32_LIMB_MASK);
         let err = run_simple_store_test(
             &[0, 4],
-            Instruction::U32StoreDivFpImm {
+            Instruction::U32StoreDivRemFpImm {
                 src_off: M31(0),
                 imm_lo: M31(imm_val_lo),
                 imm_hi: M31(imm_val_hi),
                 dst_off: M31(2),
+                dst_rem_off: M31(4),
             },
-            u32_store_div_fp_imm,
+            u32_store_div_rem_fp_imm,
             &[0, 4, imm_val_lo, imm_val_hi],
             1,
         );
@@ -571,22 +586,42 @@ proptest! {
     }
 
     #[test]
-    fn test_u32_store_div_fp_fp(src0_value: u32, src1_value: u32) {
+    fn test_u32_store_div_rem_fp_fp(src0_value: u32, src1_value: u32) {
         prop_assume!(src1_value != 0, "attempt to divide by zero");
         let expected_res = src0_value / src1_value;
         run_u32_fp_fp_test(
             src0_value,
             src1_value,
-            Instruction::U32StoreDivFpFp {
+            Instruction::U32StoreDivRemFpFp {
                 src0_off: M31(0),
                 src1_off: M31(2),
                 dst_off: M31(4),
+                dst_rem_off: M31(6),
             },
-            u32_store_div_fp_fp,
+            u32_store_div_rem_fp_fp,
             expected_res,
             4,
-            1,
+            2,
         ).unwrap();
+    }
+
+    #[test]
+    fn test_u32_store_div_rem_fp_fp_by_zero(src0_value: u32) {
+        let err = run_u32_fp_fp_test(
+            src0_value,
+            0,
+            Instruction::U32StoreDivRemFpFp {
+                src0_off: M31(0),
+                src1_off: M31(2),
+                dst_off: M31(4),
+                dst_rem_off: M31(6),
+            },
+            u32_store_div_rem_fp_fp,
+            0,
+            4,
+            2,
+        );
+        assert_eq!(err.unwrap_err(), InstructionExecutionError::InvalidOperand("Division by zero".to_string()));
     }
 
     #[test]

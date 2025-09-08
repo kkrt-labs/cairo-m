@@ -129,7 +129,7 @@
 //!   * `- [r_hi]` in `RangeCheck16` relation
 
 use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
-use cairo_m_common::instruction::U32_STORE_DIV_FP_FP;
+use cairo_m_common::instruction::U32_STORE_DIV_REM_FP_FP;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -290,7 +290,7 @@ impl Claim {
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
 
-                let opcode_constant = PackedM31::from(M31::from(U32_STORE_DIV_FP_FP));
+                let opcode_constant = PackedM31::from(M31::from(U32_STORE_DIV_REM_FP_FP));
                 let src0_off = input.inst_value_1;
                 let src1_off = input.inst_value_2;
                 let dst_off = input.inst_value_3;
@@ -904,7 +904,7 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let two_pow_8 = E::F::from(M31::from(1 << 8));
         let two_pow_16 = E::F::from(M31::from(1 << 16));
-        let opcode_constant = E::F::from(M31::from(U32_STORE_DIV_FP_FP));
+        let opcode_constant = E::F::from(M31::from(U32_STORE_DIV_REM_FP_FP));
 
         // 47 columns
         let enabler = eval.next_trace_mask();

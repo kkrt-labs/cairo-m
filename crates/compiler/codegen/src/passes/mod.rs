@@ -233,10 +233,11 @@ fn rewrite_instruction(
             src1_off,
             dst_off,
         }
-        | CasmInstr::U32StoreDivFpFp {
+        | CasmInstr::U32StoreDivRemFpFp {
             src0_off,
             src1_off,
             dst_off,
+            dst_rem_off: _, // TODO: handle this
         } => rewrite_u32_fp_fp(builder, instr, *src0_off, *src1_off, *dst_off, false),
 
         // u32 fp+fp comparisons (felt result)
@@ -302,10 +303,11 @@ fn rebuild_u32_fp_fp(orig: &CasmInstr, a: M31, b: M31, d: M31) -> CodegenResult<
             src1_off: b,
             dst_off: d,
         },
-        CasmInstr::U32StoreDivFpFp { .. } => CasmInstr::U32StoreDivFpFp {
+        CasmInstr::U32StoreDivRemFpFp { .. } => CasmInstr::U32StoreDivRemFpFp {
             src0_off: a,
             src1_off: b,
             dst_off: d,
+            dst_rem_off: d, // TODO: handle this
         },
         CasmInstr::U32StoreEqFpFp { .. } => CasmInstr::U32StoreEqFpFp {
             src0_off: a,
@@ -330,7 +332,7 @@ const fn u32_fp_fp_op_name(orig: &CasmInstr) -> Option<&'static str> {
         CasmInstr::U32StoreAddFpFp { .. } => Some("U32Add"),
         CasmInstr::U32StoreSubFpFp { .. } => Some("U32Sub"),
         CasmInstr::U32StoreMulFpFp { .. } => Some("U32Mul"),
-        CasmInstr::U32StoreDivFpFp { .. } => Some("U32Div"),
+        CasmInstr::U32StoreDivRemFpFp { .. } => Some("U32Div"),
         CasmInstr::U32StoreEqFpFp { .. } => Some("U32Eq"),
         CasmInstr::U32StoreLtFpFp { .. } => Some("U32Less"),
         _ => None,

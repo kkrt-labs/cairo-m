@@ -346,28 +346,57 @@ impl_u32_store_bin_op_fp_fp!(u32_store_sub_fp_fp, U32StoreSubFpFp, |a, b| a
     .wrapping_sub(b));
 impl_u32_store_bin_op_fp_fp!(u32_store_mul_fp_fp, U32StoreMulFpFp, |a, b| a
     .wrapping_mul(b));
-impl_u32_store_bin_op_fp_fp!(u32_store_div_fp_fp, U32StoreDivFpFp, |a, b| a / b);
+
+pub fn u32_store_div_rem_fp_fp(
+    memory: &mut Memory,
+    state: State,
+    instruction: &Instruction,
+) -> Result<State, InstructionExecutionError> {
+    let (src0_off, src1_off, dst_off, dst_rem_off) = extract_as!(
+        instruction,
+        U32StoreDivRemFpFp,
+        (src0_off, src1_off, dst_off, dst_rem_off)
+    );
+
+    let src0_value = memory.get_u32(state.fp + src0_off)?;
+    let src1_value = memory.get_u32(state.fp + src1_off)?;
+
+    if src1_value == 0 {
+        return Err(InstructionExecutionError::InvalidOperand(
+            "Division by zero".to_string(),
+        ));
+    }
+
+    let quotient = src0_value / src1_value;
+    let remainder = src0_value % src1_value;
+
+    memory.insert_u32(state.fp + dst_off, quotient)?;
+    memory.insert_u32(state.fp + dst_rem_off, remainder)?;
+
+    Ok(state.advance_by(instruction.size_in_qm31s()))
+}
 
 // -- FP-IMM variants ---------------------------------------------------------
 impl_u32_store_bin_op_fp_imm!(u32_store_add_fp_imm, U32StoreAddFpImm, |a, b| a
     .wrapping_add(b));
 impl_u32_store_bin_op_fp_imm!(u32_store_mul_fp_imm, U32StoreMulFpImm, |a, b| a
     .wrapping_mul(b));
+
 /// CASM equivalent:
 /// ```casm
-/// u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / imm
+/// u32([fp + dst_off], [fp + dst_off + 1]); u32([fp + dst_rem_off], [fp + dst_rem_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) DivRem imm
 /// ```
 ///
 /// Returns an error if attempting to divide by zero.
-pub fn u32_store_div_fp_imm(
+pub fn u32_store_div_rem_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm_lo, imm_hi, dst_off) = extract_as!(
+    let (src_off, imm_lo, imm_hi, dst_off, dst_rem_off) = extract_as!(
         instruction,
-        U32StoreDivFpImm,
-        (src_off, imm_lo, imm_hi, dst_off)
+        U32StoreDivRemFpImm,
+        (src_off, imm_lo, imm_hi, dst_off, dst_rem_off)
     );
 
     if imm_hi.0 > U32_LIMB_MASK || imm_lo.0 > U32_LIMB_MASK {
@@ -389,9 +418,11 @@ pub fn u32_store_div_fp_imm(
     }
 
     let src_value = memory.get_u32(state.fp + src_off)?;
-    let res = src_value / imm_value;
+    let quotient = src_value / imm_value;
+    let remainder = src_value % imm_value;
 
-    memory.insert_u32(state.fp + dst_off, res)?;
+    memory.insert_u32(state.fp + dst_off, quotient)?;
+    memory.insert_u32(state.fp + dst_rem_off, remainder)?;
     Ok(state.advance_by(instruction.size_in_qm31s()))
 }
 

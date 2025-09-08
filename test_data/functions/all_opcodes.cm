@@ -159,7 +159,7 @@ fn main() -> felt {
     let mul_overflow_hi_fp_fp = max_u32 * two;
     let big_mul_fp_fp = max_u32 * max_u32;
 
-    // U32StoreDivFpFp
+    // U32StoreDivRemFpFp
     let div_by_smaller_fp_fp = x_u32 / five;
     let div_by_greater_fp_fp = x_u32 / forty_three;
     let div_by_itself_fp_fp = x_u32 / x_u32;

@@ -249,7 +249,7 @@ define_opcodes!(
     ([U32StoreImm], u32_store_imm),
     ([U32StoreAddFpImm], u32_store_add_fp_imm),
     ([U32StoreMulFpImm], u32_store_mul_fp_imm),
-    ([U32StoreDivFpImm], u32_store_div_fp_imm),
+    ([U32StoreDivRemFpImm], u32_store_div_fp_imm),
     ([U32StoreEqFpFp], u32_store_eq_fp_fp),
     ([U32StoreEqFpImm], u32_store_eq_fp_imm),
     ([U32StoreLtFpImm], u32_store_lt_fp_imm),
@@ -257,7 +257,7 @@ define_opcodes!(
     ([U32StoreAddFpFp], u32_store_add_fp_fp),
     ([U32StoreSubFpFp], u32_store_sub_fp_fp),
     ([U32StoreMulFpFp], u32_store_mul_fp_fp),
-    ([U32StoreDivFpFp], u32_store_div_fp_fp),
+    ([U32StoreDivRemFpFp], u32_store_div_fp_fp),
     (
         [U32StoreAndFpFp, U32StoreOrFpFp, U32StoreXorFpFp],
         u32_store_bitwise_fp_fp
