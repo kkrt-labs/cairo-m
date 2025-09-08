@@ -44,7 +44,7 @@
 //!   * `keep_1 * (1 - keep_1)`
 //!   * `keep_2 * (1 - keep_2)`
 //! * two of keep_0, keep_1, keep_2 are equal to 1
-//!   * `(keep_0 + keep_1 + keep_2 - 2)`
+//!   * `enabler * (keep_0 + keep_1 + keep_2 - 2)`
 //! * diff_inv is the inverse of diff or diff is 0
 //!   * `- diff * (diff_inv * diff - 1)`
 //! * diff_inv is the inverse of diff or diff_inv is 0
@@ -52,12 +52,12 @@
 //! * is_lt is 1 if a < b, 0 otherwise
 //!   * `- is_lt - (1 - invert) * diff_inv * (a - b)`
 //! * enforce that 2 of the 3 arcs are arc_short_lo and arc_short_hi
-//!   * `keep_0 * ( arc_sum - ( - 1 - a ) )`
-//!   * `keep_0 * ( arc_prod - ( a - b ) * ( 1 + b ) )`
-//!   * `keep_1 * ( arc_sum - ( a - b - 1 ) )`
-//!   * `keep_1 * ( arc_prod - a * ( - b - 1 ) )`
-//!   * `keep_2 * ( arc_sum - b )`
-//!   * `keep_2 * ( arc_prod - a * ( b - a ) )`
+//!   * `(1 - keep_0) * ( arc_sum - ( - 1 - a ) )`
+//!   * `(1 - keep_0) * ( arc_prod - ( a - b ) * ( 1 + b ) )`
+//!   * `(1 - keep_1) * ( arc_sum - ( a - b - 1 ) )`
+//!   * `(1 - keep_1) * ( arc_prod - a * ( - b - 1 ) )`
+//!   * `(1 - keep_2) * ( arc_sum - b )`
+//!   * `(1 - keep_2) * ( arc_prod - a * ( b - a ) )`
 //! * rebuild imm and src_val from a and b
 //!   * `imm - (1 - invert) * b - invert * a`
 //!   * `src_val - (1 - invert) * a - invert * b`
@@ -609,29 +609,29 @@ impl FrameworkEval for Eval {
         let arc_prod = arc_short * arc_long;
 
         // Arc constraints based on keep flags
-        // keep_0 * ( arc_sum - ( - 1 - a ) )
+        // (1 - keep_0) * ( arc_sum - ( - 1 - a ) )
         eval.add_constraint(
             (one.clone() - keep_0.clone()) * (arc_sum.clone() - (-one.clone() - a.clone())),
         );
-        // keep_0 * ( arc_prod - ( a - b ) * ( 1 + b ) )
+        // (1 - keep_0) * ( arc_prod - ( a - b ) * ( 1 + b ) )
         eval.add_constraint(
             (one.clone() - keep_0)
                 * (arc_prod.clone() - (a.clone() - b.clone()) * (one.clone() + b.clone())),
         );
 
-        // keep_1 * ( arc_sum - ( a - b - 1 ) )
+        // (1 - keep_1) * ( arc_sum - ( a - b - 1 ) )
         eval.add_constraint(
             (one.clone() - keep_1.clone())
                 * (arc_sum.clone() - (a.clone() - b.clone() - one.clone())),
         );
-        // keep_1 * ( arc_prod - a * ( - b - 1 ) )
+        // (1 - keep_1) * ( arc_prod - a * ( - b - 1 ) )
         eval.add_constraint(
             (one.clone() - keep_1) * (arc_prod.clone() - a.clone() * (-b.clone() - one.clone())),
         );
 
-        // keep_2 * ( arc_sum - b )
+        // (1 - keep_2) * ( arc_sum - b )
         eval.add_constraint((one.clone() - keep_2.clone()) * (arc_sum - b.clone()));
-        // keep_2 * ( arc_prod - a * ( b - a ) )
+        // (1 - keep_2) * ( arc_prod - a * ( b - a ) )
         eval.add_constraint(
             (one.clone() - keep_2) * (arc_prod - a.clone() * (b.clone() - a.clone())),
         );
