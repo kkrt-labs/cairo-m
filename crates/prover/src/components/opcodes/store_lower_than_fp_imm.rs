@@ -1,6 +1,8 @@
 //! This component is used to prove the StoreLowerThanFpImm opcode.
 //! [fp + dst_off] = [fp + src_off] < imm
 //!
+//! Math from https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/common/math.cairo#L161-L228
+//!
 //! # Columns
 //!
 //! - enabler
