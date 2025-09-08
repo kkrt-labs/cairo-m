@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::{Index, IndexMut};
 use stwo_prover::core::fields::qm31::QM31;
 
@@ -22,7 +22,7 @@ pub struct PagedMemory {
     page_size: usize,
     num_pages: usize,
     len: usize,
-    pages: Vec<Option<Page>>, // index = page_number; lazy-allocated pages
+    pages: BTreeMap<usize, Page>, // index = page_number; lazy-allocated pages
 }
 
 #[derive(Debug, Clone)]
@@ -47,7 +47,7 @@ impl PagedMemory {
             page_size,
             num_pages,
             len: 0,
-            pages: vec![None; num_pages],
+            pages: BTreeMap::new(),
         }
     }
 
@@ -60,7 +60,7 @@ impl PagedMemory {
 
     /// Get a mutable view of a page, allocating it if it doesn't exist yet.
     fn get_page_mut(&mut self, page_num: usize) -> &mut Page {
-        self.pages[page_num].get_or_insert_with(|| Page {
+        self.pages.entry(page_num).or_insert_with(|| Page {
             data: vec![QM31::from(0); self.page_size].into_boxed_slice(),
             init_bits: vec![0u64; self.page_size.div_ceil(64)].into_boxed_slice(),
         })
@@ -68,7 +68,7 @@ impl PagedMemory {
 
     /// Get an immutable view of a page if it exists. Does not allocate.
     fn get_page(&self, page_num: usize) -> Option<&Page> {
-        self.pages.get(page_num).and_then(|opt| opt.as_ref())
+        self.pages.get(&page_num)
     }
 
     /// Write a single cell. Allocates the corresponding page on demand and updates `len`.
@@ -140,21 +140,19 @@ impl PagedMemory {
     /// Keys are absolute addresses; values are the stored QM31.
     pub fn to_initialized_map(&self) -> HashMap<u32, QM31> {
         let mut map = HashMap::new();
-        for (page_idx, page_opt) in self.pages.iter().enumerate() {
-            if let Some(page) = page_opt {
-                let base_addr = (page_idx * self.page_size) as u32;
-                for word_index in 0..page.init_bits.len() {
-                    let mut bits = page.init_bits[word_index];
-                    while bits != 0 {
-                        let tz = bits.trailing_zeros() as usize;
-                        let off = word_index * 64 + tz;
-                        if off >= self.page_size {
-                            break;
-                        }
-                        let addr = base_addr + off as u32;
-                        map.insert(addr, page.data[off]);
-                        bits &= bits - 1;
+        for (page_idx, page) in self.pages.iter() {
+            let base_addr = (page_idx * self.page_size) as u32;
+            for word_index in 0..page.init_bits.len() {
+                let mut bits = page.init_bits[word_index];
+                while bits != 0 {
+                    let tz = bits.trailing_zeros() as usize;
+                    let off = word_index * 64 + tz;
+                    if off >= self.page_size {
+                        break;
                     }
+                    let addr = base_addr + off as u32;
+                    map.insert(addr, page.data[off]);
+                    bits &= bits - 1;
                 }
             }
         }
@@ -274,7 +272,7 @@ mod tests {
     use super::*;
 
     fn count_allocated_pages(pm: &PagedMemory) -> usize {
-        pm.pages.iter().filter(|p| p.is_some()).count()
+        pm.pages.len()
     }
 
     #[test]

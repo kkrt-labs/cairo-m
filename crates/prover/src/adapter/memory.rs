@@ -539,8 +539,6 @@ mod tests {
     use stwo_prover::core::fields::m31::M31;
     use stwo_prover::core::fields::qm31::QM31;
 
-    use cairo_m_common::paged_memory::DEFAULT_PAGE_SIZE;
-
     use super::*;
 
     #[test]
@@ -773,8 +771,8 @@ mod tests {
 
         // Verify initial state
         // The initial memory is one page large
-        assert_eq!(memory.initial_memory.len(), DEFAULT_PAGE_SIZE);
-        assert_eq!(memory.final_memory.len(), DEFAULT_PAGE_SIZE);
+        assert_eq!(memory.initial_memory.len(), 2);
+        assert_eq!(memory.final_memory.len(), 2);
         assert_eq!(
             memory.initial_memory[&M31::from(0)],
             (
