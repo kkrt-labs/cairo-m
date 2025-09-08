@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757067816411,
+  "lastUpdate": 1757323737834,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2263,6 +2263,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 344205317,
             "range": "± 1171634",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1577f99fc685bb15c8bf0e373dd75cecf82d9f97",
+          "message": "feat: write values of const fixed-size arrays in compiled program (#307)\n\n* feat(compiler): support constant arrays with read-only data segment\n\nAdd support for constant arrays that are stored in a read-only data segment\nafter the bytecode. This enables efficient memory usage for immutable arrays\nby deduplicating identical constant arrays and placing them in a separate\nrodata section. The implementation tracks const arrays from MIR through\ncodegen, generates rodata blobs with labels, and updates the program format\nto include both instructions and data values.\n\nKey changes:\n- Add is_const flag to MIR MakeFixedArray instruction\n- Implement rodata blob tracking and deduplication in codegen\n- Update Program structure to use ProgramData enum for instructions and values\n- Add LoadConstAddr instruction for loading rodata addresses\n- Update VM to handle new program format with data section\n- Remove obsolete type cast test snapshots\n\n* skip zero-writes",
+          "timestamp": "2025-09-08T11:23:15+02:00",
+          "tree_id": "2d548fdc59bfa4177b965ab505ff8c939e71eab9",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/1577f99fc685bb15c8bf0e373dd75cecf82d9f97"
+        },
+        "date": 1757323737123,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 339140431,
+            "range": "± 4010890",
             "unit": "ns/iter"
           }
         ]
