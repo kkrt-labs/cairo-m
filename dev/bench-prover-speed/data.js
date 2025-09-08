@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757324563869,
+  "lastUpdate": 1757344195885,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1871,6 +1871,42 @@ window.BENCHMARK_DATA = {
             "name": "prover_sha256_1kb/prove",
             "value": 5730752834,
             "range": "± 13200174",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d30841f46f2a9c667689fc21e2fa7b3313549ccd",
+          "message": "Add tree widths logging to prover (#311)\n\n* Add tree widths info! in prover\n\n* Fix tracing initialization and improve log message\n\n- Use try_init() instead of init() to avoid panics when tracing is already initialized\n- Improve log message to be more descriptive about tree widths\n\nAddresses review feedback from Claude\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* Move subscription in test\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-08T17:50:00+03:00",
+          "tree_id": "5072560e53d700ccc914b25e6f5c2733d90897ee",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/d30841f46f2a9c667689fc21e2fa7b3313549ccd"
+        },
+        "date": 1757344195414,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6300809440,
+            "range": "± 21526334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "prover_sha256_1kb/prove",
+            "value": 5745647192,
+            "range": "± 28817647",
             "unit": "ns/iter"
           }
         ]
