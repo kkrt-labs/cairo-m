@@ -351,21 +351,14 @@ impl super::CasmBuilder {
             self.layout.current_frame_usage()
         };
 
-        // Optimization: if all elements are zero, memory is already zeroed by default.
-        // Skip writing and just advance the frame pointer via reserve_stack above.
-        let all_zero = elements.iter().all(|v| match v {
-            Value::Literal(cairo_m_compiler_mir::Literal::Integer(n)) => *n == 0,
-            Value::Literal(cairo_m_compiler_mir::Literal::Boolean(b)) => !*b,
-            Value::Literal(cairo_m_compiler_mir::Literal::Unit) => true,
-            _ => false,
-        });
-
-        if !all_zero {
-            // Copy each element to its position in the array
-            for (index, element) in elements.iter().enumerate() {
-                let target_offset = base_offset + (index * element_size) as i32;
-                self.copy_value_to_offset(element, target_offset, element_size)?;
+        // Copy each element to its position in the array
+        for (index, element) in elements.iter().enumerate() {
+            // Skip writing zeroes in memory.
+            if element == &Value::Literal(Literal::Integer(0)) {
+                continue;
             }
+            let target_offset = base_offset + (index * element_size) as i32;
+            self.copy_value_to_offset(element, target_offset, element_size)?;
         }
 
         // Allocate a single-slot destination for the array pointer

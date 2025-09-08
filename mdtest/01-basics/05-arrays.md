@@ -7,8 +7,8 @@ supported for the `felt` type.
 
 ```cairo-m
 fn create_array() -> felt {
-    let arr: [felt; 3] = [1, 2, 3];
-    return arr[0];
+    let arr: [felt; 5] = [1, 2, 3, 0, 0];
+    return arr[4];
 }
 ```
 
@@ -213,3 +213,13 @@ fn const_arr_access_const_value(i: felt) -> u32 {
     return POW2[i];
 }
 ```
+
+### Optimizations with arrays
+
+Several optimizations can be made with arrays:
+
+1. If the array is constant, its data is part of the program itself, and the
+   same memory segment is reused for all operations. Thus, if an array is not
+   meant to be modified, mark is as `const`.
+2. If an array contains the `0` value, we don't actually "store" the zero,
+   because it's the default memory value.
