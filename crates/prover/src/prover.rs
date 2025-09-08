@@ -28,7 +28,9 @@ pub fn prove_cairo_m<MC: MerkleChannel>(
 where
     SimdBackend: BackendForChannel<MC>,
 {
-    tracing_subscriber::fmt().init();
+    // Initialize tracing only if not already initialized
+    // This avoids panics when tracing is already initialized elsewhere
+    tracing_subscriber::fmt().try_init().ok();
     let _span = span!(Level::INFO, "prove_cairo_m").entered();
 
     // Setup protocol.
@@ -120,7 +122,7 @@ where
         println!("Relations summary: {:?}", summary);
     }
     info!(
-        "tree widths: {:?}",
+        "commitment scheme tree widths: {:?} (evaluations per tree)",
         commitment_scheme
             .trees
             .as_ref()
