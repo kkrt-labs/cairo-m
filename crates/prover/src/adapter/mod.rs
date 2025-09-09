@@ -97,7 +97,7 @@ pub struct Instructions {
 fn import_internal<TraceIter, MemoryIter>(
     trace_iter: TraceIter,
     memory_iter: MemoryIter,
-    initial_memory: Vec<QM31>,
+    initial_memory: HashMap<M31, (QM31, M31, M31)>,
     public_address_ranges: PublicAddressRanges,
 ) -> Result<ProverInput, VmImportError>
 where
@@ -227,7 +227,7 @@ pub fn import_from_runner_artifacts(
     import_internal(
         trace_iter,
         memory_iter,
-        vec![],
+        HashMap::new(),
         PublicAddressRanges::default(),
     )
 }

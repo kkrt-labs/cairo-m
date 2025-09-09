@@ -53,7 +53,8 @@ pub enum VmError {
 #[derive(Debug, Default, Clone)]
 pub struct VM {
     pub final_pc: M31,
-    pub initial_memory: Vec<QM31>,
+    pub initial_memory_locals: Vec<QM31>,
+    pub initial_memory_heap: Vec<QM31>,
     pub memory: Memory,
     pub state: State,
     pub program_length: M31,
@@ -106,7 +107,8 @@ impl TryFrom<&Program> for VM {
 
         Ok(Self {
             final_pc,
-            initial_memory: vec![],
+            initial_memory_locals: vec![],
+            initial_memory_heap: vec![],
             memory,
             state,
             program_length,
@@ -179,24 +181,64 @@ impl VM {
     ///
     /// * `is_last_segment` - If true, this is the last segment and we can move all data without cloning. If false, we need to clone memory for the next segment.
     pub fn finalize_segment(&mut self, is_last_segment: bool) {
-        if is_last_segment {
+        use std::collections::HashMap;
+
+        const MAX_MEMORY_SIZE_BITS: u8 = 28;
+        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
+
+        // Create merged initial memory HashMap
+        let initial_memory = if is_last_segment {
             // For the last segment, we can move everything without cloning
-            self.segments.push(Segment {
-                initial_memory: std::mem::take(&mut self.initial_memory),
-                memory_trace: std::mem::take(&mut self.memory.trace),
-                trace: std::mem::take(&mut self.trace),
-            });
+            let locals = std::mem::take(&mut self.initial_memory_locals);
+            let heap = std::mem::take(&mut self.initial_memory_heap);
+
+            HashMap::from_iter(
+                // Locals: index i maps to address i
+                locals
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, value)| (M31::from(i as u32), (value, M31::zero(), M31::zero())))
+                    .chain(
+                        // Heap: index i maps to address (max_addr - i)
+                        heap.into_iter().enumerate().map(|(i, value)| {
+                            (
+                                M31::from(max_addr - i as u32),
+                                (value, M31::zero(), M31::zero()),
+                            )
+                        }),
+                    ),
+            )
         } else {
             // For intermediate segments, we need to clone memory for the next segment
-            self.segments.push(Segment {
-                initial_memory: std::mem::replace(
-                    &mut self.initial_memory,
-                    self.memory.data.clone(),
-                ),
-                memory_trace: std::mem::take(&mut self.memory.trace),
-                trace: std::mem::take(&mut self.trace),
-            });
-        }
+            let new_locals = self.memory.locals.clone();
+            let new_heap = self.memory.heap.clone();
+
+            let old_locals = std::mem::replace(&mut self.initial_memory_locals, new_locals);
+            let old_heap = std::mem::replace(&mut self.initial_memory_heap, new_heap);
+
+            HashMap::from_iter(
+                // Locals: index i maps to address i
+                old_locals
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, value)| (M31::from(i as u32), (value, M31::zero(), M31::zero())))
+                    .chain(
+                        // Heap: index i maps to address (max_addr - i)
+                        old_heap.into_iter().enumerate().map(|(i, value)| {
+                            (
+                                M31::from(max_addr - i as u32),
+                                (value, M31::zero(), M31::zero()),
+                            )
+                        }),
+                    ),
+            )
+        };
+
+        self.segments.push(Segment {
+            initial_memory,
+            memory_trace: std::mem::take(&mut self.memory.trace),
+            trace: std::mem::take(&mut self.trace),
+        });
     }
 
     /// Executes the loaded program from a given entrypoint and frame pointer.
@@ -244,7 +286,8 @@ impl VM {
 
         self.memory
             .insert_entrypoint_call(&self.final_pc, &self.state.fp)?;
-        self.initial_memory = self.memory.data.clone();
+        self.initial_memory_locals = self.memory.locals.clone();
+        self.initial_memory_heap = self.memory.heap.clone();
 
         loop {
             match self.execute(options.max_steps) {

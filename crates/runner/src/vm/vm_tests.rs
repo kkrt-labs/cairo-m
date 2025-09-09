@@ -162,7 +162,8 @@ fn test_execute_empty_program() {
     let result = vm.execute(RunnerOptions::default().max_steps);
     assert!(result.is_ok());
     assert_vm_state!(vm.state, 0, 0);
-    assert_eq!(vm.memory.data.len(), 0);
+    assert_eq!(vm.memory.locals.len(), 0);
+    assert_eq!(vm.memory.heap.len(), 0);
 }
 
 #[test]
@@ -235,7 +236,8 @@ fn test_execute_with_error() {
     let initial_memory = Memory::from_iter(instructions);
     let mut vm = VM {
         final_pc: M31::from(instructions.len() as u32),
-        initial_memory: instructions.to_vec(),
+        initial_memory_locals: instructions.to_vec(),
+        initial_memory_heap: vec![],
         memory: initial_memory,
         state: State {
             pc: M31::zero(),

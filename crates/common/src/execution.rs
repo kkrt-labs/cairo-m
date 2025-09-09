@@ -1,5 +1,7 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 
+use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
 use crate::state::MemoryEntry;
@@ -7,7 +9,7 @@ use crate::State;
 
 #[derive(Debug, Default, Clone)]
 pub struct Segment {
-    pub initial_memory: Vec<QM31>,
+    pub initial_memory: HashMap<M31, (QM31, M31, M31)>,
     pub memory_trace: RefCell<Vec<MemoryEntry>>,
     pub trace: Vec<State>,
 }
