@@ -16,6 +16,8 @@ const M31S_IN_QM31: usize = 4;
 /// This limits the memory size to 2^30 elements.
 const MAX_MEMORY_SIZE_BITS: u8 = 28;
 
+const MAX_ADDRESS: usize = (1 << MAX_MEMORY_SIZE_BITS) - 1;
+
 /// Number of bits in a U32 limb (16 bits per limb for 32-bit values)
 pub const U32_LIMB_BITS: u32 = 16;
 
@@ -169,9 +171,8 @@ impl Memory {
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
-        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
         let locals_address = addr.0 as usize;
-        let heap_address = max_addr - addr.0 as usize;
+        let heap_address = MAX_ADDRESS - addr.0 as usize;
         // If the address is in the locals vector, read from there
         if locals_address < self.locals.len() {
             let value = self.locals.get(locals_address).copied().unwrap_or_default();
@@ -204,9 +205,8 @@ impl Memory {
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
-        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
         let locals_address = addr.0 as usize;
-        let heap_address = max_addr - addr.0 as usize;
+        let heap_address = MAX_ADDRESS - addr.0 as usize;
         // If the address is in the locals vector, read from there
         if locals_address < self.locals.len() {
             let value = self.locals.get(locals_address).copied().unwrap_or_default();
@@ -239,9 +239,8 @@ impl Memory {
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub fn insert(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
-        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
         let locals_address = addr.0 as usize;
-        let heap_address = max_addr - addr.0 as usize;
+        let heap_address = MAX_ADDRESS - addr.0 as usize;
 
         if locals_address < self.locals.len() {
             self.locals[locals_address] = value;
@@ -275,9 +274,8 @@ impl Memory {
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub(crate) fn insert_no_trace(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
-        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
         let locals_address = addr.0 as usize;
-        let heap_address = max_addr - addr.0 as usize;
+        let heap_address = MAX_ADDRESS - addr.0 as usize;
 
         if locals_address < self.locals.len() {
             self.locals[locals_address] = value;
@@ -328,14 +326,15 @@ impl Memory {
         )?;
         Self::validate_address(last_addr.into())?;
 
-        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
-
         // Decide upfront whether the entire slice goes to locals or heap
         // based on the starting address and required growth
         let start_locals_addr = start_addr.0 as usize;
-        let start_heap_addr = max_addr - start_addr.0 as usize;
+        let start_heap_addr = MAX_ADDRESS - start_addr.0 as usize;
         let end_locals_addr = (start_addr.0 + slice_len as u32 - 1) as usize;
-        let end_heap_addr = max_addr - (start_addr.0 + slice_len as u32 - 1) as usize;
+
+        // For heap: highest index needed is start_heap_addr (maps to start_addr)
+        // The slice will use heap indices: start_heap_addr, start_heap_addr-1, ..., start_heap_addr-(slice_len-1)
+        let max_heap_idx_needed = start_heap_addr;
 
         // Calculate how much each vector would need to grow
         let locals_growth_needed = if end_locals_addr >= self.locals.len() {
@@ -343,8 +342,8 @@ impl Memory {
         } else {
             0
         };
-        let heap_growth_needed = if end_heap_addr >= self.heap.len() {
-            end_heap_addr + 1 - self.heap.len()
+        let heap_growth_needed = if max_heap_idx_needed >= self.heap.len() {
+            max_heap_idx_needed + 1 - self.heap.len()
         } else {
             0
         };
@@ -363,8 +362,8 @@ impl Memory {
             }
         } else {
             // Entire slice goes to heap
-            if end_heap_addr >= self.heap.len() {
-                self.heap.resize(end_heap_addr + 1, QM31::zero());
+            if max_heap_idx_needed >= self.heap.len() {
+                self.heap.resize(max_heap_idx_needed + 1, QM31::zero());
             }
             for (i, value) in values.iter().enumerate() {
                 let heap_idx = start_heap_addr - i; // Heap addresses decrease as we go forward
@@ -831,7 +830,7 @@ mod tests {
     #[test]
     fn test_heap_insert_and_get() {
         let mut memory = Memory::default();
-        let heap_addr = M31((1 << 28) - 1); // Maximum address (heap index 0)
+        let heap_addr = M31(MAX_ADDRESS as u32); // Maximum address (heap index 0)
         let heap_value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
 
         // Insert into heap
@@ -866,12 +865,11 @@ mod tests {
     #[test]
     fn test_heap_multiple_addresses() {
         let mut memory = Memory::default();
-        let max_addr = (1 << 28) - 1;
 
         // Insert at multiple heap addresses (high addresses map to low heap indices)
-        let addr1 = M31(max_addr); // heap index 0
-        let addr2 = M31(max_addr - 5); // heap index 5
-        let addr3 = M31(max_addr - 10); // heap index 10
+        let addr1 = M31(MAX_ADDRESS as u32); // heap index 0
+        let addr2 = M31(MAX_ADDRESS as u32 - 5); // heap index 5
+        let addr3 = M31(MAX_ADDRESS as u32 - 10); // heap index 10
 
         let value1 = QM31::from_m31_array([1, 0, 0, 0].map(Into::into));
         let value2 = QM31::from_m31_array([2, 0, 0, 0].map(Into::into));
@@ -895,8 +893,7 @@ mod tests {
     #[test]
     fn test_heap_insert_slice() {
         let mut memory = Memory::default();
-        let max_addr = (1 << 28) - 1;
-        let heap_start = M31(max_addr - 2); // Start 3 addresses from max (heap indices 0,1,2)
+        let heap_start = M31(MAX_ADDRESS as u32 - 2); // Start 3 addresses from max (heap indices 0,1,2)
 
         let values = vec![
             QM31::from_m31_array([10, 20, 30, 40].map(Into::into)),
@@ -931,7 +928,7 @@ mod tests {
     #[test]
     fn test_heap_get_from_empty_address() {
         let memory = Memory::default();
-        let heap_addr = M31((1 << 28) - 1);
+        let heap_addr = M31(MAX_ADDRESS as u32);
 
         // Getting from uninitialized heap address should return zero
         assert_eq!(memory.get_data(heap_addr).unwrap(), M31::zero());
@@ -957,7 +954,7 @@ mod tests {
         memory.insert(locals_addr, locals_value).unwrap();
 
         // Insert into heap
-        let heap_addr = M31((1 << 28) - 1);
+        let heap_addr = M31(MAX_ADDRESS as u32);
         let heap_value = QM31::from_m31_array([5, 0, 0, 0].map(Into::into));
         memory.insert(heap_addr, heap_value).unwrap();
 
@@ -980,7 +977,7 @@ mod tests {
         let mut memory = Memory::default();
 
         // Test exactly at maximum address (heap index 0)
-        let max_addr = M31((1 << 28) - 1);
+        let max_addr = M31(MAX_ADDRESS as u32);
         let heap_value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
 
         memory.insert(max_addr, heap_value).unwrap();
