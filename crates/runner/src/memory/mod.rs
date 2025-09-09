@@ -175,7 +175,7 @@ impl Memory {
         let heap_address = MAX_ADDRESS - addr.0 as usize;
         // If the address is in the locals vector, read from there
         if locals_address < self.locals.len() {
-            let value = self.locals.get(locals_address).copied().unwrap_or_default();
+            let value = self.locals[locals_address];
             if !value.1.is_zero() || !value.0 .1.is_zero() {
                 return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
             }
@@ -183,7 +183,7 @@ impl Memory {
             Ok(value.0 .0)
         } else {
             // If the address is in the heap vector, read from there
-            let value = self.heap.get(heap_address).copied().unwrap_or_default();
+            let value = self.heap[heap_address];
             if !value.1.is_zero() || !value.0 .1.is_zero() {
                 return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
             }
@@ -209,14 +209,14 @@ impl Memory {
         let heap_address = MAX_ADDRESS - addr.0 as usize;
         // If the address is in the locals vector, read from there
         if locals_address < self.locals.len() {
-            let value = self.locals.get(locals_address).copied().unwrap_or_default();
+            let value = self.locals[locals_address];
             if !value.1.is_zero() || !value.0 .1.is_zero() {
                 return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
             }
             Ok(value.0 .0)
         } else {
             // Else we assume it's in the heap vector
-            let value = self.heap.get(heap_address).copied().unwrap_or_default();
+            let value = self.heap[heap_address];
             if !value.1.is_zero() || !value.0 .1.is_zero() {
                 return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
             }
