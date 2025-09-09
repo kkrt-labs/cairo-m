@@ -27,75 +27,83 @@ final memory state of stage `n` matches the initial state of stage `n + 1`.
 
 Merkle trees provide the memory commitment mechanism due to their:
 
-- it allows commitment to challenge-independent quantities: the two roots
-  (initial and final) of the memory segments
-- it naturally handles sparse memory with partial trees: the tree is effectively
-  pruned of all intermediate nodes that don't lead to used leaves in the current
-  run
+- Challenge-independent commitment through initial and final root hashes
+- Natural sparse memory handling via partial tree pruning of unused intermediate
+  nodes
 
-In order to allow for efficient recursion, the Merkle tree needs to be
-implemented with a ZK-friendly hash function. We chose Poseidon2 in our current
-implementation, but this can be easily updated should any other hash function be
-preferred.
+Efficient recursion requires a ZK-friendly hash function. The current
+implementation uses Poseidon2, though alternative hash functions can be
+substituted as needed.
 
-Ultimately, we chose `0..2**30` for the memory address space as it doesn't
-require padding for the Merkle root computation and is large enough to
-accommodate reasonably large computations. This could easily be extended to
-`P - 1`, but we did not find it relevant in our use cases as large memory
-address spaces are mainly relevant for long traces, while we focus on
-client-side proving. In fact, only very long runs may require memory larger than
-2^30, which in turn would require a host machine with significantly more RAM
-than what is typically available in consumer devices.
+The memory address space spans `0..2**30`, eliminating Merkle root padding
+requirements while providing sufficient capacity for substantial computations.
+Extension to `P - 1` is possible but unnecessary for client-side proving
+scenarios, where memory requirements remain modest compared to long-trace
+applications. Memory exceeding 2^30 is only required for extremely long runs,
+which would demand RAM capacity beyond typical consumer device specifications.
 
-The Merkle tree furthermore doesn't hash the final leaves (i.e., the memory
-values) in order to reduce the number of hashes. While leaf hashing is required
-to avoid disclosing sibling values with proofs of inclusion, it doesn't bring
-any benefit for proving a state root and can safely be omitted. This, however,
-requires all memory cells to have a value, and consequently, the entire memory
-segment is implicitly initialized with zeros. This default value doesn't
-actually have any impact, as actual initial values are written during the VM
-run, whether they are zero or not.
+The Merkle tree omits leaf hashing to minimize computational overhead. Although
+leaf hashing prevents sibling value disclosure in inclusion proofs, it provides
+no benefit for state root proving and is therefore omitted. This approach
+requires all memory cells to contain values, resulting in implicit
+zero-initialization of the entire memory segment. The default zero value has no
+practical impact since the VM overwrites cells with actual values during
+execution.
 
 ### Read/Write operations
 
-Given that we want to simultaneously be able to run arbitrarily long programs
-and have a fixed-size memory segment with a relatively small address space (2^30
-= 1,073,741,824), we adopt a read-write memory model.
+To support arbitrarily long programs within a fixed-size memory segment (2^30 =
+1,073,741,824 addresses), the design employs a read-write memory model.
 
-Read and write operations are actually emulated using lookup arguments:
+Read and write operations are implemented through lookup arguments:
 
-- Memory entries: triplets `(address, clock, value)` where `clock` timestamps
-  when `address` contained `value`
-- Clock sequence: monotonic counter from 0, determined during witness generation
-- Initial values: emitted from Merkle commitment with `clock = 0`
-- Read/write operations: identical from lookup perspective, canceling
-  `-(address, prev_clock, prev_value)` and adding `(address, clock, value)` For
-  reads (`value == prev_value`), duplicate value storage is unnecessary
-- Clock monotonicity: enforced strict increase between consecutive operations
-  (`clock - prev_clock > 0`), validated through `RangeCheck` component lookup
-- a Clock Update component is introduced to actually update the clock when two
-  consecutive memory operations are "too far apart," meaning that the clock
-  difference would require a large range check. This `ClockUpdate` component
-  effectively just updates the `clock` value of the triplet, much like in a read
-  operation, but its trace is filled during witness generation and is not part
-  of the VM itself. At this stage, when the adapter observes that two memory
-  accesses are "too far apart" with respect to the largest available
-  `RangeCheck` component, the delta is divided and as many clock updates are
-  introduced as required to ensure that they all fit within the available range.
+#### Memory Model
 
-Altogether, this read-write memory costs up to 5 main trace columns (`address`,
-`prev_clock`, `clock`, `prev_value`, `value`) and 3 lookup columns
-(`-(address, prev_clock, prev_value)`, `+(address, clock, value)`,
-`+(clock - prev_clock - 1)`) per memory access in a component, or 5T + 3L.
+- **Memory entries**: triplets `(address, clock, value)` where `clock`
+  timestamps when `address` contained `value`
+- **Clock sequence**: monotonic counter from 0, determined during witness
+  generation
+- **Initial values**: emitted from Merkle commitment with `clock = 0`
 
-This is to be compared with a read-only memory, which would require only 2 main
-trace columns (`address`, `value`) and 1 lookup (`-(address, value)`), or 2T +
-1L.
+#### Operation Mechanics
 
-Given that a lookup column uses the secure field, which is a `QM31`, each lookup
-column consists of 4 base columns. Ultimately, the overhead in terms of base
-columns is up to `3T + 2L = 3 + 8 = 11` per memory access. For a STORE operation
-like `dst = op0 + op1`, this is up to 33 more columns.
+- **Read/write unification**: Both operations cancel
+  `-(address, prev_clock, prev_value)` and add `(address, clock, value)` to the
+  lookup sum
+- **Read optimization**: When `value == prev_value`, duplicate storage is
+  avoided
+- **Clock monotonicity**: Enforced via `RangeCheck` component
+  (`clock - prev_clock > 0`)
+
+#### Clock Update Component
+
+- **Purpose**: Bridges large temporal gaps between memory operations
+- **Trigger**: When clock difference exceeds `RangeCheck` capacity -
+  **Implementation**: Updates clock values similarly to read operations
+- **Generation**: Trace filled during witness creation, outside VM execution
+- **Strategy**: Divides large deltas into range-check-compliant segments
+
+#### Column Cost Analysis
+
+**Read-write memory** (per access):
+
+- Main trace: 5 columns (`address`, `prev_clock`, `clock`, `prev_value`,
+  `value`)
+- Lookup: 3 columns (subtract previous, add current, range check)
+- Total: 5T + 3L
+
+**Read-only memory** (per access):
+
+- Main trace: 2 columns (`address`, `value`)
+- Lookup: 1 column
+- Total: 2T + 1L
+
+#### Base Column Overhead
+
+Since lookup columns use QM31 (secure field), each represents 4 base columns:
+
+- Overhead per access: `3T + 2L = 3 + 8 = 11` base columns
+- STORE operation example (`dst = op0 + op1`): up to 33 additional columns
 
 This overhead can be mitigated using opcodes that write in place (e.g.,
 `x += y`). It can also be limited by grouping the logup columns by two,
@@ -236,47 +244,53 @@ project were started today.
 
 ### Minimal instruction set
 
-Key considerations for ZK-native minimal instruction set design:
+#### Design Principles
 
-- AIR as dataframe: columns represent constraint variables, rows represent
-  circuit instantiations
-- Opcode-to-dataframe mapping: typically one-to-one, but similar constraints
-  enable factorization
-- VM cycles generate dataframe rows
-- Opcode count inversely correlates with cycle count for equivalent tasks
-- Component dataframes concatenate horizontally into a unified table (simplified
-  view; Stwo handles this differently without padding requirements)
-- given a witness, reshaping to reduce the number of rows and add more columns
-  is always possible (simply duplicate the constraints), but there is a minimum
-  number of columns that depends on the instruction set;
-- the number of columns will impact the proof size and increase the verifier
-  work as there is one commitment per column in the proof;
-- the peak memory consumption of the host machine when proving is directly
-  related to the total number of cells, i.e., `\sum width * length`;
-- long traces can always be split into several proofs with continuation, while
-  you cannot prove only half of the constraints.
+**AIR Structure**:
 
-In conclusion, the fewer columns in the AIR, the better, in order to achieve
-more flexibility in the downstream usage of the zkVM, at the cost of generating
-more cycles for end programs. This cycles-versus-AIR-width trade-off is actually
-a classic CPU-versus-memory trade-off: you can always trade memory usage for
-more CPU cycles, and vice versa. Since standard consumer devices typically
-feature powerful processors but have very limited RAM resources, and RAM is more
-expensive than compute, it makes sense to minimize the AIR width as much as
-possible and reshape witnesses to fit the actual device memory availability.
+- Columns = constraint variables
+- Rows = circuit instantiations
+- Each VM cycle adds one row
 
-Altogether, we shall keep the following opcodes for this minimal ZK-native ISA,
-with one line per component:
+**Opcode Architecture**:
 
-- CallAbsImm, Ret;
-  - create a new call stack and return to the calling position when done
-- JmpRelImm, JnzFpImm;
-  - jump to a new PC without leaving the current frame
-- StoreAdd, StoreSub, StoreMul, StoreDiv;
-  - store the result of the given arithmetic operation in memory
-- StoreDoubleDerefFpFp, StoreToDoubleDerefFpFp;
-  - store the dereferenced memory value or store at the dereferenced memory
-    address.
+- One opcode typically maps to one dataframe
+- Similar constraints allow opcode factorization
+- Fewer opcodes = more cycles for equivalent tasks
+
+**Resource Constraints**:
+
+- Column count affects proof size (one commitment per column)
+- Memory usage: `∑(width × length)` total cells
+- Witness reshaping trades rows for columns (minimum column count fixed by ISA)
+
+**Continuation Properties**:
+
+- Long traces can split into multiple proofs
+- Partial constraint proving is impossible
+
+#### Trade-off Analysis
+
+Minimizing AIR columns maximizes zkVM flexibility at the cost of increased cycle
+count. This classic CPU-memory trade-off favors computation over memory usage,
+aligning with consumer device constraints (powerful CPUs, limited RAM). The
+strategy: minimize AIR width and reshape witnesses to fit available memory.
+
+#### Minimal Opcode Set
+
+**Control Flow**:
+
+- `CallAbsImm`, `Ret`: Function call/return management
+- `JmpRelImm`, `JnzFpImm`: Intra-frame jumps
+
+**Arithmetic Operations**:
+
+- `StoreAdd`, `StoreSub`, `StoreMul`, `StoreDiv`: Arithmetic with memory storage
+
+**Memory Operations**:
+
+- `StoreDoubleDerefFpFp`: Store dereferenced value
+- `StoreToDoubleDerefFpFp`: Store at dereferenced address
 
 ### Extensions
 
@@ -411,44 +425,44 @@ particularly the
 [logup.rs](https://github.com/starkware-libs/stwo/blob/dev/crates/constraint-framework/src/prover/logup.rs)
 module.
 
-At a high level, the lookup arguments with logup are simply a large sum of
-fractions that must sum to 0. Each component adds terms to this large global
-sum. These terms are fractions defined by:
+#### Core Concept
 
-- a `Relation` that defines the alpha coefficients and z value to be used to
-  aggregate the looked-up tuple;
-- a denominator, which is the aggregated value of the looked-up tuple in the
-  secure field;
-- a numerator, also referred to as multiplicity, which is actually the number of
-  times the looked-up tuple is "used" or "emitted".
+Logup lookup arguments form a global sum of fractions that must equal zero. Each
+component contributes fraction terms with three elements:
 
-All of these terms are ultimately stored as regular columns in the trace,
-referred to as the interaction trace. Because the secure field is a `QM31`, each
-of these columns is actually 4 base columns. Consequently, each lookup adds 4
-columns to the AIR and not only 1.
+1. **Relation**: Defines alpha coefficients and z value for tuple aggregation
+2. **Denominator**: Aggregated tuple value in secure field
+3. **Numerator** (multiplicity): Usage count of the tuple
 
-Because the only goal of all these columns is to compute the large global
-cumulative sum of all the logup terms, it is possible to group these columns by
-storing not only one term but the sum of several terms that need to be summed
-together. The number of terms that one can "pre-sum" depends on the maximum
-constraint degree bound and the variables used in the looked-up tuples.
+#### Storage and Cost
 
-In fact, the trace stores in each row the cumulative sum of all the terms, and
-in the last column of the interaction trace, the cumulative sum of all the rows,
-so that the final bottom-right cell ultimately contains the cumulative sum of
-all the terms added by the component. This value is known as the "claimed sum"
-and is committed to in the proof.
+- Terms stored in interaction trace columns
+- QM31 secure field requires 4 base columns per lookup column
+- Each lookup adds 4 columns to the AIR
 
-Given this construction, the constraint enforced for each cell in each row
-ultimately becomes:
+#### Optimization Strategy
 
-```ignore
+Columns can be grouped to store pre-summed terms rather than individual terms.
+Pre-summing capacity depends on:
+
+- Maximum constraint degree bound
+- Variables in looked-up tuples
+
+#### Cumulative Sum Structure
+
+- Each row: cumulative sum of terms
+- Last column: cumulative sum of all rows
+- Bottom-right cell: total "claimed sum" (committed in proof)
+
+#### Constraint Formula
+
+```
 committed_value * current_denominator - current_numerator = 0
 ```
 
-which means that `degree(denominator) + 1` must remain less than the maximum
-constraint degree bound of the component. Given that the resulting denominator
-of the sum of two fractions is the product of the two denominators:
+Requirement: `degree(denominator) + 1 < max_constraint_degree` Given that the
+resulting denominator of the sum of two fractions is the product of the two
+denominators:
 
 ```latex
 \frac{a}{b} + \frac{c}{d} = \frac{a * d + c * b}{b * d}
