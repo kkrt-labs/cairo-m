@@ -273,3 +273,125 @@ opcodes, with one line per component:
 ## Native types
 
 ## Conclusion
+
+## Appendix
+
+### Opcodes columns
+
+The following is a list of the columns for each opcode. Not mentioned is the
+need for the enabler column, that lets distinguish between the actual trace row
+and the padding required for the trace length to be a power of 2.
+
+The instruction is a variable-sized list of field elements, the first one being
+always the opcode id. The rest is context-dependent, and usually denominated as
+`off_i` for addresses offsets or `imm_i` for immediate (i.e. constant) values.
+The name `op_i` is used to refer to the `i`-th operand, which is a memory access
+at address `fp + off_i`, i.e. `memory[fp + off_i]`.
+
+When several opcodes share the same set of columns, the opcodes ids are used to
+select the appropriate constraints. For the sake of simplicity, it is assumed
+that the opcodes ids are consecutive, so that the difference between the opcode
+id and the first opcode id is directly a boolean flag. This is not required and
+one could as well use the constant `1 / (id_1 - id_0)` between the opcode id and
+the first opcode id to compute the boolean flag.
+
+Intermediate values used below are not columns but just variables computed from
+the columns. They don't cost anything.
+
+Constraints are described as an arithmetic formula that should be equal to 0.
+The `= 0` is omitted for the sake of simplicity.
+
+#### CallAbsImm, Ret
+
+Columns:
+
+- pc
+- fp
+- clock
+- inst_prev_clock
+- opcode_id
+- off0
+- imm
+- op0_prev_clock
+- op0_prev_val
+- op0_plus_one_prev_clock
+- op0_plus_one_prev_val
+
+Intermediate columns:
+
+- `is_ret = opcode_id - CALL_ABS_IMM_ID`
+- `pc_next = imm * (1 - is_ret) + op0_plus_one_prev_val * is_ret`
+- `fp_next = (fp + off0 + 2) * (1 - is_ret) + op0_prev_val * is_ret`
+- `op0_val = fp * (1 - is_ret) + op0_prev_val * is_ret`
+- `op0_plus_one_val = pc * (1 - is_ret) + op0_plus_one_prev_val * is_ret`
+
+Constraints:
+
+- `is_ret * (1 - is_ret)`
+
+Lookups
+
+- update registers
+  - `-(pc, fp)`
+  - `+(pc_next, fp_next)`
+- read instruction from read-only memory
+  - `-(pc, 0, opcode_id, off0, off1)`
+- read/write operands from memory
+  - `-(fp + off0, prev_clock, op0_prev_val)`
+  - `+(fp + off0, clock, op0_val)`
+  - `-(fp + off0 + 1, prev_clock, op0_plus_one_prev_val)`
+  - `+(fp + off0 + 1, clock, op0_plus_one_val)`
+- range check clock difference
+  - `+(clock - inst_prev_clock - 1)`
+  - `+(clock - op0_prev_clock - 1)`
+  - `+(clock - op0_plus_one_prev_clock - 1)`
+- range check read-only memory
+  - `-(pc)`
+
+#### JmpRelImm, JnzFpImm
+
+- registers: pc | fp
+- global: clock
+- instruction: opcode_id | off0 | imm
+- operands: memory[fp + off0]: prev_clock | prev_val
+- memory[fp + off0 + 1]: prev_clock | prev_val
+
+#### StoreAdd, StoreSub, StoreMul, StoreDiv
+
+- registers: pc | fp
+- global: clock
+- instruction: opcode_id | off0 | imm
+- operands: memory[fp + off0]: prev_clock | prev_val
+- memory[fp + off0 + 1]: prev_clock | prev_val
+
+#### StoreDoubleDerefFpFp
+
+- registers: pc | fp
+- global: clock
+- instruction: opcode_id | off0 | imm
+- operands: memory[fp + off0]: prev_clock | prev_val
+- memory[fp + off0 + 1]: prev_clock | prev_val
+
+#### StoreDoubleDerefFp
+
+- registers: pc | fp
+- global: clock
+- instruction: opcode_id | off0 | imm
+- operands: memory[fp + off0]: prev_clock | prev_val
+- memory[fp + off0 + 1]: prev_clock | prev_val
+
+#### StoreFramePointer
+
+- registers: pc | fp
+- global: clock
+- instruction: opcode_id | off0 | imm
+- operands: memory[fp + off0]: prev_clock | prev_val
+- memory[fp + off0 + 1]: prev_clock | prev_val
+
+#### StoreImm
+
+- registers: pc | fp
+- global: clock
+- instruction: opcode_id | off0 | imm
+- operands: memory[fp + off0]: prev_clock | prev_val
+- memory[fp + off0 + 1]: prev_clock | prev_val
