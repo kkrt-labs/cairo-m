@@ -68,18 +68,18 @@ Read and write operations are implemented through lookup arguments:
 #### Operation Mechanics
 
 - **Read/write unification**: Both operations cancel
-  `-(address, prev_clock, prev_value)` and add `(address, clock, value)` to the
+  `-(address, prev_clock, prev_value)` and add `+(address, clock, value)` to the
   lookup sum
 - **Read optimization**: When `value == prev_value`, duplicate storage is
-  avoided
+  avoided and only one column is required
 - **Clock monotonicity**: Enforced via `RangeCheck` component
   (`clock - prev_clock > 0`)
 
 #### Clock Update Component
 
 - **Purpose**: Bridges large temporal gaps between memory operations
-- **Trigger**: When clock difference exceeds `RangeCheck` capacity -
-  **Implementation**: Updates clock values similarly to read operations
+- **Trigger**: When clock difference exceeds `RangeCheck` capacity
+- **Implementation**: Updates clock values similarly to read operations
 - **Generation**: Trace filled during witness creation, outside VM execution
 - **Strategy**: Divides large deltas into range-check-compliant segments
 
@@ -214,7 +214,7 @@ From the prover point of view:
 - each register requires its own trace cell, i.e., it adds 1 column per
   component;
 - a list of registers is like a memory slice (see [Word size](#word-size))
-  without address or clock: each component updates the registers' state by
+  without address nor clock: each component updates the registers' state by
   removing the current state vector and adding the constrained update to the
   logup sum, much like a stack: you can access the last state and push a new
   one.
@@ -222,7 +222,7 @@ From the prover point of view:
 Ultimately, there is a trade-off between adding registers to the "main register
 stack" (i.e., together with `pc` and `fp`) — which adds one column per component
 even if the value is not used, and is free otherwise — and adding registers to a
-"secondary register stack," or even a tertiary (etc.), in order to save on
+"secondary register stack", or even a tertiary (etc.), in order to save on
 unused columns, but at the cost of performing 2 more lookups (4 columns) when
 they are needed. The limiting case is to simply use one relation per register,
 as if they were regular memory values. Depending on the total number of
@@ -291,6 +291,8 @@ strategy: minimize AIR width and reshape witnesses to fit available memory.
 
 - `StoreDoubleDerefFpFp`: Store dereferenced value
 - `StoreToDoubleDerefFpFp`: Store at dereferenced address
+
+See the [Opcodes columns](#opcodes-columns) section for more details.
 
 ### Extensions
 
@@ -456,11 +458,11 @@ Pre-summing capacity depends on:
 
 #### Constraint Formula
 
-```
+```ignore
 committed_value * current_denominator - current_numerator = 0
 ```
 
-Requirement: `degree(denominator) + 1 < max_constraint_degree` Given that the
+Requirement: `degree(denominator) + 1 < max_constraint_degree`. Given that the
 resulting denominator of the sum of two fractions is the product of the two
 denominators:
 
@@ -471,8 +473,8 @@ denominators:
 one can, for example, pre-sum the terms by two when each denominator has a
 degree of 1 and the maximum constraint degree bound is 3.
 
-In this paper, we simply write informally `+/-k Relation(value_0, ..., value_n)`
-to refer to the lookup of the tuple `(value_0, ..., value_n)` for the relation
+Through this document, we simply write `+/-k Relation(value_0, ..., value_n)` to
+refer to the lookup of the tuple `(value_0, ..., value_n)` for the relation
 `Relation` with multiplicity `+k` or `-k`, depending on the sign of the
 numerator. We refer to "emitted," "yielded," or "added" values when the
 multiplicity is positive, and "consumed" or "subtracted" values when the
