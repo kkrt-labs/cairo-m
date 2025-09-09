@@ -14,21 +14,26 @@ For the sake of simplicity, the remaining of this paper assumes that the
 selected prime number is Mersenne31 (M31): `M31 = 2^31 - 1`. Minor adaptations
 to the current design specifications should be made for other primes.
 
+Furthermore, this document does not describe the current state of the
+implementation, but the design decisions that were made for this v0
+implementation, and what could be done to improve it.
+
 ## Memory
 
-The memory is chosen to be a 1D-addressable array, indexed directly with field
-elements. Consequently, its maximum length depends on the prover's prime field.
+Memory segments are chosen to be a 1D-addressable array, indexed directly with
+field elements. Consequently, its maximum length depends on the prover's prime
+field.
 
 ### Commitment
 
-The whole memory needs to be efficiently committed to for _continuation_, where
-one needs to make sure that the final memory of a given stage `n` is actually
-the same as the initial memory of stage `n + 1`.
+Each memory segment needs to be efficiently committed to for _continuation_,
+where one needs to make sure that the final memory segment of a given stage `n`
+is actually the same as the initial memory of stage `n + 1`.
 
 A Merkle tree is chosen as the memory commitment form because:
 
 - it allows to commit to challenge-independent quantities: the two roots
-  (initial and final) of the whole memory
+  (initial and final) of the memory segments
 - it naturally handles sparse memory with partial trees: the tree is effectively
   pruned of all intermediate nodes that don't lead to used leaves in the current
   run
@@ -39,7 +44,7 @@ implementation but this can be easily updated should any other hash function be
 preferred.
 
 Eventually, we chose `0..2**30` for the memory address space as it doesn't
-require padding for the Merkle root computation and is big enough to fit
+require padding for the Merkle root computation and is big enough to fit a
 reasonably big computation. This could easily be extended to `P - 1` but we just
 did not find it relevant in our use cases as big memory address space is mainly
 relevant for long traces while we focus on client side proving. Actually, only
@@ -52,14 +57,15 @@ values) in order to save on hashes number. While leaves hashing is required to
 avoid disclosing siblings values with proof of inclusion, it doesn't bring any
 benefit for proving a state root and can safely be dropped. This however
 requires all the memory cells to have a value, and consequently the whole memory
-is implicitly initialized with 0s. This default value doesn't actually have any
-impact as actual initial values are written from the VM run, being 0 or not.
+segment is implicitly initialized with 0s. This default value doesn't actually
+have any impact as actual initial values are written from the VM run, being 0 or
+not.
 
 ### Read/Write operations
 
 Given the fact that we want at the same time to be able to run arbitrary long
-programs and have a fixed size memory with a relatively small address space
-(2^30 = 1,048,576), we adopt a read-write memory model.
+programs and have a fixed size memory segment with a relatively small address
+space (2^30 = 1,048,576), we adopt a read-write memory model.
 
 Read and Write operations are actually emulated with lookup arguments:
 
@@ -113,10 +119,26 @@ need to copy memory values with new frames, and is much easier to reason with
 when developing a software, this overhead is worth it.
 
 On the other hand, not all part of the memory need to be writable. Especially
-the program and embedded constant values can stay read-only. To enforce a memory
-segment to be read-only, the easiest way is to place the read-only part at the
-beginning of the memory and add a range-check to the write addresses in the
-`STORE` opcodes.
+the program with its embedded constant values can stay read-only. Generally
+speaking, the easiest way to make a memory segment read-only is to:
+
+- emit all the values with `clock = 0` and the required multiplicity;
+- in the `STORE` opcodes, add a range-check to the write addresses to make sure
+  that it doesn't write in these segments.
+
+However, range-checking the write address can become inefficient when the
+address range is big. As a matter of fact, the Cairo M design embeds a
+RangeCheck20 as the biggest range-check component. This means that any value
+greater than 2^20 would require a split (see also
+[the clock update section](#readwrite-operations)). As a consequence, this
+approach becomes inefficient when the address range is big.
+
+Another solution is to use a dedicated read-only memory segment with its own
+commitment and look up challenges. This eventually doubles the available address
+space, half of which being read-only and the other half read-write. Furthermore,
+if the read-only memory is used only for the program, its commitment becomes
+actually the program hash that can be used to identify the program in the proof,
+without requiring to have the read-write memory initialized with 0s.
 
 ### Word size
 
@@ -332,21 +354,19 @@ Constraints:
 Lookups
 
 - update registers
-  - `-(pc, fp)`
-  - `+(pc_next, fp_next)`
+  - `-Registers(pc, fp)`
+  - `+Registers(pc_next, fp_next)`
 - read instruction from read-only memory
-  - `-(pc, 0, opcode_id, off0, off1)`
+  - `-Memory(pc, 0, opcode_id, off0, off1)`
 - read/write operands from memory
-  - `-(fp + off0, prev_clock, op0_prev_val)`
-  - `+(fp + off0, clock, op0_val)`
-  - `-(fp + off0 + 1, prev_clock, op0_plus_one_prev_val)`
-  - `+(fp + off0 + 1, clock, op0_plus_one_val)`
+  - `-Memory(fp + off0, prev_clock, op0_prev_val)`
+  - `+Memory(fp + off0, clock, op0_val)`
+  - `-Memory(fp + off0 + 1, prev_clock, op0_plus_one_prev_val)`
+  - `+Memory(fp + off0 + 1, clock, op0_plus_one_val)`
 - range check clock difference
-  - `+(clock - inst_prev_clock - 1)`
-  - `+(clock - op0_prev_clock - 1)`
-  - `+(clock - op0_plus_one_prev_clock - 1)`
-- range check read-only memory
-  - `-(pc)`
+  - `+RangeCheck20(clock - inst_prev_clock - 1)`
+  - `+RangeCheck20(clock - op0_prev_clock - 1)`
+  - `+RangeCheck20(clock - op0_plus_one_prev_clock - 1)`
 
 #### JmpRelImm, JnzFpImm
 
@@ -395,3 +415,63 @@ Lookups
 - instruction: opcode_id | off0 | imm
 - operands: memory[fp + off0]: prev_clock | prev_val
 - memory[fp + off0 + 1]: prev_clock | prev_val
+
+### Lookups
+
+All this paper is drafted with the Stwo's constraint framework in mind, and
+especially the
+[logup.rs](https://github.com/starkware-libs/stwo/blob/dev/crates/constraint-framework/src/prover/logup.rs)
+module.
+
+At a high level, the lookup arguments with the logup are just a big sum of
+fractions that needs to sum to 0. Each component adds terms to this big global
+sum. These terms are fractions defined by:
+
+- a `Relation` that defines the alpha coefficients and z value to be used to
+  aggregate the looked up tuple;
+- a denominator, which is the aggregated value of the looked up tuple in the
+  secure field;
+- a numerator, also referred to as multiplicity, which is actually the number of
+  time the looked up tuple is "used" or "emitted".
+
+All of these terms are eventually stored as regular columns in the trace,
+referred to as the interaction trace. Because the secure field is a `QM31`, each
+of these columns is actually 4 base columns. Consequently, each lookup adds 4
+columns to the AIR and not only 1.
+
+Because the only goal of all these columns is to compute the big global
+cumulative sum of all the logup terms, it is possible to group these columns by
+storing not only one term, but the sum of several terms that need to be summed
+up together. The number of terms that one can "pre sum" depends on the maximum
+constraint degree bound and the variable used in the looked up tuples.
+
+Actually, the trace stores the in each row the cumulative sum of all the terms,
+and in the last column of the interaction trace the cumulative sum of all the
+rows, so that the final bottom right eventually contains the cumulative sum of
+all the terms added by the component. This value is known as the "claimed sum"
+and is committed to in the proof.
+
+Given this construction, the constraint enforces for each cell in each row
+finally writes:
+
+```ignore
+committed_value * current_denominator - current_numerator = 0
+```
+
+which means that `degree(denominator) + 1` should remain less than the maximum
+constraint degree bound of the component. Given the fact that the resulting
+denominator of the sum of two fractions is the product of the two denominators:
+
+```latex
+\frac{a}{b} + \frac{c}{d} = \frac{a * d + c * b}{b * d}
+```
+
+one can for example pre sum the terms by two when each denominator has a degree
+of 1 and the maximum constraint degree bound is 3.
+
+In this paper, we just write informally `+/-k Relation(value_0, ..., value_n)`
+to refer to look up of the tuple `(value_0, ..., value_n)` for the relation
+`Relation` with multiplicity `+k` or `-k` depending on the sign of the
+numerator. We talk about "emitted", "yielded" or "added" values when the
+multiplicity is positive, and "consumed" or "subtracted" values when the
+multiplicity is negative.
