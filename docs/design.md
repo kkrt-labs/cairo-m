@@ -1,36 +1,31 @@
 # Cairo M Design Document
 
-Cairo (i.e., CPU AIR) M is a new _zkVM_ design aimed at being especially
-efficient with
+Cairo M (CPU AIR) is a zero-knowledge virtual machine design optimized for
 
-- small-field provers: STARK provers using small prime fields (e.g., M31 or
+- Small-field provers: STARK provers using small prime fields (e.g., M31 or
   Babybear)
-- continuation: _infinitely_ long program runs should be provable out-of-the-box
-- recursion: the ability to verify generated proofs directly with the prover
-  framework rather than with a verifier written in a high-level language
-- low host memory usage
+- Continuation: Arbitrarily long program runs provable out-of-the-box
+- Recursion: Direct proof verification within the prover framework, eliminating
+  the need for high-level language verifiers
+- Low host memory usage: Efficient memory consumption on consumer devices
 
-For the sake of simplicity, the remainder of this paper assumes that the
-selected prime number is Mersenne31 (M31): `M31 = 2^31 - 1`. Minor adaptations
-to the current design specifications would be required for other primes.
+This document assumes Mersenne31 (M31: `2^31 - 1`) as the prime field. The
+design can be adapted for other primes with minor modifications.
 
-Furthermore, this document does not describe the current state of the
-implementation but rather the design decisions that were made for this v0
-implementation and what could be done to improve it.
+This document focuses on the design decisions for the v0 implementation and
+potential improvements, rather than describing the current implementation state.
 
 ## Memory
 
-Memory segments are chosen to be a 1D-addressable array, indexed directly with
-field elements. Consequently, its maximum length depends on the prover's prime
-field.
+Memory segments are implemented as 1D-addressable arrays indexed by field
+elements. The maximum length is determined by the prover's prime field.
 
 ### Commitment
 
-Each memory segment needs to be efficiently committed to for _continuation_,
-where one needs to make sure that the final memory segment of a given stage `n`
-is actually the same as the initial memory of stage `n + 1`.
+Memory segments require efficient commitment for continuation, ensuring the
+final memory state of stage `n` matches the initial state of stage `n + 1`.
 
-A Merkle tree is chosen as the memory commitment form because:
+Merkle trees provide the memory commitment mechanism due to their:
 
 - it allows commitment to challenge-independent quantities: the two roots
   (initial and final) of the memory segments
@@ -69,20 +64,15 @@ and have a fixed-size memory segment with a relatively small address space (2^30
 
 Read and write operations are actually emulated using lookup arguments:
 
-- a memory entry is modeled as a triplet `(address, clock, value)` where `clock`
-  is like a timestamp that lets us record when the `address` had the value
-  `value`;
-- this `clock` is actually a simple sequence from 0 up to the required length,
-  determined during witness generation;
-- initial values from the Merkle commitment are emitted with `clock = 0`;
-- read and write are actually the same operation from the lookup point of view,
-  canceling the previously emitted triplet `-(address, prev_clock, prev_value)`
-  and adding a new one to the lookup sum `(address, clock, value)`. In the case
-  of a read, i.e., when `value == prev_value`, the witness actually doesn't need
-  to store the two (identical) values;
-- the `clock` value is enforced to be strictly increasing between two
-  consecutive reads or writes, i.e., that `clock - prev_clock > 0`. This
-  constraint is enforced with a lookup to a `RangeCheck` component;
+- Memory entries: triplets `(address, clock, value)` where `clock` timestamps
+  when `address` contained `value`
+- Clock sequence: monotonic counter from 0, determined during witness generation
+- Initial values: emitted from Merkle commitment with `clock = 0`
+- Read/write operations: identical from lookup perspective, canceling
+  `-(address, prev_clock, prev_value)` and adding `(address, clock, value)` For
+  reads (`value == prev_value`), duplicate value storage is unnecessary
+- Clock monotonicity: enforced strict increase between consecutive operations
+  (`clock - prev_clock > 0`), validated through `RangeCheck` component lookup
 - a Clock Update component is introduced to actually update the clock when two
   consecutive memory operations are "too far apart," meaning that the clock
   difference would require a large range check. This `ClockUpdate` component
@@ -246,22 +236,16 @@ project were started today.
 
 ### Minimal instruction set
 
-Let us first recapitulate what matters most when designing a "ZK-native" minimal
-instruction set:
+Key considerations for ZK-native minimal instruction set design:
 
-- an AIR can ultimately be viewed as a regular dataframe, where each column is a
-  variable used in a constraint and each row is an instantiation of the inlined
-  circuit defined on the column variables;
-- usually, one opcode corresponds to one dataframe, but several opcodes can also
-  be factorized into a single dataframe when the constraints are similar;
-- each cycle of the VM adds a row to one of these dataframes;
-- the fewer opcodes in the instruction set, the more cycles the VM needs to
-  perform for the same task;
-- all these dataframes are defined in independent "components" but are
-  ultimately concatenated on axis 1 to form one single large dataframe (this was
-  true with old provers requiring padding of the smallest ones; not fully
-  accurate with Stwo, but for the sake of simplicity, one can continue viewing
-  this as one single large table);
+- AIR as dataframe: columns represent constraint variables, rows represent
+  circuit instantiations
+- Opcode-to-dataframe mapping: typically one-to-one, but similar constraints
+  enable factorization
+- VM cycles generate dataframe rows
+- Opcode count inversely correlates with cycle count for equivalent tasks
+- Component dataframes concatenate horizontally into a unified table (simplified
+  view; Stwo handles this differently without padding requirements)
 - given a witness, reshaping to reduce the number of rows and add more columns
   is always possible (simply duplicate the constraints), but there is a minimum
   number of columns that depends on the instruction set;
