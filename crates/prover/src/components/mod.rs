@@ -3,6 +3,7 @@ pub mod memory;
 pub mod merkle;
 pub mod opcodes;
 pub mod poseidon2;
+pub mod sha256;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
