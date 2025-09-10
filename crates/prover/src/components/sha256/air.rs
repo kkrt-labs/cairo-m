@@ -170,12 +170,12 @@ impl Eval {
         match sigma {
             SigmaType::SmallSigma0 => {
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.small_sigma0,
+                    &self.relations.small_sigma0_0,
                     E::EF::from(one.clone()),
                     &[l1, l2, h2, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.small_sigma0,
+                    &self.relations.small_sigma0_1,
                     E::EF::from(one.clone()),
                     &[l0, h0, h1, out1_lo.clone(), out1_hi.clone(), out2_1.clone()],
                 ));
@@ -222,7 +222,7 @@ impl Eval {
             }
             SigmaType::BigSigma0 => {
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.big_sigma0,
+                    &self.relations.big_sigma0_0,
                     E::EF::from(one.clone()),
                     &[
                         l1,
@@ -235,7 +235,7 @@ impl Eval {
                     ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.big_sigma0,
+                    &self.relations.big_sigma0_1,
                     E::EF::from(one.clone()),
                     &[
                         l0,
@@ -248,7 +248,7 @@ impl Eval {
                     ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.xor_big_sigma0,
+                    &self.relations.xor_big_sigma0_0,
                     E::EF::from(one.clone()),
                     &[
                         out2_0_lo.clone().unwrap(),
@@ -257,7 +257,7 @@ impl Eval {
                     ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.xor_big_sigma0,
+                    &self.relations.xor_big_sigma0_1,
                     E::EF::from(one.clone()),
                     &[
                         out2_0_hi.clone().unwrap(),
@@ -268,12 +268,12 @@ impl Eval {
             }
             SigmaType::BigSigma1 => {
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.big_sigma1,
+                    &self.relations.big_sigma1_0,
                     E::EF::from(one.clone()),
                     &[l0, h0, h1, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.big_sigma1,
+                    &self.relations.big_sigma1_1,
                     E::EF::from(one.clone()),
                     &[l1, l2, h2, out1_lo.clone(), out1_hi.clone(), out2_1.clone()],
                 ));

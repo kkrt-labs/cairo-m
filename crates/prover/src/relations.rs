@@ -44,14 +44,18 @@ relation!(Poseidon2, 16);
 relation!(Bitwise, 4);
 
 // SHA256 hash function relation for cryptographic computations.
-relation!(SmallSigma0, 6);
+relation!(SmallSigma0_0, 6);
+relation!(SmallSigma0_1, 6);
 relation!(SmallSigma1_0, 5);
 relation!(SmallSigma1_1, 7);
-relation!(BigSigma0, 7);
-relation!(BigSigma1, 6);
+relation!(BigSigma0_0, 7);
+relation!(BigSigma0_1, 7);
+relation!(BigSigma1_0, 6);
+relation!(BigSigma1_1, 6);
 relation!(XorSmallSigma0, 4);
 relation!(XorSmallSigma1, 4);
-relation!(XorBigSigma0, 3);
+relation!(XorBigSigma0_0, 3);
+relation!(XorBigSigma0_1, 3);
 relation!(XorBigSigma1, 4);
 relation!(Ch, 4);
 relation!(Maj, 4);

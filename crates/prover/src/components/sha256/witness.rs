@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
@@ -167,9 +167,9 @@ impl Claim {
                     indexes.col_index += 1;
                     *row[indexes.col_index] = W[i].hi;
                     indexes.col_index += 1;
-                    *lookup_data.range_check_16[indexes.range_check_16_index] = W[i].lo;
+                    *lookup_data.range_check_16[indexes.range_check_16_index] = [W[i].lo];
                     indexes.range_check_16_index += 1;
-                    *lookup_data.range_check_16[indexes.range_check_16_index] = W[i].hi;
+                    *lookup_data.range_check_16[indexes.range_check_16_index] = [W[i].hi];
                     indexes.range_check_16_index += 1;
                 });
 
@@ -422,10 +422,10 @@ fn sigma(
     // both input0 and input1 is too large (we would need to XOR two words of 15 bits)
     match sigma {
         SigmaType::SmallSigma0 => {
-            *lookup_data.small_sigma0[indexes.small_sigma0_index] =
+            *lookup_data.small_sigma0_0[indexes.small_sigma0_index] =
                 [l1, l2, h2, out0_lo, out0_hi, out2_0];
             indexes.small_sigma0_index += 1;
-            *lookup_data.small_sigma0[indexes.small_sigma0_index] =
+            *lookup_data.small_sigma0_1[indexes.small_sigma0_index] =
                 [l0, h0, h1, out1_lo, out1_hi, out2_1];
             indexes.small_sigma0_index += 1;
             *lookup_data.xor_small_sigma0[indexes.xor_small_sigma0_index] =
@@ -444,24 +444,24 @@ fn sigma(
             indexes.xor_small_sigma1_index += 1;
         }
         SigmaType::BigSigma0 => {
-            *lookup_data.big_sigma0[indexes.big_sigma0_index] =
+            *lookup_data.big_sigma0_0[indexes.big_sigma0_index] =
                 [l1, l2, h2, out0_lo, out0_hi, out2_0_lo, out2_0_hi];
             indexes.big_sigma0_index += 1;
-            *lookup_data.big_sigma0[indexes.big_sigma0_index] =
+            *lookup_data.big_sigma0_1[indexes.big_sigma0_index] =
                 [l0, h0, h1, out1_lo, out1_hi, out2_1_lo, out2_1_hi];
             indexes.big_sigma0_index += 1;
-            *lookup_data.xor_big_sigma0[indexes.xor_big_sigma0_index] =
+            *lookup_data.xor_big_sigma0_0[indexes.xor_big_sigma0_index] =
                 [out2_0_lo, out2_1_lo, xor_out2_lo];
             indexes.xor_big_sigma0_index += 1;
-            *lookup_data.xor_big_sigma0[indexes.xor_big_sigma0_index] =
+            *lookup_data.xor_big_sigma0_1[indexes.xor_big_sigma0_index] =
                 [out2_0_hi, out2_1_hi, xor_out2_hi];
             indexes.xor_big_sigma0_index += 1;
         }
         SigmaType::BigSigma1 => {
-            *lookup_data.big_sigma1[indexes.big_sigma1_index] =
+            *lookup_data.big_sigma1_0[indexes.big_sigma1_index] =
                 [l0, h0, h1, out0_lo, out0_hi, out2_0];
             indexes.big_sigma1_index += 1;
-            *lookup_data.big_sigma1[indexes.big_sigma1_index] =
+            *lookup_data.big_sigma1_1[indexes.big_sigma1_index] =
                 [l1, l2, h2, out1_lo, out1_hi, out2_1];
             indexes.big_sigma1_index += 1;
             *lookup_data.xor_big_sigma1[indexes.xor_big_sigma1_index] =
@@ -485,9 +485,9 @@ fn sigma(
     };
     let res = add3_u32_unchecked(out0, out1, out2, &mut indexes.col_index, row);
 
-    *lookup_data.range_check_16[indexes.range_check_16_index] = res.lo;
+    *lookup_data.range_check_16[indexes.range_check_16_index] = [res.lo];
     indexes.range_check_16_index += 1;
-    *lookup_data.range_check_16[indexes.range_check_16_index] = res.hi;
+    *lookup_data.range_check_16[indexes.range_check_16_index] = [res.hi];
     indexes.range_check_16_index += 1;
 
     res
@@ -793,28 +793,73 @@ impl InteractionClaim {
             .ilog2()
             + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
-        let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
+        /// Macro to generate interaction trace for lookup data pairs
+        macro_rules! generate_interaction_trace {
+            ($relation_name_1:ident, $i_1:expr, $relation_name_2:ident, $i_2:expr) => {{
+                let mut col = interaction_trace.new_col();
+                (
+                    col.par_iter_mut(),
+                    &interaction_claim_data.lookup_data.$relation_name_1[$i_1],
+                    &interaction_claim_data.lookup_data.$relation_name_2[$i_2],
+                )
+                    .into_par_iter()
+                    .for_each(|(writer, value0, value1)| {
+                        let num: PackedQM31 = -PackedQM31::one();
+                        let denom0: PackedQM31 = relations.$relation_name_1.combine(value0);
+                        let denom1: PackedQM31 = relations.$relation_name_2.combine(value1);
 
-        // let mut col = interaction_trace.new_col();
-        // (
-        //     col.par_iter_mut(),
-        //     &interaction_claim_data.lookup_data.poseidon2[0],
-        //     &interaction_claim_data.lookup_data.poseidon2[1],
-        // )
-        //     .into_par_iter()
-        //     .enumerate()
-        //     .for_each(|(i, (writer, value0, value1))| {
-        //         let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-        //         let denom0: PackedQM31 = relations.poseidon2.combine(value0);
-        //         let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-        //         let denom1: PackedQM31 = relations.poseidon2.combine(value1);
+                        let numerator = num * (denom1 + denom0);
+                        let denom = denom0 * denom1;
 
-        //         let numerator = num0 * denom1 + num1 * denom0;
-        //         let denom = denom0 * denom1;
+                        writer.write_frac(numerator, denom);
+                    });
+                col.finalize_col();
+            }};
+        }
 
-        //         writer.write_frac(numerator, denom);
-        //     });
-        // col.finalize_col();
+        // Message schedule
+        for i in 0..16 {
+            generate_interaction_trace!(range_check_16, 2 * i, range_check_16, 2 * i + 1);
+        }
+        for i in 16..64 {
+            generate_interaction_trace!(small_sigma0_0, i - 16, small_sigma0_1, i - 16);
+            generate_interaction_trace!(xor_small_sigma0, i - 16, range_check_16, 4 * (i - 8));
+            generate_interaction_trace!(range_check_16, 4 * (i - 8) + 1, small_sigma1_0, i - 16);
+            generate_interaction_trace!(small_sigma1_1, i - 16, xor_small_sigma1, i - 16);
+            generate_interaction_trace!(
+                range_check_16,
+                4 * (i - 8) + 2,
+                range_check_16,
+                4 * (i - 8) + 3
+            );
+        }
+
+        // Rounds
+        for i in 0..32 {
+            generate_interaction_trace!(big_sigma0_0, 2 * i, big_sigma0_1, 2 * i);
+            generate_interaction_trace!(xor_big_sigma0_0, 2 * i, xor_big_sigma0_1, 2 * i);
+            generate_interaction_trace!(range_check_16, 8 * i, range_check_16, 8 * i + 1);
+            generate_interaction_trace!(big_sigma1_0, 2 * i, big_sigma1_1, 2 * i);
+            generate_interaction_trace!(xor_big_sigma1, 2 * i, range_check_16, 8 * i + 2);
+            generate_interaction_trace!(range_check_16, 8 * i + 3, ch, 12 * i);
+            generate_interaction_trace!(ch, 12 * i + 1, ch, 12 * i + 2);
+            generate_interaction_trace!(ch, 12 * i + 3, ch, 12 * i + 4);
+            generate_interaction_trace!(ch, 12 * i + 5, maj, 12 * i);
+            generate_interaction_trace!(maj, 12 * i + 1, maj, 12 * i + 2);
+            generate_interaction_trace!(maj, 12 * i + 3, maj, 12 * i + 4);
+            generate_interaction_trace!(maj, 12 * i + 5, big_sigma0_0, 2 * i + 1);
+            generate_interaction_trace!(big_sigma0_1, 2 * i + 1, xor_big_sigma0_0, 2 * i + 1);
+            generate_interaction_trace!(xor_big_sigma0_1, 2 * i + 1, range_check_16, 8 * i + 4);
+            generate_interaction_trace!(range_check_16, 8 * i + 5, big_sigma1_0, 2 * i + 1);
+            generate_interaction_trace!(big_sigma1_1, 2 * i + 1, xor_big_sigma1, 2 * i + 1);
+            generate_interaction_trace!(range_check_16, 8 * i + 6, range_check_16, 8 * i + 7);
+            generate_interaction_trace!(ch, 12 * i + 6, ch, 12 * i + 7);
+            generate_interaction_trace!(ch, 12 * i + 8, ch, 12 * i + 9);
+            generate_interaction_trace!(ch, 12 * i + 10, ch, 12 * i + 11);
+            generate_interaction_trace!(maj, 12 * i + 6, maj, 12 * i + 7);
+            generate_interaction_trace!(maj, 12 * i + 8, maj, 12 * i + 9);
+            generate_interaction_trace!(maj, 12 * i + 10, maj, 12 * i + 11);
+        }
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         let interaction_claim = Self { claimed_sum };
