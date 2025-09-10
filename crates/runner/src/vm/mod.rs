@@ -1,6 +1,7 @@
 pub mod instructions;
 pub mod state;
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
@@ -14,7 +15,7 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use thiserror::Error;
 
-use crate::memory::{Memory, MemoryError};
+use crate::memory::{Memory, MemoryError, MAX_ADDRESS};
 use crate::RunnerOptions;
 
 /// The status of the overall program execution.
@@ -181,58 +182,42 @@ impl VM {
     ///
     /// * `is_last_segment` - If true, this is the last segment and we can move all data without cloning. If false, we need to clone memory for the next segment.
     pub fn finalize_segment(&mut self, is_last_segment: bool) {
-        use std::collections::HashMap;
-
-        const MAX_MEMORY_SIZE_BITS: u8 = 28;
-        let max_addr = (1 << MAX_MEMORY_SIZE_BITS) - 1;
-
-        // Create merged initial memory HashMap
-        let initial_memory = if is_last_segment {
-            // For the last segment, we can move everything without cloning
-            let locals = std::mem::take(&mut self.initial_memory_locals);
-            let heap = std::mem::take(&mut self.initial_memory_heap);
-
-            HashMap::from_iter(
-                // Locals: index i maps to address i
-                locals
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, value)| (M31::from(i as u32), (value, M31::zero(), M31::zero())))
-                    .chain(
-                        // Heap: index i maps to address (max_addr - i)
-                        heap.into_iter().enumerate().map(|(i, value)| {
-                            (
-                                M31::from(max_addr - i as u32),
-                                (value, M31::zero(), M31::zero()),
-                            )
-                        }),
-                    ),
+        // Extract memory data based on whether it's the last segment
+        let (locals, heap) = if is_last_segment {
+            // For the last segment, move data without cloning
+            (
+                std::mem::take(&mut self.initial_memory_locals),
+                std::mem::take(&mut self.initial_memory_heap),
             )
         } else {
-            // For intermediate segments, we need to clone memory for the next segment
+            // For intermediate segments, clone current memory for next segment
             let new_locals = self.memory.locals.clone();
             let new_heap = self.memory.heap.clone();
 
+            // Replace initial memory with current state for next segment
             let old_locals = std::mem::replace(&mut self.initial_memory_locals, new_locals);
             let old_heap = std::mem::replace(&mut self.initial_memory_heap, new_heap);
 
-            HashMap::from_iter(
-                // Locals: index i maps to address i
-                old_locals
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, value)| (M31::from(i as u32), (value, M31::zero(), M31::zero())))
-                    .chain(
-                        // Heap: index i maps to address (max_addr - i)
-                        old_heap.into_iter().enumerate().map(|(i, value)| {
-                            (
-                                M31::from(max_addr - i as u32),
-                                (value, M31::zero(), M31::zero()),
-                            )
-                        }),
-                    ),
-            )
+            (old_locals, old_heap)
         };
+
+        // Create merged initial memory HashMap
+        let initial_memory = HashMap::from_iter(
+            // Locals: index i maps to address i
+            locals
+                .into_iter()
+                .enumerate()
+                .map(|(i, value)| (M31::from(i as u32), (value, M31::zero(), M31::zero())))
+                .chain(
+                    // Heap: index i maps to address (MAX_ADDRESS - i)
+                    heap.into_iter().enumerate().map(|(i, value)| {
+                        (
+                            M31::from((MAX_ADDRESS - i) as u32),
+                            (value, M31::zero(), M31::zero()),
+                        )
+                    }),
+                ),
+        );
 
         self.segments.push(Segment {
             initial_memory,
