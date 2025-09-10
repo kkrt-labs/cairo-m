@@ -22,7 +22,7 @@ use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
-pub use super::HashInput;
+pub use super::PoseidonHashInput;
 
 /// MerkleValue represents a value in the Merkle tree with its multiplicity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,9 +123,9 @@ impl NodeData {
     /// Extracts the hash input (left and right values) for hash computation.
     ///
     /// ## Returns
-    /// HashInput array with left and right child values
-    pub fn to_hash_input(&self) -> HashInput {
-        let mut input: HashInput = Default::default();
+    /// PoseidonHashInput array with left and right child values
+    pub fn to_hash_input(&self) -> PoseidonHashInput {
+        let mut input: PoseidonHashInput = Default::default();
         input[0] = self.left_value.value;
         input[1] = self.right_value.value;
         input
