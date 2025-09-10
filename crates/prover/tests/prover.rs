@@ -6,7 +6,7 @@ use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
 use cairo_m_prover::adapter::merkle::{build_partial_merkle_tree, TreeType};
 use cairo_m_prover::adapter::{
-    import_from_runner_output, HashInput, Instructions, MerkleTrees, ProverInput,
+    import_from_runner_output, Instructions, MerkleTrees, PoseidonHashInput, ProverInput,
 };
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::poseidon2::Poseidon2Hash;
@@ -74,7 +74,7 @@ fn test_prove_and_verify_unchanged_memory() {
     );
 
     let mut poseidon2_inputs =
-        Vec::<HashInput>::with_capacity(initial_tree.len() + final_tree.len());
+        Vec::<PoseidonHashInput>::with_capacity(initial_tree.len() + final_tree.len());
     initial_tree.iter().for_each(|node| {
         poseidon2_inputs.push(node.to_hash_input());
     });
@@ -97,6 +97,7 @@ fn test_prove_and_verify_unchanged_memory() {
         memory,
         instructions: Instructions::default(),
         poseidon2_inputs,
+        sha256_inputs: vec![],
     };
 
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();

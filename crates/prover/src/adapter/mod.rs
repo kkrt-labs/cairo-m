@@ -17,10 +17,12 @@ use tracing::{span, Level};
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{DataAccess, ExecutionBundleIterator, Memory};
 use crate::adapter::merkle::{build_partial_merkle_tree, NodeData, TreeType};
+use crate::components::sha256::MESSAGE_SIZE;
 use crate::poseidon2::{Poseidon2Hash, T};
 
 /// Hash input type for the merkle tree component (T M31 elements)
-pub type HashInput = [M31; T];
+pub type PoseidonHashInput = [M31; T];
+pub type SHA256HashInput = [M31; MESSAGE_SIZE];
 
 /// Input data structure for proof generation.
 /// Contains all the hints for witness generation and the public data.
@@ -35,7 +37,9 @@ pub struct ProverInput {
     /// List of public memory addresses (program/inputs/outputs)
     pub public_address_ranges: PublicAddressRanges,
     /// Hash inputs for Poseidon2 computations in Merkle trees
-    pub poseidon2_inputs: Vec<HashInput>,
+    pub poseidon2_inputs: Vec<PoseidonHashInput>,
+    /// Hash inputs for SHA256 computations in Merkle trees
+    pub sha256_inputs: Vec<SHA256HashInput>,
 }
 
 /// Merkle tree commitments for initial and final memory states for continuation.
@@ -165,7 +169,7 @@ where
     // Extract Poseidon2 inputs from merkle trees.
     // This data is used for the Poseidon2 component
     let mut poseidon2_inputs =
-        Vec::<HashInput>::with_capacity(initial_tree.len() + final_tree.len());
+        Vec::<PoseidonHashInput>::with_capacity(initial_tree.len() + final_tree.len());
     initial_tree.iter().for_each(|node| {
         poseidon2_inputs.push(node.to_hash_input());
     });
@@ -189,6 +193,7 @@ where
             data_accesses,
         },
         poseidon2_inputs,
+        sha256_inputs: vec![],
     })
 }
 

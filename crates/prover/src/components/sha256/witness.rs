@@ -4,7 +4,6 @@ use num_traits::Zero;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
-use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_constraint_framework::logup::LogupTraceGenerator;
 use stwo_constraint_framework::Relation;
 use stwo_prover::core::backend::simd::m31::{PackedM31, LOG_N_LANES, N_LANES};
@@ -13,51 +12,19 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::{SecureField, SECURE_EXTENSION_DEGREE};
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
-use crate::components::sha256::air::{Fu32, SigmaType};
+use crate::adapter::SHA256HashInput;
+use crate::components::sha256::{
+    Claim, Fu32, InteractionClaim, InteractionClaimData, LookupData, LookupDataMutChunk, SigmaType,
+    MESSAGE_SIZE, N_INTERACTION_COLUMNS, N_TRACE_COLUMNS,
+};
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
 
 const INV16: M31 = M31::from_u32_unchecked(1 << 15);
-
-const MESSAGE_SIZE: usize = 2 * 16; // 16 elements of 32 bits
-const N_ROUNDS: usize = 64;
-
-// Main trace size
-const N_TRACE_COLUMNS: usize = 1
-    + 2 * 16 // Message loading
-    + (64 - 16) * 2 * (6 + 6 + 2 + 2 + 2 + 2) // Message schedule
-    + 64 * (6 * 6 + 2 * 4 + 2 * 6 + 2 + 2 * 2 + 2 + 6 + 6 + 2 + 2 + 2 + 8 * 2); // Rounds
-
-// Interaction trace size
-const N_SMALL_SIGMA0_LOOKUPS: usize = 2 * N_ROUNDS;
-const N_SMALL_SIGMA1_LOOKUPS: usize = 2 * N_ROUNDS;
-const N_BIG_SIGMA0_LOOKUPS: usize = 2 * N_ROUNDS;
-const N_BIG_SIGMA1_LOOKUPS: usize = 2 * N_ROUNDS;
-const N_XOR_SMALL_SIGMA0_LOOKUPS: usize = N_ROUNDS;
-const N_XOR_SMALL_SIGMA1_LOOKUPS: usize = N_ROUNDS;
-const N_XOR_BIG_SIGMA0_LOOKUPS: usize = 2 * N_ROUNDS;
-const N_XOR_BIG_SIGMA1_LOOKUPS: usize = N_ROUNDS;
-const N_CH_LOOKUPS: usize = 6 * N_ROUNDS;
-const N_MAJ_LOOKUPS: usize = 6 * N_ROUNDS;
-const N_RANGE_CHECK_16_LOOKUPS: usize = 2 * 16 + 2 * 2 * N_ROUNDS;
-const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE
-    * (N_SMALL_SIGMA0_LOOKUPS
-        + N_SMALL_SIGMA1_LOOKUPS
-        + N_BIG_SIGMA0_LOOKUPS
-        + N_BIG_SIGMA1_LOOKUPS
-        + N_XOR_SMALL_SIGMA0_LOOKUPS
-        + N_XOR_SMALL_SIGMA1_LOOKUPS
-        + N_XOR_BIG_SIGMA0_LOOKUPS
-        + N_XOR_BIG_SIGMA1_LOOKUPS
-        + N_CH_LOOKUPS
-        + N_MAJ_LOOKUPS
-        + N_RANGE_CHECK_16_LOOKUPS)
-        .div_ceil(2);
 
 const MASK_SMALL_SIGMA0_L0: u32 = 0x4aaa; // O1 : 1, 3, 5, 7, 9, 11, 14
 const MASK_SMALL_SIGMA0_L1: u32 = 0x155; // O0 : 0, 2, 4, 6, 8
@@ -128,36 +95,6 @@ struct Indexes {
     range_check_16_index: usize,
 }
 
-#[derive(Copy, Clone, Serialize, Deserialize, Debug)]
-pub struct InteractionClaim {
-    pub claimed_sum: SecureField,
-}
-
-pub struct InteractionClaimData {
-    pub lookup_data: LookupData,
-    pub non_padded_length: usize,
-}
-
-#[derive(Uninitialized, IterMut, ParIterMut)]
-pub struct LookupData {
-    pub small_sigma0: [Vec<[PackedM31; 6]>; N_SMALL_SIGMA0_LOOKUPS],
-    pub small_sigma1_0: [Vec<[PackedM31; 5]>; N_SMALL_SIGMA1_LOOKUPS],
-    pub small_sigma1_1: [Vec<[PackedM31; 7]>; N_SMALL_SIGMA1_LOOKUPS],
-    pub big_sigma0: [Vec<[PackedM31; 7]>; N_BIG_SIGMA0_LOOKUPS],
-    pub big_sigma1: [Vec<[PackedM31; 6]>; N_BIG_SIGMA1_LOOKUPS],
-    pub xor_small_sigma0: [Vec<[PackedM31; 4]>; N_XOR_SMALL_SIGMA0_LOOKUPS],
-    pub xor_small_sigma1: [Vec<[PackedM31; 4]>; N_XOR_SMALL_SIGMA1_LOOKUPS],
-    pub xor_big_sigma0: [Vec<[PackedM31; 3]>; N_XOR_BIG_SIGMA0_LOOKUPS],
-    pub xor_big_sigma1: [Vec<[PackedM31; 4]>; N_XOR_BIG_SIGMA1_LOOKUPS],
-    pub ch: [Vec<[PackedM31; 4]>; N_CH_LOOKUPS],
-    pub maj: [Vec<[PackedM31; 4]>; N_MAJ_LOOKUPS],
-    pub range_check_16: [Vec<PackedM31>; N_RANGE_CHECK_16_LOOKUPS],
-}
-#[derive(Clone, Default, Serialize, Deserialize, Debug)]
-pub struct Claim {
-    pub log_size: u32,
-}
-
 impl Claim {
     pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
         let trace_log_sizes = vec![self.log_size; N_TRACE_COLUMNS];
@@ -171,7 +108,7 @@ impl Claim {
 
     #[allow(clippy::needless_range_loop)]
     pub fn write_trace<MC: MerkleChannel>(
-        inputs: &Vec<[M31; MESSAGE_SIZE]>,
+        inputs: &Vec<SHA256HashInput>,
     ) -> (Self, ComponentTrace<N_TRACE_COLUMNS>, InteractionClaimData)
     where
         SimdBackend: BackendForChannel<MC>,
@@ -851,33 +788,33 @@ impl InteractionClaim {
         Self,
         Vec<CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
     ) {
-        let log_size = interaction_claim_data.lookup_data.poseidon2[0]
+        let log_size = interaction_claim_data.lookup_data.range_check_16[0]
             .len()
             .ilog2()
             + LOG_N_LANES;
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
         let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
 
-        let mut col = interaction_trace.new_col();
-        (
-            col.par_iter_mut(),
-            &interaction_claim_data.lookup_data.poseidon2[0],
-            &interaction_claim_data.lookup_data.poseidon2[1],
-        )
-            .into_par_iter()
-            .enumerate()
-            .for_each(|(i, (writer, value0, value1))| {
-                let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
-                let denom0: PackedQM31 = relations.poseidon2.combine(value0);
-                let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
-                let denom1: PackedQM31 = relations.poseidon2.combine(value1);
+        // let mut col = interaction_trace.new_col();
+        // (
+        //     col.par_iter_mut(),
+        //     &interaction_claim_data.lookup_data.poseidon2[0],
+        //     &interaction_claim_data.lookup_data.poseidon2[1],
+        // )
+        //     .into_par_iter()
+        //     .enumerate()
+        //     .for_each(|(i, (writer, value0, value1))| {
+        //         let num0: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+        //         let denom0: PackedQM31 = relations.poseidon2.combine(value0);
+        //         let num1: PackedQM31 = PackedQM31::from(enabler_col.packed_at(i));
+        //         let denom1: PackedQM31 = relations.poseidon2.combine(value1);
 
-                let numerator = num0 * denom1 + num1 * denom0;
-                let denom = denom0 * denom1;
+        //         let numerator = num0 * denom1 + num1 * denom0;
+        //         let denom = denom0 * denom1;
 
-                writer.write_frac(numerator, denom);
-            });
-        col.finalize_col();
+        //         writer.write_frac(numerator, denom);
+        //     });
+        // col.finalize_col();
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         let interaction_claim = Self { claimed_sum };

@@ -1,106 +1,15 @@
 #![allow(non_snake_case)]
 
-use std::ops::{Add, AddAssign, Mul, Sub};
-
 use num_traits::{One, Zero};
-use stwo_constraint_framework::{EvalAtRow, FrameworkComponent, FrameworkEval, RelationEntry};
+use stwo_constraint_framework::{EvalAtRow, FrameworkEval, RelationEntry};
 use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::FieldExpOps;
 
-use crate::components::sha256::witness::Claim;
-use crate::components::Relations;
+use crate::components::sha256::{Eval, Fu32, SigmaType};
 
 const INV16: M31 = M31::from_u32_unchecked(1 << 15);
 const TWO: M31 = M31::from_u32_unchecked(2);
 
-#[derive(Clone, Copy, Debug)]
-pub enum SigmaType {
-    SmallSigma0,
-    SmallSigma1,
-    BigSigma0,
-    BigSigma1,
-}
-
-/// Utility for representing a u32 as two field elements, for constraint evaluation.
-#[derive(Clone, Debug)]
-pub struct Fu32<F>
-where
-    F: FieldExpOps
-        + Clone
-        + Zero
-        + AddAssign<F>
-        + Add<F, Output = F>
-        + Sub<F, Output = F>
-        + Mul<M31, Output = F>,
-{
-    pub lo: F,
-    pub hi: F,
-}
-impl<F> Fu32<F>
-where
-    F: FieldExpOps
-        + Zero
-        + Clone
-        + AddAssign<F>
-        + Add<F, Output = F>
-        + Sub<F, Output = F>
-        + Mul<M31, Output = F>,
-{
-    pub fn into_felts(self) -> [F; 2] {
-        [self.lo, self.hi]
-    }
-}
-
-impl<F> Zero for Fu32<F>
-where
-    F: FieldExpOps
-        + Zero
-        + Clone
-        + AddAssign<F>
-        + Add<F, Output = F>
-        + Sub<F, Output = F>
-        + Mul<M31, Output = F>,
-{
-    fn zero() -> Self {
-        Self {
-            lo: F::zero(),
-            hi: F::zero(),
-        }
-    }
-
-    fn is_zero(&self) -> bool {
-        self.lo.is_zero() && self.hi.is_zero()
-    }
-}
-
-impl<F> Add for Fu32<F>
-where
-    F: FieldExpOps
-        + Zero
-        + Clone
-        + AddAssign<F>
-        + Add<F, Output = F>
-        + Sub<F, Output = F>
-        + Mul<M31, Output = F>,
-{
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self {
-            lo: self.lo + other.lo,
-            hi: self.hi + other.hi,
-        }
-    }
-}
-
-pub type Sha256Component = FrameworkComponent<Sha256Eval>;
-
-#[derive(Clone)]
-pub struct Sha256Eval {
-    pub claim: Claim,
-    pub relations: Relations,
-}
-impl FrameworkEval for Sha256Eval {
+impl FrameworkEval for Eval {
     fn log_size(&self) -> u32 {
         self.claim.log_size
     }
@@ -231,24 +140,25 @@ impl FrameworkEval for Sha256Eval {
     }
 }
 
-impl Sha256Eval {
+impl Eval {
     fn sigma<E: EvalAtRow>(
         &self,
         sigma: SigmaType,
         [l0, l1, l2, h0, h1, h2]: [E::F; 6],
         eval: &mut E,
     ) -> Fu32<E::F> {
+        let one = E::F::one();
         let [out0_lo, out0_hi, out1_lo, out1_hi, out2_0, out2_1] =
             std::array::from_fn(|_| eval.next_trace_mask());
 
         let (out2_0_lo, out2_1_lo, out2_0_hi, out2_1_hi) = match sigma {
             SigmaType::BigSigma0 => (
-                Some(out2_0),
-                Some(out2_1),
+                Some(out2_0.clone()),
+                Some(out2_1.clone()),
                 Some(eval.next_trace_mask()),
                 Some(eval.next_trace_mask()),
             ),
-            _ => (Some(out2_0), Some(out2_1), None, None),
+            _ => (Some(out2_0.clone()), Some(out2_1.clone()), None, None),
         };
 
         let xor_out2_lo = eval.next_trace_mask();
@@ -262,34 +172,52 @@ impl Sha256Eval {
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.small_sigma0,
                     E::EF::from(one.clone()),
-                    &[l1, l2, h2, out0_lo, out0_hi, out2_0],
+                    &[l1, l2, h2, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.small_sigma0,
                     E::EF::from(one.clone()),
-                    &[l0, h0, h1, out1_lo, out1_hi, out2_1],
+                    &[l0, h0, h1, out1_lo.clone(), out1_hi.clone(), out2_1.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_small_sigma0,
                     E::EF::from(one.clone()),
-                    &[out2_0, out2_1, xor_out2_lo, xor_out2_hi],
+                    &[
+                        out2_0.clone(),
+                        out2_1.clone(),
+                        xor_out2_lo.clone(),
+                        xor_out2_hi.clone(),
+                    ],
                 ));
             }
             SigmaType::SmallSigma1 => {
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.small_sigma1,
+                    &self.relations.small_sigma1_0,
                     E::EF::from(one.clone()),
-                    &[l0, h0, out0_lo, out0_hi, out2_0],
+                    &[l0, h0, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
-                    &self.relations.small_sigma1,
+                    &self.relations.small_sigma1_1,
                     E::EF::from(one.clone()),
-                    &[l1, l2, h1, h2, out1_lo, out1_hi, out2_1],
+                    &[
+                        l1,
+                        l2,
+                        h1,
+                        h2,
+                        out1_lo.clone(),
+                        out1_hi.clone(),
+                        out2_1.clone(),
+                    ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_small_sigma1,
                     E::EF::from(one.clone()),
-                    &[out2_0, out2_1, xor_out2_lo, xor_out2_hi],
+                    &[
+                        out2_0.clone(),
+                        out2_1.clone(),
+                        xor_out2_lo.clone(),
+                        xor_out2_hi.clone(),
+                    ],
                 ));
             }
             SigmaType::BigSigma0 => {
@@ -300,10 +228,10 @@ impl Sha256Eval {
                         l1,
                         l2,
                         h2,
-                        out0_lo,
-                        out0_hi,
-                        out2_0_lo.unwrap(),
-                        out2_0_hi.unwrap(),
+                        out0_lo.clone(),
+                        out0_hi.clone(),
+                        out2_0_lo.clone().unwrap(),
+                        out2_0_hi.clone().unwrap(),
                     ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
@@ -313,66 +241,79 @@ impl Sha256Eval {
                         l0,
                         h0,
                         h1,
-                        out1_lo,
-                        out1_hi,
-                        out2_1_lo.unwrap(),
-                        out2_1_hi.unwrap(),
+                        out1_lo.clone(),
+                        out1_hi.clone(),
+                        out2_1_lo.clone().unwrap(),
+                        out2_1_hi.clone().unwrap(),
                     ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_big_sigma0,
                     E::EF::from(one.clone()),
-                    &[out2_0_lo.unwrap(), out2_1_lo.unwrap(), xor_out2_lo],
+                    &[
+                        out2_0_lo.clone().unwrap(),
+                        out2_1_lo.clone().unwrap(),
+                        xor_out2_lo.clone(),
+                    ],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_big_sigma0,
                     E::EF::from(one.clone()),
-                    &[out2_0_hi.unwrap(), out2_1_hi.unwrap(), xor_out2_hi],
+                    &[
+                        out2_0_hi.clone().unwrap(),
+                        out2_1_hi.clone().unwrap(),
+                        xor_out2_hi.clone(),
+                    ],
                 ));
             }
             SigmaType::BigSigma1 => {
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.big_sigma1,
                     E::EF::from(one.clone()),
-                    &[l0, h0, h1, out0_lo, out0_hi, out2_0],
+                    &[l0, h0, h1, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.big_sigma1,
                     E::EF::from(one.clone()),
-                    &[l1, l2, h2, out1_lo, out1_hi, out2_1],
+                    &[l1, l2, h2, out1_lo.clone(), out1_hi.clone(), out2_1.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_big_sigma1,
                     E::EF::from(one.clone()),
-                    &[out2_0, out2_1, xor_out2_lo, xor_out2_hi],
+                    &[
+                        out2_0.clone(),
+                        out2_1.clone(),
+                        xor_out2_lo.clone(),
+                        xor_out2_hi.clone(),
+                    ],
                 ));
             }
         };
 
         // Add all limbs together to rebuild the 32-bit result
         let out0 = Fu32 {
-            lo: out0_lo,
-            hi: out0_hi,
+            lo: out0_lo.clone(),
+            hi: out0_hi.clone(),
         };
         let out1 = Fu32 {
-            lo: out1_lo,
-            hi: out1_hi,
+            lo: out1_lo.clone(),
+            hi: out1_hi.clone(),
         };
         let out2 = Fu32 {
-            lo: xor_out2_lo,
-            hi: xor_out2_hi,
+            lo: xor_out2_lo.clone(),
+            hi: xor_out2_hi.clone(),
         };
         let res = add3_u32_unchecked(out0, out1, out2, eval);
 
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             E::EF::from(one.clone()),
-            &[res.lo],
+            &[res.lo.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
             E::EF::from(one.clone()),
-            &[res.hi],
+            &[res.hi.clone()],
         ));
 
         res

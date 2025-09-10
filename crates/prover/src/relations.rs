@@ -43,5 +43,18 @@ relation!(Poseidon2, 16);
 // Structure: operation_id, input1, input2, result
 relation!(Bitwise, 4);
 
+// SHA256 hash function relation for cryptographic computations.
+relation!(SmallSigma0, 6);
+relation!(SmallSigma1_0, 5);
+relation!(SmallSigma1_1, 7);
+relation!(BigSigma0, 7);
+relation!(BigSigma1, 6);
+relation!(XorSmallSigma0, 4);
+relation!(XorSmallSigma1, 4);
+relation!(XorBigSigma0, 3);
+relation!(XorBigSigma1, 4);
+relation!(Ch, 4);
+relation!(Maj, 4);
+
 /// Proof-of-work bits for interaction argument security.
 pub const INTERACTION_POW_BITS: u32 = 2;
