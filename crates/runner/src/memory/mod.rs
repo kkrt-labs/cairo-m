@@ -50,8 +50,8 @@ pub struct Memory {
     /// From the VM point of view, there is no distinction between the two.
     /// Addresses close to 0 will be appended to the locals vector, and addresses close to ADDRESS_MAX will be appended to the heap vector, with addresses going downwards :
     /// heap[i] maps to ADDRESS_MAX - i
-    pub locals: Vec<QM31>,
-    pub heap: Vec<QM31>,
+    pub(crate) locals: Vec<QM31>,
+    pub(crate) heap: Vec<QM31>,
     /// A trace of memory accesses.
     ///
     /// The trace is wrapped in a `RefCell` to enable interior mutability. This
@@ -159,6 +159,26 @@ impl Memory {
         Ok(instruction_m31s)
     }
 
+    /// Retrieves a `QM31` value from memory without recording a trace entry.
+    ///
+    /// This method is a helper for the get_data and get_data_no_trace methods.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The `M31` memory address to read from.
+    fn get_qm31_no_trace(&self, addr: M31) -> Result<QM31, MemoryError> {
+        Self::validate_address(addr)?;
+        let locals_address = addr.0 as usize;
+        let heap_address = MAX_ADDRESS - addr.0 as usize;
+        if locals_address < self.locals.len() {
+            return Ok(self.locals[locals_address]);
+        }
+        if heap_address < self.heap.len() {
+            return Ok(self.heap[heap_address]);
+        }
+        Ok(QM31::zero())
+    }
+
     /// Retrieves a value from memory and projects it to a base field element `M31`.
     ///
     /// This is used for instruction arguments or other data that are expected to
@@ -174,20 +194,7 @@ impl Memory {
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
-        Self::validate_address(addr)?;
-        let locals_address = addr.0 as usize;
-        let heap_address = MAX_ADDRESS - addr.0 as usize;
-        // If the address is in the locals vector, read from there
-        let value = if locals_address < self.locals.len() {
-            self.locals[locals_address]
-        } else if heap_address < self.heap.len() {
-            // If the address is in the heap vector, read from there
-            self.heap[heap_address]
-        } else {
-            // Reading non initialized memory is allowed
-            // In this case, we return 0
-            QM31::zero()
-        };
+        let value = self.get_qm31_no_trace(addr)?;
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
@@ -208,20 +215,7 @@ impl Memory {
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
-        Self::validate_address(addr)?;
-        let locals_address = addr.0 as usize;
-        let heap_address = MAX_ADDRESS - addr.0 as usize;
-        // If the address is in the locals vector, read from there
-        let value = if locals_address < self.locals.len() {
-            self.locals[locals_address]
-        } else if heap_address < self.heap.len() {
-            // If the address is in the heap vector, read from there
-            self.heap[heap_address]
-        } else {
-            // Reading non initialized memory is allowed
-            // In this case, we return 0
-            QM31::zero()
-        };
+        let value = self.get_qm31_no_trace(addr)?;
         if !value.1.is_zero() || !value.0 .1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
@@ -230,8 +224,6 @@ impl Memory {
 
     /// Inserts a `QM31` value at a specified validated memory address.
     ///
-    /// If the address is neither in the locals nor in the heap, one of the two vectors is resized and the value is inserted.
-    /// The vector which is resized is chosen to minimize memory allocation.
     ///
     /// # Arguments
     ///
@@ -264,20 +256,23 @@ impl Memory {
 
         if locals_address < self.locals.len() {
             self.locals[locals_address] = value;
-        } else if heap_address < self.heap.len() {
-            self.heap[heap_address] = value;
-        } else {
-            // Find nearest vector to resize
-            let locals_distance = locals_address - self.locals.len();
-            let heap_distance = heap_address - self.heap.len();
-            if locals_distance < heap_distance {
-                self.locals.resize(locals_address + 1, QM31::zero());
-                self.locals[locals_address] = value;
-            } else {
-                self.heap.resize(heap_address + 1, QM31::zero());
-                self.heap[heap_address] = value;
-            }
+            return Ok(());
         }
+        if heap_address < self.heap.len() {
+            self.heap[heap_address] = value;
+            return Ok(());
+        }
+        // Find nearest vector to resize
+        let locals_distance = locals_address - self.locals.len();
+        let heap_distance = heap_address - self.heap.len();
+        if locals_distance < heap_distance {
+            self.locals.resize(locals_address + 1, QM31::zero());
+            self.locals[locals_address] = value;
+            return Ok(());
+        }
+        self.heap.resize(heap_address + 1, QM31::zero());
+        self.heap[heap_address] = value;
+
         Ok(())
     }
 

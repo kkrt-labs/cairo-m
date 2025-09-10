@@ -762,8 +762,8 @@ mod tests {
     fn test_memory_push_with_preloaded_memory() {
         // Test with some preloaded memory
         let initial_memory = vec![
-            QM31::from_m31_array([10, 20, 30, 40].map(M31::from)),
-            QM31::from_m31_array([50, 60, 70, 80].map(M31::from)),
+            QM31::from_u32_unchecked(10, 20, 30, 40),
+            QM31::from_u32_unchecked(50, 60, 70, 80),
         ];
         let initial_memory = HashMap::from_iter(
             initial_memory
