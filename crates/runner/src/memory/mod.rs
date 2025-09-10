@@ -166,17 +166,27 @@ impl Memory {
     /// # Arguments
     ///
     /// * `addr` - The `M31` memory address to read from.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
+    /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
+    /// cannot be projected to a base field element.
     fn get_qm31_no_trace(&self, addr: M31) -> Result<QM31, MemoryError> {
         Self::validate_address(addr)?;
         let locals_address = addr.0 as usize;
         let heap_address = MAX_ADDRESS - addr.0 as usize;
-        if locals_address < self.locals.len() {
-            return Ok(self.locals[locals_address]);
+        let value = if locals_address < self.locals.len() {
+            self.locals[locals_address]
+        } else if heap_address < self.heap.len() {
+            self.heap[heap_address]
+        } else {
+            QM31::zero()
+        };
+        if !value.1.is_zero() || !value.0 .1.is_zero() {
+            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
-        if heap_address < self.heap.len() {
-            return Ok(self.heap[heap_address]);
-        }
-        Ok(QM31::zero())
+        Ok(value)
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31`.
@@ -191,13 +201,11 @@ impl Memory {
     ///
     /// # Errors
     ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
         let value = self.get_qm31_no_trace(addr)?;
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
-        }
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(value.0 .0)
     }
@@ -212,13 +220,11 @@ impl Memory {
     ///
     /// # Errors
     ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
         let value = self.get_qm31_no_trace(addr)?;
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
-        }
         Ok(value.0 .0)
     }
 
