@@ -167,6 +167,11 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         big_sigma0_1,
         big_sigma1_0,
         big_sigma1_1,
+        xor_small_sigma0,
+        xor_small_sigma1,
+        xor_big_sigma0_0,
+        xor_big_sigma0_1,
+        xor_big_sigma1,
         range_check_16,
     } = components;
     assert_component(sha256, &trace);
@@ -190,6 +195,11 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(big_sigma0_1, &trace);
     assert_component(big_sigma1_0, &trace);
     assert_component(big_sigma1_1, &trace);
+    assert_component(xor_small_sigma0, &trace);
+    assert_component(xor_small_sigma1, &trace);
+    assert_component(xor_big_sigma0_0, &trace);
+    assert_component(xor_big_sigma0_1, &trace);
+    assert_component(xor_big_sigma1, &trace);
     assert_component(range_check_16, &trace);
 }
 

@@ -5,6 +5,7 @@ use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 use crate::adapter::SHA256HashInput;
 use crate::sha256::debug_tools::assert_constraints::assert_constraints;
 use crate::sha256::prover_sha256::prove_sha256;
+use crate::sha256::verifier_sha256::verify_sha256;
 
 #[test]
 fn test_sha256_constraints_empty_input() {
@@ -26,14 +27,15 @@ fn test_sha256_prove_empty_input() {
 }
 
 #[test]
-fn test_sha256_prove_single_block() {
+fn test_sha256_prove_verify_single_block() {
     let inputs: Vec<SHA256HashInput> = vec![[M31::from(42); 32]];
-    prove_sha256::<Blake2sMerkleChannel>(&inputs, None).unwrap();
+    let proof = prove_sha256::<Blake2sMerkleChannel>(&inputs, None).unwrap();
+    verify_sha256::<Blake2sMerkleChannel>(proof, None).unwrap();
 }
 
 #[test]
 fn test_sha256_prove_2_pow_x_input() {
-    let inputs: Vec<SHA256HashInput> = (0..1 << 0)
+    let inputs: Vec<SHA256HashInput> = (0..1 << 16)
         .map(|i| {
             let mut message = [M31::zero(); 32];
             for (j, element) in message.iter_mut().enumerate() {

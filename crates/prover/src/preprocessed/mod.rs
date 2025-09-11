@@ -15,6 +15,7 @@ pub mod bitwise;
 pub mod ch_maj;
 pub mod range_check;
 pub mod sigma;
+pub mod xor;
 
 pub trait PreProcessedColumn {
     fn log_size(&self) -> u32;
@@ -199,6 +200,37 @@ impl PreProcessedTraceBuilder {
             // 3 inputs + 4 outputs
             self.columns
                 .push(Box::new(sigma::big_sigma1_1::SigmaCol::new(i)));
+        }
+
+        // Add XOR preprocessed columns for SHA256
+        // XOR Small Sigma 0: 6 columns
+        for i in 0..6 {
+            self.columns
+                .push(Box::new(xor::xor_small_sigma0::XorCol::new(i)));
+        }
+
+        // XOR Small Sigma 1: 6 columns
+        for i in 0..6 {
+            self.columns
+                .push(Box::new(xor::xor_small_sigma1::XorCol::new(i)));
+        }
+
+        // XOR Big Sigma 0_0: 3 columns (low part)
+        for i in 0..3 {
+            self.columns
+                .push(Box::new(xor::xor_big_sigma0_0::XorCol::new(i)));
+        }
+
+        // XOR Big Sigma 0_1: 3 columns (high part)
+        for i in 0..3 {
+            self.columns
+                .push(Box::new(xor::xor_big_sigma0_1::XorCol::new(i)));
+        }
+
+        // XOR Big Sigma 1: 6 columns
+        for i in 0..6 {
+            self.columns
+                .push(Box::new(xor::xor_big_sigma1::XorCol::new(i)));
         }
 
         self

@@ -84,6 +84,11 @@ fn relation_entries(
         big_sigma0_1,
         big_sigma1_0,
         big_sigma1_1,
+        xor_small_sigma0,
+        xor_small_sigma1,
+        xor_big_sigma0_0,
+        xor_big_sigma0_1,
+        xor_big_sigma1,
         range_check_16,
     } = components;
 
@@ -109,6 +114,11 @@ fn relation_entries(
         add_to_relation_entries(big_sigma0_1, trace),
         add_to_relation_entries(big_sigma1_0, trace),
         add_to_relation_entries(big_sigma1_1, trace),
+        add_to_relation_entries(xor_small_sigma0, trace),
+        add_to_relation_entries(xor_small_sigma1, trace),
+        add_to_relation_entries(xor_big_sigma0_0, trace),
+        add_to_relation_entries(xor_big_sigma0_1, trace),
+        add_to_relation_entries(xor_big_sigma1, trace),
         add_to_relation_entries(range_check_16, trace),
     )
     .collect();
