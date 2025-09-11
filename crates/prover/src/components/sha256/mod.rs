@@ -22,8 +22,8 @@ const N_ROUNDS: usize = 64;
 // Main trace size
 const N_TRACE_COLUMNS: usize = 1
     + 2 * 16 // Message loading
-    + (64 - 16) * 2 * (6 + 4 + 2 + 2 + 2 + 2) // Message schedule
-    + 64 * (6 * 6 + 2 * 2 + 6 + 8 + 2 * 2 + 2 * 2 + 6 + 6 + 3 * 2 + 8 * 2); // Rounds
+    + (64 - 16) * 2 * (8 + 4 + 2 + 2 + 2 + 2) // Message schedule
+    + 64 * (6 * 6 + 2 * 2 + 2 * 8 + 2 * 2 + 2 * 2 + 6 + 6 + 3 * 2 + 8 * 2); // Rounds
 
 // Interaction trace size
 const N_SMALL_SIGMA0_0_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
@@ -159,19 +159,19 @@ pub struct InteractionClaimData {
 
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
-    pub small_sigma0_0: [Vec<[PackedM31; 6]>; N_SMALL_SIGMA0_0_LOOKUPS],
-    pub small_sigma0_1: [Vec<[PackedM31; 6]>; N_SMALL_SIGMA0_1_LOOKUPS],
-    pub small_sigma1_0: [Vec<[PackedM31; 5]>; N_SMALL_SIGMA1_0_LOOKUPS],
-    pub small_sigma1_1: [Vec<[PackedM31; 7]>; N_SMALL_SIGMA1_1_LOOKUPS],
+    pub small_sigma0_0: [Vec<[PackedM31; 7]>; N_SMALL_SIGMA0_0_LOOKUPS],
+    pub small_sigma0_1: [Vec<[PackedM31; 7]>; N_SMALL_SIGMA0_1_LOOKUPS],
+    pub small_sigma1_0: [Vec<[PackedM31; 6]>; N_SMALL_SIGMA1_0_LOOKUPS],
+    pub small_sigma1_1: [Vec<[PackedM31; 8]>; N_SMALL_SIGMA1_1_LOOKUPS],
     pub big_sigma0_0: [Vec<[PackedM31; 7]>; N_BIG_SIGMA0_0_LOOKUPS],
     pub big_sigma0_1: [Vec<[PackedM31; 7]>; N_BIG_SIGMA0_1_LOOKUPS],
-    pub big_sigma1_0: [Vec<[PackedM31; 6]>; N_BIG_SIGMA1_0_LOOKUPS],
-    pub big_sigma1_1: [Vec<[PackedM31; 6]>; N_BIG_SIGMA1_1_LOOKUPS],
-    pub xor_small_sigma0: [Vec<[PackedM31; 4]>; N_XOR_SMALL_SIGMA0_LOOKUPS],
-    pub xor_small_sigma1: [Vec<[PackedM31; 4]>; N_XOR_SMALL_SIGMA1_LOOKUPS],
+    pub big_sigma1_0: [Vec<[PackedM31; 7]>; N_BIG_SIGMA1_0_LOOKUPS],
+    pub big_sigma1_1: [Vec<[PackedM31; 7]>; N_BIG_SIGMA1_1_LOOKUPS],
+    pub xor_small_sigma0: [Vec<[PackedM31; 6]>; N_XOR_SMALL_SIGMA0_LOOKUPS],
+    pub xor_small_sigma1: [Vec<[PackedM31; 6]>; N_XOR_SMALL_SIGMA1_LOOKUPS],
     pub xor_big_sigma0_0: [Vec<[PackedM31; 3]>; N_XOR_BIG_SIGMA0_0_LOOKUPS],
     pub xor_big_sigma0_1: [Vec<[PackedM31; 3]>; N_XOR_BIG_SIGMA0_1_LOOKUPS],
-    pub xor_big_sigma1: [Vec<[PackedM31; 4]>; N_XOR_BIG_SIGMA1_LOOKUPS],
+    pub xor_big_sigma1: [Vec<[PackedM31; 6]>; N_XOR_BIG_SIGMA1_LOOKUPS],
     pub ch: [Vec<[PackedM31; 4]>; N_CH_LOOKUPS],
     pub maj: [Vec<[PackedM31; 4]>; N_MAJ_LOOKUPS],
     pub range_check_16: [Vec<[PackedM31; 1]>; N_RANGE_CHECK_16_LOOKUPS],

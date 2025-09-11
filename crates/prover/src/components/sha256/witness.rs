@@ -381,9 +381,6 @@ fn sigma(
     let [out0_lo, out0_hi, out1_lo, out1_hi, out2_0_lo, out2_1_lo, out2_0_hi, out2_1_hi] =
         get_output(sigma, [l0, l1, l2, h0, h1, h2]);
 
-    let out2_0 = out2_0_lo + out2_0_hi;
-    let out2_1 = out2_1_lo + out2_1_hi;
-
     *row[indexes.col_index] = out0_lo;
     indexes.col_index += 1;
     *row[indexes.col_index] = out0_hi;
@@ -392,24 +389,15 @@ fn sigma(
     indexes.col_index += 1;
     *row[indexes.col_index] = out1_hi;
     indexes.col_index += 1;
-    match sigma {
-        SigmaType::BigSigma0 => {
-            *row[indexes.col_index] = out2_0_lo;
-            indexes.col_index += 1;
-            *row[indexes.col_index] = out2_1_lo;
-            indexes.col_index += 1;
-            *row[indexes.col_index] = out2_0_hi;
-            indexes.col_index += 1;
-            *row[indexes.col_index] = out2_1_hi;
-            indexes.col_index += 1;
-        }
-        _ => {
-            *row[indexes.col_index] = out2_0;
-            indexes.col_index += 1;
-            *row[indexes.col_index] = out2_1;
-            indexes.col_index += 1;
-        }
-    }
+
+    *row[indexes.col_index] = out2_0_lo;
+    indexes.col_index += 1;
+    *row[indexes.col_index] = out2_1_lo;
+    indexes.col_index += 1;
+    *row[indexes.col_index] = out2_0_hi;
+    indexes.col_index += 1;
+    *row[indexes.col_index] = out2_1_hi;
+    indexes.col_index += 1;
 
     let xor_out2_lo = apply_xor(out2_0_lo, out2_1_lo);
     let xor_out2_hi = apply_xor(out2_0_hi, out2_1_hi);
@@ -424,24 +412,36 @@ fn sigma(
     match sigma {
         SigmaType::SmallSigma0 => {
             *lookup_data.small_sigma0_0[indexes.small_sigma0_0_index] =
-                [l1, l2, h2, out0_lo, out0_hi, out2_0];
+                [l1, l2, h2, out0_lo, out0_hi, out2_0_lo, out2_0_hi];
             indexes.small_sigma0_0_index += 1;
             *lookup_data.small_sigma0_1[indexes.small_sigma0_1_index] =
-                [l0, h0, h1, out1_lo, out1_hi, out2_1];
+                [l0, h0, h1, out1_lo, out1_hi, out2_1_lo, out2_1_hi];
             indexes.small_sigma0_1_index += 1;
-            *lookup_data.xor_small_sigma0[indexes.xor_small_sigma0_index] =
-                [out2_0, out2_1, xor_out2_lo, xor_out2_hi];
+            *lookup_data.xor_small_sigma0[indexes.xor_small_sigma0_index] = [
+                out2_0_lo,
+                out2_0_hi,
+                out2_1_lo,
+                out2_1_hi,
+                xor_out2_lo,
+                xor_out2_hi,
+            ];
             indexes.xor_small_sigma0_index += 1;
         }
         SigmaType::SmallSigma1 => {
             *lookup_data.small_sigma1_0[indexes.small_sigma1_0_index] =
-                [l0, h0, out0_lo, out0_hi, out2_0];
+                [l0, h0, out0_lo, out0_hi, out2_0_lo, out2_0_hi];
             indexes.small_sigma1_0_index += 1;
             *lookup_data.small_sigma1_1[indexes.small_sigma1_1_index] =
-                [l1, l2, h1, h2, out1_lo, out1_hi, out2_1];
+                [l1, l2, h1, h2, out1_lo, out1_hi, out2_1_lo, out2_1_hi];
             indexes.small_sigma1_1_index += 1;
-            *lookup_data.xor_small_sigma1[indexes.xor_small_sigma1_index] =
-                [out2_0, out2_1, xor_out2_lo, xor_out2_hi];
+            *lookup_data.xor_small_sigma1[indexes.xor_small_sigma1_index] = [
+                out2_0_lo,
+                out2_0_hi,
+                out2_1_lo,
+                out2_1_hi,
+                xor_out2_lo,
+                xor_out2_hi,
+            ];
             indexes.xor_small_sigma1_index += 1;
         }
         SigmaType::BigSigma0 => {
@@ -460,13 +460,19 @@ fn sigma(
         }
         SigmaType::BigSigma1 => {
             *lookup_data.big_sigma1_0[indexes.big_sigma1_0_index] =
-                [l0, h0, h1, out0_lo, out0_hi, out2_0];
+                [l0, h0, h1, out0_lo, out0_hi, out2_0_lo, out2_0_hi];
             indexes.big_sigma1_0_index += 1;
             *lookup_data.big_sigma1_1[indexes.big_sigma1_1_index] =
-                [l1, l2, h2, out1_lo, out1_hi, out2_1];
+                [l1, l2, h2, out1_lo, out1_hi, out2_1_lo, out2_1_hi];
             indexes.big_sigma1_1_index += 1;
-            *lookup_data.xor_big_sigma1[indexes.xor_big_sigma1_index] =
-                [out2_0, out2_1, xor_out2_lo, xor_out2_hi];
+            *lookup_data.xor_big_sigma1[indexes.xor_big_sigma1_index] = [
+                out2_0_lo,
+                out2_0_hi,
+                out2_1_lo,
+                out2_1_hi,
+                xor_out2_lo,
+                xor_out2_hi,
+            ];
             indexes.xor_big_sigma1_index += 1;
         }
     };
@@ -565,49 +571,49 @@ const fn decompose_u32(a: u32, sigma: SigmaType) -> [u32; 6] {
             a & MASK_SMALL_SIGMA0_L0,
             a & MASK_SMALL_SIGMA0_L1,
             a & MASK_SMALL_SIGMA0_L2,
-            a & MASK_SMALL_SIGMA0_H0,
-            a & MASK_SMALL_SIGMA0_H1,
-            a & MASK_SMALL_SIGMA0_H2,
+            a & MASK_SMALL_SIGMA0_H0 >> 16,
+            a & MASK_SMALL_SIGMA0_H1 >> 16,
+            a & MASK_SMALL_SIGMA0_H2 >> 16,
         ],
         SigmaType::SmallSigma1 => [
             a & MASK_SMALL_SIGMA1_L0,
             a & MASK_SMALL_SIGMA1_L1,
             a & MASK_SMALL_SIGMA1_L2,
-            a & MASK_SMALL_SIGMA1_H0,
-            a & MASK_SMALL_SIGMA1_H1,
-            a & MASK_SMALL_SIGMA1_H2,
+            a & MASK_SMALL_SIGMA1_H0 >> 16,
+            a & MASK_SMALL_SIGMA1_H1 >> 16,
+            a & MASK_SMALL_SIGMA1_H2 >> 16,
         ],
         SigmaType::BigSigma0 => [
             a & MASK_BIG_SIGMA0_L0,
             a & MASK_BIG_SIGMA0_L1,
             a & MASK_BIG_SIGMA0_L2,
-            a & MASK_BIG_SIGMA0_H0,
-            a & MASK_BIG_SIGMA0_H1,
-            a & MASK_BIG_SIGMA0_H2,
+            a & MASK_BIG_SIGMA0_H0 >> 16,
+            a & MASK_BIG_SIGMA0_H1 >> 16,
+            a & MASK_BIG_SIGMA0_H2 >> 16,
         ],
         SigmaType::BigSigma1 => [
             a & MASK_BIG_SIGMA1_L0,
             a & MASK_BIG_SIGMA1_L1,
             a & MASK_BIG_SIGMA1_L2,
-            a & MASK_BIG_SIGMA1_H0,
-            a & MASK_BIG_SIGMA1_H1,
-            a & MASK_BIG_SIGMA1_H2,
+            a & MASK_BIG_SIGMA1_H0 >> 16,
+            a & MASK_BIG_SIGMA1_H1 >> 16,
+            a & MASK_BIG_SIGMA1_H2 >> 16,
         ],
     }
 }
 
 fn get_output(sigma: SigmaType, [l0, l1, l2, h0, h1, h2]: [PackedM31; 6]) -> [PackedM31; 8] {
-    let input0 = match sigma {
-        SigmaType::SmallSigma0 => l1 + l2 + h2,
-        SigmaType::SmallSigma1 => l0 + h0,
-        SigmaType::BigSigma0 => l1 + l2 + h2,
-        SigmaType::BigSigma1 => l0 + h0 + h1,
+    let input0_u32 = match sigma {
+        SigmaType::SmallSigma0 => rebuild_word_from_limbs(&[l1, l2], &[h2]),
+        SigmaType::SmallSigma1 => rebuild_word_from_limbs(&[l0], &[h0]),
+        SigmaType::BigSigma0 => rebuild_word_from_limbs(&[l1, l2], &[h2]),
+        SigmaType::BigSigma1 => rebuild_word_from_limbs(&[l0], &[h0, h1]),
     };
-    let input1 = match sigma {
-        SigmaType::SmallSigma0 => l0 + h0 + h1,
-        SigmaType::SmallSigma1 => l1 + l2 + h1 + h2,
-        SigmaType::BigSigma0 => l0 + h0 + h1,
-        SigmaType::BigSigma1 => l1 + l2 + h2,
+    let input1_u32 = match sigma {
+        SigmaType::SmallSigma0 => rebuild_word_from_limbs(&[l0], &[h0, h1]),
+        SigmaType::SmallSigma1 => rebuild_word_from_limbs(&[l1, l2], &[h1, h2]),
+        SigmaType::BigSigma0 => rebuild_word_from_limbs(&[l0], &[h0, h1]),
+        SigmaType::BigSigma1 => rebuild_word_from_limbs(&[l1, l2], &[h2]),
     };
     let sigma_function_u32 = match sigma {
         SigmaType::SmallSigma0 => {
@@ -623,60 +629,69 @@ fn get_output(sigma: SigmaType, [l0, l1, l2, h0, h1, h2]: [PackedM31; 6]) -> [Pa
             |x: u32| x.rotate_right(2) ^ x.rotate_right(13) ^ x.rotate_right(22)
         }
     };
-    let sigma_function = |x: PackedM31| {
-        PackedM31::from_array(x.to_array().map(|x| M31::from(sigma_function_u32(x.0))))
-    };
-    let out0 = sigma_function(input0);
-    let out1 = sigma_function(input1);
+    let sigma_function = |x: [u32; N_LANES]| x.map(sigma_function_u32);
+    let out0_u32 = sigma_function(input0_u32);
+    let out1_u32 = sigma_function(input1_u32);
 
     // Extract output values using a helper function, similar to decompose pattern
     match sigma {
         SigmaType::SmallSigma0 => [
-            apply_mask(out0, MASK_SMALL_SIGMA0_OUT0_LO),
-            apply_mask(out0, MASK_SMALL_SIGMA0_OUT0_HI),
-            apply_mask(out1, MASK_SMALL_SIGMA0_OUT1_LO),
-            apply_mask(out1, MASK_SMALL_SIGMA0_OUT1_HI),
-            apply_mask(out0, MASK_SMALL_SIGMA0_OUT2_LO),
-            apply_mask(out1, MASK_SMALL_SIGMA0_OUT2_LO),
-            apply_mask(out0, MASK_SMALL_SIGMA0_OUT2_HI),
-            apply_mask(out1, MASK_SMALL_SIGMA0_OUT2_HI),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA0_OUT0_LO))),
+            PackedM31::from_array(
+                out0_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA0_OUT0_HI) >> 16)),
+            ),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA0_OUT1_LO))),
+            PackedM31::from_array(
+                out1_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA0_OUT1_HI) >> 16)),
+            ),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA0_OUT2_LO))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA0_OUT2_LO))),
+            PackedM31::from_array(
+                out0_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA0_OUT2_HI) >> 16)),
+            ),
+            PackedM31::from_array(
+                out1_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA0_OUT2_HI) >> 16)),
+            ),
         ],
         SigmaType::SmallSigma1 => [
-            apply_mask(out0, MASK_SMALL_SIGMA1_OUT0_LO),
-            apply_mask(out0, MASK_SMALL_SIGMA1_OUT0_HI),
-            apply_mask(out1, MASK_SMALL_SIGMA1_OUT1_LO),
-            apply_mask(out1, MASK_SMALL_SIGMA1_OUT1_HI),
-            apply_mask(out0, MASK_SMALL_SIGMA1_OUT2_LO),
-            apply_mask(out1, MASK_SMALL_SIGMA1_OUT2_LO),
-            apply_mask(out0, MASK_SMALL_SIGMA1_OUT2_HI),
-            apply_mask(out1, MASK_SMALL_SIGMA1_OUT2_HI),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA1_OUT0_LO))),
+            PackedM31::from_array(
+                out0_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA1_OUT0_HI) >> 16)),
+            ),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA1_OUT1_LO))),
+            PackedM31::from_array(
+                out1_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA1_OUT1_HI) >> 16)),
+            ),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA1_OUT2_LO))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_SMALL_SIGMA1_OUT2_LO))),
+            PackedM31::from_array(
+                out0_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA1_OUT2_HI) >> 16)),
+            ),
+            PackedM31::from_array(
+                out1_u32.map(|x| M31::from((x & MASK_SMALL_SIGMA1_OUT2_HI) >> 16)),
+            ),
         ],
         SigmaType::BigSigma0 => [
-            apply_mask(out0, MASK_BIG_SIGMA0_OUT0_LO),
-            apply_mask(out0, MASK_BIG_SIGMA0_OUT0_HI),
-            apply_mask(out1, MASK_BIG_SIGMA0_OUT1_LO),
-            apply_mask(out1, MASK_BIG_SIGMA0_OUT1_HI),
-            apply_mask(out0, MASK_BIG_SIGMA0_OUT2_LO),
-            apply_mask(out1, MASK_BIG_SIGMA0_OUT2_LO),
-            apply_mask(out0, MASK_BIG_SIGMA0_OUT2_HI),
-            apply_mask(out1, MASK_BIG_SIGMA0_OUT2_HI),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_BIG_SIGMA0_OUT0_LO))),
+            PackedM31::from_array(out0_u32.map(|x| M31::from((x & MASK_BIG_SIGMA0_OUT0_HI) >> 16))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_BIG_SIGMA0_OUT1_LO))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from((x & MASK_BIG_SIGMA0_OUT1_HI) >> 16))),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_BIG_SIGMA0_OUT2_LO))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_BIG_SIGMA0_OUT2_LO))),
+            PackedM31::from_array(out0_u32.map(|x| M31::from((x & MASK_BIG_SIGMA0_OUT2_HI) >> 16))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from((x & MASK_BIG_SIGMA0_OUT2_HI) >> 16))),
         ],
         SigmaType::BigSigma1 => [
-            apply_mask(out0, MASK_BIG_SIGMA1_OUT0_LO),
-            apply_mask(out0, MASK_BIG_SIGMA1_OUT0_HI),
-            apply_mask(out1, MASK_BIG_SIGMA1_OUT1_LO),
-            apply_mask(out1, MASK_BIG_SIGMA1_OUT1_HI),
-            apply_mask(out0, MASK_BIG_SIGMA1_OUT2_LO),
-            apply_mask(out1, MASK_BIG_SIGMA1_OUT2_LO),
-            apply_mask(out0, MASK_BIG_SIGMA1_OUT2_HI),
-            apply_mask(out1, MASK_BIG_SIGMA1_OUT2_HI),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_BIG_SIGMA1_OUT0_LO))),
+            PackedM31::from_array(out0_u32.map(|x| M31::from((x & MASK_BIG_SIGMA1_OUT0_HI) >> 16))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_BIG_SIGMA1_OUT1_LO))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from((x & MASK_BIG_SIGMA1_OUT1_HI) >> 16))),
+            PackedM31::from_array(out0_u32.map(|x| M31::from(x & MASK_BIG_SIGMA1_OUT2_LO))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from(x & MASK_BIG_SIGMA1_OUT2_LO))),
+            PackedM31::from_array(out0_u32.map(|x| M31::from((x & MASK_BIG_SIGMA1_OUT2_HI) >> 16))),
+            PackedM31::from_array(out1_u32.map(|x| M31::from((x & MASK_BIG_SIGMA1_OUT2_HI) >> 16))),
         ],
     }
-}
-
-/// Apply a bitwise mask to a PackedM31 value
-fn apply_mask(value: PackedM31, mask: u32) -> PackedM31 {
-    PackedM31::from_array(value.to_array().map(|x| M31::from(x.0 & mask)))
 }
 
 /// Apply a bitwise XOR to two PackedM31 values
@@ -763,10 +778,10 @@ fn add3_u32_unchecked(
     // Calculate carry using mask instead of comparison
     // For 16-bit addition: carry = (sum >> 16) & 0b11
     let sum_lo = a.lo + b.lo + c.lo;
-    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b10)));
 
     let sum_hi = a.hi + b.hi + c.hi + carry_lo;
-    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b10)));
 
     let res = Fu32 {
         lo: sum_lo - carry_lo * two_pow_16,
@@ -779,6 +794,29 @@ fn add3_u32_unchecked(
     *col_index += 1;
 
     res
+}
+
+/// Helper function to rebuild a 32-bit word from low and high limbs
+fn rebuild_word_from_limbs(low_limbs: &[PackedM31], high_limbs: &[PackedM31]) -> [u32; N_LANES] {
+    let mut result_array = [0u32; N_LANES];
+
+    for i in 0..N_LANES {
+        let mut word = 0u32;
+
+        // Combine low limbs with bitwise OR
+        for low_limb in low_limbs {
+            word |= low_limb.to_array()[i].0;
+        }
+
+        // Combine high limbs shifted by 16 bits
+        for high_limb in high_limbs {
+            word |= high_limb.to_array()[i].0 << 16;
+        }
+
+        result_array[i] = word;
+    }
+
+    result_array
 }
 
 impl InteractionClaim {
