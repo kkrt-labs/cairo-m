@@ -42,7 +42,7 @@ jobs:
       - name: Run benchmarks
         run: |
           cd crates/runner
-          cargo bench --bench vm_benchmark -- --output-format bencher | tee output.txt
+          cargo bench --bench vm_benchmark --profile release-lto -- --output-format bencher | tee output.txt
 
       - name: Store benchmark result (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

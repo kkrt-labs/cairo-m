@@ -42,12 +42,12 @@ jobs:
       - name: Run prover speed benchmarks
         run: |
           cd crates/prover
-          cargo bench --bench prover_speed_benchmark -- --output-format bencher | tee speed_output.txt
+          cargo bench --bench prover_speed_benchmark --profile release-lto -- --output-format bencher | tee speed_output.txt
 
       - name: Run prover memory benchmarks
         run: |
           cd crates/prover
-          cargo bench --bench prover_memory_benchmark -- --nocapture > mem_output.json
+          cargo bench --bench prover_memory_benchmark --profile release-lto -- --nocapture > mem_output.json
 
       - name: Store prover speed benchmark result (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
