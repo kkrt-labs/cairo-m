@@ -9,7 +9,6 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::bitwise::Bitwise;
-use crate::preprocessed::ch::Ch;
 use crate::preprocessed::range_check::RangeCheck;
 
 pub mod bitwise;
@@ -70,12 +69,45 @@ impl PreProcessedTraceBuilder {
     }
 
     pub fn with_sha256(mut self) -> Self {
-        // Add ch preprocessed columns for SHA256
-        // This adds 5 columns: variant_id, e, f, g, result
-        let ch = Ch::new();
-        for column in ch.columns() {
+        // Add ch preprocessed columns for SHA256 - 6 variants (l0, l1, l2, h0, h1, h2)
+        // Each variant adds 4 columns: e, f, g, result
+
+        // Add ch_l0 columns
+        let ch_l0 = ch::ch_l0::Columns::new();
+        for column in ch_l0.columns() {
             self.columns.push(Box::new(column));
         }
+
+        // Add ch_l1 columns
+        let ch_l1 = ch::ch_l1::Columns::new();
+        for column in ch_l1.columns() {
+            self.columns.push(Box::new(column));
+        }
+
+        // Add ch_l2 columns
+        let ch_l2 = ch::ch_l2::Columns::new();
+        for column in ch_l2.columns() {
+            self.columns.push(Box::new(column));
+        }
+
+        // Add ch_h0 columns
+        let ch_h0 = ch::ch_h0::Columns::new();
+        for column in ch_h0.columns() {
+            self.columns.push(Box::new(column));
+        }
+
+        // Add ch_h1 columns
+        let ch_h1 = ch::ch_h1::Columns::new();
+        for column in ch_h1.columns() {
+            self.columns.push(Box::new(column));
+        }
+
+        // Add ch_h2 columns
+        let ch_h2 = ch::ch_h2::Columns::new();
+        for column in ch_h2.columns() {
+            self.columns.push(Box::new(column));
+        }
+
         // TODO: Add maj preprocessed columns when implemented
         self
     }

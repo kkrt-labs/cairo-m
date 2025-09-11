@@ -92,8 +92,18 @@ struct Indexes {
     xor_big_sigma0_0_index: usize,
     xor_big_sigma0_1_index: usize,
     xor_big_sigma1_index: usize,
-    ch_index: usize,
-    maj_index: usize,
+    ch_l0_index: usize,
+    ch_l1_index: usize,
+    ch_l2_index: usize,
+    ch_h0_index: usize,
+    ch_h1_index: usize,
+    ch_h2_index: usize,
+    maj_l0_index: usize,
+    maj_l1_index: usize,
+    maj_l2_index: usize,
+    maj_h0_index: usize,
+    maj_h1_index: usize,
+    maj_h2_index: usize,
     range_check_16_index: usize,
 }
 
@@ -509,12 +519,23 @@ fn ch(
     lookup_data: &mut LookupDataMutChunk<'_>,
 ) -> Fu32<PackedM31> {
     let ch: [PackedM31; 6] = std::array::from_fn(|i| apply_ch(e[i], f[i], g[i]));
-    ch.iter().enumerate().for_each(|(i, x)| {
+    ch.iter().for_each(|x| {
         *row[indexes.col_index] = *x;
         indexes.col_index += 1;
-        *lookup_data.ch[indexes.ch_index] = [PackedM31::from(M31::from(i)), e[i], f[i], g[i], *x];
-        indexes.ch_index += 1;
     });
+
+    *lookup_data.ch_l0[indexes.ch_l0_index] = [e[0], f[0], g[0], ch[0]];
+    indexes.ch_l0_index += 1;
+    *lookup_data.ch_l1[indexes.ch_l1_index] = [e[1], f[1], g[1], ch[1]];
+    indexes.ch_l1_index += 1;
+    *lookup_data.ch_l2[indexes.ch_l2_index] = [e[2], f[2], g[2], ch[2]];
+    indexes.ch_l2_index += 1;
+    *lookup_data.ch_h0[indexes.ch_h0_index] = [e[3], f[3], g[3], ch[3]];
+    indexes.ch_h0_index += 1;
+    *lookup_data.ch_h1[indexes.ch_h1_index] = [e[4], f[4], g[4], ch[4]];
+    indexes.ch_h1_index += 1;
+    *lookup_data.ch_h2[indexes.ch_h2_index] = [e[5], f[5], g[5], ch[5]];
+    indexes.ch_h2_index += 1;
 
     Fu32 {
         lo: ch[0] + ch[1] + ch[2],
@@ -531,12 +552,23 @@ fn maj(
     lookup_data: &mut LookupDataMutChunk<'_>,
 ) -> Fu32<PackedM31> {
     let maj: [PackedM31; 6] = std::array::from_fn(|i| apply_maj(a[i], b[i], c[i]));
-    maj.iter().enumerate().for_each(|(i, x)| {
+    maj.iter().for_each(|x| {
         *row[indexes.col_index] = *x;
         indexes.col_index += 1;
-        *lookup_data.maj[indexes.maj_index] = [PackedM31::from(M31::from(i)), a[i], b[i], c[i], *x];
-        indexes.maj_index += 1;
     });
+
+    *lookup_data.maj_l0[indexes.maj_l0_index] = [a[0], b[0], c[0], maj[0]];
+    indexes.maj_l0_index += 1;
+    *lookup_data.maj_l1[indexes.maj_l1_index] = [a[1], b[1], c[1], maj[1]];
+    indexes.maj_l1_index += 1;
+    *lookup_data.maj_l2[indexes.maj_l2_index] = [a[2], b[2], c[2], maj[2]];
+    indexes.maj_l2_index += 1;
+    *lookup_data.maj_h0[indexes.maj_h0_index] = [a[3], b[3], c[3], maj[3]];
+    indexes.maj_h0_index += 1;
+    *lookup_data.maj_h1[indexes.maj_h1_index] = [a[4], b[4], c[4], maj[4]];
+    indexes.maj_h1_index += 1;
+    *lookup_data.maj_h2[indexes.maj_h2_index] = [a[5], b[5], c[5], maj[5]];
+    indexes.maj_h2_index += 1;
 
     Fu32 {
         lo: maj[0] + maj[1] + maj[2],
@@ -888,13 +920,13 @@ impl InteractionClaim {
             );
             generate_interaction_trace!(big_sigma1_0, 2 * i, big_sigma1_1, 2 * i);
             generate_interaction_trace!(xor_big_sigma1, 2 * i, range_check_16, 224 + 8 * i + 2);
-            generate_interaction_trace!(range_check_16, 224 + 8 * i + 3, ch, 12 * i);
-            generate_interaction_trace!(ch, 12 * i + 1, ch, 12 * i + 2);
-            generate_interaction_trace!(ch, 12 * i + 3, ch, 12 * i + 4);
-            generate_interaction_trace!(ch, 12 * i + 5, maj, 12 * i);
-            generate_interaction_trace!(maj, 12 * i + 1, maj, 12 * i + 2);
-            generate_interaction_trace!(maj, 12 * i + 3, maj, 12 * i + 4);
-            generate_interaction_trace!(maj, 12 * i + 5, big_sigma0_0, 2 * i + 1);
+            generate_interaction_trace!(range_check_16, 224 + 8 * i + 3, ch_l0, 2 * i);
+            generate_interaction_trace!(ch_l1, 2 * i, ch_l2, 2 * i);
+            generate_interaction_trace!(ch_h0, 2 * i, ch_h1, 2 * i);
+            generate_interaction_trace!(ch_h2, 2 * i, maj_l0, 2 * i);
+            generate_interaction_trace!(maj_l1, 2 * i, maj_l2, 2 * i);
+            generate_interaction_trace!(maj_h0, 2 * i, maj_h1, 2 * i);
+            generate_interaction_trace!(maj_h2, 2 * i, big_sigma0_0, 2 * i + 1);
             generate_interaction_trace!(big_sigma0_1, 2 * i + 1, xor_big_sigma0_0, 2 * i + 1);
             generate_interaction_trace!(
                 xor_big_sigma0_1,
@@ -910,12 +942,12 @@ impl InteractionClaim {
                 range_check_16,
                 224 + 8 * i + 7
             );
-            generate_interaction_trace!(ch, 12 * i + 6, ch, 12 * i + 7);
-            generate_interaction_trace!(ch, 12 * i + 8, ch, 12 * i + 9);
-            generate_interaction_trace!(ch, 12 * i + 10, ch, 12 * i + 11);
-            generate_interaction_trace!(maj, 12 * i + 6, maj, 12 * i + 7);
-            generate_interaction_trace!(maj, 12 * i + 8, maj, 12 * i + 9);
-            generate_interaction_trace!(maj, 12 * i + 10, maj, 12 * i + 11);
+            generate_interaction_trace!(ch_l0, 2 * i + 1, ch_l1, 2 * i + 1);
+            generate_interaction_trace!(ch_l2, 2 * i + 1, ch_h0, 2 * i + 1);
+            generate_interaction_trace!(ch_h1, 2 * i + 1, ch_h2, 2 * i + 1);
+            generate_interaction_trace!(maj_l0, 2 * i + 1, maj_l1, 2 * i + 1);
+            generate_interaction_trace!(maj_l2, 2 * i + 1, maj_h0, 2 * i + 1);
+            generate_interaction_trace!(maj_h1, 2 * i + 1, maj_h2, 2 * i + 1);
         }
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();

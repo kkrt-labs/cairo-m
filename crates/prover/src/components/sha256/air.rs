@@ -369,19 +369,41 @@ impl Eval {
     ) -> Fu32<E::F> {
         let ch: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
 
-        (0..6).for_each(|i| {
-            eval.add_to_relation(RelationEntry::new(
-                &self.relations.ch,
-                -E::EF::from(enabler.clone()),
-                &[
-                    E::F::from(M31::from(i)),
-                    e[i].clone(),
-                    f[i].clone(),
-                    g[i].clone(),
-                    ch[i].clone(),
-                ],
-            ));
-        });
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.ch_l0,
+            -E::EF::from(enabler.clone()),
+            &[e[0].clone(), f[0].clone(), g[0].clone(), ch[0].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.ch_l1,
+            -E::EF::from(enabler.clone()),
+            &[e[1].clone(), f[1].clone(), g[1].clone(), ch[1].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.ch_l2,
+            -E::EF::from(enabler.clone()),
+            &[e[2].clone(), f[2].clone(), g[2].clone(), ch[2].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.ch_h0,
+            -E::EF::from(enabler.clone()),
+            &[e[3].clone(), f[3].clone(), g[3].clone(), ch[3].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.ch_h1,
+            -E::EF::from(enabler.clone()),
+            &[e[4].clone(), f[4].clone(), g[4].clone(), ch[4].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.ch_h2,
+            -E::EF::from(enabler.clone()),
+            &[e[5].clone(), f[5].clone(), g[5].clone(), ch[5].clone()],
+        ));
 
         Fu32 {
             lo: ch[0].clone() + ch[1].clone() + ch[2].clone(),
@@ -399,19 +421,41 @@ impl Eval {
     ) -> Fu32<E::F> {
         let maj: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
 
-        (0..6).for_each(|i| {
-            eval.add_to_relation(RelationEntry::new(
-                &self.relations.maj,
-                -E::EF::from(enabler.clone()),
-                &[
-                    E::F::from(M31::from(i)),
-                    a[i].clone(),
-                    b[i].clone(),
-                    c[i].clone(),
-                    maj[i].clone(),
-                ],
-            ));
-        });
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.maj_l0,
+            -E::EF::from(enabler.clone()),
+            &[a[0].clone(), b[0].clone(), c[0].clone(), maj[0].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.maj_l1,
+            -E::EF::from(enabler.clone()),
+            &[a[1].clone(), b[1].clone(), c[1].clone(), maj[1].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.maj_l2,
+            -E::EF::from(enabler.clone()),
+            &[a[2].clone(), b[2].clone(), c[2].clone(), maj[2].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.maj_h0,
+            -E::EF::from(enabler.clone()),
+            &[a[3].clone(), b[3].clone(), c[3].clone(), maj[3].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.maj_h1,
+            -E::EF::from(enabler.clone()),
+            &[a[4].clone(), b[4].clone(), c[4].clone(), maj[4].clone()],
+        ));
+
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.maj_h2,
+            -E::EF::from(enabler.clone()),
+            &[a[5].clone(), b[5].clone(), c[5].clone(), maj[5].clone()],
+        ));
 
         Fu32 {
             lo: maj[0].clone() + maj[1].clone() + maj[2].clone(),
