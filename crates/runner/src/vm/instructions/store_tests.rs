@@ -28,7 +28,11 @@ fn run_store_test(
 
     let expected_memory = Memory::from_iter(expected_mem.iter().copied().map(Into::into));
     assert_eq!(
-        memory.data, expected_memory.data,
+        memory.locals, expected_memory.locals,
+        "memory mismatch after executing {instruction:?}"
+    );
+    assert_eq!(
+        memory.heap, expected_memory.heap,
         "memory mismatch after executing {instruction:?}"
     );
     assert_eq!(new_state.pc, M31(expected_pc));

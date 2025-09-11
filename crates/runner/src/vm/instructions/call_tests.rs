@@ -20,7 +20,8 @@ fn test_call_abs_imm_2_args() {
         fp: M31(5),
     };
 
-    assert_eq!(memory.data, expected_memory.data);
+    assert_eq!(memory.locals, expected_memory.locals);
+    assert_eq!(memory.heap, expected_memory.heap);
     assert_eq!(next_state, expected_state);
 }
 
@@ -41,7 +42,8 @@ fn test_ret() {
         fp: M31(11),
     };
 
-    assert_eq!(memory.data, expected_memory.data);
+    assert_eq!(memory.locals, expected_memory.locals);
+    assert_eq!(memory.heap, expected_memory.heap);
     assert_eq!(next_state, expected_state);
 }
 
@@ -60,6 +62,7 @@ fn test_ret_call_abs_imm_2_args() {
 
     let expected_memory = Memory::from_iter([10, 11, 12, 0, 1].map(Into::into));
 
-    assert_eq!(memory.data, expected_memory.data);
+    assert_eq!(memory.locals, expected_memory.locals);
+    assert_eq!(memory.heap, expected_memory.heap);
     assert_eq!(ret_state, initial_state.advance_by(1));
 }

@@ -12,10 +12,11 @@ use thiserror::Error;
 /// The number of M31 values that make up a single QM31.
 const M31S_IN_QM31: usize = 4;
 
-/// The maximum number of bits for a memory address, set to 30.
-/// This limits the memory size to 2^30 elements.
-// TODO: check with Starkware
-const MAX_MEMORY_SIZE_BITS: u8 = 30;
+/// The maximum number of bits for a memory address, set to 28.
+/// This limits the memory size to 2^28 elements.
+const MAX_MEMORY_SIZE_BITS: u8 = 28;
+
+pub const MAX_ADDRESS: usize = (1 << MAX_MEMORY_SIZE_BITS) - 1;
 
 /// Number of bits in a U32 limb (16 bits per limb for 32-bit values)
 pub const U32_LIMB_BITS: u32 = 16;
@@ -45,9 +46,12 @@ pub enum MemoryError {
 /// Memory is addressable by `M31` field elements and stores `QM31` values.
 #[derive(Debug, Clone, Default)]
 pub struct Memory {
-    /// The index of the vector corresponds to the memory address.
-    /// Instructions and data are stored as `QM31` values.
-    pub data: Vec<QM31>,
+    /// Memory is split between local values containing the program and stack, and the heap.
+    /// From the VM point of view, there is no distinction between the two.
+    /// Addresses close to 0 will be appended to the locals vector, and addresses close to ADDRESS_MAX will be appended to the heap vector, with addresses going downwards :
+    /// heap[i] maps to ADDRESS_MAX - i
+    pub(crate) locals: Vec<QM31>,
+    pub(crate) heap: Vec<QM31>,
     /// A trace of memory accesses.
     ///
     /// The trace is wrapped in a `RefCell` to enable interior mutability. This
@@ -68,7 +72,7 @@ impl Memory {
     ///
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     const fn validate_address(addr: M31) -> Result<(), MemoryError> {
-        let max_addr = 1 << MAX_MEMORY_SIZE_BITS;
+        let max_addr = MAX_ADDRESS as u32;
         if addr.0 > max_addr {
             return Err(MemoryError::AddressOutOfBounds { addr, max_addr });
         }
@@ -94,7 +98,7 @@ impl Memory {
         // Fetch first QM31 word
         let address = addr.0 as usize;
         let first_qm31 = self
-            .data
+            .locals
             .get(address)
             .copied()
             .ok_or(MemoryError::UninitializedMemoryCell { addr })?;
@@ -135,7 +139,7 @@ impl Memory {
         for i in 1..size_in_qm31s {
             let next_addr = addr + M31::from(i as u32);
             let qm31_word = self
-                .data
+                .locals
                 .get(next_addr.0 as usize)
                 .copied()
                 .ok_or(MemoryError::UninitializedMemoryCell { addr: next_addr })?;
@@ -153,6 +157,36 @@ impl Memory {
         Ok(instruction_m31s)
     }
 
+    /// Retrieves a `QM31` value from memory without recording a trace entry.
+    ///
+    /// This method is a helper for the get_data and get_data_no_trace methods.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The `M31` memory address to read from.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
+    /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
+    /// cannot be projected to a base field element.
+    fn get_qm31_no_trace(&self, addr: M31) -> Result<QM31, MemoryError> {
+        Self::validate_address(addr)?;
+        let address = addr.0 as usize;
+        let locals_address = address;
+        let heap_address = MAX_ADDRESS - address;
+        let value = self
+            .locals
+            .get(locals_address)
+            .copied()
+            .or_else(|| self.heap.get(heap_address).copied())
+            .unwrap_or_else(QM31::zero);
+        if !value.1.is_zero() || !value.0 .1.is_zero() {
+            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
+        }
+        Ok(value)
+    }
+
     /// Retrieves a value from memory and projects it to a base field element `M31`.
     ///
     /// This is used for instruction arguments or other data that are expected to
@@ -165,14 +199,11 @@ impl Memory {
     ///
     /// # Errors
     ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
-        let address = addr.0 as usize;
-        let value = self.data.get(address).copied().unwrap_or_default();
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
-        }
+        let value = self.get_qm31_no_trace(addr)?;
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(value.0 .0)
     }
@@ -187,21 +218,16 @@ impl Memory {
     ///
     /// # Errors
     ///
+    /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     /// Returns [`MemoryError::BaseFieldProjectionFailed`] if the value at the address
     /// cannot be projected to a base field element.
     pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
-        let address = addr.0 as usize;
-        let value = self.data.get(address).copied().unwrap_or_default();
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
-            return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
-        }
+        let value = self.get_qm31_no_trace(addr)?;
         Ok(value.0 .0)
     }
 
     /// Inserts a `QM31` value at a specified validated memory address.
     ///
-    /// If the address is beyond the current memory size, the memory is
-    /// automatically extended and padded with zeros up to the new address.
     ///
     /// # Arguments
     ///
@@ -212,14 +238,7 @@ impl Memory {
     ///
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub fn insert(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
-        Self::validate_address(addr)?;
-        let address = addr.0 as usize;
-
-        // Resize vector if necessary
-        if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
-        }
-        self.data[address] = value;
+        self.insert_no_trace(addr, value)?;
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
         Ok(())
     }
@@ -236,60 +255,28 @@ impl Memory {
     /// Returns [`MemoryError::AddressOutOfBounds`] if the address exceeds the maximum allowed size.
     pub(crate) fn insert_no_trace(&mut self, addr: M31, value: QM31) -> Result<(), MemoryError> {
         Self::validate_address(addr)?;
-        let address = addr.0 as usize;
-        if address >= self.data.len() {
-            self.data.resize(address + 1, QM31::zero());
-        }
-        self.data[address] = value;
-        Ok(())
-    }
+        let locals_address = addr.0 as usize;
+        let heap_address = MAX_ADDRESS - addr.0 as usize;
 
-    /// Inserts a slice of `QM31` values starting from a given address.
-    ///
-    /// It validates that both the start and end addresses of the slice are
-    /// within memory limits. The memory is resized if necessary to accommodate
-    /// the new data.
-    ///
-    /// # Arguments
-    ///
-    /// * `start_addr` - The `M31` starting address for the slice.
-    /// * `values` - The slice of `QM31` values to insert.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`MemoryError::AddressOutOfBounds`] if any address in the range exceeds the maximum allowed size.
-    pub fn insert_slice(&mut self, start_addr: M31, values: &[QM31]) -> Result<(), MemoryError> {
-        if values.is_empty() {
+        if locals_address < self.locals.len() {
+            self.locals[locals_address] = value;
             return Ok(());
         }
-
-        // Check that the entire slice fits within memory limits
-        let start_address = start_addr.0 as usize;
-        let slice_len = values.len();
-        // Since we already checked for empty slice, slice_len >= 1
-        let last_addr = start_addr.0.checked_add((slice_len - 1) as u32).ok_or(
-            MemoryError::AddressOutOfBounds {
-                addr: start_addr,
-                max_addr: 1 << MAX_MEMORY_SIZE_BITS,
-            },
-        )?;
-        Self::validate_address(last_addr.into())?;
-
-        let end_address = last_addr as usize + 1;
-
-        // Resize vector if necessary
-        if end_address > self.data.len() {
-            self.data.resize(end_address, QM31::zero());
+        if heap_address < self.heap.len() {
+            self.heap[heap_address] = value;
+            return Ok(());
         }
+        // Find nearest vector to resize
+        let locals_distance = locals_address - self.locals.len();
+        let heap_distance = heap_address - self.heap.len();
+        if locals_distance < heap_distance {
+            self.locals.resize(locals_address + 1, QM31::zero());
+            self.locals[locals_address] = value;
+            return Ok(());
+        }
+        self.heap.resize(heap_address + 1, QM31::zero());
+        self.heap[heap_address] = value;
 
-        // Copy the slice into memory
-        self.data[start_address..end_address].copy_from_slice(values);
-        self.trace
-            .borrow_mut()
-            .extend(values.iter().enumerate().map(|(i, value)| MemoryEntry {
-                addr: start_addr + M31(i as u32),
-                value: *value,
-            }));
         Ok(())
     }
 
@@ -326,17 +313,18 @@ impl Memory {
 
         let fp_min_two_addr = fp_min_two.0 as usize;
         let fp_min_one_addr = fp_min_one.0 as usize;
-        if fp_min_one_addr >= self.data.len() {
-            self.data.resize(fp_min_one_addr + 1, QM31::zero());
+        if fp_min_one_addr >= self.locals.len() {
+            self.locals.resize(fp_min_one_addr + 1, QM31::zero());
         }
 
-        self.data[fp_min_two_addr] = QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into));
-        self.data[fp_min_one_addr] = QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into));
+        self.locals[fp_min_two_addr] = QM31::from_m31_array([fp.0, 0, 0, 0].map(Into::into));
+        self.locals[fp_min_one_addr] = QM31::from_m31_array([final_pc.0, 0, 0, 0].map(Into::into));
 
         Ok(())
     }
 
     /// Extends the memory by appending values from an iterator.
+    /// We will assume an empty heap and extend the locals vector.
     ///
     /// # Arguments
     ///
@@ -345,7 +333,7 @@ impl Memory {
     where
         I: IntoIterator<Item = QM31>,
     {
-        self.data.extend(iter);
+        self.locals.extend(iter);
     }
 
     /// Serializes the trace to a byte vector.
@@ -421,10 +409,12 @@ impl Memory {
     }
 }
 
+/// Since this is used to load programs, we dump the iterator into the locals vector.
 impl FromIterator<QM31> for Memory {
     fn from_iter<I: IntoIterator<Item = QM31>>(iter: I) -> Self {
         Self {
-            data: iter.into_iter().collect(),
+            locals: iter.into_iter().collect(),
+            heap: vec![],
             trace: RefCell::new(Vec::new()),
         }
     }
@@ -439,8 +429,10 @@ mod tests {
     #[test]
     fn test_default() {
         let memory = Memory::default();
-        assert!(memory.data.is_empty());
-        assert_eq!(memory.data.len(), 0);
+        assert!(memory.locals.is_empty());
+        assert_eq!(memory.locals.len(), 0);
+        assert!(memory.heap.is_empty());
+        assert_eq!(memory.heap.len(), 0);
     }
 
     #[test]
@@ -452,7 +444,8 @@ mod tests {
         data[42] = value;
 
         let memory = Memory {
-            data,
+            locals: data,
+            heap: vec![],
             trace: RefCell::new(Vec::new()),
         };
 
@@ -481,7 +474,8 @@ mod tests {
         let mut data: Vec<QM31> = vec![QM31::zero(); 43];
         data[42] = value;
         let memory = Memory {
-            data,
+            locals: data,
+            heap: vec![],
             trace: RefCell::new(Vec::new()),
         };
 
@@ -525,8 +519,8 @@ mod tests {
         let addr = M31(100);
         let value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.data.len(), 101);
-        assert_eq!(memory.data[100], value);
+        assert_eq!(memory.locals.len(), 101);
+        assert_eq!(memory.locals[100], value);
         assert_eq!(memory.trace.borrow().len(), 1);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
     }
@@ -541,7 +535,7 @@ mod tests {
         memory.insert(addr, value).unwrap();
         let instruction_m31s = memory.get_instruction(addr).unwrap();
         assert_eq!(instruction_m31s.as_slice(), &[M31(9), M31(123), M31(0)]);
-        assert_eq!(memory.data.len(), 43);
+        assert_eq!(memory.locals.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
         assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
@@ -555,7 +549,7 @@ mod tests {
 
         memory.insert(addr, value).unwrap();
         assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
-        assert_eq!(memory.data.len(), 43);
+        assert_eq!(memory.locals.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });
         assert_eq!(memory.trace.borrow()[1], MemoryEntry { addr, value });
@@ -565,49 +559,17 @@ mod tests {
     fn test_validate_address() {
         assert!(Memory::validate_address(100.into()).is_ok());
         assert!(Memory::validate_address(1_000_000.into()).is_ok());
-        assert!(Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) - 1)).is_ok());
-        assert!(Memory::validate_address((1 << MAX_MEMORY_SIZE_BITS).into()).is_ok());
+        assert!(Memory::validate_address(M31::from(MAX_ADDRESS)).is_ok());
+        assert!(Memory::validate_address(M31::from(MAX_ADDRESS + 1)).is_err());
     }
 
     #[test]
     fn test_validate_address_out_of_bounds() {
-        let result = Memory::validate_address(M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1));
+        let result = Memory::validate_address(M31::from(MAX_ADDRESS + 1));
         assert!(matches!(
             result,
             Err(MemoryError::AddressOutOfBounds { .. })
         ));
-    }
-
-    #[test]
-    fn test_insert_slice() {
-        let mut memory = Memory::default();
-        let start_addr = M31(10);
-
-        // Insert valid instructions in QM31 words:
-        // QM31[0]: store_imm (opcode 5, size 3): imm=100, dst_off=0
-        // QM31[1]: jmp_abs_imm (opcode 12, size 2): target=42
-        let values = vec![
-            QM31::from_m31_array([5, 100, 0, 0].map(Into::into)), // store_imm
-            QM31::from_m31_array([12, 42, 11, 0].map(Into::into)), // jmp_abs_imm
-        ];
-
-        memory.insert_slice(start_addr, &values).unwrap();
-
-        // Verify data is stored correctly by checking raw data
-        assert_eq!(memory.data[10], values[0]);
-        assert_eq!(memory.data[11], values[1]);
-
-        assert_eq!(memory.trace.borrow().len(), 2);
-        // Trace entries from `insert_slice`
-        for (i, value) in values.iter().enumerate() {
-            assert_eq!(
-                memory.trace.borrow()[i],
-                MemoryEntry {
-                    addr: start_addr + M31(i as u32),
-                    value: *value
-                }
-            );
-        }
     }
 
     #[test]
@@ -622,7 +584,8 @@ mod tests {
             QM31::from_m31_array([4, 0, 0, 0].map(Into::into)),  // Last M31 + padding
         ];
 
-        memory.insert_slice(start_addr, &values).unwrap();
+        memory.insert(start_addr, values[0]).unwrap();
+        memory.insert(start_addr + M31(1), values[1]).unwrap();
 
         // Clear trace to test get_instruction operations
         memory.trace.borrow_mut().clear();
@@ -650,30 +613,6 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_slice_start_addr_out_of_bounds() {
-        let mut memory = Memory::default();
-        let invalid_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) + 1);
-        let values = vec![QM31::zero()];
-        let result = memory.insert_slice(invalid_addr, &values);
-        assert!(matches!(
-            result,
-            Err(MemoryError::AddressOutOfBounds { .. })
-        ));
-    }
-
-    #[test]
-    fn test_insert_slice_end_addr_out_of_bounds() {
-        let mut memory = Memory::default();
-        let start_addr = M31::from((1 << MAX_MEMORY_SIZE_BITS) - 5);
-        let values = vec![QM31::zero(); 10];
-        let result = memory.insert_slice(start_addr, &values);
-        assert!(matches!(
-            result,
-            Err(MemoryError::AddressOutOfBounds { .. })
-        ));
-    }
-
-    #[test]
     fn test_extend() {
         let mut memory = Memory::default();
         let values = vec![
@@ -682,7 +621,7 @@ mod tests {
             QM31::from_m31_array([30, 0, 0, 0].map(Into::into)),
         ];
         memory.extend(values);
-        assert_eq!(memory.data.len(), 3);
+        assert_eq!(memory.locals.len(), 3);
         assert_eq!(memory.get_data(0.into()).unwrap(), M31(10));
         assert_eq!(memory.get_data(1.into()).unwrap(), M31(20));
         assert_eq!(memory.get_data(2.into()).unwrap(), M31(30));
@@ -696,14 +635,14 @@ mod tests {
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into)),
         ];
         let memory: Memory = values.into_iter().collect();
-        assert_eq!(memory.data.len(), 2);
+        assert_eq!(memory.locals.len(), 2);
         // Verify data is stored correctly by checking raw data
         assert_eq!(
-            memory.data[0],
+            memory.locals[0],
             QM31::from_m31_array([100, 0, 0, 0].map(Into::into))
         );
         assert_eq!(
-            memory.data[1],
+            memory.locals[1],
             QM31::from_m31_array([200, 0, 0, 0].map(Into::into))
         );
     }
@@ -729,5 +668,140 @@ mod tests {
                 .as_flattened(),
         );
         assert_eq!(serialized_trace, expected_bytes);
+    }
+
+    #[test]
+    fn test_heap_insert_and_get() {
+        let mut memory = Memory::default();
+        let heap_addr = M31(MAX_ADDRESS as u32); // Maximum address (heap index 0)
+        let heap_value = QM31::from_m31_array([42, 0, 0, 0].map(Into::into));
+
+        // Insert into heap
+        memory.insert(heap_addr, heap_value).unwrap();
+
+        // Verify heap vector grows and stores value
+        assert_eq!(memory.heap.len(), 1);
+        assert_eq!(memory.heap[0], heap_value);
+        assert_eq!(memory.locals.len(), 0); // Locals should be empty
+
+        // Verify we can read back the data
+        assert_eq!(memory.get_data(heap_addr).unwrap(), M31(42));
+
+        // Verify trace entries
+        assert_eq!(memory.trace.borrow().len(), 2); // insert + get
+        assert_eq!(
+            memory.trace.borrow()[0],
+            MemoryEntry {
+                addr: heap_addr,
+                value: heap_value
+            }
+        );
+        assert_eq!(
+            memory.trace.borrow()[1],
+            MemoryEntry {
+                addr: heap_addr,
+                value: heap_value
+            }
+        );
+    }
+
+    #[test]
+    fn test_heap_multiple_addresses() {
+        let mut memory = Memory::default();
+
+        // Insert at multiple heap addresses (high addresses map to low heap indices)
+        let addr1 = M31(MAX_ADDRESS as u32); // heap index 0
+        let addr2 = M31(MAX_ADDRESS as u32 - 5); // heap index 5
+        let addr3 = M31(MAX_ADDRESS as u32 - 10); // heap index 10
+
+        let value1 = QM31::from_m31_array([1, 0, 0, 0].map(Into::into));
+        let value2 = QM31::from_m31_array([2, 0, 0, 0].map(Into::into));
+        let value3 = QM31::from_m31_array([3, 0, 0, 0].map(Into::into));
+
+        memory.insert(addr1, value1).unwrap();
+        memory.insert(addr2, value2).unwrap();
+        memory.insert(addr3, value3).unwrap();
+
+        // Heap should grow to accommodate highest heap index (10)
+        assert_eq!(memory.heap.len(), 11); // 0 to 10 inclusive
+        assert_eq!(memory.heap[0], value1);
+        assert_eq!(memory.heap[5], value2);
+        assert_eq!(memory.heap[10], value3);
+
+        // Verify unwritten addresses are zero
+        assert_eq!(memory.heap[1], QM31::zero());
+        assert_eq!(memory.heap[7], QM31::zero());
+    }
+
+    #[test]
+    fn test_heap_get_from_empty_address() {
+        let memory = Memory::default();
+        let heap_addr = M31(MAX_ADDRESS as u32);
+
+        // Getting from uninitialized heap address should return zero
+        assert_eq!(memory.get_data(heap_addr).unwrap(), M31::zero());
+
+        // Should create trace entry
+        assert_eq!(memory.trace.borrow().len(), 1);
+        assert_eq!(
+            memory.trace.borrow()[0],
+            MemoryEntry {
+                addr: heap_addr,
+                value: QM31::zero()
+            }
+        );
+    }
+
+    #[test]
+    fn test_mixed_locals_and_heap() {
+        let mut memory = Memory::default();
+
+        // Insert into locals
+        let locals_addr = M31(100);
+        let locals_value = QM31::from_m31_array([1, 0, 0, 0].map(Into::into));
+        memory.insert(locals_addr, locals_value).unwrap();
+
+        // Insert into heap
+        let heap_addr = M31(MAX_ADDRESS as u32);
+        let heap_value = QM31::from_m31_array([5, 0, 0, 0].map(Into::into));
+        memory.insert(heap_addr, heap_value).unwrap();
+
+        // Verify both vectors are populated correctly
+        assert_eq!(memory.locals.len(), 101);
+        assert_eq!(memory.locals[100], locals_value);
+        assert_eq!(memory.heap.len(), 1);
+        assert_eq!(memory.heap[0], heap_value);
+
+        // Verify we can read from both
+        assert_eq!(memory.get_data(locals_addr).unwrap(), M31(1));
+        assert_eq!(memory.get_data(heap_addr).unwrap(), M31(5));
+
+        // Verify trace has all operations
+        assert_eq!(memory.trace.borrow().len(), 4);
+    }
+
+    #[test]
+    fn test_heap_boundary_address() {
+        let mut memory = Memory::default();
+
+        // Test exactly at maximum address (heap index 0)
+        let max_addr = M31(MAX_ADDRESS as u32);
+        let heap_value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
+
+        memory.insert(max_addr, heap_value).unwrap();
+
+        assert_eq!(memory.heap.len(), 1);
+        assert_eq!(memory.heap[0], heap_value);
+        assert_eq!(memory.locals.len(), 0);
+
+        // Test a lower address that should go to locals (not close to max)
+        let locals_addr = M31(1000);
+        let locals_value = QM31::from_m31_array([456, 0, 0, 0].map(Into::into));
+
+        memory.insert(locals_addr, locals_value).unwrap();
+
+        assert_eq!(memory.locals.len(), 1001); // 0 to 1000 inclusive
+        assert_eq!(memory.locals[1000], locals_value);
+        assert_eq!(memory.heap.len(), 1); // Heap unchanged
     }
 }

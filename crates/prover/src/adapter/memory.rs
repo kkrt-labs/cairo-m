@@ -233,7 +233,11 @@ where
     ///
     /// ## Returns
     /// A new iterator that will produce execution bundles
-    pub fn new(trace_iter: T, memory_iter: M, initial_memory: Vec<QM31>) -> Self {
+    pub fn new(
+        trace_iter: T,
+        memory_iter: M,
+        initial_memory: HashMap<M31, (QM31, M31, M31)>,
+    ) -> Self {
         Self {
             trace_iter: trace_iter.peekable(),
             memory_iter: memory_iter.peekable(),
@@ -408,15 +412,10 @@ impl Memory {
     ///
     /// ## Returns
     /// A new Memory instance ready for execution trace processing
-    pub fn new(initial_memory: Vec<QM31>) -> Self {
-        let initial_memory_hashmap: HashMap<M31, (QM31, M31, M31)> = initial_memory
-            .iter()
-            .enumerate()
-            .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero())))
-            .collect();
+    pub fn new(initial_memory: HashMap<M31, (QM31, M31, M31)>) -> Self {
         Self {
-            initial_memory: initial_memory_hashmap.clone(),
-            final_memory: initial_memory_hashmap,
+            initial_memory: initial_memory.clone(),
+            final_memory: initial_memory,
             clock_update_data: Vec::new(),
         }
     }
@@ -766,6 +765,12 @@ mod tests {
             QM31::from_u32_unchecked(10, 20, 30, 40),
             QM31::from_u32_unchecked(50, 60, 70, 80),
         ];
+        let initial_memory = HashMap::from_iter(
+            initial_memory
+                .iter()
+                .enumerate()
+                .map(|(i, value)| (M31::from(i as u32), (*value, M31::zero(), M31::zero()))),
+        );
         let mut memory = Memory::new(initial_memory);
 
         // Verify initial state
