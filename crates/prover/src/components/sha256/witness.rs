@@ -156,13 +156,16 @@ impl Claim {
             .for_each(|(mut row, message, mut lookup_data)| {
                 let mut indexes = Indexes::default();
 
-                let K: [Fu32<PackedM31>; 64] = std::array::from_fn(|_| Fu32::zero());
-                let mut H: [Fu32<PackedM31>; 8] = std::array::from_fn(|_| Fu32::zero());
+                // Allocate large arrays on heap to avoid stack overflow
+                let K: Box<[Fu32<PackedM31>; 64]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
+                let mut H: Box<[Fu32<PackedM31>; 8]> =
+                    Box::new(std::array::from_fn(|_| Fu32::zero()));
 
                 // ╔════════════════════════════════════╗
                 // ║             Scheduling             ║
                 // ╚════════════════════════════════════╝
-                let mut W: [Fu32<PackedM31>; 64] = std::array::from_fn(|_| Fu32::zero());
+                let mut W: Box<[Fu32<PackedM31>; 64]> =
+                    Box::new(std::array::from_fn(|_| Fu32::zero()));
 
                 // Load message
                 (0..16).for_each(|i| {
@@ -826,7 +829,7 @@ fn add3_u32_unchecked(
 fn rebuild_word_from_limbs(low_limbs: &[PackedM31], high_limbs: &[PackedM31]) -> [u32; N_LANES] {
     let mut result_array = [0u32; N_LANES];
 
-    for i in 0..N_LANES {
+    result_array.iter_mut().enumerate().for_each(|(i, result)| {
         let mut word = 0u32;
 
         // Combine low limbs with bitwise OR
@@ -839,8 +842,8 @@ fn rebuild_word_from_limbs(low_limbs: &[PackedM31], high_limbs: &[PackedM31]) ->
             word |= high_limb.to_array()[i].0 << 16;
         }
 
-        result_array[i] = word;
-    }
+        *result = word;
+    });
 
     result_array
 }

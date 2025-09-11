@@ -162,6 +162,14 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         maj_h0,
         maj_h1,
         maj_h2,
+        small_sigma0_0,
+        small_sigma0_1,
+        small_sigma1_0,
+        small_sigma1_1,
+        big_sigma0_0,
+        big_sigma0_1,
+        big_sigma1_0,
+        big_sigma1_1,
         range_check_8,
         range_check_16,
         range_check_20,
@@ -209,6 +217,14 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(maj_h0, &trace);
     assert_component(maj_h1, &trace);
     assert_component(maj_h2, &trace);
+    assert_component(small_sigma0_0, &trace);
+    assert_component(small_sigma0_1, &trace);
+    assert_component(small_sigma1_0, &trace);
+    assert_component(small_sigma1_1, &trace);
+    assert_component(big_sigma0_0, &trace);
+    assert_component(big_sigma0_1, &trace);
+    assert_component(big_sigma1_0, &trace);
+    assert_component(big_sigma1_1, &trace);
     assert_component(range_check_8, &trace);
     assert_component(range_check_16, &trace);
     assert_component(range_check_20, &trace);

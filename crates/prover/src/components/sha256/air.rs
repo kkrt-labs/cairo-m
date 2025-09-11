@@ -18,13 +18,14 @@ impl FrameworkEval for Eval {
     }
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::EF::one();
-        let K: [Fu32<E::F>; 64] = std::array::from_fn(|_| Fu32::zero());
-        let mut H: [Fu32<E::F>; 8] = std::array::from_fn(|_| Fu32::zero());
+        // Allocate large arrays on heap to avoid stack overflow
+        let K: Box<[Fu32<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
+        let mut H: Box<[Fu32<E::F>; 8]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
 
         // ╔════════════════════════════════════╗
         // ║             Scheduling             ║
         // ╚════════════════════════════════════╝
-        let mut W: [Fu32<E::F>; 64] = std::array::from_fn(|_| Fu32::zero());
+        let mut W: Box<[Fu32<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
 
         // Load message
         (0..16).for_each(|i| {

@@ -27,6 +27,10 @@ use crate::preprocessed::ch_maj::{
     ch_h0, ch_h1, ch_h2, ch_l0, ch_l1, ch_l2, maj_h0, maj_h1, maj_h2, maj_l0, maj_l1, maj_l2,
 };
 use crate::preprocessed::range_check::{range_check_16, range_check_20, range_check_8};
+use crate::preprocessed::sigma::{
+    big_sigma0_0, big_sigma0_1, big_sigma1_0, big_sigma1_1, small_sigma0_0, small_sigma0_1,
+    small_sigma1_0, small_sigma1_1,
+};
 use crate::public_data::PublicData;
 use crate::relations;
 
@@ -54,6 +58,14 @@ pub struct Claim {
     pub range_check_16: range_check_16::Claim,
     pub range_check_20: range_check_20::Claim,
     pub bitwise: bitwise::Claim,
+    pub small_sigma0_0: small_sigma0_0::Claim,
+    pub small_sigma0_1: small_sigma0_1::Claim,
+    pub small_sigma1_0: small_sigma1_0::Claim,
+    pub small_sigma1_1: small_sigma1_1::Claim,
+    pub big_sigma0_0: big_sigma0_0::Claim,
+    pub big_sigma0_1: big_sigma0_1::Claim,
+    pub big_sigma1_0: big_sigma1_0::Claim,
+    pub big_sigma1_1: big_sigma1_1::Claim,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +124,14 @@ pub struct InteractionClaimData {
     pub maj_h0: maj_h0::InteractionClaimData,
     pub maj_h1: maj_h1::InteractionClaimData,
     pub maj_h2: maj_h2::InteractionClaimData,
+    pub small_sigma0_0: small_sigma0_0::InteractionClaimData,
+    pub small_sigma0_1: small_sigma0_1::InteractionClaimData,
+    pub small_sigma1_0: small_sigma1_0::InteractionClaimData,
+    pub small_sigma1_1: small_sigma1_1::InteractionClaimData,
+    pub big_sigma0_0: big_sigma0_0::InteractionClaimData,
+    pub big_sigma0_1: big_sigma0_1::InteractionClaimData,
+    pub big_sigma1_0: big_sigma1_0::InteractionClaimData,
+    pub big_sigma1_1: big_sigma1_1::InteractionClaimData,
     pub range_check_8: range_check_8::InteractionClaimData,
     pub range_check_16: range_check_16::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
@@ -138,6 +158,14 @@ pub struct InteractionClaim {
     pub maj_h0: maj_h0::InteractionClaim,
     pub maj_h1: maj_h1::InteractionClaim,
     pub maj_h2: maj_h2::InteractionClaim,
+    pub small_sigma0_0: small_sigma0_0::InteractionClaim,
+    pub small_sigma0_1: small_sigma0_1::InteractionClaim,
+    pub small_sigma1_0: small_sigma1_0::InteractionClaim,
+    pub small_sigma1_1: small_sigma1_1::InteractionClaim,
+    pub big_sigma0_0: big_sigma0_0::InteractionClaim,
+    pub big_sigma0_1: big_sigma0_1::InteractionClaim,
+    pub big_sigma1_0: big_sigma1_0::InteractionClaim,
+    pub big_sigma1_1: big_sigma1_1::InteractionClaim,
     pub range_check_8: range_check_8::InteractionClaim,
     pub range_check_16: range_check_16::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
@@ -165,6 +193,14 @@ impl Claim {
             self.maj_h0.log_sizes(),
             self.maj_h1.log_sizes(),
             self.maj_h2.log_sizes(),
+            self.small_sigma0_0.log_sizes(),
+            self.small_sigma0_1.log_sizes(),
+            self.small_sigma1_0.log_sizes(),
+            self.small_sigma1_1.log_sizes(),
+            self.big_sigma0_0.log_sizes(),
+            self.big_sigma0_1.log_sizes(),
+            self.big_sigma1_0.log_sizes(),
+            self.big_sigma1_1.log_sizes(),
             self.range_check_8.log_sizes(),
             self.range_check_16.log_sizes(),
             self.range_check_20.log_sizes(),
@@ -196,6 +232,14 @@ impl Claim {
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
         self.bitwise.mix_into(channel);
+        self.small_sigma0_0.mix_into(channel);
+        self.small_sigma0_1.mix_into(channel);
+        self.small_sigma1_0.mix_into(channel);
+        self.small_sigma1_1.mix_into(channel);
+        self.big_sigma0_0.mix_into(channel);
+        self.big_sigma0_1.mix_into(channel);
+        self.big_sigma1_0.mix_into(channel);
+        self.big_sigma1_1.mix_into(channel);
     }
 
     pub fn write_trace<MC: MerkleChannel>(
@@ -335,6 +379,78 @@ impl Claim {
                     .map(|v| v.as_slice()),
             );
 
+        let (small_sigma0_0_claim, small_sigma0_0_trace, small_sigma0_0_interaction_claim_data) =
+            small_sigma0_0::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .small_sigma0_0
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (small_sigma0_1_claim, small_sigma0_1_trace, small_sigma0_1_interaction_claim_data) =
+            small_sigma0_1::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .small_sigma0_1
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (small_sigma1_0_claim, small_sigma1_0_trace, small_sigma1_0_interaction_claim_data) =
+            small_sigma1_0::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .small_sigma1_0
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (small_sigma1_1_claim, small_sigma1_1_trace, small_sigma1_1_interaction_claim_data) =
+            small_sigma1_1::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .small_sigma1_1
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (big_sigma0_0_claim, big_sigma0_0_trace, big_sigma0_0_interaction_claim_data) =
+            big_sigma0_0::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .big_sigma0_0
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (big_sigma0_1_claim, big_sigma0_1_trace, big_sigma0_1_interaction_claim_data) =
+            big_sigma0_1::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .big_sigma0_1
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (big_sigma1_0_claim, big_sigma1_0_trace, big_sigma1_0_interaction_claim_data) =
+            big_sigma1_0::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .big_sigma1_0
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
+        let (big_sigma1_1_claim, big_sigma1_1_trace, big_sigma1_1_interaction_claim_data) =
+            big_sigma1_1::Claim::write_trace(
+                sha256_interaction_claim_data
+                    .lookup_data
+                    .big_sigma1_1
+                    .par_iter()
+                    .map(|v| v.as_slice()),
+            );
+
         // Write range_check components
         let range_check_8_data = opcodes_interaction_claim_data.range_check_8();
         let (range_check_8_claim, range_check_8_trace, range_check_8_interaction_claim_data) =
@@ -373,6 +489,14 @@ impl Claim {
             maj_h0: maj_h0_interaction_claim_data,
             maj_h1: maj_h1_interaction_claim_data,
             maj_h2: maj_h2_interaction_claim_data,
+            small_sigma0_0: small_sigma0_0_interaction_claim_data,
+            small_sigma0_1: small_sigma0_1_interaction_claim_data,
+            small_sigma1_0: small_sigma1_0_interaction_claim_data,
+            small_sigma1_1: small_sigma1_1_interaction_claim_data,
+            big_sigma0_0: big_sigma0_0_interaction_claim_data,
+            big_sigma0_1: big_sigma0_1_interaction_claim_data,
+            big_sigma1_0: big_sigma1_0_interaction_claim_data,
+            big_sigma1_1: big_sigma1_1_interaction_claim_data,
             range_check_8: range_check_8_interaction_claim_data,
             range_check_16: range_check_16_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
@@ -399,6 +523,14 @@ impl Claim {
             .chain(maj_h0_trace)
             .chain(maj_h1_trace)
             .chain(maj_h2_trace)
+            .chain(small_sigma0_0_trace)
+            .chain(small_sigma0_1_trace)
+            .chain(small_sigma1_0_trace)
+            .chain(small_sigma1_1_trace)
+            .chain(big_sigma0_0_trace)
+            .chain(big_sigma0_1_trace)
+            .chain(big_sigma1_0_trace)
+            .chain(big_sigma1_1_trace)
             .chain(range_check_8_trace)
             .chain(range_check_16_trace)
             .chain(range_check_20_trace)
@@ -424,6 +556,14 @@ impl Claim {
                 maj_h0: maj_h0_claim,
                 maj_h1: maj_h1_claim,
                 maj_h2: maj_h2_claim,
+                small_sigma0_0: small_sigma0_0_claim,
+                small_sigma0_1: small_sigma0_1_claim,
+                small_sigma1_0: small_sigma1_0_claim,
+                small_sigma1_1: small_sigma1_1_claim,
+                big_sigma0_0: big_sigma0_0_claim,
+                big_sigma0_1: big_sigma0_1_claim,
+                big_sigma1_0: big_sigma1_0_claim,
+                big_sigma1_1: big_sigma1_1_claim,
                 range_check_8: range_check_8_claim,
                 range_check_16: range_check_16_claim,
                 range_check_20: range_check_20_claim,
@@ -540,6 +680,47 @@ impl InteractionClaim {
                 &interaction_claim_data.maj_h2,
             );
 
+        let (small_sigma0_0_interaction_claim, small_sigma0_0_interaction_trace) =
+            small_sigma0_0::InteractionClaim::write_interaction_trace(
+                &relations.small_sigma0_0,
+                &interaction_claim_data.small_sigma0_0,
+            );
+        let (small_sigma0_1_interaction_claim, small_sigma0_1_interaction_trace) =
+            small_sigma0_1::InteractionClaim::write_interaction_trace(
+                &relations.small_sigma0_1,
+                &interaction_claim_data.small_sigma0_1,
+            );
+        let (small_sigma1_0_interaction_claim, small_sigma1_0_interaction_trace) =
+            small_sigma1_0::InteractionClaim::write_interaction_trace(
+                &relations.small_sigma1_0,
+                &interaction_claim_data.small_sigma1_0,
+            );
+        let (small_sigma1_1_interaction_claim, small_sigma1_1_interaction_trace) =
+            small_sigma1_1::InteractionClaim::write_interaction_trace(
+                &relations.small_sigma1_1,
+                &interaction_claim_data.small_sigma1_1,
+            );
+        let (big_sigma0_0_interaction_claim, big_sigma0_0_interaction_trace) =
+            big_sigma0_0::InteractionClaim::write_interaction_trace(
+                &relations.big_sigma0_0,
+                &interaction_claim_data.big_sigma0_0,
+            );
+        let (big_sigma0_1_interaction_claim, big_sigma0_1_interaction_trace) =
+            big_sigma0_1::InteractionClaim::write_interaction_trace(
+                &relations.big_sigma0_1,
+                &interaction_claim_data.big_sigma0_1,
+            );
+        let (big_sigma1_0_interaction_claim, big_sigma1_0_interaction_trace) =
+            big_sigma1_0::InteractionClaim::write_interaction_trace(
+                &relations.big_sigma1_0,
+                &interaction_claim_data.big_sigma1_0,
+            );
+        let (big_sigma1_1_interaction_claim, big_sigma1_1_interaction_trace) =
+            big_sigma1_1::InteractionClaim::write_interaction_trace(
+                &relations.big_sigma1_1,
+                &interaction_claim_data.big_sigma1_1,
+            );
+
         let (range_check_8_interaction_claim, range_check_8_interaction_trace) =
             range_check_8::InteractionClaim::write_interaction_trace(
                 &relations.range_check_8,
@@ -584,6 +765,14 @@ impl InteractionClaim {
                 .chain(maj_h0_interaction_trace)
                 .chain(maj_h1_interaction_trace)
                 .chain(maj_h2_interaction_trace)
+                .chain(small_sigma0_0_interaction_trace)
+                .chain(small_sigma0_1_interaction_trace)
+                .chain(small_sigma1_0_interaction_trace)
+                .chain(small_sigma1_1_interaction_trace)
+                .chain(big_sigma0_0_interaction_trace)
+                .chain(big_sigma0_1_interaction_trace)
+                .chain(big_sigma1_0_interaction_trace)
+                .chain(big_sigma1_1_interaction_trace)
                 .chain(range_check_8_interaction_trace)
                 .chain(range_check_16_interaction_trace)
                 .chain(range_check_20_interaction_trace)
@@ -607,6 +796,14 @@ impl InteractionClaim {
                 maj_h0: maj_h0_interaction_claim,
                 maj_h1: maj_h1_interaction_claim,
                 maj_h2: maj_h2_interaction_claim,
+                small_sigma0_0: small_sigma0_0_interaction_claim,
+                small_sigma0_1: small_sigma0_1_interaction_claim,
+                small_sigma1_0: small_sigma1_0_interaction_claim,
+                small_sigma1_1: small_sigma1_1_interaction_claim,
+                big_sigma0_0: big_sigma0_0_interaction_claim,
+                big_sigma0_1: big_sigma0_1_interaction_claim,
+                big_sigma1_0: big_sigma1_0_interaction_claim,
+                big_sigma1_1: big_sigma1_1_interaction_claim,
                 range_check_8: range_check_8_interaction_claim,
                 range_check_16: range_check_16_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
@@ -636,6 +833,14 @@ impl InteractionClaim {
         sum += self.maj_h0.claimed_sum;
         sum += self.maj_h1.claimed_sum;
         sum += self.maj_h2.claimed_sum;
+        sum += self.small_sigma0_0.claimed_sum;
+        sum += self.small_sigma0_1.claimed_sum;
+        sum += self.small_sigma1_0.claimed_sum;
+        sum += self.small_sigma1_1.claimed_sum;
+        sum += self.big_sigma0_0.claimed_sum;
+        sum += self.big_sigma0_1.claimed_sum;
+        sum += self.big_sigma1_0.claimed_sum;
+        sum += self.big_sigma1_1.claimed_sum;
         sum += self.range_check_8.claimed_sum;
         sum += self.range_check_16.claimed_sum;
         sum += self.range_check_20.claimed_sum;
@@ -662,6 +867,14 @@ impl InteractionClaim {
         self.maj_h0.mix_into(channel);
         self.maj_h1.mix_into(channel);
         self.maj_h2.mix_into(channel);
+        self.small_sigma0_0.mix_into(channel);
+        self.small_sigma0_1.mix_into(channel);
+        self.small_sigma1_0.mix_into(channel);
+        self.small_sigma1_1.mix_into(channel);
+        self.big_sigma0_0.mix_into(channel);
+        self.big_sigma0_1.mix_into(channel);
+        self.big_sigma1_0.mix_into(channel);
+        self.big_sigma1_1.mix_into(channel);
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
@@ -676,14 +889,6 @@ impl Relations {
             memory: relations::Memory::draw(channel),
             merkle: relations::Merkle::draw(channel),
             poseidon2: relations::Poseidon2::draw(channel),
-            small_sigma0_0: relations::SmallSigma0_0::draw(channel),
-            small_sigma0_1: relations::SmallSigma0_1::draw(channel),
-            small_sigma1_0: relations::SmallSigma1_0::draw(channel),
-            small_sigma1_1: relations::SmallSigma1_1::draw(channel),
-            big_sigma0_0: relations::BigSigma0_0::draw(channel),
-            big_sigma0_1: relations::BigSigma0_1::draw(channel),
-            big_sigma1_0: relations::BigSigma1_0::draw(channel),
-            big_sigma1_1: relations::BigSigma1_1::draw(channel),
             xor_small_sigma0: relations::XorSmallSigma0::draw(channel),
             xor_small_sigma1: relations::XorSmallSigma1::draw(channel),
             xor_big_sigma0_0: relations::XorBigSigma0_0::draw(channel),
@@ -701,6 +906,14 @@ impl Relations {
             maj_h0: relations::MajH0::draw(channel),
             maj_h1: relations::MajH1::draw(channel),
             maj_h2: relations::MajH2::draw(channel),
+            small_sigma0_0: relations::SmallSigma0_0::draw(channel),
+            small_sigma0_1: relations::SmallSigma0_1::draw(channel),
+            small_sigma1_0: relations::SmallSigma1_0::draw(channel),
+            small_sigma1_1: relations::SmallSigma1_1::draw(channel),
+            big_sigma0_0: relations::BigSigma0_0::draw(channel),
+            big_sigma0_1: relations::BigSigma0_1::draw(channel),
+            big_sigma1_0: relations::BigSigma1_0::draw(channel),
+            big_sigma1_1: relations::BigSigma1_1::draw(channel),
             range_check_8: relations::RangeCheck8::draw(channel),
             range_check_16: relations::RangeCheck16::draw(channel),
             range_check_20: relations::RangeCheck20::draw(channel),
@@ -728,6 +941,14 @@ pub struct Components {
     pub maj_h0: maj_h0::Component,
     pub maj_h1: maj_h1::Component,
     pub maj_h2: maj_h2::Component,
+    pub small_sigma0_0: small_sigma0_0::Component,
+    pub small_sigma0_1: small_sigma0_1::Component,
+    pub small_sigma1_0: small_sigma1_0::Component,
+    pub small_sigma1_1: small_sigma1_1::Component,
+    pub big_sigma0_0: big_sigma0_0::Component,
+    pub big_sigma0_1: big_sigma0_1::Component,
+    pub big_sigma1_0: big_sigma1_0::Component,
+    pub big_sigma1_1: big_sigma1_1::Component,
     pub range_check_8: range_check_8::Component,
     pub range_check_16: range_check_16::Component,
     pub range_check_20: range_check_20::Component,
@@ -884,6 +1105,70 @@ impl Components {
                 },
                 interaction_claim.maj_h2.claimed_sum,
             ),
+            small_sigma0_0: small_sigma0_0::Component::new(
+                location_allocator,
+                small_sigma0_0::Eval {
+                    claim: claim.small_sigma0_0,
+                    relation: relations.small_sigma0_0.clone(),
+                },
+                interaction_claim.small_sigma0_0.claimed_sum,
+            ),
+            small_sigma0_1: small_sigma0_1::Component::new(
+                location_allocator,
+                small_sigma0_1::Eval {
+                    claim: claim.small_sigma0_1,
+                    relation: relations.small_sigma0_1.clone(),
+                },
+                interaction_claim.small_sigma0_1.claimed_sum,
+            ),
+            small_sigma1_0: small_sigma1_0::Component::new(
+                location_allocator,
+                small_sigma1_0::Eval {
+                    claim: claim.small_sigma1_0,
+                    relation: relations.small_sigma1_0.clone(),
+                },
+                interaction_claim.small_sigma1_0.claimed_sum,
+            ),
+            small_sigma1_1: small_sigma1_1::Component::new(
+                location_allocator,
+                small_sigma1_1::Eval {
+                    claim: claim.small_sigma1_1,
+                    relation: relations.small_sigma1_1.clone(),
+                },
+                interaction_claim.small_sigma1_1.claimed_sum,
+            ),
+            big_sigma0_0: big_sigma0_0::Component::new(
+                location_allocator,
+                big_sigma0_0::Eval {
+                    claim: claim.big_sigma0_0,
+                    relation: relations.big_sigma0_0.clone(),
+                },
+                interaction_claim.big_sigma0_0.claimed_sum,
+            ),
+            big_sigma0_1: big_sigma0_1::Component::new(
+                location_allocator,
+                big_sigma0_1::Eval {
+                    claim: claim.big_sigma0_1,
+                    relation: relations.big_sigma0_1.clone(),
+                },
+                interaction_claim.big_sigma0_1.claimed_sum,
+            ),
+            big_sigma1_0: big_sigma1_0::Component::new(
+                location_allocator,
+                big_sigma1_0::Eval {
+                    claim: claim.big_sigma1_0,
+                    relation: relations.big_sigma1_0.clone(),
+                },
+                interaction_claim.big_sigma1_0.claimed_sum,
+            ),
+            big_sigma1_1: big_sigma1_1::Component::new(
+                location_allocator,
+                big_sigma1_1::Eval {
+                    claim: claim.big_sigma1_1,
+                    relation: relations.big_sigma1_1.clone(),
+                },
+                interaction_claim.big_sigma1_1.claimed_sum,
+            ),
             range_check_8: range_check_8::Component::new(
                 location_allocator,
                 range_check_8::Eval {
@@ -927,6 +1212,14 @@ impl Components {
         provers.push(&self.clock_update);
         provers.push(&self.poseidon2);
         provers.push(&self.sha256);
+        provers.push(&self.small_sigma0_0);
+        provers.push(&self.small_sigma0_1);
+        provers.push(&self.small_sigma1_0);
+        provers.push(&self.small_sigma1_1);
+        provers.push(&self.big_sigma0_0);
+        provers.push(&self.big_sigma0_1);
+        provers.push(&self.big_sigma1_0);
+        provers.push(&self.big_sigma1_1);
         provers.push(&self.range_check_8);
         provers.push(&self.range_check_16);
         provers.push(&self.range_check_20);
@@ -941,6 +1234,14 @@ impl Components {
         verifiers.push(&self.clock_update);
         verifiers.push(&self.poseidon2);
         verifiers.push(&self.sha256);
+        verifiers.push(&self.small_sigma0_0);
+        verifiers.push(&self.small_sigma0_1);
+        verifiers.push(&self.small_sigma1_0);
+        verifiers.push(&self.small_sigma1_1);
+        verifiers.push(&self.big_sigma0_0);
+        verifiers.push(&self.big_sigma0_1);
+        verifiers.push(&self.big_sigma1_0);
+        verifiers.push(&self.big_sigma1_1);
         verifiers.push(&self.range_check_8);
         verifiers.push(&self.range_check_16);
         verifiers.push(&self.range_check_20);

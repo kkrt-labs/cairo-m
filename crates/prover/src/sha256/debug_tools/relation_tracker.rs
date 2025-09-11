@@ -76,6 +76,14 @@ fn relation_entries(
         maj_h0,
         maj_h1,
         maj_h2,
+        small_sigma0_0,
+        small_sigma0_1,
+        small_sigma1_0,
+        small_sigma1_1,
+        big_sigma0_0,
+        big_sigma0_1,
+        big_sigma1_0,
+        big_sigma1_1,
         range_check_16,
     } = components;
 
@@ -93,6 +101,14 @@ fn relation_entries(
         add_to_relation_entries(maj_h0, trace),
         add_to_relation_entries(maj_h1, trace),
         add_to_relation_entries(maj_h2, trace),
+        add_to_relation_entries(small_sigma0_0, trace),
+        add_to_relation_entries(small_sigma0_1, trace),
+        add_to_relation_entries(small_sigma1_0, trace),
+        add_to_relation_entries(small_sigma1_1, trace),
+        add_to_relation_entries(big_sigma0_0, trace),
+        add_to_relation_entries(big_sigma0_1, trace),
+        add_to_relation_entries(big_sigma1_0, trace),
+        add_to_relation_entries(big_sigma1_1, trace),
         add_to_relation_entries(range_check_16, trace),
     )
     .collect();

@@ -1,3 +1,4 @@
+use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
@@ -26,7 +27,20 @@ fn test_sha256_prove_empty_input() {
 
 #[test]
 fn test_sha256_prove_single_block() {
-    // Create a single SHA256 block input (32 M31 elements = 512 bits)
     let inputs: Vec<SHA256HashInput> = vec![[M31::from(42); 32]];
+    prove_sha256::<Blake2sMerkleChannel>(&inputs, None).unwrap();
+}
+
+#[test]
+fn test_sha256_prove_2_pow_x_input() {
+    let inputs: Vec<SHA256HashInput> = (0..1 << 16)
+        .map(|i| {
+            let mut message = [M31::zero(); 32];
+            for (j, element) in message.iter_mut().enumerate() {
+                *element = M31::from((i + j) as u32 & 0xFFFF);
+            }
+            message
+        })
+        .collect();
     prove_sha256::<Blake2sMerkleChannel>(&inputs, None).unwrap();
 }
