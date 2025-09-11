@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
@@ -23,8 +23,6 @@ use crate::components::sha256::{
 };
 use crate::components::Relations;
 use crate::utils::enabler::Enabler;
-
-const INV16: M31 = M31::from_u32_unchecked(1 << 15);
 
 const MASK_SMALL_SIGMA0_L0: u32 = 0x4aaa; // O1 : 1, 3, 5, 7, 9, 11, 14
 const MASK_SMALL_SIGMA0_L1: u32 = 0x155; // O0 : 0, 2, 4, 6, 8
@@ -81,14 +79,18 @@ const MASK_BIG_SIGMA1_OUT2_HI: u32 = 0x610c0000; // O2 : 18, 19, 24, 29, 30
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, Default)]
 struct Indexes {
     col_index: usize,
-    small_sigma0_index: usize,
+    small_sigma0_0_index: usize,
+    small_sigma0_1_index: usize,
     small_sigma1_0_index: usize,
     small_sigma1_1_index: usize,
-    big_sigma0_index: usize,
-    big_sigma1_index: usize,
+    big_sigma0_0_index: usize,
+    big_sigma0_1_index: usize,
+    big_sigma1_0_index: usize,
+    big_sigma1_1_index: usize,
     xor_small_sigma0_index: usize,
     xor_small_sigma1_index: usize,
-    xor_big_sigma0_index: usize,
+    xor_big_sigma0_0_index: usize,
+    xor_big_sigma0_1_index: usize,
     xor_big_sigma1_index: usize,
     ch_index: usize,
     maj_index: usize,
@@ -297,8 +299,8 @@ impl Claim {
                     H[1] = add2_u32_unchecked(
                         H[1].clone(),
                         Fu32 {
-                            lo: a[0].clone() + a[1].clone() + a[2].clone(),
-                            hi: a[3].clone() + a[4].clone() + a[5].clone(),
+                            lo: a[0] + a[1] + a[2],
+                            hi: a[3] + a[4] + a[5],
                         },
                         &mut indexes.col_index,
                         &mut row,
@@ -306,8 +308,8 @@ impl Claim {
                     H[2] = add2_u32_unchecked(
                         H[2].clone(),
                         Fu32 {
-                            lo: b[0].clone() + b[1].clone() + b[2].clone(),
-                            hi: b[3].clone() + b[4].clone() + b[5].clone(),
+                            lo: b[0] + b[1] + b[2],
+                            hi: b[3] + b[4] + b[5],
                         },
                         &mut indexes.col_index,
                         &mut row,
@@ -315,8 +317,8 @@ impl Claim {
                     H[3] = add2_u32_unchecked(
                         H[3].clone(),
                         Fu32 {
-                            lo: c[0].clone() + c[1].clone() + c[2].clone(),
-                            hi: c[3].clone() + c[4].clone() + c[5].clone(),
+                            lo: c[0] + c[1] + c[2],
+                            hi: c[3] + c[4] + c[5],
                         },
                         &mut indexes.col_index,
                         &mut row,
@@ -331,8 +333,8 @@ impl Claim {
                     H[5] = add2_u32_unchecked(
                         H[5].clone(),
                         Fu32 {
-                            lo: e[0].clone() + e[1].clone() + e[2].clone(),
-                            hi: e[3].clone() + e[4].clone() + e[5].clone(),
+                            lo: e[0] + e[1] + e[2],
+                            hi: e[3] + e[4] + e[5],
                         },
                         &mut indexes.col_index,
                         &mut row,
@@ -340,8 +342,8 @@ impl Claim {
                     H[6] = add2_u32_unchecked(
                         H[6].clone(),
                         Fu32 {
-                            lo: f[0].clone() + f[1].clone() + f[2].clone(),
-                            hi: f[3].clone() + f[4].clone() + f[5].clone(),
+                            lo: f[0] + f[1] + f[2],
+                            hi: f[3] + f[4] + f[5],
                         },
                         &mut indexes.col_index,
                         &mut row,
@@ -349,15 +351,14 @@ impl Claim {
                     H[7] = add2_u32_unchecked(
                         H[7].clone(),
                         Fu32 {
-                            lo: g[0].clone() + g[1].clone() + g[2].clone(),
-                            hi: g[3].clone() + g[4].clone() + g[5].clone(),
+                            lo: g[0] + g[1] + g[2],
+                            hi: g[3] + g[4] + g[5],
                         },
                         &mut indexes.col_index,
                         &mut row,
                     );
                 }
             });
-
         (
             Self { log_size },
             trace,
@@ -422,12 +423,12 @@ fn sigma(
     // both input0 and input1 is too large (we would need to XOR two words of 15 bits)
     match sigma {
         SigmaType::SmallSigma0 => {
-            *lookup_data.small_sigma0_0[indexes.small_sigma0_index] =
+            *lookup_data.small_sigma0_0[indexes.small_sigma0_0_index] =
                 [l1, l2, h2, out0_lo, out0_hi, out2_0];
-            indexes.small_sigma0_index += 1;
-            *lookup_data.small_sigma0_1[indexes.small_sigma0_index] =
+            indexes.small_sigma0_0_index += 1;
+            *lookup_data.small_sigma0_1[indexes.small_sigma0_1_index] =
                 [l0, h0, h1, out1_lo, out1_hi, out2_1];
-            indexes.small_sigma0_index += 1;
+            indexes.small_sigma0_1_index += 1;
             *lookup_data.xor_small_sigma0[indexes.xor_small_sigma0_index] =
                 [out2_0, out2_1, xor_out2_lo, xor_out2_hi];
             indexes.xor_small_sigma0_index += 1;
@@ -444,26 +445,26 @@ fn sigma(
             indexes.xor_small_sigma1_index += 1;
         }
         SigmaType::BigSigma0 => {
-            *lookup_data.big_sigma0_0[indexes.big_sigma0_index] =
+            *lookup_data.big_sigma0_0[indexes.big_sigma0_0_index] =
                 [l1, l2, h2, out0_lo, out0_hi, out2_0_lo, out2_0_hi];
-            indexes.big_sigma0_index += 1;
-            *lookup_data.big_sigma0_1[indexes.big_sigma0_index] =
+            indexes.big_sigma0_0_index += 1;
+            *lookup_data.big_sigma0_1[indexes.big_sigma0_1_index] =
                 [l0, h0, h1, out1_lo, out1_hi, out2_1_lo, out2_1_hi];
-            indexes.big_sigma0_index += 1;
-            *lookup_data.xor_big_sigma0_0[indexes.xor_big_sigma0_index] =
+            indexes.big_sigma0_1_index += 1;
+            *lookup_data.xor_big_sigma0_0[indexes.xor_big_sigma0_0_index] =
                 [out2_0_lo, out2_1_lo, xor_out2_lo];
-            indexes.xor_big_sigma0_index += 1;
-            *lookup_data.xor_big_sigma0_1[indexes.xor_big_sigma0_index] =
+            indexes.xor_big_sigma0_0_index += 1;
+            *lookup_data.xor_big_sigma0_1[indexes.xor_big_sigma0_1_index] =
                 [out2_0_hi, out2_1_hi, xor_out2_hi];
-            indexes.xor_big_sigma0_index += 1;
+            indexes.xor_big_sigma0_1_index += 1;
         }
         SigmaType::BigSigma1 => {
-            *lookup_data.big_sigma1_0[indexes.big_sigma1_index] =
+            *lookup_data.big_sigma1_0[indexes.big_sigma1_0_index] =
                 [l0, h0, h1, out0_lo, out0_hi, out2_0];
-            indexes.big_sigma1_index += 1;
-            *lookup_data.big_sigma1_1[indexes.big_sigma1_index] =
+            indexes.big_sigma1_0_index += 1;
+            *lookup_data.big_sigma1_1[indexes.big_sigma1_1_index] =
                 [l1, l2, h2, out1_lo, out1_hi, out2_1];
-            indexes.big_sigma1_index += 1;
+            indexes.big_sigma1_1_index += 1;
             *lookup_data.xor_big_sigma1[indexes.xor_big_sigma1_index] =
                 [out2_0, out2_1, xor_out2_lo, xor_out2_hi];
             indexes.xor_big_sigma1_index += 1;
@@ -498,7 +499,7 @@ fn ch(
     f: [PackedM31; 6],
     g: [PackedM31; 6],
     indexes: &mut Indexes,
-    row: &mut Vec<&mut PackedM31>,
+    row: &mut [&mut PackedM31],
     lookup_data: &mut LookupDataMutChunk<'_>,
 ) -> Fu32<PackedM31> {
     let ch: [PackedM31; 6] = std::array::from_fn(|i| apply_ch(e[i], f[i], g[i]));
@@ -520,7 +521,7 @@ fn maj(
     b: [PackedM31; 6],
     c: [PackedM31; 6],
     indexes: &mut Indexes,
-    row: &mut Vec<&mut PackedM31>,
+    row: &mut [&mut PackedM31],
     lookup_data: &mut LookupDataMutChunk<'_>,
 ) -> Fu32<PackedM31> {
     let maj: [PackedM31; 6] = std::array::from_fn(|i| apply_maj(a[i], b[i], c[i]));
@@ -558,7 +559,7 @@ fn decompose_input(a: Fu32<PackedM31>, sigma: SigmaType) -> [PackedM31; 6] {
     })
 }
 
-fn decompose_u32(a: u32, sigma: SigmaType) -> [u32; 6] {
+const fn decompose_u32(a: u32, sigma: SigmaType) -> [u32; 6] {
     match sigma {
         SigmaType::SmallSigma0 => [
             a & MASK_SMALL_SIGMA0_L0,
@@ -657,8 +658,8 @@ fn get_output(sigma: SigmaType, [l0, l1, l2, h0, h1, h2]: [PackedM31; 6]) -> [Pa
             apply_mask(out1, MASK_BIG_SIGMA0_OUT1_HI),
             apply_mask(out0, MASK_BIG_SIGMA0_OUT2_LO),
             apply_mask(out1, MASK_BIG_SIGMA0_OUT2_LO),
-            apply_mask(out0, MASK_BIG_SIGMA0_OUT2_LO),
-            apply_mask(out1, MASK_BIG_SIGMA0_OUT2_LO),
+            apply_mask(out0, MASK_BIG_SIGMA0_OUT2_HI),
+            apply_mask(out1, MASK_BIG_SIGMA0_OUT2_HI),
         ],
         SigmaType::BigSigma1 => [
             apply_mask(out0, MASK_BIG_SIGMA1_OUT0_LO),
@@ -724,7 +725,7 @@ fn add2_u32_unchecked(
     a: Fu32<PackedM31>,
     b: Fu32<PackedM31>,
     col_index: &mut usize,
-    row: &mut Vec<&mut PackedM31>,
+    row: &mut [&mut PackedM31],
 ) -> Fu32<PackedM31> {
     let two_pow_16 = PackedM31::from(M31::from(1 << 16));
 
@@ -755,7 +756,7 @@ fn add3_u32_unchecked(
     b: Fu32<PackedM31>,
     c: Fu32<PackedM31>,
     col_index: &mut usize,
-    row: &mut Vec<&mut PackedM31>,
+    row: &mut [&mut PackedM31],
 ) -> Fu32<PackedM31> {
     let two_pow_16 = PackedM31::from(M31::from(1 << 16));
 
@@ -764,7 +765,7 @@ fn add3_u32_unchecked(
     let sum_lo = a.lo + b.lo + c.lo;
     let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
 
-    let sum_hi = a.hi + b.hi + carry_lo;
+    let sum_hi = a.hi + b.hi + c.hi + carry_lo;
     let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
 
     let res = Fu32 {
@@ -788,11 +789,13 @@ impl InteractionClaim {
         Self,
         Vec<CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
     ) {
-        let log_size = interaction_claim_data.lookup_data.range_check_16[0]
-            .len()
-            .ilog2()
-            + LOG_N_LANES;
+        let log_size = std::cmp::max(
+            interaction_claim_data.non_padded_length.next_power_of_two(),
+            N_LANES,
+        )
+        .ilog2();
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
+        let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
         /// Macro to generate interaction trace for lookup data pairs
         macro_rules! generate_interaction_trace {
             ($relation_name_1:ident, $i_1:expr, $relation_name_2:ident, $i_2:expr) => {{
@@ -803,8 +806,9 @@ impl InteractionClaim {
                     &interaction_claim_data.lookup_data.$relation_name_2[$i_2],
                 )
                     .into_par_iter()
-                    .for_each(|(writer, value0, value1)| {
-                        let num: PackedQM31 = -PackedQM31::one();
+                    .enumerate()
+                    .for_each(|(i, (writer, value0, value1))| {
+                        let num: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
                         let denom0: PackedQM31 = relations.$relation_name_1.combine(value0);
                         let denom1: PackedQM31 = relations.$relation_name_2.combine(value1);
 
@@ -838,10 +842,15 @@ impl InteractionClaim {
         for i in 0..32 {
             generate_interaction_trace!(big_sigma0_0, 2 * i, big_sigma0_1, 2 * i);
             generate_interaction_trace!(xor_big_sigma0_0, 2 * i, xor_big_sigma0_1, 2 * i);
-            generate_interaction_trace!(range_check_16, 8 * i, range_check_16, 8 * i + 1);
+            generate_interaction_trace!(
+                range_check_16,
+                224 + 8 * i,
+                range_check_16,
+                224 + 8 * i + 1
+            );
             generate_interaction_trace!(big_sigma1_0, 2 * i, big_sigma1_1, 2 * i);
-            generate_interaction_trace!(xor_big_sigma1, 2 * i, range_check_16, 8 * i + 2);
-            generate_interaction_trace!(range_check_16, 8 * i + 3, ch, 12 * i);
+            generate_interaction_trace!(xor_big_sigma1, 2 * i, range_check_16, 224 + 8 * i + 2);
+            generate_interaction_trace!(range_check_16, 224 + 8 * i + 3, ch, 12 * i);
             generate_interaction_trace!(ch, 12 * i + 1, ch, 12 * i + 2);
             generate_interaction_trace!(ch, 12 * i + 3, ch, 12 * i + 4);
             generate_interaction_trace!(ch, 12 * i + 5, maj, 12 * i);
@@ -849,10 +858,20 @@ impl InteractionClaim {
             generate_interaction_trace!(maj, 12 * i + 3, maj, 12 * i + 4);
             generate_interaction_trace!(maj, 12 * i + 5, big_sigma0_0, 2 * i + 1);
             generate_interaction_trace!(big_sigma0_1, 2 * i + 1, xor_big_sigma0_0, 2 * i + 1);
-            generate_interaction_trace!(xor_big_sigma0_1, 2 * i + 1, range_check_16, 8 * i + 4);
-            generate_interaction_trace!(range_check_16, 8 * i + 5, big_sigma1_0, 2 * i + 1);
+            generate_interaction_trace!(
+                xor_big_sigma0_1,
+                2 * i + 1,
+                range_check_16,
+                224 + 8 * i + 4
+            );
+            generate_interaction_trace!(range_check_16, 224 + 8 * i + 5, big_sigma1_0, 2 * i + 1);
             generate_interaction_trace!(big_sigma1_1, 2 * i + 1, xor_big_sigma1, 2 * i + 1);
-            generate_interaction_trace!(range_check_16, 8 * i + 6, range_check_16, 8 * i + 7);
+            generate_interaction_trace!(
+                range_check_16,
+                224 + 8 * i + 6,
+                range_check_16,
+                224 + 8 * i + 7
+            );
             generate_interaction_trace!(ch, 12 * i + 6, ch, 12 * i + 7);
             generate_interaction_trace!(ch, 12 * i + 8, ch, 12 * i + 9);
             generate_interaction_trace!(ch, 12 * i + 10, ch, 12 * i + 11);

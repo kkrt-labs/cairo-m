@@ -22,26 +22,27 @@ const N_ROUNDS: usize = 64;
 // Main trace size
 const N_TRACE_COLUMNS: usize = 1
     + 2 * 16 // Message loading
-    + (64 - 16) * 2 * (6 + 6 + 2 + 2 + 2 + 2) // Message schedule
-    + 64 * (6 * 6 + 2 * 4 + 2 * 6 + 2 + 2 * 2 + 2 + 6 + 6 + 2 + 2 + 2 + 8 * 2); // Rounds
+    + (64 - 16) * 2 * (6 + 4 + 2 + 2 + 2 + 2) // Message schedule
+    + 64 * (6 * 6 + 2 * 2 + 6 + 8 + 2 * 2 + 2 * 2 + 6 + 6 + 3 * 2 + 8 * 2); // Rounds
 
 // Interaction trace size
-const N_SMALL_SIGMA0_0_LOOKUPS: usize = N_ROUNDS;
-const N_SMALL_SIGMA0_1_LOOKUPS: usize = N_ROUNDS;
-const N_SMALL_SIGMA1_0_LOOKUPS: usize = N_ROUNDS;
-const N_SMALL_SIGMA1_1_LOOKUPS: usize = N_ROUNDS;
+const N_SMALL_SIGMA0_0_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
+const N_SMALL_SIGMA0_1_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
+const N_SMALL_SIGMA1_0_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
+const N_SMALL_SIGMA1_1_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
 const N_BIG_SIGMA0_0_LOOKUPS: usize = N_ROUNDS;
 const N_BIG_SIGMA0_1_LOOKUPS: usize = N_ROUNDS;
 const N_BIG_SIGMA1_0_LOOKUPS: usize = N_ROUNDS;
 const N_BIG_SIGMA1_1_LOOKUPS: usize = N_ROUNDS;
-const N_XOR_SMALL_SIGMA0_LOOKUPS: usize = N_ROUNDS;
-const N_XOR_SMALL_SIGMA1_LOOKUPS: usize = N_ROUNDS;
-const N_XOR_BIG_SIGMA0_0_LOOKUPS: usize = 2 * N_ROUNDS;
-const N_XOR_BIG_SIGMA0_1_LOOKUPS: usize = 2 * N_ROUNDS;
+const N_XOR_SMALL_SIGMA0_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
+const N_XOR_SMALL_SIGMA1_LOOKUPS: usize = N_ROUNDS - MESSAGE_SIZE / 2;
+const N_XOR_BIG_SIGMA0_0_LOOKUPS: usize = N_ROUNDS;
+const N_XOR_BIG_SIGMA0_1_LOOKUPS: usize = N_ROUNDS;
 const N_XOR_BIG_SIGMA1_LOOKUPS: usize = N_ROUNDS;
 const N_CH_LOOKUPS: usize = 6 * N_ROUNDS;
 const N_MAJ_LOOKUPS: usize = 6 * N_ROUNDS;
-const N_RANGE_CHECK_16_LOOKUPS: usize = 2 * 16 + 2 * 2 * N_ROUNDS;
+const N_RANGE_CHECK_16_LOOKUPS: usize =
+    2 * 16 + 2 * 2 * N_ROUNDS + 2 * 2 * (N_ROUNDS - MESSAGE_SIZE / 2); // TODO: range check sum results
 const N_INTERACTION_COLUMNS: usize = SECURE_EXTENSION_DEGREE
     * (N_SMALL_SIGMA0_0_LOOKUPS
         + N_SMALL_SIGMA0_1_LOOKUPS

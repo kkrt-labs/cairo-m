@@ -149,6 +149,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         memory,
         merkle,
         poseidon2,
+        sha256,
         range_check_8,
         range_check_16,
         range_check_20,
@@ -183,6 +184,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(merkle, &trace);
     assert_component(clock_update, &trace);
     assert_component(poseidon2, &trace);
+    assert_component(sha256, &trace);
     assert_component(range_check_8, &trace);
     assert_component(range_check_16, &trace);
     assert_component(range_check_20, &trace);

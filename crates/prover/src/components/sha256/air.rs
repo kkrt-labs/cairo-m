@@ -17,7 +17,7 @@ impl FrameworkEval for Eval {
         self.claim.log_size + 1
     }
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        let one = E::F::from(M31::one());
+        let enabler = eval.next_trace_mask();
         let K: [Fu32<E::F>; 64] = std::array::from_fn(|_| Fu32::zero());
         let mut H: [Fu32<E::F>; 8] = std::array::from_fn(|_| Fu32::zero());
 
@@ -33,28 +33,38 @@ impl FrameworkEval for Eval {
             W[i].hi = eval.next_trace_mask();
             eval.add_to_relation(RelationEntry::new(
                 &self.relations.range_check_16,
-                E::EF::from(one.clone()),
+                -E::EF::from(enabler.clone()),
                 &[W[i].lo.clone()],
             ));
             eval.add_to_relation(RelationEntry::new(
                 &self.relations.range_check_16,
-                E::EF::from(one.clone()),
+                -E::EF::from(enabler.clone()),
                 &[W[i].hi.clone()],
             ));
-        });
+        }); // 2064
 
         // Compute message schedule
         for i in 16..64 {
             // TODO: W[i-15] and W[i-2] are not in temp sum so they could be decomposed in 4 limbs instead of 6
             let w_i_minus_15 = std::array::from_fn(|_| eval.next_trace_mask());
-            let s0 = self.sigma(SigmaType::SmallSigma0, w_i_minus_15, &mut eval);
+            let s0 = self.sigma(
+                SigmaType::SmallSigma0,
+                w_i_minus_15,
+                enabler.clone(),
+                &mut eval,
+            );
 
             let w_i_minus_2 = std::array::from_fn(|_| eval.next_trace_mask());
-            let s1 = self.sigma(SigmaType::SmallSigma1, w_i_minus_2, &mut eval);
+            let s1 = self.sigma(
+                SigmaType::SmallSigma1,
+                w_i_minus_2,
+                enabler.clone(),
+                &mut eval,
+            );
 
             let temp = add3_u32_unchecked(W[i - 16].clone(), W[i - 7].clone(), s0, &mut eval);
             W[i] = add2_u32_unchecked(temp, s1, &mut eval);
-        }
+        } // 4 * 2 * 48 = 384
 
         // ╔════════════════════════════════════╗
         // ║             Rounds                 ║
@@ -75,10 +85,10 @@ impl FrameworkEval for Eval {
                 hi: eval.next_trace_mask(),
             };
 
-            let S0 = self.sigma(SigmaType::BigSigma0, a.clone(), &mut eval);
-            let S1 = self.sigma(SigmaType::BigSigma1, e.clone(), &mut eval);
-            let ch = self.ch(e.clone(), f.clone(), g.clone(), &mut eval);
-            let maj = self.maj(a.clone(), b.clone(), c.clone(), &mut eval);
+            let S0 = self.sigma(SigmaType::BigSigma0, a.clone(), enabler.clone(), &mut eval);
+            let S1 = self.sigma(SigmaType::BigSigma1, e.clone(), enabler.clone(), &mut eval);
+            let ch = self.ch(e.clone(), f.clone(), g.clone(), enabler.clone(), &mut eval);
+            let maj = self.maj(a.clone(), b.clone(), c.clone(), enabler.clone(), &mut eval);
             let temp0 = add3_u32_unchecked(h, ch, S1, &mut eval);
             let temp1 = add3_u32_unchecked(temp0, K[i].clone(), W[i].clone(), &mut eval);
             let temp2 = add2_u32_unchecked(S0, maj, &mut eval);
@@ -133,7 +143,7 @@ impl FrameworkEval for Eval {
                 },
                 &mut eval,
             );
-        }
+        } // 26 * 64 + 384 = 2048
         eval.finalize_logup_in_pairs();
 
         eval
@@ -145,21 +155,28 @@ impl Eval {
         &self,
         sigma: SigmaType,
         [l0, l1, l2, h0, h1, h2]: [E::F; 6],
+        enabler: E::F,
         eval: &mut E,
     ) -> Fu32<E::F> {
-        let one = E::F::one();
-        let [out0_lo, out0_hi, out1_lo, out1_hi, out2_0, out2_1] =
-            std::array::from_fn(|_| eval.next_trace_mask());
+        let [out0_lo, out0_hi, out1_lo, out1_hi] = std::array::from_fn(|_| eval.next_trace_mask());
 
         let (out2_0_lo, out2_1_lo, out2_0_hi, out2_1_hi) = match sigma {
             SigmaType::BigSigma0 => (
-                Some(out2_0.clone()),
-                Some(out2_1.clone()),
+                Some(eval.next_trace_mask()),
+                Some(eval.next_trace_mask()),
                 Some(eval.next_trace_mask()),
                 Some(eval.next_trace_mask()),
             ),
-            _ => (Some(out2_0.clone()), Some(out2_1.clone()), None, None),
+            _ => (
+                Some(eval.next_trace_mask()),
+                Some(eval.next_trace_mask()),
+                None,
+                None,
+            ),
         };
+
+        let out2_0 = out2_0_lo.clone().unwrap();
+        let out2_1 = out2_1_lo.clone().unwrap();
 
         let xor_out2_lo = eval.next_trace_mask();
         let xor_out2_hi = eval.next_trace_mask();
@@ -171,34 +188,29 @@ impl Eval {
             SigmaType::SmallSigma0 => {
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.small_sigma0_0,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[l1, l2, h2, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.small_sigma0_1,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[l0, h0, h1, out1_lo.clone(), out1_hi.clone(), out2_1.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_small_sigma0,
-                    E::EF::from(one.clone()),
-                    &[
-                        out2_0.clone(),
-                        out2_1.clone(),
-                        xor_out2_lo.clone(),
-                        xor_out2_hi.clone(),
-                    ],
+                    -E::EF::from(enabler.clone()),
+                    &[out2_0, out2_1, xor_out2_lo.clone(), xor_out2_hi.clone()],
                 ));
             }
             SigmaType::SmallSigma1 => {
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.small_sigma1_0,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[l0, h0, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.small_sigma1_1,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[
                         l1,
                         l2,
@@ -211,19 +223,14 @@ impl Eval {
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_small_sigma1,
-                    E::EF::from(one.clone()),
-                    &[
-                        out2_0.clone(),
-                        out2_1.clone(),
-                        xor_out2_lo.clone(),
-                        xor_out2_hi.clone(),
-                    ],
+                    -E::EF::from(enabler.clone()),
+                    &[out2_0, out2_1, xor_out2_lo.clone(), xor_out2_hi.clone()],
                 ));
             }
             SigmaType::BigSigma0 => {
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.big_sigma0_0,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[
                         l1,
                         l2,
@@ -236,7 +243,7 @@ impl Eval {
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.big_sigma0_1,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[
                         l0,
                         h0,
@@ -249,70 +256,57 @@ impl Eval {
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_big_sigma0_0,
-                    E::EF::from(one.clone()),
-                    &[
-                        out2_0_lo.clone().unwrap(),
-                        out2_1_lo.clone().unwrap(),
-                        xor_out2_lo.clone(),
-                    ],
+                    -E::EF::from(enabler.clone()),
+                    &[out2_0_lo.unwrap(), out2_1_lo.unwrap(), xor_out2_lo.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_big_sigma0_1,
-                    E::EF::from(one.clone()),
-                    &[
-                        out2_0_hi.clone().unwrap(),
-                        out2_1_hi.clone().unwrap(),
-                        xor_out2_hi.clone(),
-                    ],
+                    -E::EF::from(enabler.clone()),
+                    &[out2_0_hi.unwrap(), out2_1_hi.unwrap(), xor_out2_hi.clone()],
                 ));
             }
             SigmaType::BigSigma1 => {
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.big_sigma1_0,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[l0, h0, h1, out0_lo.clone(), out0_hi.clone(), out2_0.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.big_sigma1_1,
-                    E::EF::from(one.clone()),
+                    -E::EF::from(enabler.clone()),
                     &[l1, l2, h2, out1_lo.clone(), out1_hi.clone(), out2_1.clone()],
                 ));
                 eval.add_to_relation(RelationEntry::new(
                     &self.relations.xor_big_sigma1,
-                    E::EF::from(one.clone()),
-                    &[
-                        out2_0.clone(),
-                        out2_1.clone(),
-                        xor_out2_lo.clone(),
-                        xor_out2_hi.clone(),
-                    ],
+                    -E::EF::from(enabler.clone()),
+                    &[out2_0, out2_1, xor_out2_lo.clone(), xor_out2_hi.clone()],
                 ));
             }
         };
 
         // Add all limbs together to rebuild the 32-bit result
         let out0 = Fu32 {
-            lo: out0_lo.clone(),
-            hi: out0_hi.clone(),
+            lo: out0_lo,
+            hi: out0_hi,
         };
         let out1 = Fu32 {
-            lo: out1_lo.clone(),
-            hi: out1_hi.clone(),
+            lo: out1_lo,
+            hi: out1_hi,
         };
         let out2 = Fu32 {
-            lo: xor_out2_lo.clone(),
-            hi: xor_out2_hi.clone(),
+            lo: xor_out2_lo,
+            hi: xor_out2_hi,
         };
         let res = add3_u32_unchecked(out0, out1, out2, eval);
 
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
-            E::EF::from(one.clone()),
+            -E::EF::from(enabler.clone()),
             &[res.lo.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_16,
-            E::EF::from(one.clone()),
+            -E::EF::from(enabler),
             &[res.hi.clone()],
         ));
 
@@ -324,21 +318,22 @@ impl Eval {
         e: [E::F; 6],
         f: [E::F; 6],
         g: [E::F; 6],
+        enabler: E::F,
         eval: &mut E,
     ) -> Fu32<E::F> {
-        let ch = std::array::from_fn(|_| eval.next_trace_mask());
+        let ch: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
 
         (0..6).for_each(|i| {
             eval.add_to_relation(RelationEntry::new(
                 &self.relations.ch,
-                E::EF::from(one.clone()),
-                &[e[i], f[i], g[i], ch[i]],
+                -E::EF::from(enabler.clone()),
+                &[e[i].clone(), f[i].clone(), g[i].clone(), ch[i].clone()],
             ));
         });
 
         Fu32 {
-            lo: ch[0] + ch[1] + ch[2],
-            hi: ch[3] + ch[4] + ch[5],
+            lo: ch[0].clone() + ch[1].clone() + ch[2].clone(),
+            hi: ch[3].clone() + ch[4].clone() + ch[5].clone(),
         }
     }
 
@@ -347,21 +342,22 @@ impl Eval {
         a: [E::F; 6],
         b: [E::F; 6],
         c: [E::F; 6],
+        enabler: E::F,
         eval: &mut E,
     ) -> Fu32<E::F> {
-        let maj = std::array::from_fn(|_| eval.next_trace_mask());
+        let maj: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
 
         (0..6).for_each(|i| {
             eval.add_to_relation(RelationEntry::new(
                 &self.relations.maj,
-                E::EF::from(one.clone()),
-                &[a[i], b[i], c[i], maj[i]],
+                -E::EF::from(enabler.clone()),
+                &[a[i].clone(), b[i].clone(), c[i].clone(), maj[i].clone()],
             ));
         });
 
         Fu32 {
-            lo: maj[0] + maj[1] + maj[2],
-            hi: maj[3] + maj[4] + maj[5],
+            lo: maj[0].clone() + maj[1].clone() + maj[2].clone(),
+            hi: maj[3].clone() + maj[4].clone() + maj[5].clone(),
         }
     }
 }
@@ -378,7 +374,7 @@ fn add2_u32_unchecked<E: EvalAtRow>(a: Fu32<E::F>, b: Fu32<E::F>, eval: &mut E) 
     eval.add_constraint(carry_l.clone() * carry_l.clone() - carry_l.clone());
 
     let carry_h = (a.hi + b.hi + carry_l - sh.clone()) * E::F::from(INV16);
-    eval.add_constraint(carry_h.clone() * carry_h.clone() - carry_h.clone());
+    eval.add_constraint(carry_h.clone() * carry_h.clone() - carry_h);
 
     Fu32 { lo: sl, hi: sh }
 }
@@ -403,11 +399,8 @@ fn add3_u32_unchecked<E: EvalAtRow>(
 
     let carry_h = (a.hi + b.hi + c.hi + carry_l - sh.clone()) * E::F::from(INV16);
     eval.add_constraint(
-        carry_h.clone() * (carry_h.clone() - E::F::one()) * (carry_h.clone() - E::F::from(TWO)),
+        carry_h.clone() * (carry_h.clone() - E::F::one()) * (carry_h - E::F::from(TWO)),
     );
 
-    Fu32 {
-        lo: sl,
-        hi: sh.clone(),
-    }
+    Fu32 { lo: sl, hi: sh }
 }
