@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757344195885,
+  "lastUpdate": 1757584357090,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1907,6 +1907,42 @@ window.BENCHMARK_DATA = {
             "name": "prover_sha256_1kb/prove",
             "value": 5745647192,
             "range": "± 28817647",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34771985+gael-bigot@users.noreply.github.com",
+            "name": "Gaël Bigot",
+            "username": "gael-bigot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f0fe747f3f6d6954916968cb31dbb105e144aa84",
+          "message": "refactor(vm): refactor memory model to support heap (#314)\n\n* feat: heap memory\n\n* MAX_ADDRESS constant + slice fix\n\n* minor fixes\n\n* suggestions\n\n* more suggestions\n\n* move projection check to get_qm31_no_trace\n\n* remove insert_slice and related tests\n\n* suggestion",
+          "timestamp": "2025-09-11T11:33:19+02:00",
+          "tree_id": "91db4e929d1cdb6952caa6d23d7395c641205516",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/f0fe747f3f6d6954916968cb31dbb105e144aa84"
+        },
+        "date": 1757584356673,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 6262507538,
+            "range": "± 41545281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "prover_sha256_1kb/prove",
+            "value": 5726516686,
+            "range": "± 16022285",
             "unit": "ns/iter"
           }
         ]
