@@ -121,7 +121,14 @@ macro_rules! generate_sigma_variant {
                     SimdBackend: BackendForChannel<MC>,
                 {
                     let input_masks = $input_masks;
-                    let total_bits = input_masks.iter().map(|m| m.count_ones()).sum::<u32>();
+                    // For high masks (> 0xFFFF), we need to shift them for bit counting
+                    let total_bits = input_masks.iter().map(|m| {
+                        if *m > 0xFFFF {
+                            (*m >> 16).count_ones()
+                        } else {
+                            m.count_ones()
+                        }
+                    }).sum::<u32>();
                     let total_size = 1usize << total_bits;
 
                     // Initialize multiplicities
@@ -137,9 +144,14 @@ macro_rules! generate_sigma_variant {
                                 // Compress each input to form the index
                                 for (col_idx, mask) in input_masks.iter().enumerate() {
                                     let value = entry[col_idx].to_array()[i].0;
-                                    let compressed = compress_value_to_mask(value, *mask);
+                                    // For high masks, we need to use the shifted version for compression
+                                    let (compressed, bits) = if *mask > 0xFFFF {
+                                        (compress_value_to_mask(value, *mask >> 16), (*mask >> 16).count_ones())
+                                    } else {
+                                        (compress_value_to_mask(value, *mask), mask.count_ones())
+                                    };
                                     index |= (compressed as usize) << shift;
-                                    shift += mask.count_ones();
+                                    shift += bits;
                                 }
 
                                 if index < total_size {
@@ -292,8 +304,14 @@ macro_rules! generate_sigma_variant {
 
                     let mut values = Vec::with_capacity(total_size);
 
-                    // Calculate total combinations
-                    let input_bit_counts: Vec<u32> = input_masks.iter().map(|m| m.count_ones()).collect();
+                    // Calculate total combinations (handle high masks by shifting)
+                    let input_bit_counts: Vec<u32> = input_masks.iter().map(|m| {
+                        if *m > 0xFFFF {
+                            (*m >> 16).count_ones()
+                        } else {
+                            m.count_ones()
+                        }
+                    }).collect();
                     let total_combinations: Vec<u32> = input_bit_counts.iter().map(|&bits| 1u32 << bits).collect();
 
                     // Generate all possible input combinations
@@ -301,8 +319,15 @@ macro_rules! generate_sigma_variant {
 
                     for _ in 0..total_size {
                         // Expand indices to get input values
+                        // For high masks, we need to expand using the shifted mask
                         let inputs: Vec<u32> = indices.iter().zip(input_masks.iter())
-                            .map(|(&idx, &mask)| expand_bits_to_mask(idx, mask))
+                            .map(|(&idx, &mask)| {
+                                if mask > 0xFFFF {
+                                    expand_bits_to_mask(idx, mask >> 16)
+                                } else {
+                                    expand_bits_to_mask(idx, mask)
+                                }
+                            })
                             .collect();
 
                         let value = if self.col_index < $num_input_columns {
@@ -313,7 +338,17 @@ macro_rules! generate_sigma_variant {
                             let output_idx = self.col_index - $num_input_columns;
 
                             // Rebuild the full word from inputs and apply sigma
-                            let word = rebuild_word_from_inputs(&inputs, &input_masks);
+                            // High masks need to be shifted back up to their correct position
+                            let mut word = 0u32;
+                            for (input, mask) in inputs.iter().zip(input_masks.iter()) {
+                                if *mask > 0xFFFF {
+                                    // This is a high mask, shift the input up
+                                    word |= input << 16;
+                                } else {
+                                    // This is a low mask, use as-is
+                                    word |= input;
+                                }
+                            }
                             let sigma_result = sigma_func(word);
 
                             // Extract the specific output using the mask
@@ -349,7 +384,13 @@ macro_rules! generate_sigma_variant {
             impl PreProcessedColumn for SigmaCol {
                 fn log_size(&self) -> u32 {
                     let input_masks = $input_masks;
-                    input_masks.iter().map(|m| m.count_ones()).sum::<u32>()
+                    input_masks.iter().map(|m| {
+                        if *m > 0xFFFF {
+                            (*m >> 16).count_ones()
+                        } else {
+                            m.count_ones()
+                        }
+                    }).sum::<u32>()
                 }
 
                 fn gen_column_simd(&self) -> CircleEvaluation<SimdBackend, BaseField, BitReversedOrder> {
@@ -406,15 +447,6 @@ fn compress_value_to_mask(value: u32, mask: u32) -> u32 {
     result
 }
 
-/// Rebuilds the full 32-bit word from input limbs based on masks
-fn rebuild_word_from_inputs(inputs: &[u32], masks: &[u32]) -> u32 {
-    let mut word = 0u32;
-    for (input, mask) in inputs.iter().zip(masks.iter()) {
-        word |= input & mask;
-    }
-    word
-}
-
 // Sigma functions
 const fn small_sigma0(x: u32) -> u32 {
     x.rotate_right(3) ^ x.rotate_right(7) ^ x.rotate_right(18)
@@ -440,13 +472,13 @@ generate_sigma_variant!(
     [
         MASK_SMALL_SIGMA0_L1,
         MASK_SMALL_SIGMA0_L2,
-        MASK_SMALL_SIGMA0_H2 >> 16
+        MASK_SMALL_SIGMA0_H2 // Keep original unshifted mask
     ],
     [
         MASK_SMALL_SIGMA0_OUT0_LO,
-        MASK_SMALL_SIGMA0_OUT0_HI >> 16,
+        MASK_SMALL_SIGMA0_OUT0_HI, // Keep original unshifted mask
         MASK_SMALL_SIGMA0_OUT2_LO,
-        MASK_SMALL_SIGMA0_OUT2_HI >> 16
+        MASK_SMALL_SIGMA0_OUT2_HI // Keep original unshifted mask
     ],
     small_sigma0,
     3,
@@ -459,14 +491,14 @@ generate_sigma_variant!(
     SmallSigma0_1,
     [
         MASK_SMALL_SIGMA0_L0,
-        MASK_SMALL_SIGMA0_H0 >> 16,
-        MASK_SMALL_SIGMA0_H1 >> 16
+        MASK_SMALL_SIGMA0_H0, // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_H1  // Keep original unshifted mask
     ],
     [
         MASK_SMALL_SIGMA0_OUT1_LO,
-        MASK_SMALL_SIGMA0_OUT1_HI >> 16,
+        MASK_SMALL_SIGMA0_OUT1_HI, // Keep original unshifted mask
         MASK_SMALL_SIGMA0_OUT2_LO,
-        MASK_SMALL_SIGMA0_OUT2_HI >> 16
+        MASK_SMALL_SIGMA0_OUT2_HI // Keep original unshifted mask
     ],
     small_sigma0,
     3,
@@ -477,12 +509,12 @@ generate_sigma_variant!(
 generate_sigma_variant!(
     small_sigma1_0,
     SmallSigma1_0,
-    [MASK_SMALL_SIGMA1_L0, MASK_SMALL_SIGMA1_H0 >> 16],
+    [MASK_SMALL_SIGMA1_L0, MASK_SMALL_SIGMA1_H0], // Keep original unshifted mask
     [
         MASK_SMALL_SIGMA1_OUT0_LO,
-        MASK_SMALL_SIGMA1_OUT0_HI >> 16,
+        MASK_SMALL_SIGMA1_OUT0_HI, // Keep original unshifted mask
         MASK_SMALL_SIGMA1_OUT2_LO,
-        MASK_SMALL_SIGMA1_OUT2_HI >> 16
+        MASK_SMALL_SIGMA1_OUT2_HI // Keep original unshifted mask
     ],
     small_sigma1,
     2,
@@ -496,14 +528,14 @@ generate_sigma_variant!(
     [
         MASK_SMALL_SIGMA1_L1,
         MASK_SMALL_SIGMA1_L2,
-        MASK_SMALL_SIGMA1_H1 >> 16,
-        MASK_SMALL_SIGMA1_H2 >> 16
+        MASK_SMALL_SIGMA1_H1, // Keep original unshifted mask
+        MASK_SMALL_SIGMA1_H2  // Keep original unshifted mask
     ],
     [
         MASK_SMALL_SIGMA1_OUT1_LO,
-        MASK_SMALL_SIGMA1_OUT1_HI >> 16,
+        MASK_SMALL_SIGMA1_OUT1_HI, // Keep original unshifted mask
         MASK_SMALL_SIGMA1_OUT2_LO,
-        MASK_SMALL_SIGMA1_OUT2_HI >> 16
+        MASK_SMALL_SIGMA1_OUT2_HI // Keep original unshifted mask
     ],
     small_sigma1,
     4,
@@ -517,13 +549,13 @@ generate_sigma_variant!(
     [
         MASK_BIG_SIGMA0_L1,
         MASK_BIG_SIGMA0_L2,
-        MASK_BIG_SIGMA0_H2 >> 16
+        MASK_BIG_SIGMA0_H2 // Keep original unshifted mask
     ],
     [
         MASK_BIG_SIGMA0_OUT0_LO,
-        MASK_BIG_SIGMA0_OUT0_HI >> 16,
+        MASK_BIG_SIGMA0_OUT0_HI, // Keep original unshifted mask
         MASK_BIG_SIGMA0_OUT2_LO,
-        MASK_BIG_SIGMA0_OUT2_HI >> 16
+        MASK_BIG_SIGMA0_OUT2_HI // Keep original unshifted mask
     ],
     big_sigma0,
     3,
@@ -536,14 +568,14 @@ generate_sigma_variant!(
     BigSigma0_1,
     [
         MASK_BIG_SIGMA0_L0,
-        MASK_BIG_SIGMA0_H0 >> 16,
-        MASK_BIG_SIGMA0_H1 >> 16
+        MASK_BIG_SIGMA0_H0, // Keep original unshifted mask
+        MASK_BIG_SIGMA0_H1  // Keep original unshifted mask
     ],
     [
         MASK_BIG_SIGMA0_OUT1_LO,
-        MASK_BIG_SIGMA0_OUT1_HI >> 16,
+        MASK_BIG_SIGMA0_OUT1_HI, // Keep original unshifted mask
         MASK_BIG_SIGMA0_OUT2_LO,
-        MASK_BIG_SIGMA0_OUT2_HI >> 16
+        MASK_BIG_SIGMA0_OUT2_HI // Keep original unshifted mask
     ],
     big_sigma0,
     3,
@@ -556,14 +588,14 @@ generate_sigma_variant!(
     BigSigma1_0,
     [
         MASK_BIG_SIGMA1_L0,
-        MASK_BIG_SIGMA1_H0 >> 16,
-        MASK_BIG_SIGMA1_H1 >> 16
+        MASK_BIG_SIGMA1_H0, // Keep original unshifted mask
+        MASK_BIG_SIGMA1_H1  // Keep original unshifted mask
     ],
     [
         MASK_BIG_SIGMA1_OUT0_LO,
-        MASK_BIG_SIGMA1_OUT0_HI >> 16,
+        MASK_BIG_SIGMA1_OUT0_HI, // Keep original unshifted mask
         MASK_BIG_SIGMA1_OUT2_LO,
-        MASK_BIG_SIGMA1_OUT2_HI >> 16
+        MASK_BIG_SIGMA1_OUT2_HI // Keep original unshifted mask
     ],
     big_sigma1,
     3,
@@ -577,13 +609,13 @@ generate_sigma_variant!(
     [
         MASK_BIG_SIGMA1_L1,
         MASK_BIG_SIGMA1_L2,
-        MASK_BIG_SIGMA1_H2 >> 16
+        MASK_BIG_SIGMA1_H2 // Keep original unshifted mask
     ],
     [
         MASK_BIG_SIGMA1_OUT1_LO,
-        MASK_BIG_SIGMA1_OUT1_HI >> 16,
+        MASK_BIG_SIGMA1_OUT1_HI, // Keep original unshifted mask
         MASK_BIG_SIGMA1_OUT2_LO,
-        MASK_BIG_SIGMA1_OUT2_HI >> 16
+        MASK_BIG_SIGMA1_OUT2_HI // Keep original unshifted mask
     ],
     big_sigma1,
     3,

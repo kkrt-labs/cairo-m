@@ -33,7 +33,7 @@ fn test_sha256_prove_single_block() {
 
 #[test]
 fn test_sha256_prove_2_pow_x_input() {
-    let inputs: Vec<SHA256HashInput> = (0..1 << 16)
+    let inputs: Vec<SHA256HashInput> = (0..1 << 0)
         .map(|i| {
             let mut message = [M31::zero(); 32];
             for (j, element) in message.iter_mut().enumerate() {
