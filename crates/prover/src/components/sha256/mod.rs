@@ -172,8 +172,8 @@ pub struct LookupData {
     pub xor_big_sigma0_0: [Vec<[PackedM31; 3]>; N_XOR_BIG_SIGMA0_0_LOOKUPS],
     pub xor_big_sigma0_1: [Vec<[PackedM31; 3]>; N_XOR_BIG_SIGMA0_1_LOOKUPS],
     pub xor_big_sigma1: [Vec<[PackedM31; 6]>; N_XOR_BIG_SIGMA1_LOOKUPS],
-    pub ch: [Vec<[PackedM31; 4]>; N_CH_LOOKUPS],
-    pub maj: [Vec<[PackedM31; 4]>; N_MAJ_LOOKUPS],
+    pub ch: [Vec<[PackedM31; 5]>; N_CH_LOOKUPS],
+    pub maj: [Vec<[PackedM31; 5]>; N_MAJ_LOOKUPS],
     pub range_check_16: [Vec<[PackedM31; 1]>; N_RANGE_CHECK_16_LOOKUPS],
 }
 

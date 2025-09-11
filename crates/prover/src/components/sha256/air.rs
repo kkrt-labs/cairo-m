@@ -373,7 +373,13 @@ impl Eval {
             eval.add_to_relation(RelationEntry::new(
                 &self.relations.ch,
                 -E::EF::from(enabler.clone()),
-                &[e[i].clone(), f[i].clone(), g[i].clone(), ch[i].clone()],
+                &[
+                    E::F::from(M31::from(i)),
+                    e[i].clone(),
+                    f[i].clone(),
+                    g[i].clone(),
+                    ch[i].clone(),
+                ],
             ));
         });
 
@@ -397,7 +403,13 @@ impl Eval {
             eval.add_to_relation(RelationEntry::new(
                 &self.relations.maj,
                 -E::EF::from(enabler.clone()),
-                &[a[i].clone(), b[i].clone(), c[i].clone(), maj[i].clone()],
+                &[
+                    E::F::from(M31::from(i)),
+                    a[i].clone(),
+                    b[i].clone(),
+                    c[i].clone(),
+                    maj[i].clone(),
+                ],
             ));
         });
 

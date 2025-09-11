@@ -512,7 +512,7 @@ fn ch(
     ch.iter().enumerate().for_each(|(i, x)| {
         *row[indexes.col_index] = *x;
         indexes.col_index += 1;
-        *lookup_data.ch[indexes.ch_index] = [e[i], f[i], g[i], *x];
+        *lookup_data.ch[indexes.ch_index] = [PackedM31::from(M31::from(i)), e[i], f[i], g[i], *x];
         indexes.ch_index += 1;
     });
 
@@ -534,7 +534,7 @@ fn maj(
     maj.iter().enumerate().for_each(|(i, x)| {
         *row[indexes.col_index] = *x;
         indexes.col_index += 1;
-        *lookup_data.maj[indexes.maj_index] = [a[i], b[i], c[i], *x];
+        *lookup_data.maj[indexes.maj_index] = [PackedM31::from(M31::from(i)), a[i], b[i], c[i], *x];
         indexes.maj_index += 1;
     });
 
@@ -571,33 +571,33 @@ const fn decompose_u32(a: u32, sigma: SigmaType) -> [u32; 6] {
             a & MASK_SMALL_SIGMA0_L0,
             a & MASK_SMALL_SIGMA0_L1,
             a & MASK_SMALL_SIGMA0_L2,
-            a & MASK_SMALL_SIGMA0_H0 >> 16,
-            a & MASK_SMALL_SIGMA0_H1 >> 16,
-            a & MASK_SMALL_SIGMA0_H2 >> 16,
+            (a & MASK_SMALL_SIGMA0_H0) >> 16,
+            (a & MASK_SMALL_SIGMA0_H1) >> 16,
+            (a & MASK_SMALL_SIGMA0_H2) >> 16,
         ],
         SigmaType::SmallSigma1 => [
             a & MASK_SMALL_SIGMA1_L0,
             a & MASK_SMALL_SIGMA1_L1,
             a & MASK_SMALL_SIGMA1_L2,
-            a & MASK_SMALL_SIGMA1_H0 >> 16,
-            a & MASK_SMALL_SIGMA1_H1 >> 16,
-            a & MASK_SMALL_SIGMA1_H2 >> 16,
+            (a & MASK_SMALL_SIGMA1_H0) >> 16,
+            (a & MASK_SMALL_SIGMA1_H1) >> 16,
+            (a & MASK_SMALL_SIGMA1_H2) >> 16,
         ],
         SigmaType::BigSigma0 => [
             a & MASK_BIG_SIGMA0_L0,
             a & MASK_BIG_SIGMA0_L1,
             a & MASK_BIG_SIGMA0_L2,
-            a & MASK_BIG_SIGMA0_H0 >> 16,
-            a & MASK_BIG_SIGMA0_H1 >> 16,
-            a & MASK_BIG_SIGMA0_H2 >> 16,
+            (a & MASK_BIG_SIGMA0_H0) >> 16,
+            (a & MASK_BIG_SIGMA0_H1) >> 16,
+            (a & MASK_BIG_SIGMA0_H2) >> 16,
         ],
         SigmaType::BigSigma1 => [
             a & MASK_BIG_SIGMA1_L0,
             a & MASK_BIG_SIGMA1_L1,
             a & MASK_BIG_SIGMA1_L2,
-            a & MASK_BIG_SIGMA1_H0 >> 16,
-            a & MASK_BIG_SIGMA1_H1 >> 16,
-            a & MASK_BIG_SIGMA1_H2 >> 16,
+            (a & MASK_BIG_SIGMA1_H0) >> 16,
+            (a & MASK_BIG_SIGMA1_H1) >> 16,
+            (a & MASK_BIG_SIGMA1_H2) >> 16,
         ],
     }
 }

@@ -36,7 +36,7 @@ where
     pcs_config.mix_into(channel);
 
     let trace_log_size = std::cmp::max(
-        PREPROCESSED_TRACE_LOG_SIZE,
+        PREPROCESSED_TRACE_LOG_SIZE + 3,
         std::cmp::max(
             (input.merkle_trees.initial_tree.len() + input.merkle_trees.final_tree.len())
                 .next_power_of_two()

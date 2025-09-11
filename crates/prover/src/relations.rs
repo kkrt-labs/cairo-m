@@ -57,8 +57,8 @@ relation!(XorSmallSigma1, 6);
 relation!(XorBigSigma0_0, 3);
 relation!(XorBigSigma0_1, 3);
 relation!(XorBigSigma1, 6);
-relation!(Ch, 4);
-relation!(Maj, 4);
+relation!(Ch, 5);
+relation!(Maj, 5);
 
 /// Proof-of-work bits for interaction argument security.
 pub const INTERACTION_POW_BITS: u32 = 2;

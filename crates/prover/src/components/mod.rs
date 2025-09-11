@@ -5,6 +5,7 @@ pub mod opcodes;
 pub mod poseidon2;
 pub mod sha256;
 use num_traits::Zero;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
@@ -21,8 +22,8 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::ProverInput;
-use crate::preprocessed::bitwise;
 use crate::preprocessed::range_check::{range_check_16, range_check_20, range_check_8};
+use crate::preprocessed::{bitwise, ch};
 use crate::public_data::PublicData;
 use crate::relations;
 
@@ -34,6 +35,7 @@ pub struct Claim {
     pub clock_update: clock_update::Claim,
     pub poseidon2: poseidon2::Claim,
     pub sha256: sha256::Claim,
+    pub ch: ch::Claim,
     pub range_check_8: range_check_8::Claim,
     pub range_check_16: range_check_16::Claim,
     pub range_check_20: range_check_20::Claim,
@@ -74,6 +76,7 @@ pub struct InteractionClaimData {
     pub clock_update: clock_update::InteractionClaimData,
     pub poseidon2: poseidon2::InteractionClaimData,
     pub sha256: sha256::InteractionClaimData,
+    pub ch: ch::InteractionClaimData,
     pub range_check_8: range_check_8::InteractionClaimData,
     pub range_check_16: range_check_16::InteractionClaimData,
     pub range_check_20: range_check_20::InteractionClaimData,
@@ -88,6 +91,7 @@ pub struct InteractionClaim {
     pub clock_update: clock_update::InteractionClaim,
     pub poseidon2: poseidon2::InteractionClaim,
     pub sha256: sha256::InteractionClaim,
+    pub ch: ch::InteractionClaim,
     pub range_check_8: range_check_8::InteractionClaim,
     pub range_check_16: range_check_16::InteractionClaim,
     pub range_check_20: range_check_20::InteractionClaim,
@@ -103,6 +107,7 @@ impl Claim {
             self.clock_update.log_sizes(),
             self.poseidon2.log_sizes(),
             self.sha256.log_sizes(),
+            self.ch.log_sizes(),
             self.range_check_8.log_sizes(),
             self.range_check_16.log_sizes(),
             self.range_check_20.log_sizes(),
@@ -118,6 +123,7 @@ impl Claim {
         self.clock_update.mix_into(channel);
         self.poseidon2.mix_into(channel);
         self.sha256.mix_into(channel);
+        self.ch.mix_into(channel);
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
@@ -158,6 +164,15 @@ impl Claim {
         let (sha256_claim, sha256_trace, sha256_interaction_claim_data) =
             sha256::Claim::write_trace(&input.sha256_inputs);
 
+        // Write ch trace
+        let (ch_claim, ch_trace, ch_interaction_claim_data) = ch::Claim::write_trace(
+            sha256_interaction_claim_data
+                .lookup_data
+                .ch
+                .par_iter()
+                .map(|v| v.as_slice()),
+        );
+
         // Write range_check components
         let range_check_8_data = opcodes_interaction_claim_data.range_check_8();
         let (range_check_8_claim, range_check_8_trace, range_check_8_interaction_claim_data) =
@@ -184,6 +199,7 @@ impl Claim {
             clock_update: clock_update_interaction_claim_data,
             poseidon2: poseidon2_interaction_claim_data,
             sha256: sha256_interaction_claim_data,
+            ch: ch_interaction_claim_data,
             range_check_8: range_check_8_interaction_claim_data,
             range_check_16: range_check_16_interaction_claim_data,
             range_check_20: range_check_20_interaction_claim_data,
@@ -198,6 +214,7 @@ impl Claim {
             .chain(clock_update_trace.to_evals())
             .chain(poseidon2_trace.to_evals())
             .chain(sha256_trace.to_evals())
+            .chain(ch_trace)
             .chain(range_check_8_trace)
             .chain(range_check_16_trace)
             .chain(range_check_20_trace)
@@ -211,6 +228,7 @@ impl Claim {
                 clock_update: clock_update_claim,
                 poseidon2: poseidon2_claim,
                 sha256: sha256_claim,
+                ch: ch_claim,
                 range_check_8: range_check_8_claim,
                 range_check_16: range_check_16_claim,
                 range_check_20: range_check_20_claim,
@@ -265,6 +283,12 @@ impl InteractionClaim {
                 &interaction_claim_data.sha256,
             );
 
+        let (ch_interaction_claim, ch_interaction_trace) =
+            ch::InteractionClaim::write_interaction_trace(
+                &relations.ch,
+                &interaction_claim_data.ch,
+            );
+
         let (range_check_8_interaction_claim, range_check_8_interaction_trace) =
             range_check_8::InteractionClaim::write_interaction_trace(
                 &relations.range_check_8,
@@ -297,6 +321,7 @@ impl InteractionClaim {
                 .chain(clock_update_interaction_trace)
                 .chain(poseidon2_interaction_trace)
                 .chain(sha256_interaction_trace)
+                .chain(ch_interaction_trace)
                 .chain(range_check_8_interaction_trace)
                 .chain(range_check_16_interaction_trace)
                 .chain(range_check_20_interaction_trace)
@@ -308,6 +333,7 @@ impl InteractionClaim {
                 clock_update: clock_update_interaction_claim,
                 poseidon2: poseidon2_interaction_claim,
                 sha256: sha256_interaction_claim,
+                ch: ch_interaction_claim,
                 range_check_8: range_check_8_interaction_claim,
                 range_check_16: range_check_16_interaction_claim,
                 range_check_20: range_check_20_interaction_claim,
@@ -325,6 +351,7 @@ impl InteractionClaim {
         sum += self.clock_update.claimed_sum;
         sum += self.poseidon2.claimed_sum;
         sum += self.sha256.claimed_sum;
+        sum += self.ch.claimed_sum;
         sum += self.range_check_8.claimed_sum;
         sum += self.range_check_16.claimed_sum;
         sum += self.range_check_20.claimed_sum;
@@ -339,6 +366,7 @@ impl InteractionClaim {
         self.clock_update.mix_into(channel);
         self.poseidon2.mix_into(channel);
         self.sha256.mix_into(channel);
+        self.ch.mix_into(channel);
         self.range_check_8.mix_into(channel);
         self.range_check_16.mix_into(channel);
         self.range_check_20.mix_into(channel);
@@ -383,6 +411,7 @@ pub struct Components {
     pub clock_update: clock_update::Component,
     pub poseidon2: poseidon2::Component,
     pub sha256: sha256::Component,
+    pub ch: ch::Component,
     pub range_check_8: range_check_8::Component,
     pub range_check_16: range_check_16::Component,
     pub range_check_20: range_check_20::Component,
@@ -442,6 +471,14 @@ impl Components {
                     relations: relations.clone(),
                 },
                 interaction_claim.sha256.claimed_sum,
+            ),
+            ch: ch::Component::new(
+                location_allocator,
+                ch::Eval {
+                    claim: claim.ch,
+                    relation: relations.ch.clone(),
+                },
+                interaction_claim.ch.claimed_sum,
             ),
             range_check_8: range_check_8::Component::new(
                 location_allocator,

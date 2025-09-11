@@ -9,9 +9,11 @@ use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::bitwise::Bitwise;
+use crate::preprocessed::ch::Ch;
 use crate::preprocessed::range_check::RangeCheck;
 
 pub mod bitwise;
+pub mod ch;
 pub mod range_check;
 
 pub trait PreProcessedColumn {
@@ -67,6 +69,17 @@ impl PreProcessedTraceBuilder {
         self
     }
 
+    pub fn with_sha256(mut self) -> Self {
+        // Add ch preprocessed columns for SHA256
+        // This adds 5 columns: variant_id, e, f, g, result
+        let ch = Ch::new();
+        for column in ch.columns() {
+            self.columns.push(Box::new(column));
+        }
+        // TODO: Add maj preprocessed columns when implemented
+        self
+    }
+
     pub fn build(self) -> PreProcessedTrace {
         PreProcessedTrace::new(self.columns)
     }
@@ -79,5 +92,18 @@ impl Default for PreProcessedTraceBuilder {
             .with_range_check(8)
             .with_range_check(16)
             .with_range_check(20)
+            .with_sha256()
+    }
+}
+
+impl PreProcessedTraceBuilder {
+    /// Creates a preprocessed trace builder configured for SHA256
+    pub fn for_sha256() -> Self {
+        Self::new()
+            .with_bitwise(8)
+            .with_range_check(8)
+            .with_range_check(16)
+            .with_range_check(20)
+            .with_sha256()
     }
 }
