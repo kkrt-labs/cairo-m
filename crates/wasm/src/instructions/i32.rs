@@ -4,7 +4,7 @@ use wasmparser::Operator as Op;
 
 impl DagToMir {
     /// Convert a WASM binary operations to the immediately corresponding Mir operation
-    pub fn convert_wasm_binop_to_mir(
+    fn convert_wasm_binop_to_mir(
         &self,
         wasm_op: &Op,
         left: Value,

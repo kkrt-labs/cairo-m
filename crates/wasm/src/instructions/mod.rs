@@ -83,7 +83,7 @@ impl DagToMir {
                         .params()
                         .iter()
                         .map(|ty| {
-                            Self::wasm_type_to_mir_type(ty, "unknown", "function call parameters")
+                            Self::wasm_type_to_mir_type(ty)
                         })
                         .collect();
 
@@ -93,7 +93,7 @@ impl DagToMir {
                         .results()
                         .iter()
                         .map(|ty| {
-                            Self::wasm_type_to_mir_type(ty, "unknown", "function call return types")
+                            Self::wasm_type_to_mir_type(ty)
                         })
                         .collect();
 

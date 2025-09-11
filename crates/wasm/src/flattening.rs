@@ -7,7 +7,6 @@ use cairo_m_compiler_mir::{
 };
 use std::collections::HashMap;
 use thiserror::Error;
-use wasmparser::ValType;
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
 use womir::loader::Global;
@@ -38,12 +37,8 @@ pub enum DagToMirError {
         reason: String,
         available_count: usize,
     },
-    #[error("Unsupported WASM type {wasm_type:?} in function '{function_name}': {context}")]
-    UnsupportedWasmType {
-        wasm_type: wasmparser::ValType,
-        function_name: String,
-        context: String,
-    },
+    #[error("Unsupported WASM type {wasm_type:?}")]
+    UnsupportedWasmType { wasm_type: wasmparser::ValType },
     #[error("Loop structure error in function '{function_name}' at node {node_idx}: depth {requested_depth} exceeds available {available_depth}")]
     LoopDepthError {
         function_name: String,
@@ -51,6 +46,8 @@ pub enum DagToMirError {
         requested_depth: u32,
         available_depth: usize,
     },
+    #[error("Global address not found for global {global_index}")]
+    GlobalAddressNotFound { global_index: usize },
 }
 
 pub struct DagToMir {
@@ -224,69 +221,67 @@ impl DagToMir {
         Ok(dag_to_mir)
     }
 
-    /// Map each global to its address in memory and computes the address of the heap as
-    /// heap_start = VM_MEMORY_SIZE - 1 - size of all globals
-    pub fn allocate_globals(&mut self) -> Result<(), DagToMirError> {
-        let mut next_free_address = MAX_ADDRESS as u32;
-        let mut error: Option<DagToMirError> = None;
-        self.module.with_program(|program| {
-            for (i, global) in program.c.globals.iter().enumerate() {
-                if let Global::Mutable(allocated_var) = global {
-                    let size = match allocated_var.val_type {
-                        ValType::I32 => 2,
-                        _ => {
-                            error = Some(DagToMirError::UnsupportedWasmType {
-                                wasm_type: allocated_var.val_type,
-                                function_name: "Global scope".to_string(),
-                                context: "global type".to_string(),
-                            });
-                            return;
-                        }
-                    };
-
-                    let ty = match Self::wasm_type_to_mir_type(
-                        &allocated_var.val_type,
-                        "Global scope",
-                        "global type",
-                    ) {
-                        Ok(ty) => ty,
-                        Err(e) => {
-                            error = Some(e);
-                            return;
-                        }
-                    };
-
-                    self.global_types.insert(i, ty);
-
-                    self.global_addresses
-                        .insert(i, next_free_address - size + 1);
-
-                    next_free_address -= size;
-                }
-            }
-        });
-        if let Some(e) = error {
-            return Err(e);
-        }
-        self.heap_start = next_free_address;
-        Ok(())
-    }
-
     /// Convert WASM type to MIR type
     /// For now, we only support i32
-    pub fn wasm_type_to_mir_type(
+    pub(crate) const fn wasm_type_to_mir_type(
         wasm_type: &wasmparser::ValType,
-        function_name: &str,
-        context: &str,
     ) -> Result<MirType, DagToMirError> {
         match wasm_type {
             wasmparser::ValType::I32 => Ok(MirType::U32),
             _ => Err(DagToMirError::UnsupportedWasmType {
                 wasm_type: *wasm_type,
-                function_name: function_name.to_string(),
-                context: context.to_string(),
             }),
         }
+    }
+
+    /// Return the number of felts required to represent a given MIR type in memory.
+    /// Extend this mapping as more types are supported.
+    fn mir_type_size_in_felts(ty: &MirType) -> u32 {
+        match ty {
+            MirType::U32 => 2,
+            _ => unreachable!(
+                "Unsupported MIR type for globals size computation: {:?}",
+                ty
+            ),
+        }
+    }
+
+    /// Map each global to its address in memory and computes the address of the heap as
+    /// heap_start = VM_MEMORY_SIZE - 1 - size of all globals
+    fn allocate_globals(&mut self) -> Result<(), DagToMirError> {
+        let mut next_free_address = MAX_ADDRESS as u32;
+
+        let globals = self.module.with_program(|program| &program.c.globals);
+
+        // Process mutable globals and collect their allocation info
+        let mutable_globals: Result<Vec<_>, DagToMirError> = globals
+            .iter()
+            .enumerate()
+            .filter_map(|(i, global)| {
+                match global {
+                    Global::Mutable(allocated_var) => Some((i, allocated_var)),
+                    _ => None, // Immutable variables are already unpacked by womir block_tree loader.
+                }
+            })
+            .map(|(i, allocated_var)| {
+                let ty = Self::wasm_type_to_mir_type(&allocated_var.val_type)?;
+                let size = Self::mir_type_size_in_felts(&ty);
+                Ok((i, ty, size))
+            })
+            .collect();
+
+        let mutable_globals = mutable_globals?;
+
+        // Allocate addresses for mutable globals (in reverse order due to decreasing addresses)
+        for (i, ty, size) in mutable_globals {
+            self.global_types.insert(i, ty);
+            self.global_addresses
+                .insert(i, next_free_address - size + 1);
+            next_free_address -= size;
+        }
+
+        self.heap_start = next_free_address;
+        Ok(())
     }
 
     /// Convert a single WASM function to MIR using two-pass algorithm
@@ -311,7 +306,7 @@ impl DagToMir {
                 .ty
                 .params()
                 .iter()
-                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name, "function parameters"))
+                .map(Self::wasm_type_to_mir_type)
                 .collect();
 
             // Handle return types with proper error handling
@@ -319,7 +314,7 @@ impl DagToMir {
                 .ty
                 .results()
                 .iter()
-                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name, "function return types"))
+                .map(Self::wasm_type_to_mir_type)
                 .collect();
 
             (param_types, return_types)
@@ -406,8 +401,7 @@ impl DagToMir {
 
                 // Create phi nodes for each label output
                 for (output_idx, output_type) in node.output_types.iter().enumerate() {
-                    let mir_type =
-                        Self::wasm_type_to_mir_type(output_type, "unknown", "label output")?;
+                    let mir_type = Self::wasm_type_to_mir_type(output_type)?;
                     let phi_value_id = context.mir_function.new_typed_value_id(mir_type.clone());
 
                     // Create empty phi node that will be populated later
@@ -570,11 +564,7 @@ impl DagToMir {
                     // Create phi nodes in the header for loop-carried values
                     let mut header_phi_nodes = Vec::new();
                     for output_type in &input_node.output_types {
-                        let mir_type = Self::wasm_type_to_mir_type(
-                            output_type,
-                            &context.mir_function.name,
-                            "loop input",
-                        )?;
+                        let mir_type = Self::wasm_type_to_mir_type(output_type)?;
                         let phi_value_id =
                             context.mir_function.new_typed_value_id(mir_type.clone());
 
@@ -666,7 +656,7 @@ impl DagToMir {
     }
 
     /// Get MIR value for a WASM ValueOrigin
-    pub fn get_input_value(
+    pub(crate) fn get_input_value(
         &self,
         value_origin: &ValueOrigin,
         context: &DagToMirContext,
@@ -693,7 +683,7 @@ impl DagToMir {
     }
 
     /// Resolve a WASM break target to a MIR BasicBlockId
-    fn resolve_break_target(
+    pub(crate) fn resolve_break_target(
         &self,
         node_idx: usize,
         node: &Node,
