@@ -389,7 +389,7 @@ impl Eval {
 
         eval.add_to_relation(RelationEntry::new(
             &self.relations.ch_h2,
-            -one.clone(),
+            -one,
             &[e[5].clone(), f[5].clone(), g[5].clone(), ch[5].clone()],
         ));
 
