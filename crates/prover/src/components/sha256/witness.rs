@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use num_traits::Zero;
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use num_traits::{One, Zero};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use stwo_air_utils::trace::component_trace::ComponentTrace;
 use stwo_constraint_framework::logup::LogupTraceGenerator;
@@ -12,6 +12,7 @@ use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
+use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::pcs::TreeVec;
 use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
@@ -22,7 +23,6 @@ use crate::components::sha256::{
     MESSAGE_SIZE, N_INTERACTION_COLUMNS, N_TRACE_COLUMNS,
 };
 use crate::components::Relations;
-use crate::utils::enabler::Enabler;
 
 const MASK_SMALL_SIGMA0_L0: u32 = 0x4aaa; // O1 : 1, 3, 5, 7, 9, 11, 14
 const MASK_SMALL_SIGMA0_L1: u32 = 0x155; // O0 : 0, 2, 4, 6, 8
@@ -139,8 +139,6 @@ impl Claim {
             })
             .collect();
 
-        let enabler_col = Enabler::new(non_padded_length);
-
         // Generate lookup data and fill the trace
         let (mut trace, mut lookup_data) = unsafe {
             (
@@ -155,12 +153,8 @@ impl Claim {
             lookup_data.par_iter_mut(),
         )
             .into_par_iter()
-            .enumerate()
-            .for_each(|(row_index, (mut row, message, mut lookup_data))| {
+            .for_each(|(mut row, message, mut lookup_data)| {
                 let mut indexes = Indexes::default();
-                let enabler = enabler_col.packed_at(row_index);
-                *row[indexes.col_index] = enabler;
-                indexes.col_index += 1;
 
                 let K: [Fu32<PackedM31>; 64] = std::array::from_fn(|_| Fu32::zero());
                 let mut H: [Fu32<PackedM31>; 8] = std::array::from_fn(|_| Fu32::zero());
@@ -865,7 +859,7 @@ impl InteractionClaim {
         )
         .ilog2();
         let mut interaction_trace = LogupTraceGenerator::new(log_size);
-        let enabler_col = Enabler::new(interaction_claim_data.non_padded_length);
+        let one = QM31::one();
         /// Macro to generate interaction trace for lookup data pairs
         macro_rules! generate_interaction_trace {
             ($relation_name_1:ident, $i_1:expr, $relation_name_2:ident, $i_2:expr) => {{
@@ -876,9 +870,8 @@ impl InteractionClaim {
                     &interaction_claim_data.lookup_data.$relation_name_2[$i_2],
                 )
                     .into_par_iter()
-                    .enumerate()
-                    .for_each(|(i, (writer, value0, value1))| {
-                        let num: PackedQM31 = -PackedQM31::from(enabler_col.packed_at(i));
+                    .for_each(|(writer, value0, value1)| {
+                        let num: PackedQM31 = -PackedQM31::from(one);
                         let denom0: PackedQM31 = relations.$relation_name_1.combine(value0);
                         let denom1: PackedQM31 = relations.$relation_name_2.combine(value1);
 

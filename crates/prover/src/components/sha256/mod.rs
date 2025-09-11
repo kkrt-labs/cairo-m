@@ -20,8 +20,7 @@ pub const MESSAGE_SIZE: usize = 2 * 16; // 16 elements of 32 bits
 const N_ROUNDS: usize = 64;
 
 // Main trace size
-const N_TRACE_COLUMNS: usize = 1
-    + 2 * 16 // Message loading
+const N_TRACE_COLUMNS: usize = 2 * 16 // Message loading
     + (64 - 16) * 2 * (8 + 4 + 2 + 2 + 2 + 2) // Message schedule
     + 64 * (6 * 6 + 2 * 2 + 2 * 8 + 2 * 2 + 2 * 2 + 6 + 6 + 3 * 2 + 8 * 2); // Rounds
 

@@ -352,8 +352,6 @@ fn test_prove_and_verify_all_opcodes() {
 /// The constraints are evaluated with the trace values (no interpolation).
 #[test]
 fn test_all_opcodes_constraints() {
-    use cairo_m_prover::components::sha256::MESSAGE_SIZE;
-
     let source = read_fixture("functions/all_opcodes.cm");
     let compiled = compile_cairo(
         source,
@@ -370,7 +368,6 @@ fn test_all_opcodes_constraints() {
         runner_output.public_address_ranges,
     )
     .unwrap();
-    prover_input.sha256_inputs = vec![[M31::from(243123); MESSAGE_SIZE]];
     assert_constraints(&mut prover_input);
 }
 
