@@ -1,8 +1,8 @@
 # Getting started with Cairo-M
 
-This guide covers how to install, configure, and use the Cairo-M Language Server
-and VS Code extension, along with a comprehensive overview of the current
-language features.
+This guide covers how to install, configure, and use the Cairo-M Language
+Server, the VS Code extension, and the current language features as implemented
+today.
 
 ## 1. Installation & Configuration
 
@@ -49,7 +49,7 @@ npm install
 # Package the extension into a .vsix file
 npm run package
 
-# This creates a file like `cairo-m-0.0.1.vsix`
+# This creates a file like `cairo-m.vsix`
 ```
 
 #### Step 4: Install in VS Code
@@ -62,15 +62,15 @@ npm run package
 
 ### 1.2. Configuring the VS Code Extension
 
-If the extension doesn't find the language server automatically, you must set
-the path manually.
+If the extension doesn't find the language server automatically, set the path
+manually.
 
 1.  Open VS Code settings (Ctrl+,).
 2.  Search for "Cairo-M".
 3.  Find the **Cairo-m: Language Server: Path** setting and set it to the
     absolute path of the `cairo-m-ls` binary you built.
 
-Alternatively, you can add it to your `.vscode/settings.json` file:
+Alternatively, add it to your `.vscode/settings.json` file:
 
 ```json
 {
@@ -81,34 +81,34 @@ Alternatively, you can add it to your `.vscode/settings.json` file:
 
 ## 2. Project Setup
 
-### 2.1. Project Structure
+### 2.1. Create a Project
 
-A Cairo-M project is defined by a `cairom.toml` manifest file at its root. The
-source code resides in a `src` directory.
+You can scaffold a new Cairo‑M project with the helper CLI:
+
+```bash
+cargo install --path crates/cargo-cairo-m
+cargo-cairo-m init my_project
+```
+
+This creates a project with `cairom.toml` and a `src/` folder ready to build and
+test.
+
+A minimal project layout looks like:
 
 ```text
 my_project/
-├── cairom.toml       # The project manifest file
-└── src/              # Source code directory
-    ├── main.cm       # Main entry point (or lib.cm for libraries)
-    └── utils/
-        └── math.cm   # A submodule
+├── cairom.toml       # Project manifest
+└── src/
+    └── main.cm       # Entry point (default is main.cm)
 ```
 
 ### 2.2. Manifest File (`cairom.toml`)
 
-The manifest file configures your project.
+The manifest configures your project. The `entry_point` is relative to `src/`.
 
 ```toml
-# The name of your project (required)
 name = "my_project"
-
-# The version of your project (defaults to "0.1.0")
-version = "0.1.0"
-
-# The main entry point file, relative to the src/ directory.
-# If not specified, the compiler will look for "src/main.cm" or "src/lib.cm".
-# This is subject to future changes.
+version = "0.1.0"   # default if omitted
 entry_point = "main.cm"
 ```
 
@@ -121,7 +121,10 @@ hierarchy.
 - `src/utils.cm` -> module `utils`
 - `src/utils/math.cm` -> module `utils::math`
 
-You can import items from other modules using the `use` keyword.
+You can import items from other modules using the `use` keyword. Grouped imports
+are supported (e.g., `use utils::{math, io};`). The semantic layer validates
+imported items exist in target modules, and the language server supports
+go‑to‑definition for imports.
 
 ```rust
 // In src/main.cm
@@ -143,81 +146,55 @@ fn main() {
 
 ### 3.2. Variables and Constants
 
-- **Variables**: Declared with `let`. They can be reassigned (mutable by
-  default) and shadowed.
-- **Constants**: Declared with `const`. The value must be a compile-time
-  constant expression.
+- Variables: Declared with `let`, initialized on declaration, mutable by
+  default, shadowing allowed.
+- Constants: Declared with `const`, must be compile‑time constant expressions.
 
 ```rust
 fn variables_and_constants() {
-    // Variables
-    let x = 10;          // Type 'felt' is inferred
-    let y: felt = 20;    // With explicit type annotation
-    x = 30;              // Variables can be reassigned
+    let x = 10;        // inferred felt
+    let y: felt = 20;  // explicit type
+    x = 30;            // mutation is allowed
 
-    // Constants
-    const PI = 314;
-    const MAX_VALUE = PI * 2;
+    const POW2: [u32; 3] = [1, 2, 4];
     return;
 }
-```
 
-- **Shadowing**: You can declare a new variable with the same name as a previous
-  one, which "shadows" it.
-
-```rust
 fn shadowing() {
     let x = 5;
-    {
-        let x = 10; // This x shadows the outer x
-        // Here, x is 10
-    }
-    // Here, x is 5
+    let x = x + 1;  // shadows previous x
     return;
 }
 ```
 
 ### 3.3. Data Types
 
-| Type     | Description                                    | Example Literal        |
-| -------- | ---------------------------------------------- | ---------------------- |
-| `felt`   | The primary numeric type (a field element).    | `42`, `0`, `100`       |
-| `bool`   | A boolean value.                               | `true`, `false`        |
-| Tuples   | A fixed-size collection of values of any type. | `(10, true)`           |
-| Pointers | A pointer to a value in memory.                | ❌ Not implemented yet |
+- felt: Field element in M31 (2^31 − 1). Default numeric literal type.
+- u32: 32‑bit unsigned integer with wrapping arithmetic.
+- bool: Boolean literal type (`true`, `false`).
+- Tuples: Fixed‑size heterogenous values, e.g. `(felt, bool)`.
+- Structs: User‑defined aggregates with named fields.
+- Arrays: Fixed‑size arrays `[T; N]` of `felt` or `u32` elements.
 
-```rust
-struct Point { x: felt, y: felt }
+Notes:
 
-fn data_types() {
-    let num: felt = 42;
-    let is_active: bool = true;
-    let pair: (felt, bool) = (10, false);
-
-    // A pointer to a Point struct
-    let p_ptr: Point*;
-
-    // Single-element tuples require a trailing comma
-    let single: (felt,) = (100,);
-    return;
-}
-```
+- Single‑element tuples require a trailing comma in type and value positions:
+  `(felt,)` and `(x,)`. Without a trailing comma, `(T)`/`(expr)` are just
+  parenthesized type/expressions.
 
 ### 3.4. Operators
 
-**Arithmetic Operators** (for `felt`) | Operator | Description |
-|----------|-------------| | `+` | Addition | | `-` | Subtraction | | `*` |
-Multiplication| | `/` | Division ⚠️ Felt division ! | | `-` (unary) | Negation |
+- Arithmetic (felt): `+`, `-`, `*`, `/`, unary `-`.
+  - Division is field division: when not divisible, uses the multiplicative
+    inverse.
+- Arithmetic (u32): `+`, `-`, `*`, `/` with 32‑bit wrapping semantics.
+- Comparison (felt): `==`, `!=` only.
+- Comparison (u32): `==`, `!=`, `<`, `>`, `<=`, `>=`.
+- Bitwise (u32): `&`, `|`, `^` on u32 values and immediates.
+- Logical (bool): `&&`, `||`, `!`.
 
-**Comparison Operators** (compares `felt`, returns `bool`) | Operator |
-Description | |----------|-------------| | `==` | Equal | | `!=` | Not Equal |
-
-❌ Not implemented yet | `<` | Less Than | | `>` | Greater Than| | `<=` | Less
-or Equal| | `>=` | Greater or Equal|
-
-**Logical Operators** (for `bool`) | Operator | Description |
-|----------|-------------| | `&&` | Logical AND | | `||` | Logical OR | | `!` |
-Logical NOT |
+Operator precedence and associativity follow conventional math rules;
+parentheses control grouping.
 
 ### 3.5. Functions
 
@@ -225,8 +202,7 @@ Functions are declared with `fn`. Types for all parameters and the return value
 must be specified. A function that returns nothing has a unit type `()`, which
 can be omitted from the signature.
 
-**All functions require an explicit `return` statement, even for the unit
-type.**
+All functions require an explicit `return`, even for the unit `()`.
 
 ```rust
 // Function with parameters and a return value
@@ -277,7 +253,7 @@ fn use_structs() {
 
 ### 3.7. Control Flow
 
-- **`if-else`**: The condition must be a `bool`.
+- if / else: The condition must be `bool`.
 
   ```rust
   fn check_value(x: felt) -> felt {
@@ -295,7 +271,7 @@ fn use_structs() {
 
   ```
 
-- **`loop`**: Creates an infinite loop, exited with `break`.
+- loop: Infinite loop, exit with `break`.
   ```rust
   fn infinite_loop() {
       loop {
@@ -308,7 +284,7 @@ fn use_structs() {
       return ();
   }
   ```
-- **`while`**: Loops as long as a `bool` condition is `true`.
+- while: Loops while a `bool` condition holds.
 
   ```rust
   fn while_loop() {
@@ -320,12 +296,11 @@ fn use_structs() {
   }
   ```
 
-- **`for`**: Loops with a C-style for loop syntax.
-  ```rust
+- for: C‑style headers: `for (init; condition; step) { ... }`.
+  ```cairo
   fn for_loop() {
-      for (let i: u32 = 0; i < 10; i = i + 1) {
-          // Loop body executes while i < 10
-          // i is incremented by 1 each iteration
+      for (let i = 0; i != 10; i = i + 1) {
+          // ...
       }
       return;
   }
@@ -361,31 +336,70 @@ fn destructuring() {
 }
 ```
 
+### 3.10. Arrays (Fixed-Size)
+
+- Declaration: `[T; N]` for `felt` and `u32` elements.
+- Repetition: `[elem; N]` (e.g. `[0u32; 3]`).
+- Indexing: `arr[index]` where `index` is a `felt` expression.
+- Assignment: `arr[i] = value;` supported.
+- In parameters: arrays are passed by pointer (mutations affect caller).
+- Const arrays: constant indices are folded at compile time.
+- Bounds: no runtime bounds checks.
+
+```cairo
+fn array_sum_loop() -> u32{
+    let arr: [u32; 5] = [1, 2, 3, 4, 5];
+    let sum: u32 = 0;
+    let i = 0;
+    while i != 5 {
+        sum = sum + arr[i];
+        i = i + 1;
+    }
+    return sum;
+}
+```
+
+### 3.11. Type Casts
+
+- Supported: `u32` to `felt` via `as`.
+- Not supported: other casts (e.g. `felt` to `u32`).
+- Safety: casting checks the value is strictly less than `P = 2^31 - 1`. If not,
+  it will panic.
+
+```cairo
+fn u32_to_felt_ok() -> felt {
+    let x: u32 = 2147483646; // P - 1
+    let y: felt = x as felt;
+    return y;
+}
+
+//! error: compilation
+fn felt_to_u32_error() -> u32 {  // not supported yet
+    let x: felt = 10;
+    let y: u32 = x as u32;
+    return y;
+}
+```
+
 ## 4. Not Yet Implemented
 
 The following common language features are not yet implemented:
 
-- **`for` loops**: The `for` keyword is reserved but not yet semantically
-  supported - Soon ✨.
-- **Mutability Control**: There is no `mut` keyword. Variables are mutable by
-  default, but this may change.
-- **Dynamic Arrays / Slices**: No support for dynamic-sized collections or array
-  literals like `[1, 2, 3]`.
-- **Enums**: No `enum` type for defining variants.
-- **Traits / Interfaces**: No system for defining shared behavior across types.
-- **Generics**: No support for type-parameterized functions or structs.
-- **Type Casting**: No explicit `as` keyword for casting between types.
-- **String Literals**: No support for `"hello, world"` style strings.
+- Dynamic arrays/slices: no variable‑length arrays; only `[T; N]`.
+- Type casting: only `u32 -> felt` is supported.
+- Pointers: parsed types exist but address‑of/deref and pointer ops are not
+  implemented.
+- Felt relational operators: `<`, `>`, `<=`, `>=` on `felt` are not enabled.
 
 ## 5. Other Notable Things
 
-- **Explicit `return` is Mandatory**: All functions must end with an explicit
-  `return` statement, even if they return the unit type `()`. There is no
-  implicit return of the last expression.
-- **`bool` vs `felt` for Conditions**: Conditions for `if` and `while` must
-  evaluate to a `bool`. You cannot use a `felt` like `0` or `1` directly. Use
-  comparison operators like `x == 0` to produce a `bool`. In the future this
-  will be doable with the `as` keyword.
+- Explicit `return`: Required in all functions, including unit `()`.
+- Conditions are bool: `if`, `while`, `for` conditions must be `bool`. Use
+  comparisons (e.g., `x == 0`) rather than numeric truthiness.
+- Field division: division on `felt` is field division; division by zero panics.
+- u32 math: wraps on overflow for all operations.
+- Assertions: `assert(condition)` checks conditions at runtime; use with `bool`
+  expressions.
 
 ## 6. Code Formatting
 
@@ -403,24 +417,7 @@ The formatter is fully integrated into the VS Code extension:
 - **Format on Save**: Enable automatic formatting when saving files via Command
   Palette → "Cairo-M: Toggle Format On Save"
 
-### 6.2. Formatter Configuration
-
-Configure the formatter through VS Code settings (`Ctrl+,`):
-
-```json
-{
-  // Maximum line width before wrapping (default: 100)
-  "cairo-m.format.maxWidth": 100,
-
-  // Number of spaces per indentation level (default: 4)
-  "cairo-m.format.indentWidth": 4,
-
-  // Add trailing commas to multi-line constructs (default: false)
-  "cairo-m.format.trailingComma": false
-}
-```
-
-### 6.3. What the Formatter Does
+### 6.2. What the Formatter Does
 
 The formatter automatically:
 
@@ -466,3 +463,8 @@ And prove it with the prover:
 ```bash
 cargo run --release -p cairo-m-prover -- --input project_compiled.json --entrypoint main [-a <arguments>] --output proof.json
 ```
+
+Notes for runner arguments:
+
+- Supported input types: numbers (felt), booleans, tuples, and structs.
+- Fixed‑size arrays are not yet supported as CLI inputs.
