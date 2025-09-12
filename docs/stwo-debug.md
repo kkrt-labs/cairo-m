@@ -5,7 +5,7 @@
 Let’s say you just added a component or made modifications to an existing one.
 The first step is to test the constraints by running :
 
-`RUST_BACKTRACE=1 cargo test -p cairo-m-prover test_all_opcodes_constraints -—release`
+`RUST_BACKTRACE=1 cargo test -p cairo-m-prover test_all_opcodes_constraints --release`
 
 This creates a mock commitment scheme that doesn’t do any interpolation and
 simply evaluates the constraints with the raw trace values. This tells you if
@@ -225,7 +225,7 @@ have to change your AIR.
 
 Once the `test_all_opcodes_constraints` test passes, it’s time to run:
 
-`cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes -—release`
+`cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes --release`
 
 This section covers the case where you still get a
 `Stwo(ConstraintsNotSatisfied)` error.
@@ -291,7 +291,7 @@ See section IV.
 ## II. Beating Stwo(InvalidLogupSum)
 
 You can run
-`cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes -—release`
+`cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes --release`
 without getting `Stwo(ConstraintsNotSatisfied)` but now you get
 `Stwo(InvalidLogupSum)`. The root problem is that the sum of all logups sums
 from every component is not equal to 0. This means that an entry for a relation
@@ -299,7 +299,7 @@ is emitted but it isn’t consumed.
 
 The first thing to do there is to run:
 
-`cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes -—release --features relation-tracker`
+`cargo test -p cairo-m-prover test_prove_and_verify_all_opcodes --release --features relation-tracker`
 
 ## [Toy example] - Understand the relation-tracker output
 
