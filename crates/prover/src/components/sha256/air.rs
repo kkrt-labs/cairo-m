@@ -18,6 +18,7 @@ impl FrameworkEval for Eval {
     }
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::EF::one();
+        let two_pow_8 = E::F::from(M31::from(1 << 8));
         // Allocate large arrays on heap to avoid stack overflow
         let K: Box<[Fu32_2<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32_2::zero()));
         let mut H: Box<[Fu32_4<E::F>; 8]> = Box::new(std::array::from_fn(|_| Fu32_4::zero()));
@@ -69,6 +70,32 @@ impl FrameworkEval for Eval {
             let f = H[5].clone();
             let g = H[6].clone();
             let h = H[7].clone();
+
+            eval.add_constraint(
+                H[0].lo0.clone() + two_pow_8.clone() * H[0].lo1.clone()
+                    - a[0].clone()
+                    - a[1].clone()
+                    - a[2].clone(),
+            );
+            eval.add_constraint(
+                H[0].hi0.clone() + two_pow_8.clone() * H[0].hi1.clone()
+                    - a[3].clone()
+                    - a[4].clone()
+                    - a[5].clone(),
+            );
+
+            eval.add_constraint(
+                H[4].lo0.clone() + two_pow_8.clone() * H[4].lo1.clone()
+                    - e[0].clone()
+                    - e[1].clone()
+                    - e[2].clone(),
+            );
+            eval.add_constraint(
+                H[4].hi0.clone() + two_pow_8.clone() * H[4].hi1.clone()
+                    - e[3].clone()
+                    - e[4].clone()
+                    - e[5].clone(),
+            );
 
             let S0 = self.sigma(SigmaType::BigSigma0, a.clone(), &mut eval);
             let S1 = self.sigma(SigmaType::BigSigma1, e.clone(), &mut eval);

@@ -1027,7 +1027,7 @@ impl InteractionClaim {
             generate_interaction_trace!(ch, 8 * i + 4, ch, 8 * i + 5);
             generate_interaction_trace!(ch, 8 * i + 6, ch, 8 * i + 7);
             generate_interaction_trace!(maj, 8 * i + 4, maj, 8 * i + 5);
-            generate_interaction_trace!(maj, 2 * i + 6, maj, 2 * i + 7);
+            generate_interaction_trace!(maj, 8 * i + 6, maj, 8 * i + 7);
         } // 2579 + 19 * i
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
