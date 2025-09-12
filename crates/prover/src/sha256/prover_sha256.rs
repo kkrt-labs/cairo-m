@@ -17,7 +17,7 @@ use crate::prover_config::REGULAR_96_BITS;
 use crate::relations;
 use crate::sha256::{Claim, Components, InteractionClaim, Proof, Relations};
 
-const MAX_TRACE_LOG_SIZE: u32 = 24;
+const MAX_TRACE_LOG_SIZE: u32 = 20;
 
 pub fn prove_sha256<MC: MerkleChannel>(
     inputs: &Vec<SHA256HashInput>,

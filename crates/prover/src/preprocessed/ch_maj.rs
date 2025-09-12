@@ -23,7 +23,7 @@ use stwo_prover::core::poly::BitReversedOrder;
 use crate::preprocessed::PreProcessedColumn;
 
 // Constants for ch/maj operations
-pub const CH_MAJ_OPERAND_BITS: u32 = 8;
+pub const CH_MAJ_OPERAND_BITS: u32 = 2;
 pub const CH_LOG_SIZE: u32 = CH_MAJ_OPERAND_BITS * 3; // 24 bits for 3 operands
 pub const MAJ_LOG_SIZE: u32 = CH_MAJ_OPERAND_BITS * 3; // 24 bits for 3 operands
 
@@ -224,9 +224,9 @@ pub mod ch {
         fn generate_column_values(&self, total_size: usize) -> Vec<M31> {
             let mut values = Vec::with_capacity(total_size);
 
-            for e in 0u32..256 {
-                for f in 0u32..256 {
-                    for g in 0u32..256 {
+            for e in 0u32..1 << CH_MAJ_OPERAND_BITS {
+                for f in 0u32..1 << CH_MAJ_OPERAND_BITS {
+                    for g in 0u32..1 << CH_MAJ_OPERAND_BITS {
                         let value = match self.col_index {
                             0 => M31(e),
                             1 => M31(f),
@@ -471,9 +471,9 @@ pub mod maj {
         fn generate_column_values(&self, total_size: usize) -> Vec<M31> {
             let mut values = Vec::with_capacity(total_size);
 
-            for a in 0u32..256 {
-                for b in 0u32..256 {
-                    for c in 0u32..256 {
+            for a in 0u32..1 << CH_MAJ_OPERAND_BITS {
+                for b in 0u32..1 << CH_MAJ_OPERAND_BITS {
+                    for c in 0u32..1 << CH_MAJ_OPERAND_BITS {
                         let value = match self.col_index {
                             0 => M31(a),
                             1 => M31(b),
