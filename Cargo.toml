@@ -93,3 +93,8 @@ stwo-constraint-framework = { path = "external/stwo/crates/constraint_framework"
 # TODO: Remove this patch once https://github.com/HorizenLabs/poseidon2/pull/XXX is merged
 [patch."https://github.com/HorizenLabs/poseidon2.git"]
 zkhash = { git = "https://github.com/AntoineFONDEUR/poseidon2.git", branch = "poseidon2-M31" }
+
+[profile.release-lto]
+inherits = "release"
+codegen-units = 1
+lto = true
