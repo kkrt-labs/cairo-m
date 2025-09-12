@@ -305,8 +305,9 @@ In the context of a read-write memory, the free-memory pointer becomes
 unnecessary, and we can drop `ap`, leaving the VM initially with only two
 registers, similar to Valida, for example.
 
-Regular instruction sets also leverage registers to store temporary values used
-across multiple opcodes, acting as a fast buffer to avoid memory accesses.
+Regular instruction set architectures also leverage registers to store temporary
+values used across multiple opcodes, acting as a fast buffer to avoid memory
+accesses.
 
 From the prover point of view:
 
@@ -324,8 +325,9 @@ even if the value is not used, and is free otherwise — and adding registers to
 "secondary register stack", or even a tertiary (etc.), in order to save on
 unused columns, but at the cost of performing 2 more lookups (4 columns) when
 they are needed. The limiting case is to simply use one relation per register,
-as if they were regular memory values. Depending on the total number of
-components and how the compiler leverages registers, the answer may vary.
+as if they were regular memory values with no address nor clock. Depending on
+the total number of components and how the compiler leverages registers, the
+optimal case may vary.
 
 Adding registers to the main register stack may be temporarily better but is
 less maintainable, as the number of components may vary drastically over time
@@ -333,7 +335,8 @@ and usage (see [Reshaping](#minimal-instruction-set) and
 [Extensions](#extensions)). The current design doesn't use any secondary
 register stack for the sake of simplicity. However, it would most likely be
 beneficial to leverage a secondary register stack with 2 values when several
-arithmetic operations are performed consecutively.
+arithmetic operations are performed consecutively, or to easily factorize
+arithmetic operations over read-write and read-only memory.
 
 ## Opcodes
 
