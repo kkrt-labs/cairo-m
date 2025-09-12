@@ -6,7 +6,7 @@ use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::memory::Memory;
 use cairo_m_prover::adapter::merkle::{build_partial_merkle_tree, TreeType};
 use cairo_m_prover::adapter::{
-    import_from_runner_output, HashInput, Instructions, MerkleTrees, ProverInput,
+    import_from_runner_output, Instructions, MerkleTrees, PoseidonHashInput, ProverInput,
 };
 use cairo_m_prover::debug_tools::assert_constraints::assert_constraints;
 use cairo_m_prover::poseidon2::Poseidon2Hash;
@@ -14,6 +14,7 @@ use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{run_cairo_program, RunnerOptions};
 use cairo_m_test_utils::read_fixture;
+use num_traits::Zero;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
@@ -74,7 +75,7 @@ fn test_prove_and_verify_unchanged_memory() {
     );
 
     let mut poseidon2_inputs =
-        Vec::<HashInput>::with_capacity(initial_tree.len() + final_tree.len());
+        Vec::<PoseidonHashInput>::with_capacity(initial_tree.len() + final_tree.len());
     initial_tree.iter().for_each(|node| {
         poseidon2_inputs.push(node.to_hash_input());
     });
@@ -97,6 +98,15 @@ fn test_prove_and_verify_unchanged_memory() {
         memory,
         instructions: Instructions::default(),
         poseidon2_inputs,
+        sha256_inputs: (0..1 << 16)
+            .map(|i| {
+                let mut message = [M31::zero(); 32];
+                for (j, element) in message.iter_mut().enumerate() {
+                    *element = M31::from((i + j) as u32 & 0xFFFF);
+                }
+                message
+            })
+            .collect(),
     };
 
     let proof = prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None).unwrap();
