@@ -19,8 +19,8 @@ use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::adapter::SHA256HashInput;
 use crate::components::sha256::{
-    Claim, Fu32, InteractionClaim, InteractionClaimData, LookupData, LookupDataMutChunk, SigmaType,
-    MESSAGE_SIZE, N_INTERACTION_COLUMNS, N_TRACE_COLUMNS,
+    Claim, Fu32_2, Fu32_4, InteractionClaim, InteractionClaimData, LookupData, LookupDataMutChunk,
+    SigmaType, MESSAGE_SIZE, N_INTERACTION_COLUMNS, N_TRACE_COLUMNS,
 };
 use crate::components::Relations;
 
@@ -92,18 +92,8 @@ struct Indexes {
     xor_big_sigma0_0_index: usize,
     xor_big_sigma0_1_index: usize,
     xor_big_sigma1_index: usize,
-    ch_l0_index: usize,
-    ch_l1_index: usize,
-    ch_l2_index: usize,
-    ch_h0_index: usize,
-    ch_h1_index: usize,
-    ch_h2_index: usize,
-    maj_l0_index: usize,
-    maj_l1_index: usize,
-    maj_l2_index: usize,
-    maj_h0_index: usize,
-    maj_h1_index: usize,
-    maj_h2_index: usize,
+    ch_index: usize,
+    maj_index: usize,
     range_check_16_index: usize,
 }
 
@@ -157,15 +147,16 @@ impl Claim {
                 let mut indexes = Indexes::default();
 
                 // Allocate large arrays on heap to avoid stack overflow
-                let K: Box<[Fu32<PackedM31>; 64]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
-                let mut H: Box<[Fu32<PackedM31>; 8]> =
-                    Box::new(std::array::from_fn(|_| Fu32::zero()));
+                let K: Box<[Fu32_2<PackedM31>; 64]> =
+                    Box::new(std::array::from_fn(|_| Fu32_2::zero()));
+                let mut H: Box<[Fu32_4<PackedM31>; 8]> =
+                    Box::new(std::array::from_fn(|_| Fu32_4::zero()));
 
                 // ╔════════════════════════════════════╗
                 // ║             Scheduling             ║
                 // ╚════════════════════════════════════╝
-                let mut W: Box<[Fu32<PackedM31>; 64]> =
-                    Box::new(std::array::from_fn(|_| Fu32::zero()));
+                let mut W: Box<[Fu32_2<PackedM31>; 64]> =
+                    Box::new(std::array::from_fn(|_| Fu32_2::zero()));
 
                 // Load message
                 (0..16).for_each(|i| {
@@ -228,47 +219,25 @@ impl Claim {
                 // ║             Rounds                 ║
                 // ╚════════════════════════════════════╝
                 for i in 0..64 {
-                    let a: [PackedM31; 6] = decompose_input(H[0].clone(), SigmaType::BigSigma0);
-                    let b: [PackedM31; 6] = decompose_input(H[1].clone(), SigmaType::BigSigma0);
-                    let c: [PackedM31; 6] = decompose_input(H[2].clone(), SigmaType::BigSigma0);
-                    let d: Fu32<PackedM31> = H[3].clone();
-                    let e: [PackedM31; 6] = decompose_input(H[4].clone(), SigmaType::BigSigma1);
-                    let f: [PackedM31; 6] = decompose_input(H[5].clone(), SigmaType::BigSigma1);
-                    let g: [PackedM31; 6] = decompose_input(H[6].clone(), SigmaType::BigSigma1);
-                    let h: Fu32<PackedM31> = H[7].clone();
+                    let a: [PackedM31; 6] =
+                        decompose_input(H[0].clone().into(), SigmaType::BigSigma0);
+                    let b = H[1].clone();
+                    let c = H[2].clone();
+                    let d = H[3].clone();
+                    let e: [PackedM31; 6] =
+                        decompose_input(H[4].clone().into(), SigmaType::BigSigma1);
+                    let f = H[5].clone();
+                    let g = H[6].clone();
+                    let h = H[7].clone();
 
                     a.iter().for_each(|x| {
                         *row[indexes.col_index] = *x;
                         indexes.col_index += 1;
                     });
-                    b.iter().for_each(|x| {
-                        *row[indexes.col_index] = *x;
-                        indexes.col_index += 1;
-                    });
-                    c.iter().for_each(|x| {
-                        *row[indexes.col_index] = *x;
-                        indexes.col_index += 1;
-                    });
-                    *row[indexes.col_index] = d.lo;
-                    indexes.col_index += 1;
-                    *row[indexes.col_index] = d.hi;
-                    indexes.col_index += 1;
                     e.iter().for_each(|x| {
                         *row[indexes.col_index] = *x;
                         indexes.col_index += 1;
                     });
-                    f.iter().for_each(|x| {
-                        *row[indexes.col_index] = *x;
-                        indexes.col_index += 1;
-                    });
-                    g.iter().for_each(|x| {
-                        *row[indexes.col_index] = *x;
-                        indexes.col_index += 1;
-                    });
-                    *row[indexes.col_index] = h.lo;
-                    indexes.col_index += 1;
-                    *row[indexes.col_index] = h.hi;
-                    indexes.col_index += 1;
 
                     let S0 = sigma(
                         SigmaType::BigSigma0,
@@ -284,11 +253,24 @@ impl Claim {
                         &mut row,
                         &mut lookup_data,
                     );
-                    let ch = ch(e, f, g, &mut indexes, &mut row, &mut lookup_data);
-                    let maj = maj(a, b, c, &mut indexes, &mut row, &mut lookup_data);
-                    let temp0 = add3_u32_unchecked(h, ch, S1, &mut indexes.col_index, &mut row);
+                    let (e_4, ch) = ch(
+                        e,
+                        f.clone(),
+                        g.clone(),
+                        &mut indexes,
+                        &mut row,
+                        &mut lookup_data,
+                    );
+                    let (a_4, maj) = maj(
+                        a,
+                        b.clone(),
+                        c.clone(),
+                        &mut indexes,
+                        &mut row,
+                        &mut lookup_data,
+                    );
                     let temp1 = add3_u32_unchecked(
-                        temp0,
+                        add3_u32_unchecked(h.into(), ch, S1, &mut indexes.col_index, &mut row),
                         K[i].clone(),
                         W[i].clone(),
                         &mut indexes.col_index,
@@ -296,74 +278,32 @@ impl Claim {
                     );
                     let temp2 = add2_u32_unchecked(S0, maj, &mut indexes.col_index, &mut row);
 
-                    H[0] = add3_u32_unchecked(
+                    H[0] = add3_u32_2_2_4_unchecked(
                         temp1.clone(),
                         temp2,
                         H[0].clone(),
                         &mut indexes.col_index,
                         &mut row,
                     );
-                    H[1] = add2_u32_unchecked(
-                        H[1].clone(),
-                        Fu32 {
-                            lo: a[0] + a[1] + a[2],
-                            hi: a[3] + a[4] + a[5],
-                        },
-                        &mut indexes.col_index,
-                        &mut row,
-                    );
-                    H[2] = add2_u32_unchecked(
-                        H[2].clone(),
-                        Fu32 {
-                            lo: b[0] + b[1] + b[2],
-                            hi: b[3] + b[4] + b[5],
-                        },
-                        &mut indexes.col_index,
-                        &mut row,
-                    );
-                    H[3] = add2_u32_unchecked(
-                        H[3].clone(),
-                        Fu32 {
-                            lo: c[0] + c[1] + c[2],
-                            hi: c[3] + c[4] + c[5],
-                        },
-                        &mut indexes.col_index,
-                        &mut row,
-                    );
-                    H[4] = add3_u32_unchecked(
-                        d,
+                    H[1] =
+                        add2_u32_4_4_unchecked(H[1].clone(), a_4, &mut indexes.col_index, &mut row);
+                    H[2] =
+                        add2_u32_4_4_unchecked(H[2].clone(), b, &mut indexes.col_index, &mut row);
+                    H[3] =
+                        add2_u32_4_4_unchecked(H[3].clone(), c, &mut indexes.col_index, &mut row);
+                    H[4] = add3_u32_2_4_4_unchecked(
                         temp1,
                         H[4].clone(),
+                        d.clone(),
                         &mut indexes.col_index,
                         &mut row,
                     );
-                    H[5] = add2_u32_unchecked(
-                        H[5].clone(),
-                        Fu32 {
-                            lo: e[0] + e[1] + e[2],
-                            hi: e[3] + e[4] + e[5],
-                        },
-                        &mut indexes.col_index,
-                        &mut row,
-                    );
-                    H[6] = add2_u32_unchecked(
-                        H[6].clone(),
-                        Fu32 {
-                            lo: f[0] + f[1] + f[2],
-                            hi: f[3] + f[4] + f[5],
-                        },
-                        &mut indexes.col_index,
-                        &mut row,
-                    );
-                    H[7] = add2_u32_unchecked(
-                        H[7].clone(),
-                        Fu32 {
-                            lo: g[0] + g[1] + g[2],
-                            hi: g[3] + g[4] + g[5],
-                        },
-                        &mut indexes.col_index,
-                        &mut row,
-                    );
+                    H[5] =
+                        add2_u32_4_4_unchecked(H[5].clone(), e_4, &mut indexes.col_index, &mut row);
+                    H[6] =
+                        add2_u32_4_4_unchecked(H[6].clone(), f, &mut indexes.col_index, &mut row);
+                    H[7] =
+                        add2_u32_4_4_unchecked(H[7].clone(), g, &mut indexes.col_index, &mut row);
                 }
             });
         (
@@ -383,7 +323,7 @@ fn sigma(
     indexes: &mut Indexes,
     row: &mut Vec<&mut PackedM31>,
     lookup_data: &mut LookupDataMutChunk<'_>,
-) -> Fu32<PackedM31> {
+) -> Fu32_2<PackedM31> {
     // Compute out0 and out1
     let [out0_lo, out0_hi, out1_lo, out1_hi, out2_0_lo, out2_1_lo, out2_0_hi, out2_1_hi] =
         get_output(sigma, [l0, l1, l2, h0, h1, h2]);
@@ -485,15 +425,15 @@ fn sigma(
     };
 
     // Add all limbs together to rebuild the 32-bit result
-    let out0 = Fu32 {
+    let out0 = Fu32_2 {
         lo: out0_lo,
         hi: out0_hi,
     };
-    let out1 = Fu32 {
+    let out1 = Fu32_2 {
         lo: out1_lo,
         hi: out1_hi,
     };
-    let out2 = Fu32 {
+    let out2 = Fu32_2 {
         lo: xor_out2_lo,
         hi: xor_out2_hi,
     };
@@ -509,71 +449,77 @@ fn sigma(
 
 fn ch(
     e: [PackedM31; 6],
-    f: [PackedM31; 6],
-    g: [PackedM31; 6],
+    f: Fu32_4<PackedM31>,
+    g: Fu32_4<PackedM31>,
     indexes: &mut Indexes,
     row: &mut [&mut PackedM31],
     lookup_data: &mut LookupDataMutChunk<'_>,
-) -> Fu32<PackedM31> {
-    let ch: [PackedM31; 6] = std::array::from_fn(|i| apply_ch(e[i], f[i], g[i]));
-    ch.iter().for_each(|x| {
+) -> (Fu32_4<PackedM31>, Fu32_2<PackedM31>) {
+    let e_4: Fu32_4<PackedM31> = split_to_4limbs(e);
+    let ch: Fu32_4<PackedM31> = Fu32_4 {
+        lo0: apply_ch(e_4.lo0, f.lo0, g.lo0),
+        lo1: apply_ch(e_4.lo1, f.lo1, g.lo1),
+        hi0: apply_ch(e_4.hi0, f.hi0, g.hi0),
+        hi1: apply_ch(e_4.hi1, f.hi1, g.hi1),
+    };
+    e_4.clone().into_felts().iter().for_each(|x| {
+        *row[indexes.col_index] = *x;
+        indexes.col_index += 1;
+    });
+    ch.clone().into_felts().iter().for_each(|x| {
         *row[indexes.col_index] = *x;
         indexes.col_index += 1;
     });
 
-    *lookup_data.ch_l0[indexes.ch_l0_index] = [e[0], f[0], g[0], ch[0]];
-    indexes.ch_l0_index += 1;
-    *lookup_data.ch_l1[indexes.ch_l1_index] = [e[1], f[1], g[1], ch[1]];
-    indexes.ch_l1_index += 1;
-    *lookup_data.ch_l2[indexes.ch_l2_index] = [e[2], f[2], g[2], ch[2]];
-    indexes.ch_l2_index += 1;
-    *lookup_data.ch_h0[indexes.ch_h0_index] = [e[3], f[3], g[3], ch[3]];
-    indexes.ch_h0_index += 1;
-    *lookup_data.ch_h1[indexes.ch_h1_index] = [e[4], f[4], g[4], ch[4]];
-    indexes.ch_h1_index += 1;
-    *lookup_data.ch_h2[indexes.ch_h2_index] = [e[5], f[5], g[5], ch[5]];
-    indexes.ch_h2_index += 1;
+    *lookup_data.ch[indexes.ch_index] = [e_4.lo0, f.lo0, g.lo0, ch.lo0];
+    indexes.ch_index += 1;
+    *lookup_data.ch[indexes.ch_index] = [e_4.lo1, f.lo1, g.lo1, ch.lo1];
+    indexes.ch_index += 1;
+    *lookup_data.ch[indexes.ch_index] = [e_4.hi0, f.hi0, g.hi0, ch.hi0];
+    indexes.ch_index += 1;
+    *lookup_data.ch[indexes.ch_index] = [e_4.hi1, f.hi1, g.hi1, ch.hi1];
+    indexes.ch_index += 1;
 
-    Fu32 {
-        lo: ch[0] + ch[1] + ch[2],
-        hi: ch[3] + ch[4] + ch[5],
-    }
+    (e_4, ch.into())
 }
 
 fn maj(
     a: [PackedM31; 6],
-    b: [PackedM31; 6],
-    c: [PackedM31; 6],
+    b: Fu32_4<PackedM31>,
+    c: Fu32_4<PackedM31>,
     indexes: &mut Indexes,
     row: &mut [&mut PackedM31],
     lookup_data: &mut LookupDataMutChunk<'_>,
-) -> Fu32<PackedM31> {
-    let maj: [PackedM31; 6] = std::array::from_fn(|i| apply_maj(a[i], b[i], c[i]));
-    maj.iter().for_each(|x| {
+) -> (Fu32_4<PackedM31>, Fu32_2<PackedM31>) {
+    let a_4: Fu32_4<PackedM31> = split_to_4limbs(a);
+    let maj: Fu32_4<PackedM31> = Fu32_4 {
+        lo0: apply_maj(a_4.lo0, b.lo0, c.lo0),
+        lo1: apply_maj(a_4.lo1, b.lo1, c.lo1),
+        hi0: apply_maj(a_4.hi0, b.hi0, c.hi0),
+        hi1: apply_maj(a_4.hi1, b.hi1, c.hi1),
+    };
+    a_4.clone().into_felts().iter().for_each(|x| {
+        *row[indexes.col_index] = *x;
+        indexes.col_index += 1;
+    });
+    maj.clone().into_felts().iter().for_each(|x| {
         *row[indexes.col_index] = *x;
         indexes.col_index += 1;
     });
 
-    *lookup_data.maj_l0[indexes.maj_l0_index] = [a[0], b[0], c[0], maj[0]];
-    indexes.maj_l0_index += 1;
-    *lookup_data.maj_l1[indexes.maj_l1_index] = [a[1], b[1], c[1], maj[1]];
-    indexes.maj_l1_index += 1;
-    *lookup_data.maj_l2[indexes.maj_l2_index] = [a[2], b[2], c[2], maj[2]];
-    indexes.maj_l2_index += 1;
-    *lookup_data.maj_h0[indexes.maj_h0_index] = [a[3], b[3], c[3], maj[3]];
-    indexes.maj_h0_index += 1;
-    *lookup_data.maj_h1[indexes.maj_h1_index] = [a[4], b[4], c[4], maj[4]];
-    indexes.maj_h1_index += 1;
-    *lookup_data.maj_h2[indexes.maj_h2_index] = [a[5], b[5], c[5], maj[5]];
-    indexes.maj_h2_index += 1;
+    *lookup_data.maj[indexes.maj_index] = [a_4.lo0, b.lo0, c.lo0, maj.lo0];
+    indexes.maj_index += 1;
+    *lookup_data.maj[indexes.maj_index] = [a_4.lo1, b.lo1, c.lo1, maj.lo1];
+    indexes.maj_index += 1;
+    *lookup_data.maj[indexes.maj_index] = [a_4.hi0, b.hi0, c.hi0, maj.hi0];
+    indexes.maj_index += 1;
+    *lookup_data.maj[indexes.maj_index] = [a_4.hi1, b.hi1, c.hi1, maj.hi1];
+    indexes.maj_index += 1;
 
-    Fu32 {
-        lo: maj[0] + maj[1] + maj[2],
-        hi: maj[3] + maj[4] + maj[5],
-    }
+    (a_4, maj.into())
 }
 
-fn decompose_input(a: Fu32<PackedM31>, sigma: SigmaType) -> [PackedM31; 6] {
+fn decompose_input(a: Fu32_2<PackedM31>, sigma: SigmaType) -> [PackedM31; 6] {
     let a_u32: [u32; N_LANES] =
         a.lo.to_array()
             .iter()
@@ -736,6 +682,36 @@ fn apply_xor(x: PackedM31, y: PackedM31) -> PackedM31 {
     )
 }
 
+fn split_to_4limbs(e: [PackedM31; 6]) -> Fu32_4<PackedM31> {
+    let [l0, l1, l2, h0, h1, h2] = e;
+
+    // Convert PackedM31 to arrays of u32 for arithmetic operations
+    let l0_u32 = l0.to_array().map(|m| m.0);
+    let l1_u32 = l1.to_array().map(|m| m.0);
+    let l2_u32 = l2.to_array().map(|m| m.0);
+    let h0_u32 = h0.to_array().map(|m| m.0);
+    let h1_u32 = h1.to_array().map(|m| m.0);
+    let h2_u32 = h2.to_array().map(|m| m.0);
+
+    // Compute the four limbs for each lane
+    let lo0_u32: [u32; N_LANES] =
+        std::array::from_fn(|i| (l0_u32[i] + l1_u32[i] + l2_u32[i]) & 0xFF);
+    let lo1_u32: [u32; N_LANES] =
+        std::array::from_fn(|i| ((l0_u32[i] + l1_u32[i] + l2_u32[i]) >> 8) & 0xFF);
+    let hi0_u32: [u32; N_LANES] =
+        std::array::from_fn(|i| (h0_u32[i] + h1_u32[i] + h2_u32[i]) & 0xFF);
+    let hi1_u32: [u32; N_LANES] =
+        std::array::from_fn(|i| ((h0_u32[i] + h1_u32[i] + h2_u32[i]) >> 8) & 0xFF);
+
+    // Convert back to PackedM31
+    Fu32_4 {
+        lo0: PackedM31::from_array(lo0_u32.map(M31)),
+        lo1: PackedM31::from_array(lo1_u32.map(M31)),
+        hi0: PackedM31::from_array(hi0_u32.map(M31)),
+        hi1: PackedM31::from_array(hi1_u32.map(M31)),
+    }
+}
+
 /// Apply a bitwise AND and XOR to three PackedM31 values
 fn apply_ch(e: PackedM31, f: PackedM31, g: PackedM31) -> PackedM31 {
     PackedM31::from_array(
@@ -766,22 +742,20 @@ fn apply_maj(a: PackedM31, b: PackedM31, c: PackedM31) -> PackedM31 {
 
 /// Adds two u32s, returning the sum.
 fn add2_u32_unchecked(
-    a: Fu32<PackedM31>,
-    b: Fu32<PackedM31>,
+    a: Fu32_2<PackedM31>,
+    b: Fu32_2<PackedM31>,
     col_index: &mut usize,
     row: &mut [&mut PackedM31],
-) -> Fu32<PackedM31> {
+) -> Fu32_2<PackedM31> {
     let two_pow_16 = PackedM31::from(M31::from(1 << 16));
 
-    // Calculate carry using mask instead of comparison
-    // For 16-bit addition: carry = (sum >> 16) & 1
     let sum_lo = a.lo + b.lo;
     let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 1)));
 
     let sum_hi = a.hi + b.hi + carry_lo;
     let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 1)));
 
-    let res = Fu32 {
+    let res = Fu32_2 {
         lo: sum_lo - carry_lo * two_pow_16,
         hi: sum_hi - carry_hi * two_pow_16,
     };
@@ -796,23 +770,21 @@ fn add2_u32_unchecked(
 
 /// Adds three u32s, returning the sum.
 fn add3_u32_unchecked(
-    a: Fu32<PackedM31>,
-    b: Fu32<PackedM31>,
-    c: Fu32<PackedM31>,
+    a: Fu32_2<PackedM31>,
+    b: Fu32_2<PackedM31>,
+    c: Fu32_2<PackedM31>,
     col_index: &mut usize,
     row: &mut [&mut PackedM31],
-) -> Fu32<PackedM31> {
+) -> Fu32_2<PackedM31> {
     let two_pow_16 = PackedM31::from(M31::from(1 << 16));
 
-    // Calculate carry using mask instead of comparison
-    // For 16-bit addition: carry = (sum >> 16) & 0b11
     let sum_lo = a.lo + b.lo + c.lo;
-    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b10)));
+    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
 
     let sum_hi = a.hi + b.hi + c.hi + carry_lo;
-    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b10)));
+    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
 
-    let res = Fu32 {
+    let res = Fu32_2 {
         lo: sum_lo - carry_lo * two_pow_16,
         hi: sum_hi - carry_hi * two_pow_16,
     };
@@ -820,6 +792,122 @@ fn add3_u32_unchecked(
     *row[*col_index] = res.lo;
     *col_index += 1;
     *row[*col_index] = res.hi;
+    *col_index += 1;
+
+    res
+}
+
+/// Adds Fu32_2 and Fu32_4, returning the sum.
+fn add2_u32_4_4_unchecked(
+    a: Fu32_4<PackedM31>,
+    b: Fu32_4<PackedM31>,
+    col_index: &mut usize,
+    row: &mut [&mut PackedM31],
+) -> Fu32_4<PackedM31> {
+    let two_pow_8 = PackedM31::from(M31::from(1 << 8));
+    let two_pow_16 = PackedM31::from(M31::from(1 << 16));
+
+    let sum_lo = a.lo0 + b.lo0 + a.lo1 * two_pow_8 + b.lo1 * two_pow_8;
+    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+
+    let sum_hi = a.hi0 + b.hi0 + a.hi1 * two_pow_8 + b.hi1 * two_pow_8 + carry_lo;
+    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+
+    let res_lo = sum_lo - carry_lo * two_pow_16;
+    let res_hi = sum_hi - carry_hi * two_pow_16;
+
+    let res = Fu32_4 {
+        lo0: PackedM31::from_array(res_lo.to_array().map(|x| M31::from(x.0 & 0xFF))),
+        lo1: PackedM31::from_array(res_lo.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF))),
+        hi0: PackedM31::from_array(res_hi.to_array().map(|x| M31::from(x.0 & 0xFF))),
+        hi1: PackedM31::from_array(res_hi.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF))),
+    };
+
+    *row[*col_index] = res.lo0;
+    *col_index += 1;
+    *row[*col_index] = res.lo1;
+    *col_index += 1;
+    *row[*col_index] = res.hi0;
+    *col_index += 1;
+    *row[*col_index] = res.hi1;
+    *col_index += 1;
+
+    res
+}
+
+/// Adds two Fu32_2s and one Fu32_4, returning the sum as Fu32_4.
+fn add3_u32_2_2_4_unchecked(
+    a: Fu32_2<PackedM31>,
+    b: Fu32_2<PackedM31>,
+    c: Fu32_4<PackedM31>,
+    col_index: &mut usize,
+    row: &mut [&mut PackedM31],
+) -> Fu32_4<PackedM31> {
+    let two_pow_16 = PackedM31::from(M31::from(1 << 16));
+    let two_pow_8 = PackedM31::from(M31::from(1 << 8));
+
+    let sum_lo = a.lo + b.lo + c.lo0 + two_pow_8 * c.lo1;
+    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+
+    let sum_hi = a.hi + b.hi + c.hi0 + two_pow_8 * c.hi1 + carry_lo;
+    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+
+    let res_lo = sum_lo - carry_lo * two_pow_16;
+    let res_hi = sum_hi - carry_hi * two_pow_16;
+
+    let res = Fu32_4 {
+        lo0: PackedM31::from_array(res_lo.to_array().map(|x| M31::from(x.0 & 0xFF))),
+        lo1: PackedM31::from_array(res_lo.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF))),
+        hi0: PackedM31::from_array(res_hi.to_array().map(|x| M31::from(x.0 & 0xFF))),
+        hi1: PackedM31::from_array(res_hi.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF))),
+    };
+
+    *row[*col_index] = res.lo0;
+    *col_index += 1;
+    *row[*col_index] = res.lo1;
+    *col_index += 1;
+    *row[*col_index] = res.hi0;
+    *col_index += 1;
+    *row[*col_index] = res.hi1;
+    *col_index += 1;
+
+    res
+}
+
+/// Adds one Fu32_2 and two Fu32_4s, returning the sum as Fu32_4.
+fn add3_u32_2_4_4_unchecked(
+    a: Fu32_2<PackedM31>,
+    b: Fu32_4<PackedM31>,
+    c: Fu32_4<PackedM31>,
+    col_index: &mut usize,
+    row: &mut [&mut PackedM31],
+) -> Fu32_4<PackedM31> {
+    let two_pow_16 = PackedM31::from(M31::from(1 << 16));
+    let two_pow_8 = PackedM31::from(M31::from(1 << 8));
+
+    let sum_lo = a.lo + b.lo0 + b.lo1 * two_pow_8 + c.lo0 + c.lo1 * two_pow_8;
+    let carry_lo = PackedM31::from_array(sum_lo.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+
+    let sum_hi = a.hi + b.hi0 + b.hi1 * two_pow_8 + c.hi0 + c.hi1 * two_pow_8 + carry_lo;
+    let carry_hi = PackedM31::from_array(sum_hi.to_array().map(|x| M31::from((x.0 >> 16) & 0b11)));
+
+    let res_lo = sum_lo - carry_lo * two_pow_16;
+    let res_hi = sum_hi - carry_hi * two_pow_16;
+
+    let res = Fu32_4 {
+        lo0: PackedM31::from_array(res_lo.to_array().map(|x| M31::from(x.0 & 0xFF))),
+        lo1: PackedM31::from_array(res_lo.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF))),
+        hi0: PackedM31::from_array(res_hi.to_array().map(|x| M31::from(x.0 & 0xFF))),
+        hi1: PackedM31::from_array(res_hi.to_array().map(|x| M31::from((x.0 >> 8) & 0xFF))),
+    };
+
+    *row[*col_index] = res.lo0;
+    *col_index += 1;
+    *row[*col_index] = res.lo1;
+    *col_index += 1;
+    *row[*col_index] = res.hi0;
+    *col_index += 1;
+    *row[*col_index] = res.hi1;
     *col_index += 1;
 
     res
@@ -902,7 +990,7 @@ impl InteractionClaim {
                 range_check_16,
                 4 * (i - 8) + 3
             );
-        }
+        } // 2576
 
         // Rounds
         for i in 0..32 {
@@ -916,13 +1004,11 @@ impl InteractionClaim {
             );
             generate_interaction_trace!(big_sigma1_0, 2 * i, big_sigma1_1, 2 * i);
             generate_interaction_trace!(xor_big_sigma1, 2 * i, range_check_16, 224 + 8 * i + 2);
-            generate_interaction_trace!(range_check_16, 224 + 8 * i + 3, ch_l0, 2 * i);
-            generate_interaction_trace!(ch_l1, 2 * i, ch_l2, 2 * i);
-            generate_interaction_trace!(ch_h0, 2 * i, ch_h1, 2 * i);
-            generate_interaction_trace!(ch_h2, 2 * i, maj_l0, 2 * i);
-            generate_interaction_trace!(maj_l1, 2 * i, maj_l2, 2 * i);
-            generate_interaction_trace!(maj_h0, 2 * i, maj_h1, 2 * i);
-            generate_interaction_trace!(maj_h2, 2 * i, big_sigma0_0, 2 * i + 1);
+            generate_interaction_trace!(range_check_16, 224 + 8 * i + 3, ch, 8 * i);
+            generate_interaction_trace!(ch, 8 * i + 1, ch, 8 * i + 2);
+            generate_interaction_trace!(ch, 8 * i + 3, maj, 8 * i);
+            generate_interaction_trace!(maj, 8 * i + 1, maj, 8 * i + 2);
+            generate_interaction_trace!(maj, 8 * i + 3, big_sigma0_0, 2 * i + 1);
             generate_interaction_trace!(big_sigma0_1, 2 * i + 1, xor_big_sigma0_0, 2 * i + 1);
             generate_interaction_trace!(
                 xor_big_sigma0_1,
@@ -938,13 +1024,11 @@ impl InteractionClaim {
                 range_check_16,
                 224 + 8 * i + 7
             );
-            generate_interaction_trace!(ch_l0, 2 * i + 1, ch_l1, 2 * i + 1);
-            generate_interaction_trace!(ch_l2, 2 * i + 1, ch_h0, 2 * i + 1);
-            generate_interaction_trace!(ch_h1, 2 * i + 1, ch_h2, 2 * i + 1);
-            generate_interaction_trace!(maj_l0, 2 * i + 1, maj_l1, 2 * i + 1);
-            generate_interaction_trace!(maj_l2, 2 * i + 1, maj_h0, 2 * i + 1);
-            generate_interaction_trace!(maj_h1, 2 * i + 1, maj_h2, 2 * i + 1);
-        }
+            generate_interaction_trace!(ch, 8 * i + 4, ch, 8 * i + 5);
+            generate_interaction_trace!(ch, 8 * i + 6, ch, 8 * i + 7);
+            generate_interaction_trace!(maj, 8 * i + 4, maj, 8 * i + 5);
+            generate_interaction_trace!(maj, 2 * i + 6, maj, 2 * i + 7);
+        } // 2579 + 19 * i
 
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         let interaction_claim = Self { claimed_sum };

@@ -4,7 +4,7 @@ use num_traits::{One, Zero};
 use stwo_constraint_framework::{EvalAtRow, FrameworkEval, RelationEntry};
 use stwo_prover::core::fields::m31::M31;
 
-use crate::components::sha256::{Eval, Fu32, SigmaType};
+use crate::components::sha256::{Eval, Fu32_2, Fu32_4, SigmaType};
 
 const INV16: M31 = M31::from_u32_unchecked(1 << 15);
 const TWO: M31 = M31::from_u32_unchecked(2);
@@ -19,13 +19,13 @@ impl FrameworkEval for Eval {
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::EF::one();
         // Allocate large arrays on heap to avoid stack overflow
-        let K: Box<[Fu32<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
-        let mut H: Box<[Fu32<E::F>; 8]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
+        let K: Box<[Fu32_2<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32_2::zero()));
+        let mut H: Box<[Fu32_4<E::F>; 8]> = Box::new(std::array::from_fn(|_| Fu32_4::zero()));
 
         // ╔════════════════════════════════════╗
         // ║             Scheduling             ║
         // ╚════════════════════════════════════╝
-        let mut W: Box<[Fu32<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32::zero()));
+        let mut W: Box<[Fu32_2<E::F>; 64]> = Box::new(std::array::from_fn(|_| Fu32_2::zero()));
 
         // Load message
         (0..16).for_each(|i| {
@@ -42,7 +42,7 @@ impl FrameworkEval for Eval {
                 -one.clone(),
                 &[W[i].hi.clone()],
             ));
-        });
+        }); // 2304 + 2 * 16 = 2336
 
         // Compute message schedule
         for i in 16..64 {
@@ -55,85 +55,41 @@ impl FrameworkEval for Eval {
 
             let temp = add3_u32_unchecked(W[i - 16].clone(), W[i - 7].clone(), s0, &mut eval);
             W[i] = add2_u32_unchecked(temp, s1, &mut eval);
-        }
+        } // 2576
 
         // ╔════════════════════════════════════╗
         // ║             Rounds                 ║
         // ╚════════════════════════════════════╝
         for i in 0..64 {
             let a: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
-            let b: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
-            let c: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
-            let d: Fu32<E::F> = Fu32 {
-                lo: eval.next_trace_mask(),
-                hi: eval.next_trace_mask(),
-            };
+            let b = H[1].clone();
+            let c = H[2].clone();
+            let d = H[3].clone();
             let e: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
-            let f: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
-            let g: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
-            let h: Fu32<E::F> = Fu32 {
-                lo: eval.next_trace_mask(),
-                hi: eval.next_trace_mask(),
-            };
+            let f = H[5].clone();
+            let g = H[6].clone();
+            let h = H[7].clone();
 
             let S0 = self.sigma(SigmaType::BigSigma0, a.clone(), &mut eval);
             let S1 = self.sigma(SigmaType::BigSigma1, e.clone(), &mut eval);
-            let ch = self.ch(e.clone(), f.clone(), g.clone(), &mut eval);
-            let maj = self.maj(a.clone(), b.clone(), c.clone(), &mut eval);
-            let temp0 = add3_u32_unchecked(h, ch, S1, &mut eval);
-            let temp1 = add3_u32_unchecked(temp0, K[i].clone(), W[i].clone(), &mut eval);
+            let (e_4, ch) = self.ch(e.clone(), f.clone(), g.clone(), &mut eval);
+            let (a_4, maj) = self.maj(a.clone(), b.clone(), c.clone(), &mut eval);
+            let temp1 = add3_u32_unchecked(
+                add3_u32_unchecked(h.clone().into(), ch, S1, &mut eval),
+                K[i].clone(),
+                W[i].clone(),
+                &mut eval,
+            );
             let temp2 = add2_u32_unchecked(S0, maj, &mut eval);
 
-            H[0] = add3_u32_unchecked(temp1.clone(), temp2, H[0].clone(), &mut eval);
-            H[1] = add2_u32_unchecked(
-                H[1].clone(),
-                Fu32 {
-                    lo: a[0].clone() + a[1].clone() + a[2].clone(),
-                    hi: a[3].clone() + a[4].clone() + a[5].clone(),
-                },
-                &mut eval,
-            );
-            H[2] = add2_u32_unchecked(
-                H[2].clone(),
-                Fu32 {
-                    lo: b[0].clone() + b[1].clone() + b[2].clone(),
-                    hi: b[3].clone() + b[4].clone() + b[5].clone(),
-                },
-                &mut eval,
-            );
-            H[3] = add2_u32_unchecked(
-                H[3].clone(),
-                Fu32 {
-                    lo: c[0].clone() + c[1].clone() + c[2].clone(),
-                    hi: c[3].clone() + c[4].clone() + c[5].clone(),
-                },
-                &mut eval,
-            );
-            H[4] = add3_u32_unchecked(d, temp1, H[4].clone(), &mut eval);
-            H[5] = add2_u32_unchecked(
-                H[5].clone(),
-                Fu32 {
-                    lo: e[0].clone() + e[1].clone() + e[2].clone(),
-                    hi: e[3].clone() + e[4].clone() + e[5].clone(),
-                },
-                &mut eval,
-            );
-            H[6] = add2_u32_unchecked(
-                H[6].clone(),
-                Fu32 {
-                    lo: f[0].clone() + f[1].clone() + f[2].clone(),
-                    hi: f[3].clone() + f[4].clone() + f[5].clone(),
-                },
-                &mut eval,
-            );
-            H[7] = add2_u32_unchecked(
-                H[7].clone(),
-                Fu32 {
-                    lo: g[0].clone() + g[1].clone() + g[2].clone(),
-                    hi: g[3].clone() + g[4].clone() + g[5].clone(),
-                },
-                &mut eval,
-            );
+            H[0] = add3_u32_2_2_4_unchecked(temp1.clone(), temp2, H[0].clone(), &mut eval);
+            H[1] = add2_u32_2_4_unchecked(H[1].clone(), a_4, &mut eval);
+            H[2] = add2_u32_2_4_unchecked(H[2].clone(), b, &mut eval);
+            H[3] = add2_u32_2_4_unchecked(H[3].clone(), c, &mut eval);
+            H[4] = add3_u32_2_4_4_unchecked(temp1, H[4].clone(), d.clone(), &mut eval);
+            H[5] = add2_u32_2_4_unchecked(H[5].clone(), e_4, &mut eval);
+            H[6] = add2_u32_2_4_unchecked(H[6].clone(), f, &mut eval);
+            H[7] = add2_u32_2_4_unchecked(H[7].clone(), g, &mut eval);
         }
         eval.finalize_logup_in_pairs();
 
@@ -147,7 +103,7 @@ impl Eval {
         sigma: SigmaType,
         [l0, l1, l2, h0, h1, h2]: [E::F; 6],
         eval: &mut E,
-    ) -> Fu32<E::F> {
+    ) -> Fu32_2<E::F> {
         let one = E::EF::one();
         let [out0_lo, out0_hi, out1_lo, out1_hi, out2_0_lo, out2_1_lo, out2_0_hi, out2_1_hi] =
             std::array::from_fn(|_| eval.next_trace_mask());
@@ -320,15 +276,15 @@ impl Eval {
         };
 
         // Add all limbs together to rebuild the 32-bit result
-        let out0 = Fu32 {
+        let out0 = Fu32_2 {
             lo: out0_lo,
             hi: out0_hi,
         };
-        let out1 = Fu32 {
+        let out1 = Fu32_2 {
             lo: out1_lo,
             hi: out1_hi,
         };
-        let out2 = Fu32 {
+        let out2 = Fu32_2 {
             lo: xor_out2_lo,
             hi: xor_out2_hi,
         };
@@ -351,105 +307,135 @@ impl Eval {
     fn ch<E: EvalAtRow>(
         &self,
         e: [E::F; 6],
-        f: [E::F; 6],
-        g: [E::F; 6],
+        f: Fu32_4<E::F>,
+        g: Fu32_4<E::F>,
         eval: &mut E,
-    ) -> Fu32<E::F> {
+    ) -> (Fu32_4<E::F>, Fu32_2<E::F>) {
         let one = E::EF::one();
-        let ch: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
+        let two_pow_8 = E::F::from(M31::from(1 << 8));
+        let e_4: Fu32_4<E::F> = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+        let ch: Fu32_4<E::F> = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+
+        eval.add_constraint(
+            e_4.lo0.clone() + two_pow_8.clone() * e_4.lo1.clone()
+                - e[0].clone()
+                - e[1].clone()
+                - e[2].clone(),
+        );
+        eval.add_constraint(
+            e_4.hi0.clone() + two_pow_8 * e_4.hi1.clone()
+                - e[3].clone()
+                - e[4].clone()
+                - e[5].clone(),
+        );
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.ch_l0,
+            &self.relations.ch,
             -one.clone(),
-            &[e[0].clone(), f[0].clone(), g[0].clone(), ch[0].clone()],
+            &[
+                e_4.lo0.clone(),
+                f.lo0.clone(),
+                g.lo0.clone(),
+                ch.lo0.clone(),
+            ],
         ));
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.ch_l1,
+            &self.relations.ch,
             -one.clone(),
-            &[e[1].clone(), f[1].clone(), g[1].clone(), ch[1].clone()],
+            &[
+                e_4.lo1.clone(),
+                f.lo1.clone(),
+                g.lo1.clone(),
+                ch.lo1.clone(),
+            ],
         ));
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.ch_l2,
+            &self.relations.ch,
             -one.clone(),
-            &[e[2].clone(), f[2].clone(), g[2].clone(), ch[2].clone()],
+            &[
+                e_4.hi0.clone(),
+                f.hi0.clone(),
+                g.hi0.clone(),
+                ch.hi0.clone(),
+            ],
         ));
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.ch_h0,
-            -one.clone(),
-            &[e[3].clone(), f[3].clone(), g[3].clone(), ch[3].clone()],
-        ));
-
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.ch_h1,
-            -one.clone(),
-            &[e[4].clone(), f[4].clone(), g[4].clone(), ch[4].clone()],
-        ));
-
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.ch_h2,
+            &self.relations.ch,
             -one,
-            &[e[5].clone(), f[5].clone(), g[5].clone(), ch[5].clone()],
+            &[e_4.hi1.clone(), f.hi1, g.hi1, ch.hi1.clone()],
         ));
 
-        Fu32 {
-            lo: ch[0].clone() + ch[1].clone() + ch[2].clone(),
-            hi: ch[3].clone() + ch[4].clone() + ch[5].clone(),
-        }
+        (e_4, ch.into())
     }
 
     fn maj<E: EvalAtRow>(
         &self,
         a: [E::F; 6],
-        b: [E::F; 6],
-        c: [E::F; 6],
+        b: Fu32_4<E::F>,
+        c: Fu32_4<E::F>,
         eval: &mut E,
-    ) -> Fu32<E::F> {
+    ) -> (Fu32_4<E::F>, Fu32_2<E::F>) {
         let one = E::EF::one();
-        let maj: [E::F; 6] = std::array::from_fn(|_| eval.next_trace_mask());
+        let two_pow_8 = E::F::from(M31::from(1 << 8));
+        let a_4: Fu32_4<E::F> = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+        let maj: Fu32_4<E::F> = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+
+        eval.add_constraint(
+            a_4.lo0.clone() + two_pow_8.clone() * a_4.lo1.clone()
+                - a[0].clone()
+                - a[1].clone()
+                - a[2].clone(),
+        );
+        eval.add_constraint(
+            a_4.hi0.clone() + two_pow_8 * a_4.hi1.clone()
+                - a[3].clone()
+                - a[4].clone()
+                - a[5].clone(),
+        );
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.maj_l0,
+            &self.relations.maj,
             -one.clone(),
-            &[a[0].clone(), b[0].clone(), c[0].clone(), maj[0].clone()],
+            &[
+                a_4.lo0.clone(),
+                b.lo0.clone(),
+                c.lo0.clone(),
+                maj.lo0.clone(),
+            ],
         ));
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.maj_l1,
+            &self.relations.maj,
             -one.clone(),
-            &[a[1].clone(), b[1].clone(), c[1].clone(), maj[1].clone()],
+            &[
+                a_4.lo1.clone(),
+                b.lo1.clone(),
+                c.lo1.clone(),
+                maj.lo1.clone(),
+            ],
         ));
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.maj_l2,
+            &self.relations.maj,
             -one.clone(),
-            &[a[2].clone(), b[2].clone(), c[2].clone(), maj[2].clone()],
+            &[
+                a_4.hi0.clone(),
+                b.hi0.clone(),
+                c.hi0.clone(),
+                maj.hi0.clone(),
+            ],
         ));
 
         eval.add_to_relation(RelationEntry::new(
-            &self.relations.maj_h0,
-            -one.clone(),
-            &[a[3].clone(), b[3].clone(), c[3].clone(), maj[3].clone()],
-        ));
-
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.maj_h1,
-            -one.clone(),
-            &[a[4].clone(), b[4].clone(), c[4].clone(), maj[4].clone()],
-        ));
-
-        eval.add_to_relation(RelationEntry::new(
-            &self.relations.maj_h2,
+            &self.relations.maj,
             -one,
-            &[a[5].clone(), b[5].clone(), c[5].clone(), maj[5].clone()],
+            &[a_4.hi1.clone(), b.hi1, c.hi1, maj.hi1.clone()],
         ));
 
-        Fu32 {
-            lo: maj[0].clone() + maj[1].clone() + maj[2].clone(),
-            hi: maj[3].clone() + maj[4].clone() + maj[5].clone(),
-        }
+        (a_4, maj.into())
     }
 }
 
@@ -457,7 +443,11 @@ impl Eval {
 /// Assumes a, b are properly range checked.
 /// The caller is responsible for checking:
 /// res.{l,h} not in [2^16, 2^17) or in [-2^16,0)
-fn add2_u32_unchecked<E: EvalAtRow>(a: Fu32<E::F>, b: Fu32<E::F>, eval: &mut E) -> Fu32<E::F> {
+fn add2_u32_unchecked<E: EvalAtRow>(
+    a: Fu32_2<E::F>,
+    b: Fu32_2<E::F>,
+    eval: &mut E,
+) -> Fu32_2<E::F> {
     let sl = eval.next_trace_mask();
     let sh = eval.next_trace_mask();
 
@@ -467,19 +457,17 @@ fn add2_u32_unchecked<E: EvalAtRow>(a: Fu32<E::F>, b: Fu32<E::F>, eval: &mut E) 
     let carry_h = (a.hi + b.hi + carry_l - sh.clone()) * E::F::from(INV16);
     eval.add_constraint(carry_h.clone() * carry_h.clone() - carry_h);
 
-    Fu32 { lo: sl, hi: sh }
+    Fu32_2 { lo: sl, hi: sh }
 }
 
 /// Adds three u32s, returning the sum.
 /// Assumes a, b, c are properly range checked.
-/// Caller is responsible for checking:
-/// res.{l,h} not in [2^16, 3*2^16) or in [-2^17,0)
 fn add3_u32_unchecked<E: EvalAtRow>(
-    a: Fu32<E::F>,
-    b: Fu32<E::F>,
-    c: Fu32<E::F>,
+    a: Fu32_2<E::F>,
+    b: Fu32_2<E::F>,
+    c: Fu32_2<E::F>,
     eval: &mut E,
-) -> Fu32<E::F> {
+) -> Fu32_2<E::F> {
     let sl = eval.next_trace_mask();
     let sh = eval.next_trace_mask();
 
@@ -493,5 +481,85 @@ fn add3_u32_unchecked<E: EvalAtRow>(
         carry_h.clone() * (carry_h.clone() - E::F::one()) * (carry_h - E::F::from(TWO)),
     );
 
-    Fu32 { lo: sl, hi: sh }
+    Fu32_2 { lo: sl, hi: sh }
+}
+
+/// Adds Fu32_2 and Fu32_4, returning the sum.
+/// Assumes a, b are properly range checked.
+fn add2_u32_2_4_unchecked<E: EvalAtRow>(
+    a: Fu32_4<E::F>,
+    b: Fu32_4<E::F>,
+    eval: &mut E,
+) -> Fu32_4<E::F> {
+    let two_pow_8 = E::F::from(M31::from(1 << 8));
+    let s = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+
+    let carry_l = (a.lo0 + two_pow_8.clone() * a.lo1 + b.lo0 + two_pow_8.clone() * b.lo1
+        - (s.lo0.clone() + two_pow_8.clone() * s.lo1.clone()))
+        * E::F::from(INV16);
+    eval.add_constraint(carry_l.clone() * carry_l.clone() - carry_l.clone());
+
+    let carry_h = (a.hi0 + two_pow_8.clone() * a.hi1 + b.hi0 + two_pow_8.clone() * b.hi1 + carry_l
+        - (s.hi0.clone() + two_pow_8 * s.hi1.clone()))
+        * E::F::from(INV16);
+    eval.add_constraint(carry_h.clone() * carry_h.clone() - carry_h);
+
+    s
+}
+
+/// Adds two Fu32_2s and one Fu32_4, returning the sum as Fu32_4.
+/// Assumes a, b, c are properly range checked.
+fn add3_u32_2_2_4_unchecked<E: EvalAtRow>(
+    a: Fu32_2<E::F>,
+    b: Fu32_2<E::F>,
+    c: Fu32_4<E::F>,
+    eval: &mut E,
+) -> Fu32_4<E::F> {
+    let two_pow_8 = E::F::from(M31::from(1 << 8));
+    let s = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+
+    let carry_l = (a.lo + b.lo + c.lo0 + two_pow_8.clone() * c.lo1
+        - (s.lo0.clone() + two_pow_8.clone() * s.lo1.clone()))
+        * E::F::from(INV16);
+    eval.add_constraint(
+        carry_l.clone() * (carry_l.clone() - E::F::one()) * (carry_l.clone() - E::F::from(TWO)),
+    );
+
+    let carry_h = (a.hi + b.hi + c.hi0 + two_pow_8.clone() * c.hi1 + carry_l
+        - (s.hi0.clone() + two_pow_8 * s.hi1.clone()))
+        * E::F::from(INV16);
+    eval.add_constraint(
+        carry_h.clone() * (carry_h.clone() - E::F::one()) * (carry_h - E::F::from(TWO)),
+    );
+
+    s
+}
+
+/// Adds one Fu32_2 and two Fu32_4s, returning the sum as Fu32_4.
+/// Assumes a, b, c are properly range checked.
+fn add3_u32_2_4_4_unchecked<E: EvalAtRow>(
+    a: Fu32_2<E::F>,
+    b: Fu32_4<E::F>,
+    c: Fu32_4<E::F>,
+    eval: &mut E,
+) -> Fu32_4<E::F> {
+    let two_pow_8 = E::F::from(M31::from(1 << 8));
+    let s = Fu32_4::from_array(std::array::from_fn(|_| eval.next_trace_mask()));
+
+    let carry_l = (a.lo + b.lo0 + two_pow_8.clone() * b.lo1 + c.lo0 + two_pow_8.clone() * c.lo1
+        - (s.lo0.clone() + two_pow_8.clone() * s.lo1.clone()))
+        * E::F::from(INV16);
+    eval.add_constraint(
+        carry_l.clone() * (carry_l.clone() - E::F::one()) * (carry_l.clone() - E::F::from(TWO)),
+    );
+
+    let carry_h =
+        (a.hi + b.hi0 + two_pow_8.clone() * b.hi1 + c.hi0 + two_pow_8.clone() * c.hi1 + carry_l
+            - (s.hi0.clone() + two_pow_8 * s.hi1.clone()))
+            * E::F::from(INV16);
+    eval.add_constraint(
+        carry_h.clone() * (carry_h.clone() - E::F::one()) * (carry_h - E::F::from(TWO)),
+    );
+
+    s
 }

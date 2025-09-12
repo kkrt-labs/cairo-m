@@ -147,18 +147,8 @@ impl<B: BackendForChannel<MC>, MC: MerkleChannel> TreeBuilder<B>
 fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     let Components {
         sha256,
-        ch_l0,
-        ch_l1,
-        ch_l2,
-        ch_h0,
-        ch_h1,
-        ch_h2,
-        maj_l0,
-        maj_l1,
-        maj_l2,
-        maj_h0,
-        maj_h1,
-        maj_h2,
+        ch,
+        maj,
         small_sigma0_0,
         small_sigma0_1,
         small_sigma1_0,
@@ -175,18 +165,8 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         range_check_16,
     } = components;
     assert_component(sha256, &trace);
-    assert_component(ch_l0, &trace);
-    assert_component(ch_l1, &trace);
-    assert_component(ch_l2, &trace);
-    assert_component(ch_h0, &trace);
-    assert_component(ch_h1, &trace);
-    assert_component(ch_h2, &trace);
-    assert_component(maj_l0, &trace);
-    assert_component(maj_l1, &trace);
-    assert_component(maj_l2, &trace);
-    assert_component(maj_h0, &trace);
-    assert_component(maj_h1, &trace);
-    assert_component(maj_h2, &trace);
+    assert_component(ch, &trace);
+    assert_component(maj, &trace);
     assert_component(small_sigma0_0, &trace);
     assert_component(small_sigma0_1, &trace);
     assert_component(small_sigma1_0, &trace);

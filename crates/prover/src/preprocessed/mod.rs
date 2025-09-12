@@ -74,78 +74,15 @@ impl PreProcessedTraceBuilder {
         // Add ch preprocessed columns for SHA256 - 6 variants (l0, l1, l2, h0, h1, h2)
         // Each variant adds 4 columns: e, f, g, result
 
-        // Add ch_l0 columns
-        let ch_l0 = ch_maj::ch_l0::Columns;
-        for column in ch_l0.columns() {
+        // Add ch columns
+        let ch = ch_maj::ch::Columns;
+        for column in ch.columns() {
             self.columns.push(Box::new(column));
         }
 
-        // Add ch_l1 columns
-        let ch_l1 = ch_maj::ch_l1::Columns;
-        for column in ch_l1.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add ch_l2 columns
-        let ch_l2 = ch_maj::ch_l2::Columns;
-        for column in ch_l2.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add ch_h0 columns
-        let ch_h0 = ch_maj::ch_h0::Columns;
-        for column in ch_h0.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add ch_h1 columns
-        let ch_h1 = ch_maj::ch_h1::Columns;
-        for column in ch_h1.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add ch_h2 columns
-        let ch_h2 = ch_maj::ch_h2::Columns;
-        for column in ch_h2.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add maj preprocessed columns for SHA256 - 6 variants (l0, l1, l2, h0, h1, h2)
-        // Each variant adds 4 columns: a, b, c, result
-
-        // Add maj_l0 columns
-        let maj_l0 = ch_maj::maj_l0::Columns;
-        for column in maj_l0.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add maj_l1 columns
-        let maj_l1 = ch_maj::maj_l1::Columns;
-        for column in maj_l1.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add maj_l2 columns
-        let maj_l2 = ch_maj::maj_l2::Columns;
-        for column in maj_l2.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add maj_h0 columns
-        let maj_h0 = ch_maj::maj_h0::Columns;
-        for column in maj_h0.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add maj_h1 columns
-        let maj_h1 = ch_maj::maj_h1::Columns;
-        for column in maj_h1.columns() {
-            self.columns.push(Box::new(column));
-        }
-
-        // Add maj_h2 columns
-        let maj_h2 = ch_maj::maj_h2::Columns;
-        for column in maj_h2.columns() {
+        // Add maj columns
+        let maj = ch_maj::maj::Columns;
+        for column in maj.columns() {
             self.columns.push(Box::new(column));
         }
 

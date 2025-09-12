@@ -472,13 +472,13 @@ generate_sigma_variant!(
     [
         MASK_SMALL_SIGMA0_L1,
         MASK_SMALL_SIGMA0_L2,
-        MASK_SMALL_SIGMA0_H2 // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_H2 // Keep original un-shifted mask
     ],
     [
         MASK_SMALL_SIGMA0_OUT0_LO,
-        MASK_SMALL_SIGMA0_OUT0_HI, // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_OUT0_HI, // Keep original un-shifted mask
         MASK_SMALL_SIGMA0_OUT2_LO,
-        MASK_SMALL_SIGMA0_OUT2_HI // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_OUT2_HI // Keep original un-shifted mask
     ],
     small_sigma0,
     3,
@@ -491,14 +491,14 @@ generate_sigma_variant!(
     SmallSigma0_1,
     [
         MASK_SMALL_SIGMA0_L0,
-        MASK_SMALL_SIGMA0_H0, // Keep original unshifted mask
-        MASK_SMALL_SIGMA0_H1  // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_H0, // Keep original un-shifted mask
+        MASK_SMALL_SIGMA0_H1  // Keep original un-shifted mask
     ],
     [
         MASK_SMALL_SIGMA0_OUT1_LO,
-        MASK_SMALL_SIGMA0_OUT1_HI, // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_OUT1_HI, // Keep original un-shifted mask
         MASK_SMALL_SIGMA0_OUT2_LO,
-        MASK_SMALL_SIGMA0_OUT2_HI // Keep original unshifted mask
+        MASK_SMALL_SIGMA0_OUT2_HI // Keep original un-shifted mask
     ],
     small_sigma0,
     3,
@@ -509,12 +509,12 @@ generate_sigma_variant!(
 generate_sigma_variant!(
     small_sigma1_0,
     SmallSigma1_0,
-    [MASK_SMALL_SIGMA1_L0, MASK_SMALL_SIGMA1_H0], // Keep original unshifted mask
+    [MASK_SMALL_SIGMA1_L0, MASK_SMALL_SIGMA1_H0], // Keep original un-shifted mask
     [
         MASK_SMALL_SIGMA1_OUT0_LO,
-        MASK_SMALL_SIGMA1_OUT0_HI, // Keep original unshifted mask
+        MASK_SMALL_SIGMA1_OUT0_HI, // Keep original un-shifted mask
         MASK_SMALL_SIGMA1_OUT2_LO,
-        MASK_SMALL_SIGMA1_OUT2_HI // Keep original unshifted mask
+        MASK_SMALL_SIGMA1_OUT2_HI // Keep original un-shifted mask
     ],
     small_sigma1,
     2,
@@ -528,14 +528,14 @@ generate_sigma_variant!(
     [
         MASK_SMALL_SIGMA1_L1,
         MASK_SMALL_SIGMA1_L2,
-        MASK_SMALL_SIGMA1_H1, // Keep original unshifted mask
-        MASK_SMALL_SIGMA1_H2  // Keep original unshifted mask
+        MASK_SMALL_SIGMA1_H1, // Keep original un-shifted mask
+        MASK_SMALL_SIGMA1_H2  // Keep original un-shifted mask
     ],
     [
         MASK_SMALL_SIGMA1_OUT1_LO,
-        MASK_SMALL_SIGMA1_OUT1_HI, // Keep original unshifted mask
+        MASK_SMALL_SIGMA1_OUT1_HI, // Keep original un-shifted mask
         MASK_SMALL_SIGMA1_OUT2_LO,
-        MASK_SMALL_SIGMA1_OUT2_HI // Keep original unshifted mask
+        MASK_SMALL_SIGMA1_OUT2_HI // Keep original un-shifted mask
     ],
     small_sigma1,
     4,
@@ -549,13 +549,13 @@ generate_sigma_variant!(
     [
         MASK_BIG_SIGMA0_L1,
         MASK_BIG_SIGMA0_L2,
-        MASK_BIG_SIGMA0_H2 // Keep original unshifted mask
+        MASK_BIG_SIGMA0_H2 // Keep original un-shifted mask
     ],
     [
         MASK_BIG_SIGMA0_OUT0_LO,
-        MASK_BIG_SIGMA0_OUT0_HI, // Keep original unshifted mask
+        MASK_BIG_SIGMA0_OUT0_HI, // Keep original un-shifted mask
         MASK_BIG_SIGMA0_OUT2_LO,
-        MASK_BIG_SIGMA0_OUT2_HI // Keep original unshifted mask
+        MASK_BIG_SIGMA0_OUT2_HI // Keep original un-shifted mask
     ],
     big_sigma0,
     3,
@@ -568,14 +568,14 @@ generate_sigma_variant!(
     BigSigma0_1,
     [
         MASK_BIG_SIGMA0_L0,
-        MASK_BIG_SIGMA0_H0, // Keep original unshifted mask
-        MASK_BIG_SIGMA0_H1  // Keep original unshifted mask
+        MASK_BIG_SIGMA0_H0, // Keep original un-shifted mask
+        MASK_BIG_SIGMA0_H1  // Keep original un-shifted mask
     ],
     [
         MASK_BIG_SIGMA0_OUT1_LO,
-        MASK_BIG_SIGMA0_OUT1_HI, // Keep original unshifted mask
+        MASK_BIG_SIGMA0_OUT1_HI, // Keep original un-shifted mask
         MASK_BIG_SIGMA0_OUT2_LO,
-        MASK_BIG_SIGMA0_OUT2_HI // Keep original unshifted mask
+        MASK_BIG_SIGMA0_OUT2_HI // Keep original un-shifted mask
     ],
     big_sigma0,
     3,
@@ -588,14 +588,14 @@ generate_sigma_variant!(
     BigSigma1_0,
     [
         MASK_BIG_SIGMA1_L0,
-        MASK_BIG_SIGMA1_H0, // Keep original unshifted mask
-        MASK_BIG_SIGMA1_H1  // Keep original unshifted mask
+        MASK_BIG_SIGMA1_H0, // Keep original un-shifted mask
+        MASK_BIG_SIGMA1_H1  // Keep original un-shifted mask
     ],
     [
         MASK_BIG_SIGMA1_OUT0_LO,
-        MASK_BIG_SIGMA1_OUT0_HI, // Keep original unshifted mask
+        MASK_BIG_SIGMA1_OUT0_HI, // Keep original un-shifted mask
         MASK_BIG_SIGMA1_OUT2_LO,
-        MASK_BIG_SIGMA1_OUT2_HI // Keep original unshifted mask
+        MASK_BIG_SIGMA1_OUT2_HI // Keep original un-shifted mask
     ],
     big_sigma1,
     3,
@@ -609,13 +609,13 @@ generate_sigma_variant!(
     [
         MASK_BIG_SIGMA1_L1,
         MASK_BIG_SIGMA1_L2,
-        MASK_BIG_SIGMA1_H2 // Keep original unshifted mask
+        MASK_BIG_SIGMA1_H2 // Keep original un-shifted mask
     ],
     [
         MASK_BIG_SIGMA1_OUT1_LO,
-        MASK_BIG_SIGMA1_OUT1_HI, // Keep original unshifted mask
+        MASK_BIG_SIGMA1_OUT1_HI, // Keep original un-shifted mask
         MASK_BIG_SIGMA1_OUT2_LO,
-        MASK_BIG_SIGMA1_OUT2_HI // Keep original unshifted mask
+        MASK_BIG_SIGMA1_OUT2_HI // Keep original un-shifted mask
     ],
     big_sigma1,
     3,
