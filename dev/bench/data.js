@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757583552867,
+  "lastUpdate": 1757659000169,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2323,6 +2323,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 347726735,
             "range": "± 2484305",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b970cfc0ad8631f995e7f0e5a20bbcaee1ebb67",
+          "message": "opti: add codegen-units and lto settings (#316)",
+          "timestamp": "2025-09-12T09:29:17+03:00",
+          "tree_id": "5058f81b318b64c2ca86189c2200ded68ee4a402",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/9b970cfc0ad8631f995e7f0e5a20bbcaee1ebb67"
+        },
+        "date": 1757658999154,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 346133943,
+            "range": "± 2700104",
             "unit": "ns/iter"
           }
         ]
