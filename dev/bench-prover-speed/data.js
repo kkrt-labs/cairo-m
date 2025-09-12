@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757584357090,
+  "lastUpdate": 1757659525000,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1943,6 +1943,42 @@ window.BENCHMARK_DATA = {
             "name": "prover_sha256_1kb/prove",
             "value": 5726516686,
             "range": "± 16022285",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "obatirou@gmail.com",
+            "name": "Oba",
+            "username": "obatirou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b970cfc0ad8631f995e7f0e5a20bbcaee1ebb67",
+          "message": "opti: add codegen-units and lto settings (#316)",
+          "timestamp": "2025-09-12T09:29:17+03:00",
+          "tree_id": "5058f81b318b64c2ca86189c2200ded68ee4a402",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/9b970cfc0ad8631f995e7f0e5a20bbcaee1ebb67"
+        },
+        "date": 1757659524288,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 2811609501,
+            "range": "± 17460860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "prover_sha256_1kb/prove",
+            "value": 2605385509,
+            "range": "± 11973271",
             "unit": "ns/iter"
           }
         ]
