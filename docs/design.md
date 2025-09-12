@@ -414,14 +414,17 @@ same component.
 
 **Memory Operations**:
 
-- `StoreDoubleDerefFpFp`: Store dereferenced value
-- `StoreToDoubleDerefFpFp`: Store at dereferenced address
+- `StoreDoubleDeref`: Store dereferenced value
+- `StoreToDoubleDeref`: Store at dereferenced address
 
-See the [Opcodes columns](#opcodes-columns) section for more details.
+This proposed instruction set fits in a total of XXX columns. See the
+[Opcodes columns](#opcodes-columns) section for more details.
 
 ### Extensions
 
-## Native types
+#### Native types
+
+#### Built-in functions
 
 ## Conclusion
 
@@ -429,9 +432,9 @@ See the [Opcodes columns](#opcodes-columns) section for more details.
 
 ### Opcodes columns
 
-The following is a list of columns for each opcode. Not mentioned is the need
-for the enabler column, which distinguishes between the actual trace row and the
-padding required for the trace length to be a power of 2.
+This described the detailed list of columns for each component. Not mentioned is
+the possible need for an enabler column, which distinguishes between the actual
+trace row and the padding required for the trace length to be a power of 2.
 
 The instruction is a variable-sized list of field elements, with the first one
 always being the opcode ID. The rest is context-dependent and usually denoted as
