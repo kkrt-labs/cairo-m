@@ -61,9 +61,8 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     let womir_program = load_wasm(GenericIrSetting, &wasm_file).unwrap();
 
     let dag_module = BlocklessDagModule::from_file(path).unwrap();
-    let mir_module = DagToMir::new(dag_module)
-        .to_mir(PassManager::standard_pipeline())
-        .unwrap();
+    let dag_to_mir = DagToMir::new(dag_module).expect("failed to construct DagToMir");
+    let mir_module = dag_to_mir.to_mir(PassManager::standard_pipeline()).unwrap();
 
     let compiled_module = compile_module(&mir_module).unwrap();
 
@@ -111,16 +110,14 @@ fn build_wasm(path: &PathBuf) {
 }
 
 proptest! {
-    #[test]
-    fn run_add(a: u32, b: u32) {
-        test_program("tests/test_cases/add.wasm", "add", vec![a, b]);
-    }
 
     #[test]
     fn run_arithmetic(a: u32, b: u32) {
-        test_program("tests/test_cases/arithmetic.wasm", "f", vec![a, b]);
+        test_program("tests/test_cases/arithmetic.wasm", "test_add", vec![a, b]);
+        test_program("tests/test_cases/arithmetic.wasm", "test_sub", vec![a, b]);
+        test_program("tests/test_cases/arithmetic.wasm", "test_mul", vec![a, b]);
+        test_program("tests/test_cases/arithmetic.wasm", "test_div_u", vec![a, b]);
     }
-
     #[test]
     fn run_bitwise(a: u32, b: u32) {
         test_program("tests/test_cases/bitwise.wasm", "and", vec![a, b]);
@@ -170,6 +167,15 @@ proptest! {
             vec![m, n],
         );
     }
+
+    #[test]
+    fn run_calls(a: u32) {
+        // Void callee
+        test_program("tests/test_cases/calls.wasm", "call_noop", vec![]);
+        // Single-return callee
+        test_program("tests/test_cases/calls.wasm", "call_ret1", vec![a]);
+    }
+
 }
 
 #[test]
@@ -179,10 +185,42 @@ fn run_simple_loop() {
 
 #[test]
 fn run_func_call() {
-    test_program("tests/test_cases/func_call.wasm", "main", vec![]);
+    test_program("tests/test_cases/calls.wasm", "main", vec![]);
 }
 
 #[test]
 fn run_variables() {
     test_program("tests/test_cases/variables.wasm", "main", vec![]);
+}
+
+#[test]
+fn run_load_store_sum() {
+    test_program(
+        "tests/test_cases/load_store.wasm",
+        "load_store_sum",
+        vec![100],
+    );
+}
+
+// For some reason proptest runs forever on these ones
+// This likely comes from the VM having a hard time handling large addresses
+
+#[test]
+fn run_load_store_add() {
+    test_program("tests/test_cases/load_store.wasm", "add", vec![100, 200]);
+    test_program(
+        "tests/test_cases/load_store.wasm",
+        "add",
+        vec![0xFFFFFFFF, 0xFFFFFFFF],
+    );
+}
+
+#[test]
+fn run_globals() {
+    test_program("tests/test_cases/globals.wasm", "main", vec![42, 69]);
+    test_program(
+        "tests/test_cases/globals.wasm",
+        "main",
+        vec![0xFFFFFFFF, 0xFFFFFFFF],
+    );
 }

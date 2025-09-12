@@ -6,7 +6,7 @@ expression: snapshot_content
 source: crates/wasm/tests/wasm_to_mir_tests.rs
 expression: wasm_load_result
 ---
-WASM File: add.wasm
+WASM File: globals.wasm
 ============================================================
 Success: true
 Functions loaded: 1
@@ -14,16 +14,24 @@ Functions loaded: 1
 Module Output:
 module {
   // Function 0
-  fn add {
+  fn main {
     parameters: [0, 1]
     entry: 0
 
     0:
-      %2 = %1 U32Add %0
+      %2 = 268435454
+      store %2, 0, %0
+      %3 = 268435452
+      store %3, 0, %1
+      %5 = 268435454
+      %4 = load %5, 0
+      %7 = 268435452
+      %6 = load %7, 0
+      %8 = %4 U32Add %6
       jump 1
 
     1:
-      return %2
+      return %8
 
   }
 

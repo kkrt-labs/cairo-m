@@ -22,7 +22,8 @@ macro_rules! wasm_test {
             // Load the WASM module
             let module = BlocklessDagModule::from_file(&file_path).unwrap();
             // Flatten to MIR without any optimizations
-            let mir_module = DagToMir::new(module).to_mir(PassManager::new()).unwrap();
+            let dag_to_mir = DagToMir::new(module).expect("failed to construct DagToMir");
+            let mir_module = dag_to_mir.to_mir(PassManager::new()).unwrap();
 
             // Create snapshot content
             let snapshot_content = {
@@ -46,16 +47,17 @@ macro_rules! wasm_test {
 // ====== Test Cases ======
 
 // --- Basic WASM to MIR Conversion Tests ---
-wasm_test!(convert_add_wasm, "add.wasm");
 wasm_test!(convert_fib_wasm, "fib.wasm");
 wasm_test!(convert_arithmetic_wasm, "arithmetic.wasm");
 wasm_test!(convert_simple_if_wasm, "simple_if.wasm");
 wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
-wasm_test!(convert_func_call_wasm, "func_call.wasm");
 wasm_test!(convert_variables_wasm, "variables.wasm");
 wasm_test!(convert_bitwise_wasm, "bitwise.wasm");
 wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
 wasm_test!(convert_nested_loop_wasm, "nested_loop.wasm");
+wasm_test!(convert_load_store, "load_store.wasm");
+wasm_test!(convert_globals_wasm, "globals.wasm");
+wasm_test!(convert_calls_wasm, "calls.wasm");
 wasm_test!(
     #[ignore]
     convert_sha256_wasm,
