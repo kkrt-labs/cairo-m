@@ -137,9 +137,9 @@ cargo install --locked samply
 Compile the program you want to run and launch samply:
 
 ```bash
-cargo build -r
-target/release/cairo-m-compiler --input crates/prover/tests/test_data/fibonacci.cm --output crates/prover/tests/test_data/fibonacci.json
-samply record target/release/cairo-m-prover --entrypoint fib --arguments 100000 crates/prover/tests/test_data/fibonacci.json
+CARGO_PROFILE_RELEASE_DEBUG=true cargo build -r
+target/release/cairo-m-compiler --input test_data/functions/fibonacci_loop.cm --output crates/prover/tests/test_data/fibonacci_loop.json
+samply record target/release/cairo-m-prover crates/prover/tests/test_data/fibonacci.json --entrypoint fibonacci_loop --arguments 100000
 ```
 
 For memory, it leverages [DHAT](https://docs.rs/dhat/latest/dhat/).
