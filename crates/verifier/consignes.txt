@@ -1,0 +1,31 @@
+Generate hints for the verification of merkle decommitments.
+Prover's decommitment is implemented in :
+/Users/antoine/Documents/cairo-m/external/stwo/crates/prover/src/core/vcs/prover.rs
+And verification of the decommitment is implemented in :
+/Users/antoine/Documents/cairo-m/external/stwo/crates/prover/src/core/vcs/verifier.rs
+The decommitment verification is called here:
+/Users/antoine/Documents/cairo-m/external/stwo/crates/prover/src/core/pcs/verifier.rs
+at line 95 (see parameters passed).
+The merkle tree is built as a normal tree but to compute a parent node, column values are also hashed.
+The hints will be used in the AIR and should be a table where each row contains:
+- The root of the merkle tree (ie the commitment): decommitments and queried_values are both of length equal to 4.
+  Each element of index i concerns the merkle tree commited at stark_proof.commitments[i].
+- The layer,
+- The node index i (a node being 2 optional children, column values, and a parent),
+- The sub-index j: each row will correspond to the hash computation j in node i.
+- x_0: left value in the hashing process
+- x_1: right value in the hashing process
+- final_hash: flag that equals 1 when hash j is the parent hash.
+
+Example: Say we are computing the parent node of children a_0 and a_1 with column values equal to
+a_2 ... a_k. The node is node i at layer L and root R. Rows will be:
+- (R,L,i,0,a_0,a_1,0), h_1 = hash(a_0, a_1),
+- (R,L,i,1,h_1,a_2,0), h_2 = hash(h_1, a_2),
+- (R,L,i,2,h_2,a_3,0), h_3 = hash(h_2, a_3),
+...
+- (R,L,i,k-1,h_{k-1},a_k,1), h_k = hash(h_{k-1}, a_k).
+
+To generate the hints, you should follow the exact logic put in place in the reference implementation I mentioned
+by simply filling the hints as you go.
+Pick the best data structure for these hints.
+Create a file in hints called decommitments.rs.
