@@ -1,24 +1,194 @@
 # Cairo M Design Document
 
-Cairo M (CPU AIR) is a zero-knowledge virtual machine design optimized for
+## Introduction
 
-- Small-field provers: STARK provers using small prime fields (e.g., M31 or
-  Babybear)
+The motivation behind building a new zkVM is strongly influenced by our
+experience of building a
+[non-provable EVM client in Cairo Zero](https://github.com/kkrt-labs/keth), the
+provable language (zkDSL) of Starkware, targeting the Cairo VM. How can a
+program written in a zkDSL eventually not be provable? Not because there are any
+logic issues, no, but just because of scaling issues! The Cairo VM has just not
+been designed to prove billions-long traces, nor to leverage parallel proving
+with recursion.
+
+Facing this hard truth made us re-evaluate the design of the Cairo VM in the
+light of the real needs of the current ZK ecosystem. Actually, some decision may
+be relevant when considering a given order of magnitude of program length
+(around 10^5 steps at most), but become irrelevant when considering a much
+larger program length (10^8 steps at least). Furthermore, though being
+supposedly a general-purpose VM, it has been design mainly with Starknet in
+mind, i.e., with a focus on (small) transaction processing, rather than
+general-purpose computation.
+
+The original Cairo architecture, as described in the seminal paper
+[Cairo – a Turing-complete STARK-friendly CPU architecture](https://eprint.iacr.org/2021/1063.pdf)
+defines a general framework for building a ZK-friendly CPU, known as a
+zero-knowledge Virtual Machine (zkVM) nowadays. This framework is general both
+in terms of underlying proving scheme and base operating prime field. However,
+some design decisions (like the instruction encoding) require a prime field
+larger that 2^64, while modern STARK provers favor smaller prime fields like
+Babybear (2^31 - 2^27 + 1) or Mersenne31 (2^31 - 1). Consequently, even the
+recent [stwo-cairo](https://github.com/starkware-libs/stwo-cairo) prover
+emulates the original prime number chosen 5 years ago
+[$2^251 + 17 * 2^192 + 1$](https://docs.starknet.io/learn/protocol/cryptography).
+This emulation makes the prover up to 28x less efficient as each native field
+element from the original Cairo VM is now up to 28 M31s, depending on the actual
+values used in the program and some optimizations.
+
+Furthermore, the Cairo VM features a non-deterministic read-only memory model
+with relocation, which creates two severe limitations:
+
+1. a program can only make a limited number of writes to memory, so the VM
+   cannot run arbitrary long (meaningful) programs;
+2. the final relocation step prevents from streaming the generated trace for
+   parallel proving (a technique called
+   [_continuation_](https://risczero.com/blog/continuations)) as final memory
+   addresses are only known after the program has executed.
+
+Cairo M has been designed to overcome these limitations:
+
+- Leverage small-field provers: STARK provers using small prime fields (e.g.,
+  M31 or Babybear);
 - Continuation: Arbitrarily long program runs provable out-of-the-box
 - Recursion: Direct proof verification within the prover framework, eliminating
-  the need for high-level language verifiers
-- Low host memory usage: Efficient memory consumption on consumer devices
+  the need for high-level language verifiers;
+- Low host memory usage: Efficient memory consumption on consumer devices.
 
-This document assumes Mersenne31 (M31: `2^31 - 1`) as the prime field. The
-design can be adapted for other primes with minor modifications.
+This following of this document assumes Mersenne31 (M31: `2^31 - 1`) as the
+prime field. The design can be adapted for other primes with minor
+modifications.
 
 This document focuses on the design decisions for the v0 implementation and
 potential improvements, rather than describing the current implementation state.
 
+The design of a virtual machine mainly encompasses the memory model, the
+registers, the opcodes and the addressing scheme. The remaining of this document
+addresses each of these questions in turn. An Appendix section provides general
+knowledge about some part of STARK provers and especially the
+[Stwo framework](https://github.com/starkware-libs/stwo), used by Cairo M.
+
 ## Memory
 
 Memory segments are implemented as 1D-addressable arrays indexed by field
-elements. The maximum length is determined by the prover's prime field.
+elements. Their maximum length is determined by the prover's prime field.
+
+### Read/Write operations
+
+To support arbitrarily long programs within a fixed-size memory segment, the
+design employs a read-write memory model for the RAM (Random Access Memory).
+
+Read and write operations are actually implemented through
+[lookup arguments](#lookups): each memory access is actually a lookup of a tuple
+`(address, clock, value)`. `clock` is a monotonic counter from 0, determined
+during witness generation. It timestamps when `address` contained `value`.
+
+To access a memory cell, one actually adds to the logup sum a term cancelling
+the previous access, and a new term for registering the new access. As there is
+no ordering in a global logup sum, the notion of "previous access" is enforced
+with a range-check argument on the clock difference: `clock - prev_clock > 0`.
+
+All together, using the notation defined in the [lookups](#lookups) section, a
+memory read or write operation is implemented as follows:
+
+- `-Memory(address, prev_clock, prev_value)`
+- `+Memory(address, clock, value)`
+- `+RangeCheck20(clock - prev_clock - 1)`
+
+with `address`, `prev_clock`, `prev_value`, `clock` and `value` being part of
+the main execution trace. Note that when the memory is only read, one has
+`prev_value = value` and this simplifies to:
+
+- `-Memory(address, prev_clock, value)`
+- `+Memory(address, clock, value)`
+- `+RangeCheck20(clock - prev_clock - 1)`
+
+The key point of this design based on lookup arguments is that one needs to
+actually remove from the logup sum a term added at a point of time strictly
+before the current point of time, and that one adds terms with multiplicity 1
+only. Adding terms with multiplicity greater that 1 would actually make it
+possible for the prover to "fork" the memory at some point, accessing a value
+already normally updated during the execution. The boundary conditions (initial
+and final memory) are handled by the [memory commitment](#commitment) and the
+public memory of the proof.
+
+### Clock Update Component
+
+The clock update component is responsible for updating the clock value when the
+clock difference exceeds the capacity of the `RangeCheck` component. It is not
+part of the VM specification but is part of the prover implementation. During
+witness generation, the prover checks what are the required clock updates. If it
+encounters a clock difference exceeding the capacity of its `RangeCheck`
+component, it performs a clock update, which essentially consists in mimicking a
+read operation:
+
+- `-Memory(address, prev_clock, prev_value)`
+- `+Memory(address, clock + RC_LIMIT, prev_value)`
+
+It eventually adds as many clock updates as needed to cover the clock
+difference.
+
+### Column Cost Analysis
+
+Let us denote by `T` a regular trace column and by `L` a lookup operation.
+
+**Read-write memory** (per access):
+
+- Main trace: 4 to 5 columns (`address`, `prev_clock`, `clock`, `prev_value`,
+  `value`)
+- Lookup: 3
+- Total: up to 5T + 3L
+
+**Read-only memory** (per access):
+
+- Main trace: 2 columns (`address`, `value`)
+- Lookup: 1 `-Memory(address, value)`
+- Total: 2T + 1L
+
+Since lookup columns are defined over the secure field, which is QM31 (i.e., 4
+M31s), each lookup column is actually 4 trace columns.
+
+- Overhead per access: `(5T + 3L) - (2T + 1L) = 3T + 2L = 3 + 8 = 11` base
+  columns
+- STORE operation example (`dst = op0 + op1`): up to 31 additional columns
+
+This overhead can be mitigated using opcodes that write in place (e.g.,
+`x += y`). It can also be limited by grouping the logup columns by two,
+precomputing the logup sums in pairs when the maximum constraint degree remains
+low (see [Cumulative Sum Structure](#cumulative-sum-structure)). If we
+consequently count only 2 columns per lookup, the memory access overhead becomes
+`3 + 2*2 = 7`. If we furthermore consider an in-place operation, then it becomes
+`(5T + 3L) + (4T + 3L) = 9 + 12 = 21` columns for the read-write memory and
+`3*(2T + 1L/2) = 6 + 8 = 14` for the read-only memory.
+
+Since the read-write memory allows for much easier control flow, reduces the
+need to copy memory values with new frames, and is much easier to reason about
+when developing software, this overhead is worthwhile.
+
+On the other hand, not all parts of the memory need to be writable. In
+particular, the program with its embedded constant values can remain read-only.
+Generally speaking, the easiest way to make a memory segment read-only is to:
+
+- emit all the values with `clock = 0` and the required multiplicity from the
+  commitment or the public memory;
+- in the `STORE` opcodes, add a range-check to the write addresses to make sure
+  that it doesn't write in these segments;
+- add opcodes that perform arithmetic operations on the read-only memory, as
+  long as the result is written back to the read-write memory.
+
+However, range-checking the write address can become inefficient when the
+address range is large. In fact, the Cairo M design embeds a `RangeCheck20`
+(i.e. 20-bit range-check) as the largest single range-check component (i.e.,
+with no limb splitting). This means that any value greater than 2^20 would
+require splitting (see also [the clock update section](#readwrite-operations)).
+As a consequence, this approach becomes inefficient when the address range is
+large.
+
+Another solution is to use a dedicated read-only memory segment with its own
+commitment and lookup challenges. This effectively doubles the available address
+space, with half being read-only and the other half read-write. Furthermore, if
+the read-only memory is used only for the program, its commitment effectively
+becomes the program hash that can be used to identify the program in the proof,
+without requiring the read-write memory to be initialized with zeros.
 
 ### Commitment
 
@@ -35,117 +205,46 @@ Efficient recursion requires a ZK-friendly hash function. The current
 implementation uses Poseidon2, though alternative hash functions can be
 substituted as needed.
 
-The memory address space spans `0..2**30`, eliminating Merkle root padding
-requirements while providing sufficient capacity for substantial computations.
-Extension to `P - 1` is possible but unnecessary for client-side proving
-scenarios, where memory requirements remain modest compared to long-trace
-applications. Memory exceeding 2^30 is only required for extremely long runs,
-which would demand RAM capacity beyond typical consumer device specifications.
+The natural memory address space spans `0..P`, but to avoid Merkle root padding
+requirements while providing sufficient capacity for substantial computations,
+we simply use the greatest power of 2 smaller than `P`, i.e., `2^30`. Extension
+to `P - 1` is possible but unnecessary for client-side proving scenarios, where
+memory requirements remain modest compared to long-trace applications. Memory
+exceeding `2^30` is only required for extremely long runs, which would demand
+RAM capacity beyond typical consumer device specifications.
 
-The Merkle tree omits leaf hashing to minimize computational overhead. Although
-leaf hashing prevents sibling value disclosure in inclusion proofs, it provides
-no benefit for state root proving and is therefore omitted. This approach
-requires all memory cells to contain values, resulting in implicit
+Furthermore, the Merkle tree omits leaf hashing to minimize computational
+overhead. Although leaf hashing prevents sibling value disclosure in inclusion
+proofs, it provides no benefit for state root proving and is therefore omitted.
+This approach requires all memory cells to contain values, resulting in implicit
 zero-initialization of the entire memory segment. The default zero value has no
 practical impact since the VM overwrites cells with actual values during
 execution.
 
-### Read/Write operations
+The Merkle commitment component is responsible for proving the leaves from the
+public (initial or final) root. It does this by iteratively consuming a root and
+emitting the leaves with given multiplicity in the logup sum. The partial
+underlying Merkle tree is built during witness generation. The component only
+enforces via the lookup arguments that the nodes and leaves actually derive from
+the root, using the `Merkle` relation. It also uses the `Poseidon2` relation to
+prove the Poseidon2 hash computation. Eventually, the multiplicity at any given
+node can be set to 0 if the branch is actually not used, in which case the node
+is pruned from the tree.
 
-To support arbitrarily long programs within a fixed-size memory segment (2^30 =
-1,073,741,824 addresses), the design employs a read-write memory model.
-
-Read and write operations are implemented through lookup arguments:
-
-#### Memory Model
-
-- **Memory entries**: triplets `(address, clock, value)` where `clock`
-  timestamps when `address` contained `value`
-- **Clock sequence**: monotonic counter from 0, determined during witness
-  generation
-- **Initial values**: emitted from Merkle commitment with `clock = 0`
-
-#### Operation Mechanics
-
-- **Read/write unification**: Both operations cancel
-  `-(address, prev_clock, prev_value)` and add `+(address, clock, value)` to the
-  lookup sum
-- **Read optimization**: When `value == prev_value`, duplicate storage is
-  avoided and only one column is required
-- **Clock monotonicity**: Enforced via `RangeCheck` component
-  (`clock - prev_clock > 0`)
-
-#### Clock Update Component
-
-- **Purpose**: Bridges large temporal gaps between memory operations
-- **Trigger**: When clock difference exceeds `RangeCheck` capacity
-- **Implementation**: Updates clock values similarly to read operations
-- **Generation**: Trace filled during witness creation, outside VM execution
-- **Strategy**: Divides large deltas into range-check-compliant segments
-
-#### Column Cost Analysis
-
-**Read-write memory** (per access):
-
-- Main trace: 5 columns (`address`, `prev_clock`, `clock`, `prev_value`,
-  `value`)
-- Lookup: 3 columns (subtract previous, add current, range check)
-- Total: 5T + 3L
-
-**Read-only memory** (per access):
-
-- Main trace: 2 columns (`address`, `value`)
-- Lookup: 1 column
-- Total: 2T + 1L
-
-#### Base Column Overhead
-
-Since lookup columns use QM31 (secure field), each represents 4 base columns:
-
-- Overhead per access: `3T + 2L = 3 + 8 = 11` base columns
-- STORE operation example (`dst = op0 + op1`): up to 33 additional columns
-
-This overhead can be mitigated using opcodes that write in place (e.g.,
-`x += y`). It can also be limited by grouping the logup columns by two,
-precomputing the logup sums in pairs when the maximum constraint degree remains
-low. If we consequently count only 2 columns per lookup, the memory access
-overhead becomes `3 + 2*2 = 7`. If we furthermore consider an in-place
-operation, then it becomes `2*(5T + 3L/2) = 10 + 12 = 22` columns for the
-read-write memory and `3*(2T + 1L/2) = 6 + 4 = 10` for the read-only memory.
-
-Since the read-write memory allows for much easier control flow, reduces the
-need to copy memory values with new frames, and is much easier to reason about
-when developing software, this overhead is worthwhile.
-
-On the other hand, not all parts of the memory need to be writable. In
-particular, the program with its embedded constant values can remain read-only.
-Generally speaking, the easiest way to make a memory segment read-only is to:
-
-- emit all the values with `clock = 0` and the required multiplicity;
-- in the `STORE` opcodes, add a range-check to the write addresses to make sure
-  that it doesn't write in these segments.
-
-However, range-checking the write address can become inefficient when the
-address range is large. In fact, the Cairo M design embeds a RangeCheck20 as the
-largest range-check component. This means that any value greater than 2^20 would
-require splitting (see also [the clock update section](#readwrite-operations)).
-As a consequence, this approach becomes inefficient when the address range is
-large.
-
-Another solution is to use a dedicated read-only memory segment with its own
-commitment and lookup challenges. This effectively doubles the available address
-space, with half being read-only and the other half read-write. Furthermore, if
-the read-only memory is used only for the program, its commitment effectively
-becomes the program hash that can be used to identify the program in the proof,
-without requiring the read-write memory to be initialized with zeros.
+All the emitted leaves are eventually consumed by the `Memory` component to make
+them available for the opcodes.
 
 ### Word size
 
 If the Merkle root allows committing to up to 2^30 field elements, the VM
-doesn't need to use a single field element as the base word size. In our first
-implementation, we used a fixed-size word built from 4 M31 elements to easily
-accommodate all field-element-based instructions in a single read. This
-effectively reduces the memory size to 2^28 = 268,435,456.
+doesn't need to use a single field element as the base word size. As said in the
+previous section, the `Memory` component is responsible for turning a list of
+M31 leaves into memory values. These leaves can actually be grouped together as
+limbs of a single memory word.
+
+In our first implementation, we used a fixed-size word built from 4 M31 elements
+to easily accommodate all field-element-based instructions in a single read.
+This effectively reduces the memory size to 2^28 = 268,435,456.
 
 However, there is no requirement to use such a fixed-size memory word. Given
 that memory consistency is enforced only with lookup arguments, each address can
@@ -422,10 +521,18 @@ Lookups
 
 ### Lookups
 
-This entire paper is drafted with Stwo's constraint framework in mind,
-particularly the
+A lookup argument in zero-knowledge proofs is a cryptographic primitive that
+allows a prover to demonstrate that certain values in a computation trace exist
+in another table, without revealing the specific values or their positions. The
+prover commits to a "claimed sum" of lookup terms, and the verifier checks that
+this sum equals zero, ensuring all looked-up values are valid according to the
+specified relation constraints.
+
+This entire paper is drafted with Stwo's constraint framework in mind, which
+uses [LogUp lookup arguments](https://eprint.iacr.org/2022/1530.pdf), see the
 [logup.rs](https://github.com/starkware-libs/stwo/blob/dev/crates/constraint-framework/src/prover/logup.rs)
-module.
+module for more details. Lookup and logup terms are used interchangeably in this
+document to denote a relation between two components.
 
 #### Core Concept
 
