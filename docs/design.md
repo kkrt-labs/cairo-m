@@ -344,41 +344,64 @@ The initial Cairo M design was heavily inspired by the Cairo VM. The currently
 implemented opcodes reflect this origin but would not be kept as-is if the
 project were started today.
 
+### AIR basics
+
+An AIR (Algebraic Intermediate Representation) is a way to represent a
+computation in a way that is easy to prove. It is a set of constraints that must
+be satisfied by the computation.
+
+For the sake of simplicity, let use describe an AIR as a dataframe, with columns
+representing variables used in the defined constraint system (circuit) and rows
+representing circuit instantiations. All the constraints are eventually
+described as a polynomial combination of the columns. For example, given a
+dataframe `df` with columns `a`, `b`, `c`, the constraint `a + b = c` is
+described as `df[a] + df[b] - df[c] = 0` and actually applies to all of the rows
+of the dataframe.
+
+During proof generation, each column is interpreted as values of a given
+polynomial over a base set ${x^i}_{i=0}^n$. This polynomial is interpolated and
+evaluated over a bigger domain. The prover commits to each column (each
+polynomial) and then generate Merkle inclusion proofs for some evaluations of
+these polynomials at random points. This means that the proof size and the
+verifier complexity are directly related to the number of columns in the AIR:
+the more columns, the more commitments and the more verifier complexity.
+
+The Stwo framework lets define the whole AIR of the state transition of the
+machine in several such dataframes, called
+[_components_](https://docs.starknet.io/learn/s-two/air-development/components)
+(other frameworks may call them _chips_). Eventually, they are all concatenated
+by the column axis to form the whole AIR.
+
+### Design principles
+
+Generally speaking, a reduced instruction set will generate more cycles, i.e.
+more rows, for a given operation than a complex instruction set. On the other
+hand, a complex instruction set will require more columns, i.e. more
+commitments, for a given operation than a reduced instruction set. In short, a
+reduced instruction set is a long and thin dataframe, while a complex
+instruction set is a short and wide one.
+
+Notice however that, given a component with shape (`n`, `m`) (`n` rows and `m`
+columns), one can always reshape it to (`n / k`, `m * k`), where `k` is an
+integer, actually duplicating the columns and their corresponding constraints.
+The other way around is not possible: one cannot keep only a partial circuit. In
+other words, a reduced instruction set trace can always be reshaped to "look
+like" a complex instruction set one, while the other way around is not possible.
+Hence, reduced instruction sets give more flexibility.
+
+Furthermore, long traces can be proven in parallel, even when the program is
+still running (so-called
+[_continuation_](https://risczero.com/blog/continuations)) and aggregated later
+on with recursions, reducing either the proving time or the memory usage of the
+host, which is directly proportional to the area of the AIR, (i.e. width times
+height).
+
+Consequently, when designing an AIR, one tries to limit the number of columns as
+much as possible. This can be done by both limiting the number of opcodes in the
+instruction set, and by factorizing as much as possible several opcodes into the
+same component.
+
 ### Minimal instruction set
-
-#### Design Principles
-
-**AIR Structure**:
-
-- Columns = constraint variables
-- Rows = circuit instantiations
-- Each VM cycle adds one row
-
-**Opcode Architecture**:
-
-- One opcode typically maps to one dataframe
-- Similar constraints allow opcode factorization
-- Fewer opcodes = more cycles for equivalent tasks
-
-**Resource Constraints**:
-
-- Column count affects proof size (one commitment per column)
-- Memory usage: `∑(width × length)` total cells
-- Witness reshaping trades rows for columns (minimum column count fixed by ISA)
-
-**Continuation Properties**:
-
-- Long traces can split into multiple proofs
-- Partial constraint proving is impossible
-
-#### Trade-off Analysis
-
-Minimizing AIR columns maximizes zkVM flexibility at the cost of increased cycle
-count. This classic CPU-memory trade-off favors computation over memory usage,
-aligning with consumer device constraints (powerful CPUs, limited RAM). The
-strategy: minimize AIR width and reshape witnesses to fit available memory.
-
-#### Minimal Opcode Set
 
 **Control Flow**:
 
