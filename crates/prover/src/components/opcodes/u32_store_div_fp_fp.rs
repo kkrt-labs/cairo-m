@@ -114,7 +114,7 @@
 //!   * `- [clk - dst_prev_clock_lo_clk - 1]` and `- [clk - dst_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * write remainder in [fp + dst_rem_off]
 //!   * `- [fp + dst_rem_off, dst_rem_prev_clock_lo_clk, dst_rem_prev_val_lo] + [fp + dst_rem_off, clk, r_lo]` in `Memory` Relation
-//!   * `- [fp + dst_rem_off + 1, dst_rem_prev_clock_hi_clk, dst_rem_prev_val_hi] + [fp + dst_rem_off + 1, clk, r_hi]` in `Memory` Relation
+//!   * `- [fp + dst_rem_off + 1, dst_rem_prev_clock_hi, dst_rem_prev_val_hi] + [fp + dst_rem_off + 1, clk, r_hi]` in `Memory` Relation
 //!   * `- [clk - dst_rem_prev_clock_lo_clk - 1]` and `- [clk - dst_rem_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * limbs of each U32 must be either in range [0, 2^16) or in range [0, 2^8)
 //!   * `- [d_0]` in `RangeCheck8` relation
