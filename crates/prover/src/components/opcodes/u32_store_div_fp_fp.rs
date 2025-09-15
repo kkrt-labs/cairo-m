@@ -81,6 +81,7 @@
 //! * read op1
 //!   * `- [fp + src1_off, op1_prev_clock_lo_clk, op1_val_lo] + [fp + src1_off, clk, op1_val_lo]`
 //!   * `- [fp + src1_off + 1, op1_prev_clock_hi_clk, op1_val_hi] + [fp + src1_off + 1, clk, op1_val_hi]`
+//!   * `- [clk - op1_prev_clock_lo_clk - 1]` and `- [clk - op1_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * prove that prod = q * d (u32 * u32 -> u64)
 //!   * `prod_0 - (q_0 * d_0 - mul_carry_0 * 2 ** 8)`
 //!   * `prod_1 - (q_0 * d_1 + q_1 * d_0 + mul_carry_0 - mul_carry_1 * 2 ** 8)`

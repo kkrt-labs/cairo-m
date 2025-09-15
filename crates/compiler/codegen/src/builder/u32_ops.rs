@@ -178,7 +178,7 @@ impl super::CasmBuilder {
                     );
                     if matches!(op, BinaryOp::U32Div) {
                         let rem_u32 = l.wrapping_rem(r);
-                        let rem_off = dest_off + 2;
+                        let rem_off = self.layout_mut().reserve_stack(2);
                         self.store_u32_immediate(
                             rem_u32,
                             rem_off,
@@ -622,6 +622,7 @@ mod tests {
 
         let mut mem = Mem::new(64);
         exec(&mut mem, &bld.instructions)?;
+
         // Discover actual remainder destination for DivRem opcodes
         let rem_off_dynamic = bld
             .instructions
@@ -635,20 +636,12 @@ mod tests {
         // If no DivRem instruction found but we're doing division, use default offset (const-folded)
         let rem_off_dynamic = rem_off_dynamic.or_else(|| {
             if matches!(op, BinaryOp::U32Div) {
-                println!(
-                    "No DivRem instruction found in {:?} for {:?}, using default offset",
-                    bld.instructions, op
-                );
                 Some(dest_off + 2)
             } else {
                 None
             }
         });
         let rem_off = rem_off_dynamic.map(|off| mem.get_u32(off));
-        println!(
-            "rem_off: {:?} read from rem_off_dynamic: {:?}",
-            rem_off, rem_off_dynamic
-        );
         if dest_u32 {
             Ok((mem.get_u32(dest_off), rem_off))
         } else {

@@ -231,7 +231,6 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 }
                 let q = a.wrapping_div(imm);
                 let r = a.wrapping_rem(imm);
-                println!("Storing R: {} to dst_rem_off: {}", r, dst_rem_off.0 as i32);
                 mem.set_u32(dst_off.0 as i32, q);
                 mem.set_u32(dst_rem_off.0 as i32, r);
             }
