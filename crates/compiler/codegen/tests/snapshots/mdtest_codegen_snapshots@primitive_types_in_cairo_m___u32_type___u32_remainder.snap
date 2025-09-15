@@ -1,0 +1,22 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Primitive Types in Cairo-M - U32 Type - U32 Remainder"
+input_file: mdtest/01-basics/03-primitive-types.md
+---
+Source:
+fn test_u32_rem() -> u32 {
+    let x: u32 = 4294967295;
+    let y: u32 = 10;
+    return x % y;
+}
+============================================================
+Generated CASM:
+test_u32_rem:
+test_u32_rem:
+test_u32_rem_0:
+   0: 23 65535 65535 0     // u32([fp + 0], [fp + 1]) = u32(4294967295)
+   1: 23 10 0 2            // u32([fp + 2], [fp + 3]) = u32(10)
+   2: 18 0 2 6 4           // u32([fp + 6], [fp + 7]); u32([fp + 4], [fp + 5]) = u32([fp + 0], [fp + 1]) % u32([fp + 2], [fp + 3])
+   3: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+   4: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+   5: 11 _ _ _             // return

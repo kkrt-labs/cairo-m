@@ -235,6 +235,8 @@ pub enum TokenType<'a> {
     Mul,
     #[token("/")]
     Div,
+    #[token("%")]
+    Mod,
     #[token("=")]
     Eq,
     // Punctuation
@@ -307,6 +309,7 @@ impl<'a> fmt::Display for TokenType<'a> {
             TokenType::Minus => write!(f, "-"),
             TokenType::Mul => write!(f, "*"),
             TokenType::Div => write!(f, "/"),
+            TokenType::Mod => write!(f, "%"),
             TokenType::Eq => write!(f, "="),
             TokenType::Arrow => write!(f, "->"),
             TokenType::LParen => write!(f, "("),

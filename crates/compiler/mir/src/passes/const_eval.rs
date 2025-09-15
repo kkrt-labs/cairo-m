@@ -85,6 +85,11 @@ impl ConstEvaluator {
                 let result = a / b;
                 Some(Literal::Integer(result))
             }
+            (BinaryOp::U32Rem, Literal::Integer(a), Literal::Integer(b)) if b != 0 => {
+                // U32 remainder
+                let result = a % b;
+                Some(Literal::Integer(result))
+            }
 
             // U32 comparisons - proper unsigned comparisons
             (BinaryOp::U32Eq, Literal::Integer(a), Literal::Integer(b)) => {

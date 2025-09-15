@@ -81,19 +81,6 @@ fn test() { a >> b; }
 ============================================================
 
 --- Input 7 (ERROR) ---
-fn test() { a % b; }
---- Diagnostics ---
-[01] Error: Invalid character
-   ╭─[ test.cairo:1:15 ]
-   │
- 1 │ fn test() { a % b; }
-   │               ┬  
-   │               ╰── Invalid character
-───╯
-
-============================================================
-
---- Input 8 (ERROR) ---
 fn test() { a ** b; }
 --- Diagnostics ---
 [02] Error: found '*' expected '!', '-', something else, identifier, '[', or '('

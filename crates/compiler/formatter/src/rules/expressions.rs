@@ -114,6 +114,7 @@ impl Format for BinaryOp {
             Self::Sub => "-",
             Self::Mul => "*",
             Self::Div => "/",
+            Self::Mod => "%",
             Self::Eq => "==",
             Self::Neq => "!=",
             Self::Less => "<",

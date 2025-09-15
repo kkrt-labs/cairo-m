@@ -41,6 +41,7 @@ pub enum BinaryOp {
     U32Sub,
     U32Mul,
     U32Div,
+    U32Rem,
 
     // U32 comparison operators
     U32Eq,
@@ -75,6 +76,7 @@ impl std::fmt::Display for BinaryOp {
             Self::U32Sub => write!(f, "U32Sub"),
             Self::U32Mul => write!(f, "U32Mul"),
             Self::U32Div => write!(f, "U32Div"),
+            Self::U32Rem => write!(f, "U32Rem"),
             Self::U32Eq => write!(f, "U32Eq"),
             Self::U32Neq => write!(f, "U32Neq"),
             Self::U32Less => write!(f, "U32Less"),
@@ -115,6 +117,7 @@ impl BinaryOp {
             (P::Sub, T::U32) => Self::U32Sub,
             (P::Mul, T::U32) => Self::U32Mul,
             (P::Div, T::U32) => Self::U32Div,
+            (P::Mod, T::U32) => Self::U32Rem,
             (P::Eq, T::U32) => Self::U32Eq,
             (P::Neq, T::U32) => Self::U32Neq,
             (P::Less, T::U32) => Self::U32Less,
@@ -149,7 +152,9 @@ impl BinaryOp {
         match self {
             // Arithmetic ops return same type
             Self::Add | Self::Sub | Self::Mul | Self::Div => crate::MirType::felt(),
-            Self::U32Add | Self::U32Sub | Self::U32Mul | Self::U32Div => crate::MirType::u32(),
+            Self::U32Add | Self::U32Sub | Self::U32Mul | Self::U32Div | Self::U32Rem => {
+                crate::MirType::u32()
+            }
 
             // U32 bitwise ops return u32
             Self::U32BitwiseAnd | Self::U32BitwiseOr | Self::U32BitwiseXor => crate::MirType::u32(),

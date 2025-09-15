@@ -16,6 +16,8 @@ fn test_arithmetic_operator_types() {
             in_function("let a: u32 = 1; let b: u32 = 2; let diff = a - b;"),
             in_function("let a: u32 = 1; let b: u32 = 2; let prod = a * b;"),
             in_function("let a: u32 = 1; let b: u32 = 2; let quot = a / b;"),
+            in_function("let a: u32 = 7; let b: u32 = 3; let rem = a % b;"),
+            in_function("let a: u32 = 7; let rem = a % 3;"),
             ],
             err: [
             // bool
@@ -23,13 +25,18 @@ fn test_arithmetic_operator_types() {
             in_function("let a: bool = true; let b: bool = false; let diff = a - b;"),
             in_function("let a: bool = true; let b: bool = false; let prod = a * b;"),
             in_function("let a: bool = true; let b: bool = false; let quot = a / b;"),
+            in_function("let a: bool = true; let b: bool = false; let rem = a % b;"),
 
             // Incompatible base types
             in_function("let x: felt = 42; let y: u32 = 100; let result = x + y;"),
+            in_function("let x: felt = 42; let y: u32 = 100; let result = x % y;"),
+            in_function("let x: u32 = 42; let y: felt = 100; let result = x % y;"),
 
             // Custom type
             format!("struct Point {{ x: felt, y: felt }} {}", in_function("let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2;")),
             format!("struct Point {{ x: felt, y: felt }} {}", in_function("let p1 = Point { x: 10, y: 20 }; let p4 = p1 * 2;")),
+            // felt modulo is not supported
+            in_function("let a: felt = 10; let b: felt = 3; let r = a % b;"),
         ]
     }
 }

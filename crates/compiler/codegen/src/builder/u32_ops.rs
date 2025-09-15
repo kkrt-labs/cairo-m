@@ -96,7 +96,7 @@ impl super::CasmBuilder {
             (Value::Operand(lid), Value::Literal(Literal::Integer(imm))) => {
                 let lo = self.layout.get_offset(*lid)?;
 
-                if matches!(op, BinaryOp::U32Div) && *imm == 0 {
+                if matches!(op, BinaryOp::U32Div | BinaryOp::U32Rem) && *imm == 0 {
                     return Err(CodegenError::InvalidMir("Division by zero".into()));
                 }
                 self.u32_fp_imm_op(op, lo, *imm, dest_off)?;
@@ -115,7 +115,7 @@ impl super::CasmBuilder {
                         self.u32_fp_imm_op(op, ro, *imm, dest_off)?;
                     }
                     // Non-commutative operations - store imm in tmp
-                    BinaryOp::U32Sub | BinaryOp::U32Div | BinaryOp::U32Less => {
+                    BinaryOp::U32Sub | BinaryOp::U32Div | BinaryOp::U32Rem | BinaryOp::U32Less => {
                         let tmp = self.layout.reserve_stack(2);
                         self.store_u32_immediate(
                             *imm,
@@ -158,6 +158,12 @@ impl super::CasmBuilder {
                                 return Err(CodegenError::InvalidMir("Division by zero".into()));
                             }
                             l.wrapping_div(r)
+                        }
+                        BinaryOp::U32Rem => {
+                            if r == 0 {
+                                return Err(CodegenError::InvalidMir("Division by zero".into()));
+                            }
+                            l.wrapping_rem(r)
                         }
                         BinaryOp::U32BitwiseAnd => l & r,
                         BinaryOp::U32BitwiseOr => l | r,
@@ -245,6 +251,7 @@ impl super::CasmBuilder {
             BinaryOp::U32Sub => self.u32_sub_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32Mul => self.u32_mul_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32Div => self.u32_div_rem_fp_fp(src0_off, src1_off, dest_off)?,
+            BinaryOp::U32Rem => self.u32_rem_fp_fp(src0_off, src1_off, dest_off)?,
             BinaryOp::U32BitwiseAnd => self.u32_and_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32BitwiseOr => self.u32_or_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32BitwiseXor => self.u32_xor_fp_fp(src0_off, src1_off, dest_off, comment),
@@ -279,6 +286,7 @@ impl super::CasmBuilder {
             BinaryOp::U32Sub => self.u32_sub_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Mul => self.u32_mul_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Div => self.u32_div_rem_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Rem => self.u32_rem_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Eq => self.u32_eq_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Less => self.u32_less_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32BitwiseAnd => self.u32_and_fp_imm(src0_off, imm, dest_off, comment),
@@ -320,6 +328,33 @@ impl super::CasmBuilder {
         self.emit_push(instr);
     }
 
+    pub(crate) fn u32_rem_fp_imm(
+        &mut self,
+        src0_off: i32,
+        imm: u32,
+        dest_off: i32,
+        _comment: String,
+    ) {
+        let (imm_lo, imm_hi) = super::split_u32_value(imm);
+        // Allocate temp for quotient; write remainder into dest_off
+        let dst_q_off = self.layout_mut().reserve_stack(2);
+        let comment = format!(
+            "u32([fp + {dst_q_off}], [fp + {}]); u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) % u32({imm_lo}, {imm_hi})",
+            dst_q_off + 1,
+            dest_off + 1,
+            src0_off + 1,
+        );
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::U32StoreDivRemFpImm {
+            src_off: M31::from(src0_off),
+            imm_lo: M31::from(imm_lo),
+            imm_hi: M31::from(imm_hi),
+            dst_off: M31::from(dst_q_off),
+            dst_rem_off: M31::from(dest_off),
+        })
+        .with_comment(comment);
+        self.emit_push(instr);
+    }
+
     fn u32_div_rem_fp_fp(
         &mut self,
         src0_off: i32,
@@ -333,6 +368,27 @@ impl super::CasmBuilder {
             src1_off: M31::from(src1_off),
             dst_off: M31::from(dst_off),
             dst_rem_off: M31::from(dst_rem_off),
+        })
+        .with_comment(comment);
+        self.emit_push(instr);
+        Ok(())
+    }
+
+    fn u32_rem_fp_fp(&mut self, src0_off: i32, src1_off: i32, dest_off: i32) -> CodegenResult<()> {
+        // Allocate temp for quotient; write remainder into dest_off
+        let dst_q_off = self.layout_mut().reserve_stack(2);
+        let comment = format!(
+            "u32([fp + {dst_q_off}], [fp + {}]); u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) % u32([fp + {src1_off}], [fp + {}])",
+            dst_q_off + 1,
+            dest_off + 1,
+            src0_off + 1,
+            src1_off + 1
+        );
+        let instr = InstructionBuilder::from(CasmInstr::U32StoreDivRemFpFp {
+            src0_off: M31::from(src0_off),
+            src1_off: M31::from(src1_off),
+            dst_off: M31::from(dst_q_off),
+            dst_rem_off: M31::from(dest_off),
         })
         .with_comment(comment);
         self.emit_push(instr);
