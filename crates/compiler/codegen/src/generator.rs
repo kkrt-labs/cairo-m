@@ -580,7 +580,11 @@ impl CodeGenerator {
                 if target_offset.is_none()
                     && !matches!(
                         op,
-                        BinaryOp::U32Add | BinaryOp::U32Sub | BinaryOp::U32Mul | BinaryOp::U32Div
+                        BinaryOp::U32Add
+                            | BinaryOp::U32Sub
+                            | BinaryOp::U32Mul
+                            | BinaryOp::U32Div
+                            | BinaryOp::U32Rem
                     )
                 {
                     target_offset = self.get_target_offset_for_dest(*dest, terminator, function);

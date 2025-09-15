@@ -187,7 +187,7 @@ Notes:
 - Arithmetic (felt): `+`, `-`, `*`, `/`, unary `-`.
   - Division is field division: when not divisible, uses the multiplicative
     inverse.
-- Arithmetic (u32): `+`, `-`, `*`, `/` with 32‑bit wrapping semantics.
+- Arithmetic (u32): `+`, `-`, `*`, `/`, `%` with 32‑bit wrapping semantics.
 - Comparison (felt): `==`, `!=` only.
 - Comparison (u32): `==`, `!=`, `<`, `>`, `<=`, `>=`.
 - Bitwise (u32): `&`, `|`, `^` on u32 values and immediates.

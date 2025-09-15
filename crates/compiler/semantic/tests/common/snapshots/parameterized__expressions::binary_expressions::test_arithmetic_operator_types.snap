@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/semantic/tests/common/mod.rs
+assertion_line: 423
 expression: snapshot
 ---
 --- Input 1 (ERROR) ---
@@ -55,6 +56,19 @@ fn test() { let a: bool = true; let b: bool = false; let quot = a / b; return; }
 ============================================================
 
 --- Input 5 (ERROR) ---
+fn test() { let a: bool = true; let b: bool = false; let rem = a % b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `%` is not supported for type `bool`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:64 ]
+   │
+ 1 │ fn test() { let a: bool = true; let b: bool = false; let rem = a % b; return; }
+   │                                                                ┬  
+   │                                                                ╰── Operator `%` is not supported for type `bool`
+───╯
+
+============================================================
+
+--- Input 6 (ERROR) ---
 fn test() { let x: felt = 42; let y: u32 = 100; let result = x + y; return; }
 --- Diagnostics ---
 [2001] Error: Invalid right operand for arithmetic operator `+`. Expected `felt`, found `u32`
@@ -67,7 +81,33 @@ fn test() { let x: felt = 42; let y: u32 = 100; let result = x + y; return; }
 
 ============================================================
 
---- Input 6 (ERROR) ---
+--- Input 7 (ERROR) ---
+fn test() { let x: felt = 42; let y: u32 = 100; let result = x % y; return; }
+--- Diagnostics ---
+[2001] Error: Operator `%` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:62 ]
+   │
+ 1 │ fn test() { let x: felt = 42; let y: u32 = 100; let result = x % y; return; }
+   │                                                              ┬  
+   │                                                              ╰── Operator `%` is not supported for type `felt`
+───╯
+
+============================================================
+
+--- Input 8 (ERROR) ---
+fn test() { let x: u32 = 42; let y: felt = 100; let result = x % y; return; }
+--- Diagnostics ---
+[2001] Error: Invalid right operand for arithmetic operator `%`. Expected `u32`, found `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:66 ]
+   │
+ 1 │ fn test() { let x: u32 = 42; let y: felt = 100; let result = x % y; return; }
+   │                                                                  ┬  
+   │                                                                  ╰── Invalid right operand for arithmetic operator `%`. Expected `u32`, found `felt`
+───╯
+
+============================================================
+
+--- Input 9 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p2 = Point { x: 30, y: 40 }; let p3 = p1 + p2; return; }
 --- Diagnostics ---
 [2001] Error: Operator `+` is not supported for type `Point`
@@ -80,7 +120,7 @@ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; l
 
 ============================================================
 
---- Input 7 (ERROR) ---
+--- Input 10 (ERROR) ---
 struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; let p4 = p1 * 2; return; }
 --- Diagnostics ---
 [2001] Error: Operator `*` is not supported for type `Point`
@@ -91,4 +131,17 @@ struct Point { x: felt, y: felt } fn test() { let p1 = Point { x: 10, y: 20 }; l
    │                                                                                          ╰── Operator `*` is not supported for type `Point`
    │                                                                                          │  
    │                                                                                          ╰── This struct has numeric fields that could be accessed
+───╯
+
+============================================================
+
+--- Input 11 (ERROR) ---
+fn test() { let a: felt = 10; let b: felt = 3; let r = a % b; return; }
+--- Diagnostics ---
+[2001] Error: Operator `%` is not supported for type `felt`
+   ╭─[ semantic_tests::expressions::binary_expressions::test_arithmetic_operator_types:1:56 ]
+   │
+ 1 │ fn test() { let a: felt = 10; let b: felt = 3; let r = a % b; return; }
+   │                                                        ┬  
+   │                                                        ╰── Operator `%` is not supported for type `felt`
 ───╯

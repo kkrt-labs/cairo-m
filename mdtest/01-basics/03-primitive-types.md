@@ -117,6 +117,18 @@ fn test_u32_div() -> u32 {
 
 Division by zero panics.
 
+### U32 Remainder
+
+```cairo-m
+fn test_u32_rem() -> u32 {
+    let x: u32 = 4294967295;
+    let y: u32 = 10;
+    return x % y;
+}
+```
+
+Division by zero panics.
+
 ## Type Inference
 
 Types can often be inferred. By default, a literal is inferred as `felt`. We can

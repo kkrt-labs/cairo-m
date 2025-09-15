@@ -201,6 +201,8 @@ pub enum BinaryOp {
     Mul,
     /// Division operator `/`
     Div,
+    /// Modulo operator `%`
+    Mod,
     /// Equality operator `==`
     Eq,
     /// Inequality operator `!=`
@@ -232,6 +234,7 @@ impl std::fmt::Display for BinaryOp {
             Self::Sub => write!(f, "-"),
             Self::Mul => write!(f, "*"),
             Self::Div => write!(f, "/"),
+            Self::Mod => write!(f, "%"),
             Self::Eq => write!(f, "=="),
             Self::Neq => write!(f, "!="),
             Self::Less => write!(f, "<"),
@@ -1045,11 +1048,12 @@ where
             },
         );
 
-        // Multiplicative operators: *, / (left-associative)
+        // Multiplicative operators: *, /, % (left-associative)
         let mul = cast.clone().foldl(
             choice((
                 op(TokenType::Mul, BinaryOp::Mul),
                 op(TokenType::Div, BinaryOp::Div),
+                op(TokenType::Mod, BinaryOp::Mod),
             ))
             .then(cast.clone())
             .repeated(),

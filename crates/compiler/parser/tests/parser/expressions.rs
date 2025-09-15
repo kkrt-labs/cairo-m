@@ -109,6 +109,7 @@ fn binary_operations_parameterized() {
             in_function("a - b;"),
             in_function("a * b;"),
             in_function("a / b;"),
+            in_function("a % b;"),
             in_function("a == b;"),
             in_function("a != b;"),
             in_function("a < b;"),
@@ -128,7 +129,6 @@ fn binary_operations_parameterized() {
             in_function("&& b;"),
             in_function("a << b;"),
             in_function("a >> b;"),
-            in_function("a % b;"),
             in_function("a ** b;"),
         ]
     }

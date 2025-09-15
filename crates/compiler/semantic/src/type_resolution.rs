@@ -1110,6 +1110,13 @@ pub(crate) fn get_binary_op_signatures<'db>(
             right: u32,
             result: u32,
         },
+        // Mod (u32 only)
+        OperatorSignature {
+            op: BinaryOp::Mod,
+            left: u32,
+            right: u32,
+            result: u32,
+        },
         // Eq
         OperatorSignature {
             op: BinaryOp::Eq,

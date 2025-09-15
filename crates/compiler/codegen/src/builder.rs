@@ -266,6 +266,7 @@ impl CasmBuilder {
             | BinaryOp::U32Sub
             | BinaryOp::U32Mul
             | BinaryOp::U32Div
+            | BinaryOp::U32Rem
             | BinaryOp::U32Eq
             | BinaryOp::U32Neq
             | BinaryOp::U32Less
@@ -308,6 +309,7 @@ impl CasmBuilder {
             | BinaryOp::U32Sub
             | BinaryOp::U32Mul
             | BinaryOp::U32Div
+            | BinaryOp::U32Rem
             | BinaryOp::U32Eq
             | BinaryOp::U32Neq
             | BinaryOp::U32Less
