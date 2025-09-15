@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757659525000,
+  "lastUpdate": 1757948262565,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -1979,6 +1979,42 @@ window.BENCHMARK_DATA = {
             "name": "prover_sha256_1kb/prove",
             "value": 2605385509,
             "range": "± 11973271",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3d0f0acbfe7aed40b62850785b016891eabd179",
+          "message": "feat: U32Div -> U32DivRem (#292)\n\n* feat: U32Div -> U32DivRem\n\n* feat: update prover for divrem opcodes\n\n* Update crates/prover/src/components/opcodes/u32_store_div_fp_fp.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* Update crates/prover/src/components/opcodes/u32_store_div_fp_fp.rs\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>\n\n* address review\n\n---------\n\nCo-authored-by: Clément Walter <clement0walter@gmail.com>",
+          "timestamp": "2025-09-15T16:42:35+02:00",
+          "tree_id": "b8822c14ad7a05955b7eb3eaf28a319ea5ac5859",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/f3d0f0acbfe7aed40b62850785b016891eabd179"
+        },
+        "date": 1757948262096,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 2800708862,
+            "range": "± 23939296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "prover_sha256_1kb/prove",
+            "value": 2577509536,
+            "range": "± 13080632",
             "unit": "ns/iter"
           }
         ]
