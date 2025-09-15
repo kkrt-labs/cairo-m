@@ -330,9 +330,12 @@ where
             // Push to memory
             self.memory.push(entry);
 
-            // Extract the 5th M31 for U32StoreAddFpImm (which has size 5)
+            // Extract additional M31 limbs from the second QM31
             if instruction_size_m31 > 4 {
                 instruction_values.push(entry.value.0 .0);
+            }
+            if instruction_size_m31 > 5 {
+                instruction_values.push(entry.value.0 .1);
             }
         }
 

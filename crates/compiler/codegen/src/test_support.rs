@@ -179,10 +179,11 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 let val = a.wrapping_mul(b);
                 mem.set_u32(dst_off.0 as i32, val);
             }
-            Instruction::U32StoreDivFpFp {
+            Instruction::U32StoreDivRemFpFp {
                 src0_off,
                 src1_off,
                 dst_off,
+                dst_rem_off,
             } => {
                 let a = mem.get_u32(src0_off.0 as i32);
                 let b = mem.get_u32(src1_off.0 as i32);
@@ -191,6 +192,8 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 }
                 let val = a.wrapping_div(b);
                 mem.set_u32(dst_off.0 as i32, val);
+                let rem = a.wrapping_rem(b);
+                mem.set_u32(dst_rem_off.0 as i32, rem);
             }
             Instruction::U32StoreAddFpImm {
                 src_off,
@@ -214,19 +217,22 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 let result = a.wrapping_mul(imm);
                 mem.set_u32(dst_off.0 as i32, result);
             }
-            Instruction::U32StoreDivFpImm {
+            Instruction::U32StoreDivRemFpImm {
                 src_off,
                 imm_lo,
                 imm_hi,
                 dst_off,
+                dst_rem_off,
             } => {
                 let a = mem.get_u32(src_off.0 as i32);
                 let imm = imm_lo.0 | (imm_hi.0 << 16);
                 if imm == 0 {
                     return Err(ExecutionError::DivisionByZero);
                 }
-                let result = a.wrapping_div(imm);
-                mem.set_u32(dst_off.0 as i32, result);
+                let q = a.wrapping_div(imm);
+                let r = a.wrapping_rem(imm);
+                mem.set_u32(dst_off.0 as i32, q);
+                mem.set_u32(dst_rem_off.0 as i32, r);
             }
             Instruction::U32StoreImm {
                 imm_lo,

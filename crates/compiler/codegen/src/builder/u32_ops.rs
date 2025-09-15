@@ -176,6 +176,19 @@ impl super::CasmBuilder {
                             dest_off + 1
                         ),
                     );
+                    if matches!(op, BinaryOp::U32Div) {
+                        let rem_u32 = l.wrapping_rem(r);
+                        let rem_off = self.layout_mut().reserve_stack(2);
+                        self.store_u32_immediate(
+                            rem_u32,
+                            rem_off,
+                            format!(
+                                "u32([fp + {rem_off}], [fp + {}]) = {} // div remainder",
+                                rem_off + 1,
+                                rem_u32
+                            ),
+                        );
+                    }
                 }
             }
 
@@ -231,7 +244,7 @@ impl super::CasmBuilder {
             BinaryOp::U32Add => self.u32_add_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32Sub => self.u32_sub_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32Mul => self.u32_mul_fp_fp(src0_off, src1_off, dest_off, comment),
-            BinaryOp::U32Div => self.u32_div_fp_fp(src0_off, src1_off, dest_off, comment),
+            BinaryOp::U32Div => self.u32_div_rem_fp_fp(src0_off, src1_off, dest_off)?,
             BinaryOp::U32BitwiseAnd => self.u32_and_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32BitwiseOr => self.u32_or_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32BitwiseXor => self.u32_xor_fp_fp(src0_off, src1_off, dest_off, comment),
@@ -265,7 +278,7 @@ impl super::CasmBuilder {
             BinaryOp::U32Add => self.u32_add_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Sub => self.u32_sub_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Mul => self.u32_mul_fp_imm(src0_off, imm, dest_off, comment),
-            BinaryOp::U32Div => self.u32_div_fp_imm(src0_off, imm, dest_off, comment),
+            BinaryOp::U32Div => self.u32_div_rem_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Eq => self.u32_eq_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32Less => self.u32_less_fp_imm(src0_off, imm, dest_off, comment),
             BinaryOp::U32BitwiseAnd => self.u32_and_fp_imm(src0_off, imm, dest_off, comment),
@@ -280,17 +293,61 @@ impl super::CasmBuilder {
         Ok(())
     }
 
+    pub(crate) fn u32_div_rem_fp_imm(
+        &mut self,
+        src0_off: i32,
+        imm: u32,
+        dest_off: i32,
+        _comment: String,
+    ) {
+        let (imm_lo, imm_hi) = super::split_u32_value(imm);
+        // Reserve two slots for the remainder; quotient is written at dest_off
+        let dst_rem_off = self.layout_mut().reserve_stack(2);
+        let comment = format!(
+            "u32([fp + {dest_off}], [fp + {}]); u32([fp + {dst_rem_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) / u32({imm_lo}, {imm_hi})",
+            dest_off + 1,
+            dst_rem_off + 1,
+            src0_off + 1,
+        );
+        let instr: InstructionBuilder = InstructionBuilder::from(CasmInstr::U32StoreDivRemFpImm {
+            src_off: M31::from(src0_off),
+            imm_lo: M31::from(imm_lo),
+            imm_hi: M31::from(imm_hi),
+            dst_off: M31::from(dest_off),
+            dst_rem_off: M31::from(dst_rem_off),
+        })
+        .with_comment(comment);
+        self.emit_push(instr);
+    }
+
+    fn u32_div_rem_fp_fp(
+        &mut self,
+        src0_off: i32,
+        src1_off: i32,
+        dst_off: i32,
+    ) -> CodegenResult<()> {
+        let dst_rem_off = self.layout_mut().reserve_stack(2);
+        let comment = format!("u32([fp + {dst_off}], [fp + {}]); u32([fp + {dst_rem_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) / u32([fp + {src1_off}], [fp + {}])", dst_off + 1, dst_rem_off + 1, src0_off + 1, src1_off + 1);
+        let instr = InstructionBuilder::from(CasmInstr::U32StoreDivRemFpFp {
+            src0_off: M31::from(src0_off),
+            src1_off: M31::from(src1_off),
+            dst_off: M31::from(dst_off),
+            dst_rem_off: M31::from(dst_rem_off),
+        })
+        .with_comment(comment);
+        self.emit_push(instr);
+        Ok(())
+    }
+
     u32_fp_fp_op!(u32_add_fp_fp, U32StoreAddFpFp);
     u32_fp_fp_op!(u32_sub_fp_fp, U32StoreSubFpFp);
     u32_fp_fp_op!(u32_mul_fp_fp, U32StoreMulFpFp);
-    u32_fp_fp_op!(u32_div_fp_fp, U32StoreDivFpFp);
     u32_fp_fp_op!(u32_and_fp_fp, U32StoreAndFpFp);
     u32_fp_fp_op!(u32_or_fp_fp, U32StoreOrFpFp);
     u32_fp_fp_op!(u32_xor_fp_fp, U32StoreXorFpFp);
 
     u32_fp_imm_op!(u32_add_fp_imm, U32StoreAddFpImm);
     u32_fp_imm_op!(u32_mul_fp_imm, U32StoreMulFpImm);
-    u32_fp_imm_op!(u32_div_fp_imm, U32StoreDivFpImm);
     u32_fp_imm_op!(u32_eq_fp_imm, U32StoreEqFpImm);
     u32_fp_imm_op!(u32_less_fp_imm, U32StoreLtFpImm);
     u32_fp_imm_op!(u32_and_fp_imm, U32StoreAndFpImm);
@@ -514,7 +571,7 @@ mod tests {
         right_reg: bool,
         b: u32,
         dest_u32: bool,
-    ) -> Result<u32, ExecutionError> {
+    ) -> Result<(u32, Option<u32>), ExecutionError> {
         let mut layout = FunctionLayout::new_for_test();
 
         let left_id = ValueId::from_raw(1);
@@ -548,8 +605,8 @@ mod tests {
             Value::integer(b)
         };
 
-        const DEST_OFF: i32 = 10;
-        bld.u32_op(op, DEST_OFF, left, right).map_err(|e| match e {
+        let dest_off: i32 = bld.layout_mut().reserve_stack(2);
+        bld.u32_op(op, dest_off, left, right).map_err(|e| match e {
             CodegenError::InvalidMir(msg) if msg.contains("Division by zero") => {
                 ExecutionError::InvalidOperands
             }
@@ -565,10 +622,30 @@ mod tests {
 
         let mut mem = Mem::new(64);
         exec(&mut mem, &bld.instructions)?;
+
+        // Discover actual remainder destination for DivRem opcodes
+        let rem_off_dynamic = bld
+            .instructions
+            .iter()
+            .find_map(|ib| match ib.inner_instr() {
+                CasmInstr::U32StoreDivRemFpImm { dst_rem_off, .. } => Some(dst_rem_off.0 as i32),
+                CasmInstr::U32StoreDivRemFpFp { dst_rem_off, .. } => Some(dst_rem_off.0 as i32),
+                _ => None,
+            });
+
+        // If no DivRem instruction found but we're doing division, use default offset (const-folded)
+        let rem_off_dynamic = rem_off_dynamic.or_else(|| {
+            if matches!(op, BinaryOp::U32Div) {
+                Some(dest_off + 2)
+            } else {
+                None
+            }
+        });
+        let rem_off = rem_off_dynamic.map(|off| mem.get_u32(off));
         if dest_u32 {
-            Ok(mem.get_u32(DEST_OFF))
+            Ok((mem.get_u32(dest_off), rem_off))
         } else {
-            Ok(mem.get(DEST_OFF).0)
+            Ok((mem.get(dest_off).0, rem_off))
         }
     }
 
@@ -579,17 +656,15 @@ mod tests {
             c in u32_strategy(),
             left_reg: bool,
             right_reg: bool,
+            op in prop::sample::select(&[BinaryOp::U32Eq, BinaryOp::U32Less]),
         ) {
-            let ops = [BinaryOp::U32Eq, BinaryOp::U32Less];
-            for &op in &ops {
-                let got = run_u32_op_generic(op, left_reg, a, right_reg, c, false);
+                let (got, _) = run_u32_op_generic(op, left_reg, a, right_reg, c, false).unwrap();
                 let exp = match op {
                     BinaryOp::U32Eq => (a == c) as u32,
                     BinaryOp::U32Less => (a < c) as u32,
                     _ => unreachable!(),
                 };
-                prop_assert_eq!(got.unwrap(), exp, "op={:?} a={} c={}", op, a, c);
-            }
+                prop_assert_eq!(got, exp, "op={:?} a={} c={}", op, a, c);
         }
     }
 
@@ -600,28 +675,29 @@ mod tests {
             b in u32_strategy(),
             left_reg: bool,
             right_reg: bool,
-        ) {
-            let ops = [
+            op in prop::sample::select(&[
                 BinaryOp::U32Add,
                 BinaryOp::U32Sub,
                 BinaryOp::U32Mul,
                 BinaryOp::U32Div,
+                // TODO: Add U32Rem
                 BinaryOp::U32BitwiseAnd,
                 BinaryOp::U32BitwiseOr,
                 BinaryOp::U32BitwiseXor,
-            ];
-            for &op in &ops {
+            ]),
+        ) {
                 // Skip division by zero test in property test (handled separately)
-                let got = run_u32_op_generic(op, left_reg, a, right_reg, b, true);
+                let maybe_res = run_u32_op_generic(op, left_reg, a, right_reg, b, true);
                 if matches!(op, BinaryOp::U32Div) && b == 0 && right_reg {
-                    prop_assert!(matches!(got.unwrap_err(), ExecutionError::DivisionByZero));
-                    continue;
+                    prop_assert!(matches!(maybe_res.unwrap_err(), ExecutionError::DivisionByZero));
+                    return Ok(());
                 }
                 if matches!(op, BinaryOp::U32Div) && b == 0 && !right_reg {
-                    let err = got.unwrap_err();
+                    let err = maybe_res.unwrap_err();
                     prop_assert!(matches!(err, ExecutionError::InvalidOperands), "got error: {:?}", err);
-                    continue;
+                    return Ok(());
                 }
+                let (got, div_rem_res) = maybe_res.unwrap();
                 let exp = match op {
                     BinaryOp::U32Add => a.wrapping_add(b),
                     BinaryOp::U32Sub => a.wrapping_sub(b),
@@ -630,10 +706,14 @@ mod tests {
                     BinaryOp::U32BitwiseAnd => a & b,
                     BinaryOp::U32BitwiseOr => a | b,
                     BinaryOp::U32BitwiseXor => a ^ b,
+                    // TODO: Add U32Rem
                     _ => unreachable!(),
                 };
-                prop_assert_eq!(got.unwrap(), exp, "op={:?} a={} b={} left_reg={} right_reg={}",
+                prop_assert_eq!(got, exp, "op={:?} a={} b={} left_reg={} right_reg={}",
                     op, a, b, left_reg, right_reg);
+                if matches!(op, BinaryOp::U32Div){
+                    let exp_r = a.wrapping_rem(b);
+                    prop_assert_eq!(div_rem_res.unwrap(), exp_r, "remainder mismatch a={} b={}", a, b);
             }
         }
     }

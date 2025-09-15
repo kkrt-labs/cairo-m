@@ -446,10 +446,11 @@ instructions! {
         dst_off: (OperandType::Memory(DataType::U32)),
     };
     // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src0_off], [fp + src0_off + 1]) / u32([fp + src1_off], [fp + src1_off + 1])
-    U32StoreDivFpFp = 18 {
+    U32StoreDivRemFpFp = 18 {
         src0_off: (OperandType::Memory(DataType::U32)),
         src1_off: (OperandType::Memory(DataType::U32)),
         dst_off: (OperandType::Memory(DataType::U32)),
+        dst_rem_off: (OperandType::Memory(DataType::U32)),
     };
 
     // U32 operations with immediate
@@ -468,11 +469,12 @@ instructions! {
         dst_off: (OperandType::Memory(DataType::U32)),
     };
     // u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
-    U32StoreDivFpImm = 22 {
+    U32StoreDivRemFpImm = 22 {
         src_off: (OperandType::Memory(DataType::U32)),
         imm_lo: (OperandType::Immediate),
         imm_hi: (OperandType::Immediate),
         dst_off: (OperandType::Memory(DataType::U32)),
+        dst_rem_off: (OperandType::Memory(DataType::U32)),
     };
 
     // U32 Memory operations

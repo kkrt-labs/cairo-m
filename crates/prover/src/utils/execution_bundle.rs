@@ -22,8 +22,8 @@ pub struct PackedExecutionBundle {
     pub inst_value_2: PackedM31,
     pub inst_value_3: PackedM31,
     pub inst_value_4: PackedM31,
+    pub inst_value_5: PackedM31,
 
-    // TODO: can we make better?
     pub span_start: [usize; N_LANES],
     pub span_len: [u16; N_LANES],
 }
@@ -63,6 +63,9 @@ impl Pack for ExecutionBundle {
             })),
             inst_value_4: PackedM31::from_array(std::array::from_fn(|i| {
                 inst_values[i].get(4).copied().unwrap_or_else(M31::zero)
+            })),
+            inst_value_5: PackedM31::from_array(std::array::from_fn(|i| {
+                inst_values[i].get(5).copied().unwrap_or_else(M31::zero)
             })),
 
             span_start: std::array::from_fn(|i| inputs[i].access_span.start as usize),

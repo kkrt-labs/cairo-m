@@ -1,5 +1,7 @@
-//! This component is used to prove the U32StoreDivFpImm opcode.
+//! This component is used to prove the U32StoreDivRemFpImm opcode.
+//!
 //! u32([fp + dst_off], [fp + dst_off + 1]) = u32([fp + src_off], [fp + src_off + 1]) / u32(imm_lo, imm_hi)
+//! and u32([fp + dst_rem_off], [fp + dst_rem_off + 1]) = remainder
 //!
 //! # Columns
 //!
@@ -14,6 +16,7 @@
 //! - imm_2 (d_2)
 //! - imm_3 (d_3)
 //! - dst_off
+//! - dst_rem_off
 //! - op0_val_lo (n_lo)
 //! - op0_val_hi (n_hi)
 //! - op0_prev_clock_lo
@@ -22,6 +25,10 @@
 //! - dst_prev_val_hi
 //! - dst_prev_clock_lo
 //! - dst_prev_clock_hi
+//! - dst_rem_prev_val_lo
+//! - dst_rem_prev_val_hi
+//! - dst_rem_prev_clock_lo
+//! - dst_rem_prev_clock_hi
 //! - q_0
 //! - q_1
 //! - q_2
@@ -63,7 +70,7 @@
 //!   * `- [pc, fp] + [pc + 2, fp]` in `Registers` relation
 //! * read 2 instruction words from memory
 //!   * `- [pc, inst_prev_clk, src_off, imm_lo, imm_hi] + [pc, clk, src_off, imm_lo, imm_hi]` in `Memory` relation
-//!   * `- [pc + 1, inst_prev_clk, dst_off] + [pc + 1, clk, dst_off]` in `Memory` relation
+//!   * `- [pc + 1, inst_prev_clk, dst_off, dst_rem_off] + [pc + 1, clk, dst_off, dst_rem_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
 //! * read op0
 //!   * `- [fp + src_off, op0_prev_clock_lo_clk, op0_val_lo] + [fp + src_off, clk, op0_val_lo]`
@@ -100,6 +107,10 @@
 //!   * `- [fp + dst_off, dst_prev_clock_lo_clk, dst_prev_val_lo] + [fp + dst_off, clk, q_0 + q_1 * 2 ** 8]` in `Memory` Relation
 //!   * `- [fp + dst_off + 1, dst_prev_clock_hi_clk, dst_prev_val_hi] + [fp + dst_off + 1, clk, q_2 + q_3 * 2 ** 8]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clock_lo_clk - 1]` and `- [clk - dst_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
+//! * write remainder in [fp + dst_rem_off]
+//!   * `- [fp + dst_rem_off, dst_rem_prev_clock_lo_clk, dst_rem_prev_val_lo] + [fp + dst_rem_off, clk, r_lo]` in `Memory` Relation
+//!   * `- [fp + dst_rem_off + 1, dst_rem_prev_clock_hi_clk, dst_rem_prev_val_hi] + [fp + dst_rem_off + 1, clk, r_hi]` in `Memory` Relation
+//!   * `- [clk - dst_rem_prev_clock_lo_clk - 1]` and `- [clk - dst_rem_prev_clock_hi_clk - 1]` in `RangeCheck20` relation
 //! * limbs of each U32 must be either in range [0, 2^16) or in range [0, 2^8)
 //!   * `- [d_0]` in `RangeCheck8` relation
 //!   * `- [d_1]` in `RangeCheck8` relation
@@ -122,8 +133,8 @@
 //!   * `- [r_lo]` in `RangeCheck16` relation
 //!   * `- [r_hi]` in `RangeCheck16` relation
 
-use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
-use cairo_m_common::instruction::U32_STORE_DIV_FP_IMM;
+use crate::utils::data_accesses::{get_address, get_prev_clock, get_prev_value, get_value};
+use cairo_m_common::instruction::U32_STORE_DIV_REM_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -155,12 +166,12 @@ use crate::preprocessed::range_check::RangeCheckProvider;
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const N_TRACE_COLUMNS: usize = 46;
-const N_MEMORY_LOOKUPS: usize = 12;
+const N_TRACE_COLUMNS: usize = 51;
+const N_MEMORY_LOOKUPS: usize = 16;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_8_LOOKUPS: usize = 16;
 const N_RANGE_CHECK_16_LOOKUPS: usize = 13;
-const N_RANGE_CHECK_20_LOOKUPS: usize = 5;
+const N_RANGE_CHECK_20_LOOKUPS: usize = 7;
 
 // 1 * (255 * 255) = 254 * 2^8 + 1
 // 2 * (255 * 255) + 254 = 509 * 2^8
@@ -229,7 +240,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreDivFpImm opcode.
+    /// Writes the trace for the U32StoreDivRemFpImm opcode.
     ///
     /// # Important
     /// This function filters the inputs and creates a local vector which is cleared after processing.
@@ -284,11 +295,21 @@ impl Claim {
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
 
-                let opcode_constant = PackedM31::from(M31::from(U32_STORE_DIV_FP_IMM));
+                let opcode_constant = PackedM31::from(M31::from(U32_STORE_DIV_REM_FP_IMM));
                 let src_off = input.inst_value_1;
                 let imm_lo = input.inst_value_2;
                 let imm_hi = input.inst_value_3;
                 let dst_off = input.inst_value_4;
+
+                // Remainder destination previous values and clocks (if present)
+                // The remainder writes are expected to follow the quotient writes in the access span.
+                let dst_rem_prev_val_lo = get_prev_value(input, data_accesses, 4);
+                let dst_rem_prev_val_hi = get_prev_value(input, data_accesses, 5);
+                let dst_rem_prev_clock_lo = get_prev_clock(input, data_accesses, 4);
+                let dst_rem_prev_clock_hi = get_prev_clock(input, data_accesses, 5);
+                // Attempt to reconstruct dst_rem_off from the write address minus fp.
+                let dst_rem_addr_lo = get_address(input, data_accesses, 4);
+                let dst_rem_off = dst_rem_addr_lo - fp;
 
                 // Operand 0 (u32) comes from two separate memory reads
                 let n_lo = get_value(input, data_accesses, 0); // numerator low
@@ -510,41 +531,46 @@ impl Claim {
                 *row[8] = d_2; // imm_2
                 *row[9] = d_3; // imm_3
                 *row[10] = dst_off;
-                *row[11] = n_lo; // op0_val_lo
-                *row[12] = n_hi; // op0_val_hi
-                *row[13] = op0_prev_clock_lo;
-                *row[14] = op0_prev_clock_hi;
-                *row[15] = dst_prev_val_lo;
-                *row[16] = dst_prev_val_hi;
-                *row[17] = dst_prev_clock_lo;
-                *row[18] = dst_prev_clock_hi;
-                *row[19] = q_0;
-                *row[20] = q_1;
-                *row[21] = q_2;
-                *row[22] = q_3;
-                *row[23] = mul_carry_0;
-                *row[24] = mul_carry_1;
-                *row[25] = mul_carry_2;
-                *row[26] = mul_carry_3;
-                *row[27] = mul_carry_4;
-                *row[28] = mul_carry_5;
-                *row[29] = mul_carry_6;
-                *row[30] = prod_0;
-                *row[31] = prod_1;
-                *row[32] = prod_2;
-                *row[33] = prod_3;
-                *row[34] = prod_4;
-                *row[35] = prod_5;
-                *row[36] = prod_6;
-                *row[37] = prod_7;
-                *row[38] = add_carry_0;
-                *row[39] = add_carry_1;
-                *row[40] = add_carry_2;
-                *row[41] = add_carry_3;
-                *row[42] = sub_borrow_0;
-                *row[43] = sub_borrow_1;
-                *row[44] = r_lo;
-                *row[45] = r_hi;
+                *row[11] = dst_rem_off;
+                *row[12] = n_lo; // op0_val_lo
+                *row[13] = n_hi; // op0_val_hi
+                *row[14] = op0_prev_clock_lo;
+                *row[15] = op0_prev_clock_hi;
+                *row[16] = dst_prev_val_lo;
+                *row[17] = dst_prev_val_hi;
+                *row[18] = dst_prev_clock_lo;
+                *row[19] = dst_prev_clock_hi;
+                *row[20] = dst_rem_prev_val_lo;
+                *row[21] = dst_rem_prev_val_hi;
+                *row[22] = dst_rem_prev_clock_lo;
+                *row[23] = dst_rem_prev_clock_hi;
+                *row[24] = q_0;
+                *row[25] = q_1;
+                *row[26] = q_2;
+                *row[27] = q_3;
+                *row[28] = mul_carry_0;
+                *row[29] = mul_carry_1;
+                *row[30] = mul_carry_2;
+                *row[31] = mul_carry_3;
+                *row[32] = mul_carry_4;
+                *row[33] = mul_carry_5;
+                *row[34] = mul_carry_6;
+                *row[35] = prod_0;
+                *row[36] = prod_1;
+                *row[37] = prod_2;
+                *row[38] = prod_3;
+                *row[39] = prod_4;
+                *row[40] = prod_5;
+                *row[41] = prod_6;
+                *row[42] = prod_7;
+                *row[43] = add_carry_0;
+                *row[44] = add_carry_1;
+                *row[45] = add_carry_2;
+                *row[46] = add_carry_3;
+                *row[47] = sub_borrow_0;
+                *row[48] = sub_borrow_1;
+                *row[49] = r_lo;
+                *row[50] = r_hi;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one + one, input.fp];
@@ -561,10 +587,16 @@ impl Claim {
                 *lookup_data.memory[1] =
                     [input.pc, clock, opcode_constant, src_off, imm_lo, imm_hi];
 
-                // Read second QM31 word for instruction
-                *lookup_data.memory[2] =
-                    [input.pc + one, inst_prev_clock, dst_off, zero, zero, zero];
-                *lookup_data.memory[3] = [input.pc + one, clock, dst_off, zero, zero, zero];
+                // Read second QM31 word for instruction (dst_off, dst_rem_off)
+                *lookup_data.memory[2] = [
+                    input.pc + one,
+                    inst_prev_clock,
+                    dst_off,
+                    dst_rem_off,
+                    zero,
+                    zero,
+                ];
+                *lookup_data.memory[3] = [input.pc + one, clock, dst_off, dst_rem_off, zero, zero];
 
                 // Read op0_lo
                 *lookup_data.memory[4] = [fp + src_off, op0_prev_clock_lo, n_lo, zero, zero, zero];
@@ -602,6 +634,28 @@ impl Claim {
                     zero,
                 ];
                 *lookup_data.memory[11] = [fp + dst_off + one, clock, res_hi, zero, zero, zero];
+
+                // Write remainder lo
+                *lookup_data.memory[12] = [
+                    fp + dst_rem_off,
+                    dst_rem_prev_clock_lo,
+                    dst_rem_prev_val_lo,
+                    zero,
+                    zero,
+                    zero,
+                ];
+                *lookup_data.memory[13] = [fp + dst_rem_off, clock, r_lo, zero, zero, zero];
+
+                // Write remainder hi
+                *lookup_data.memory[14] = [
+                    fp + dst_rem_off + one,
+                    dst_rem_prev_clock_hi,
+                    dst_rem_prev_val_hi,
+                    zero,
+                    zero,
+                    zero,
+                ];
+                *lookup_data.memory[15] = [fp + dst_rem_off + one, clock, r_hi, zero, zero, zero];
 
                 // Range checks as specified in the AIR
                 // 8-bit range checks
@@ -656,6 +710,8 @@ impl Claim {
                 *lookup_data.range_check_20[2] = clock - op0_prev_clock_hi - enabler;
                 *lookup_data.range_check_20[3] = clock - dst_prev_clock_lo - enabler;
                 *lookup_data.range_check_20[4] = clock - dst_prev_clock_hi - enabler;
+                *lookup_data.range_check_20[5] = clock - dst_rem_prev_clock_lo - enabler;
+                *lookup_data.range_check_20[6] = clock - dst_rem_prev_clock_hi - enabler;
             });
 
         (
@@ -844,6 +900,27 @@ impl InteractionClaim {
             });
         col.finalize_col();
 
+        // Pair remaining RC20 lookups [5] and [6]
+        let mut col = interaction_trace.new_col();
+        (
+            col.par_iter_mut(),
+            &interaction_claim_data.lookup_data.range_check_20[5],
+            &interaction_claim_data.lookup_data.range_check_20[6],
+        )
+            .into_par_iter()
+            .enumerate()
+            .for_each(|(_i, (writer, val1, val2))| {
+                let num = -PackedQM31::one();
+                let denom_0: PackedQM31 = relations.range_check_20.combine(&[*val1]);
+                let denom_1: PackedQM31 = relations.range_check_20.combine(&[*val2]);
+
+                let numerator = num * denom_1 + num * denom_0;
+                let denom = denom_0 * denom_1;
+
+                writer.write_frac(numerator, denom);
+            });
+        col.finalize_col();
+
         let (trace, claimed_sum) = interaction_trace.finalize_last();
         (Self { claimed_sum }, trace)
     }
@@ -867,9 +944,9 @@ impl FrameworkEval for Eval {
         let one = E::F::from(M31::one());
         let two_pow_8 = E::F::from(M31::from(1 << 8));
         let two_pow_16 = E::F::from(M31::from(1 << 16));
-        let opcode_constant = E::F::from(M31::from(U32_STORE_DIV_FP_IMM));
+        let opcode_constant = E::F::from(M31::from(U32_STORE_DIV_REM_FP_IMM));
 
-        // 46 columns
+        // 51 columns
         let enabler = eval.next_trace_mask();
         let pc = eval.next_trace_mask();
         let fp = eval.next_trace_mask();
@@ -881,6 +958,7 @@ impl FrameworkEval for Eval {
         let d_2 = eval.next_trace_mask(); // imm_2 (divisor limb 2)
         let d_3 = eval.next_trace_mask(); // imm_3 (divisor limb 3)
         let dst_off = eval.next_trace_mask();
+        let dst_rem_off = eval.next_trace_mask();
         let n_lo = eval.next_trace_mask(); // op0_val_lo (numerator low)
         let n_hi = eval.next_trace_mask(); // op0_val_hi (numerator high)
         let op0_prev_clock_lo = eval.next_trace_mask();
@@ -889,6 +967,10 @@ impl FrameworkEval for Eval {
         let dst_prev_val_hi = eval.next_trace_mask();
         let dst_prev_clock_lo = eval.next_trace_mask();
         let dst_prev_clock_hi = eval.next_trace_mask();
+        let dst_rem_prev_val_lo = eval.next_trace_mask();
+        let dst_rem_prev_val_hi = eval.next_trace_mask();
+        let dst_rem_prev_clock_lo = eval.next_trace_mask();
+        let dst_rem_prev_clock_hi = eval.next_trace_mask();
         let q_0 = eval.next_trace_mask(); // quotient limb 0
         let q_1 = eval.next_trace_mask(); // quotient limb 1
         let q_2 = eval.next_trace_mask(); // quotient limb 2
@@ -1088,7 +1170,7 @@ impl FrameworkEval for Eval {
             ],
         ));
 
-        // Read 2nd instruction word from memory
+        // Read 2nd instruction word from memory (dst_off, dst_rem_off)
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             -E::EF::from(enabler.clone()),
@@ -1096,12 +1178,18 @@ impl FrameworkEval for Eval {
                 pc.clone() + one.clone(),
                 inst_prev_clock.clone(),
                 dst_off.clone(),
+                dst_rem_off.clone(),
             ],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[pc + one.clone(), clock.clone(), dst_off.clone()],
+            &[
+                pc + one.clone(),
+                clock.clone(),
+                dst_off.clone(),
+                dst_rem_off.clone(),
+            ],
         ));
 
         // Read n_lo (numerator low)
@@ -1169,7 +1257,43 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + dst_off + one, clock.clone(), res_hi],
+            &[fp.clone() + dst_off + one.clone(), clock.clone(), res_hi],
+        ));
+
+        // Write remainder lo
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            -E::EF::from(enabler.clone()),
+            &[
+                fp.clone() + dst_rem_off.clone(),
+                dst_rem_prev_clock_lo.clone(),
+                dst_rem_prev_val_lo,
+            ],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            E::EF::from(enabler.clone()),
+            &[
+                fp.clone() + dst_rem_off.clone(),
+                clock.clone(),
+                r_lo.clone(),
+            ],
+        ));
+
+        // Write remainder hi
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            -E::EF::from(enabler.clone()),
+            &[
+                fp.clone() + dst_rem_off.clone() + one.clone(),
+                dst_rem_prev_clock_hi.clone(),
+                dst_rem_prev_val_hi,
+            ],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.memory,
+            E::EF::from(enabler.clone()),
+            &[fp + dst_rem_off + one, clock.clone(), r_hi.clone()],
         ));
 
         // Range checks for 8-bit values (d_i, q_i, prod_i)
@@ -1296,7 +1420,18 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - dst_prev_clock_hi - enabler],
+            &[clock.clone() - dst_prev_clock_hi - enabler.clone()],
+        ));
+        // Range checks for remainder destination clocks
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock.clone() - dst_rem_prev_clock_lo - enabler.clone()],
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            &self.relations.range_check_20,
+            -E::EF::one(),
+            &[clock - dst_rem_prev_clock_hi - enabler],
         ));
 
         eval.finalize_logup_in_pairs();

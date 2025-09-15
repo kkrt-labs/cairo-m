@@ -545,33 +545,30 @@ mod tests {
             b in felt_value_strategy(),
             left_reg: bool,
             right_reg: bool,
+            op in prop::sample::select(&[BinaryOp::Add, BinaryOp::Sub, BinaryOp::Mul, BinaryOp::Div]),
         ) {
-            use BinaryOp::*;
-            let ops = [Add, Sub, Mul, Div];
-            for &op in &ops {
                 let got = run_felt_op_generic(op, left_reg, a, right_reg, b);
                 // In M31 field, values congruent to 0 (e.g., 0 and 2147483647) have no inverse
                 let b_is_zero_mod_p = M31::from(b).0 == 0;
-                if matches!(op, Div) && b_is_zero_mod_p && !right_reg {
+                if matches!(op, BinaryOp::Div) && b_is_zero_mod_p && !right_reg {
                     // Division by immediate zero (mod P) is rejected at codegen time
                     prop_assert!(matches!(got.unwrap_err(), ExecutionError::InvalidOperands));
-                    continue;
+                    return Ok(());
                 }
-                if matches!(op, Div) && b_is_zero_mod_p && right_reg {
+                if matches!(op, BinaryOp::Div) && b_is_zero_mod_p && right_reg {
                     // Division by zero (mod P) register is a runtime error in executor
                     prop_assert!(matches!(got.unwrap_err(), ExecutionError::DivisionByZero));
-                    continue;
+                    return Ok(());
                 }
                 let exp = match op {
-                    Add => (M31::from(a) + M31::from(b)).0,
-                    Sub => (M31::from(a) - M31::from(b)).0,
-                    Mul => (M31::from(a) * M31::from(b)).0,
-                    Div => (M31::from(a) * M31::from(b).inverse()).0,
+                    BinaryOp::Add => (M31::from(a) + M31::from(b)).0,
+                    BinaryOp::Sub => (M31::from(a) - M31::from(b)).0,
+                    BinaryOp::Mul => (M31::from(a) * M31::from(b)).0,
+                    BinaryOp::Div => (M31::from(a) * M31::from(b).inverse()).0,
                     _ => unreachable!(),
                 };
                 prop_assert_eq!(got.unwrap(), exp, "op={:?} a={} b={} left_reg={} right_reg={}",
-                    op, a, b, left_reg, right_reg);
-            }
+                op, a, b, left_reg, right_reg);
         }
     }
 
@@ -614,8 +611,8 @@ mod tests {
             Value::integer(b)
         };
 
-        const DEST_OFF: i32 = 10;
-        match bld.felt_arith(op, DEST_OFF, left, right) {
+        let dest_off: i32 = bld.layout_mut().reserve_stack(2);
+        match bld.felt_arith(op, dest_off, left, right) {
             Ok(()) => {}
             Err(CodegenError::InvalidMir(msg)) if msg.contains("Division by zero") => {
                 return Err(ExecutionError::InvalidOperands)
@@ -625,6 +622,6 @@ mod tests {
 
         let mut mem = Mem::new(64);
         exec(&mut mem, &bld.instructions)?;
-        Ok(mem.get(DEST_OFF).0)
+        Ok(mem.get(dest_off).0)
     }
 }

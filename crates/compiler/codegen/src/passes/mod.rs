@@ -232,12 +232,21 @@ fn rewrite_instruction(
             src0_off,
             src1_off,
             dst_off,
-        }
-        | CasmInstr::U32StoreDivFpFp {
+        } => rewrite_u32_fp_fp(builder, instr, *src0_off, *src1_off, *dst_off, None, false),
+        CasmInstr::U32StoreDivRemFpFp {
             src0_off,
             src1_off,
             dst_off,
-        } => rewrite_u32_fp_fp(builder, instr, *src0_off, *src1_off, *dst_off, false),
+            dst_rem_off,
+        } => rewrite_u32_fp_fp(
+            builder,
+            instr,
+            *src0_off,
+            *src1_off,
+            *dst_off,
+            Some(*dst_rem_off),
+            false,
+        ),
 
         // u32 fp+fp comparisons (felt result)
         CasmInstr::U32StoreEqFpFp {
@@ -249,7 +258,7 @@ fn rewrite_instruction(
             src0_off,
             src1_off,
             dst_off,
-        } => rewrite_u32_fp_fp(builder, instr, *src0_off, *src1_off, *dst_off, true),
+        } => rewrite_u32_fp_fp(builder, instr, *src0_off, *src1_off, *dst_off, None, true),
 
         _ => Ok(vec![instr.clone()]),
     }
@@ -285,7 +294,13 @@ fn rebuild_felt_fp_fp(orig: &CasmInstr, a: M31, b: M31, d: M31) -> CodegenResult
     })
 }
 
-fn rebuild_u32_fp_fp(orig: &CasmInstr, a: M31, b: M31, d: M31) -> CodegenResult<CasmInstr> {
+fn rebuild_u32_fp_fp(
+    orig: &CasmInstr,
+    a: M31,
+    b: M31,
+    d: M31,
+    d_2: Option<M31>,
+) -> CodegenResult<CasmInstr> {
     Ok(match orig {
         CasmInstr::U32StoreAddFpFp { .. } => CasmInstr::U32StoreAddFpFp {
             src0_off: a,
@@ -302,10 +317,11 @@ fn rebuild_u32_fp_fp(orig: &CasmInstr, a: M31, b: M31, d: M31) -> CodegenResult<
             src1_off: b,
             dst_off: d,
         },
-        CasmInstr::U32StoreDivFpFp { .. } => CasmInstr::U32StoreDivFpFp {
+        CasmInstr::U32StoreDivRemFpFp { .. } => CasmInstr::U32StoreDivRemFpFp {
             src0_off: a,
             src1_off: b,
             dst_off: d,
+            dst_rem_off: d_2.expect("dst_rem_off is required for div_rem"),
         },
         CasmInstr::U32StoreEqFpFp { .. } => CasmInstr::U32StoreEqFpFp {
             src0_off: a,
@@ -330,7 +346,7 @@ const fn u32_fp_fp_op_name(orig: &CasmInstr) -> Option<&'static str> {
         CasmInstr::U32StoreAddFpFp { .. } => Some("U32Add"),
         CasmInstr::U32StoreSubFpFp { .. } => Some("U32Sub"),
         CasmInstr::U32StoreMulFpFp { .. } => Some("U32Mul"),
-        CasmInstr::U32StoreDivFpFp { .. } => Some("U32Div"),
+        CasmInstr::U32StoreDivRemFpFp { .. } => Some("U32Div"),
         CasmInstr::U32StoreEqFpFp { .. } => Some("U32Eq"),
         CasmInstr::U32StoreLtFpFp { .. } => Some("U32Less"),
         _ => None,
@@ -386,6 +402,7 @@ fn rewrite_u32_fp_fp(
     src0: M31,
     src1: M31,
     dst: M31,
+    dst_2: Option<M31>,
     _is_comparison: bool,
 ) -> CodegenResult<Vec<InstructionBuilder>> {
     let o0 = src0.0;
@@ -403,7 +420,7 @@ fn rewrite_u32_fp_fp(
             t0 + 1,
             o0 + 1
         ));
-        let op_instr = rebuild_u32_fp_fp(orig.inner_instr(), M31::from(t0), src1, dst)?;
+        let op_instr = rebuild_u32_fp_fp(orig.inner_instr(), M31::from(t0), src1, dst, dst_2)?;
         let op_name = u32_fp_fp_op_name(orig.inner_instr()).unwrap_or("op");
         let op = InstructionBuilder::from(op_instr).with_comment({
             let s0 = t0;
