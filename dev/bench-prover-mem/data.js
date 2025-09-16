@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757948263404,
+  "lastUpdate": 1758035268005,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1943,6 +1943,40 @@ window.BENCHMARK_DATA = {
           {
             "name": "sha256_1kb_prove_peak_mem",
             "value": 2180655819,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b81a3254e3dd88483a85fae478546fea4909f3d7",
+          "message": "Implement store_le_fp_imm (#322)",
+          "timestamp": "2025-09-16T17:51:25+03:00",
+          "tree_id": "0147220d5d84cef27653315a4c79421c76108e79",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/b81a3254e3dd88483a85fae478546fea4909f3d7"
+        },
+        "date": 1758035267942,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2414122655,
+            "unit": "bytes"
+          },
+          {
+            "name": "sha256_1kb_prove_peak_mem",
+            "value": 2180703514,
             "unit": "bytes"
           }
         ]
