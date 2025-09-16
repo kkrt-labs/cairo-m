@@ -402,12 +402,13 @@ impl CasmBuilder {
 
                 // Compute hi < 32767 (fast path)
                 let hi_lt_32767 = self.layout.reserve_stack(1);
-                self.felt_lower_than_fp_imm(
+                let imm = U32_HI_BOUND_CHECK - 1;
+                self.felt_le_fp_imm(
                     src_off + 1,
-                    U32_HI_BOUND_CHECK,
+                    imm,
                     hi_lt_32767,
                     format!(
-                        "[fp + {hi_lt_32767}] = [fp + {}] < {U32_HI_BOUND_CHECK} // hi < 2^15 - 1",
+                        "[fp + {hi_lt_32767}] = [fp + {}] <= {imm} // hi < 2^15 - 1",
                         src_off + 1
                     ),
                 );
@@ -419,12 +420,13 @@ impl CasmBuilder {
                 // Else: hi >= 32767. Valid only if hi == 32767 and lo < 65535.
                 // Compute hi == 32767 using (hi < 32768) - (hi < 32767)
                 let hi_lt_32768 = self.layout.reserve_stack(1);
-                self.felt_lower_than_fp_imm(
+                let imm = U32_HI_BOUND_EXCLUSIVE - 1;
+                self.felt_le_fp_imm(
                     src_off + 1,
-                    U32_HI_BOUND_EXCLUSIVE,
+                    imm,
                     hi_lt_32768,
                     format!(
-                        "[fp + {hi_lt_32768}] = [fp + {}] < {U32_HI_BOUND_EXCLUSIVE} // hi < 2^15",
+                        "[fp + {hi_lt_32768}] = [fp + {}] <= {imm} // hi < 2^15",
                         src_off + 1
                     ),
                 );
@@ -434,12 +436,13 @@ impl CasmBuilder {
 
                 // lo < 65535
                 let lo_lt_65535 = self.layout.reserve_stack(1);
-                self.felt_lower_than_fp_imm(
+                let imm = U16_MAX - 1;
+                self.felt_le_fp_imm(
                     src_off,
-                    U16_MAX,
+                    imm,
                     lo_lt_65535,
                     format!(
-                        "[fp + {lo_lt_65535}] = [fp + {}] < {U16_MAX} // lo < 2^16 - 1",
+                        "[fp + {lo_lt_65535}] = [fp + {}] <= {imm} // lo < 2^16 - 1",
                         src_off
                     ),
                 );
