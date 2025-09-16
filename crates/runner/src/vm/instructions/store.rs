@@ -177,13 +177,12 @@ impl_store_bin_op_fp_imm!(store_mul_fp_imm, StoreMulFpImm, *);
 /// ```
 ///
 /// Store the result of a less-than comparison as a felt (0 or 1)
-pub fn store_lower_than_fp_imm(
+pub fn store_lt_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm, dst_off) =
-        extract_as!(instruction, StoreLowerThanFpImm, (src_off, imm, dst_off));
+    let (src_off, imm, dst_off) = extract_as!(instruction, StoreLtFpImm, (src_off, imm, dst_off));
 
     let src_value = memory.get_data(state.fp + src_off)?;
     let value = M31::from((src_value < imm) as u32);

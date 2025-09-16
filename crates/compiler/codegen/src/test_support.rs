@@ -112,7 +112,7 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 let val = a * M31::from(imm.0);
                 mem.set(dst_off.0 as i32, val);
             }
-            Instruction::StoreLowerThanFpImm {
+            Instruction::StoreLtFpImm {
                 src_off,
                 imm,
                 dst_off,

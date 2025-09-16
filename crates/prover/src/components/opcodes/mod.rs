@@ -265,5 +265,5 @@ define_opcodes!(
         [U32StoreAndFpImm, U32StoreOrFpImm, U32StoreXorFpImm],
         u32_store_bitwise_fp_imm
     ),
-    ([StoreLowerThanFpImm], store_lower_than_fp_imm),
+    ([StoreLtFpImm], store_lt_fp_imm),
 );

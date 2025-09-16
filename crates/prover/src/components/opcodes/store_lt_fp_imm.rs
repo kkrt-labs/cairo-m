@@ -1,7 +1,7 @@
-//! This component is used to prove the StoreLowerThanFpImm opcode.
+//! This component is used to prove the StoreLtFpImm opcode.
 //! [fp + dst_off] = [fp + src_off] < imm
 //!
-//! Math from https://github.com/starkware-libs/cairo-lang/blob/master/src/starkware/cairo/common/math.cairo#L161-L228
+//! Math from https://github.com/starkware-libs/cairo-lang/blob/v0.14.0.1/src/starkware/cairo/common/math.cairo#L161-L228
 //!
 //! # Columns
 //!
@@ -80,7 +80,7 @@
 //!   * `- [arc_long_lo]` in `RangeCheck16` relation
 //!   * `- [arc_long_hi]` in `RangeCheck16` relation
 
-use cairo_m_common::instruction::STORE_LOWER_THAN_FP_IMM;
+use cairo_m_common::instruction::STORE_LT_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -172,7 +172,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreLowerThanFpImm opcode.
+    /// Writes the trace for the StoreLtFpImm opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
@@ -225,7 +225,7 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(STORE_LOWER_THAN_FP_IMM));
+                let opcode_constant = PackedM31::from(M31::from(STORE_LT_FP_IMM));
                 let src_off = input.inst_value_1;
                 let imm = input.inst_value_2;
                 let dst_off = input.inst_value_3;
@@ -547,7 +547,7 @@ impl FrameworkEval for Eval {
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
         let two = E::F::from(M31::from(2));
-        let opcode_constant = E::F::from(M31::from(STORE_LOWER_THAN_FP_IMM));
+        let opcode_constant = E::F::from(M31::from(STORE_LT_FP_IMM));
 
         // Constants for arc computation
         let prime_over_3_high = E::F::from(M31::from(PRIME_OVER_3_HIGH));
