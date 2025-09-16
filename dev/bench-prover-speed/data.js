@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757948262565,
+  "lastUpdate": 1758035267157,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Speed Benchmarks": [
@@ -2015,6 +2015,42 @@ window.BENCHMARK_DATA = {
             "name": "prover_sha256_1kb/prove",
             "value": 2577509536,
             "range": "± 13080632",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b81a3254e3dd88483a85fae478546fea4909f3d7",
+          "message": "Implement store_le_fp_imm (#322)",
+          "timestamp": "2025-09-16T17:51:25+03:00",
+          "tree_id": "0147220d5d84cef27653315a4c79421c76108e79",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/b81a3254e3dd88483a85fae478546fea4909f3d7"
+        },
+        "date": 1758035266645,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "prover_fibonacci/prove",
+            "value": 2859062104,
+            "range": "± 34243878",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "prover_sha256_1kb/prove",
+            "value": 2593344371,
+            "range": "± 7635161",
             "unit": "ns/iter"
           }
         ]
