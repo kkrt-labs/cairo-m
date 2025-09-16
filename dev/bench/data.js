@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757947736956,
+  "lastUpdate": 1758034735419,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2383,6 +2383,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 291541720,
             "range": "± 3436934",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b81a3254e3dd88483a85fae478546fea4909f3d7",
+          "message": "Implement store_le_fp_imm (#322)",
+          "timestamp": "2025-09-16T17:51:25+03:00",
+          "tree_id": "0147220d5d84cef27653315a4c79421c76108e79",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/b81a3254e3dd88483a85fae478546fea4909f3d7"
+        },
+        "date": 1758034734758,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 288058945,
+            "range": "± 2697314",
             "unit": "ns/iter"
           }
         ]
