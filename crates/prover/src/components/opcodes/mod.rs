@@ -188,7 +188,6 @@ macro_rules! define_opcodes {
                     $(
                         Instruction::$opcode_variant { .. } => {},
                     )*
-                    // TODO: Add support for these opcodes
                     // Unsound opcodes
                     Instruction::PrintM31 { .. } => {},
                     Instruction::PrintU32 { .. } => {} ,
@@ -265,5 +264,5 @@ define_opcodes!(
         [U32StoreAndFpImm, U32StoreOrFpImm, U32StoreXorFpImm],
         u32_store_bitwise_fp_imm
     ),
-    ([StoreLtFpImm], store_lt_fp_imm),
+    ([StoreLeFpImm], store_le_fp_imm),
 );

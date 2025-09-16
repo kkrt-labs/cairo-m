@@ -104,7 +104,7 @@ pub fn instruction_to_fn(instruction: Instruction) -> Result<InstructionFn, Inst
         Instruction::StoreToDoubleDerefFpFp { .. } => store_to_double_deref_fp_fp,
         Instruction::PrintM31 { .. } => print_m31,
         Instruction::PrintU32 { .. } => print_u32,
-        Instruction::StoreLtFpImm { .. } => store_lt_fp_imm,
+        Instruction::StoreLeFpImm { .. } => store_le_fp_imm,
         Instruction::AssertEqFpImm { .. } => assert_eq_fp_imm,
     };
     Ok(f)

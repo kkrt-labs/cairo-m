@@ -1,7 +1,28 @@
-//! This component is used to prove the StoreLtFpImm opcode.
-//! [fp + dst_off] = [fp + src_off] < imm
+//! This component is used to prove the StoreLeFpImm opcode.
+//! [fp + dst_off] = [fp + src_off] <= imm
 //!
 //! Math from https://github.com/starkware-libs/cairo-lang/blob/v0.14.0.1/src/starkware/cairo/common/math.cairo#L161-L228
+//!
+//! The argument is basically:
+//! - let a and b be two field elements such that
+//!   ... P - 1 | 0 ------- a ---- b --------- P - 1 | 0 ------- a ---- b --------- P - 1 | 0 ...
+//! - guess two numbers `arc_short` and `arc_long` that are respectively "almost smaller" than P / 3 and P / 2 by construction
+//! - consequently their sum is smaller than P
+//! - prove that `{arc_short, arc_long}` is one of these three tuples:
+//!   - `{a, b - a}`
+//!   - `{a, P - 1 - b}`
+//!   - `{b - a, P - 1 - b}`
+//! - the set equality is proved by asserting that sum and prod of the two members are equal
+//!
+//! The "almost smaller" actually means that they are smaller than P // n + 2*2**16:
+//!
+//! - P = n q_n + r_n; q_n = q_n_high * 2**16 + q_n_low;
+//! - hint (0 <= a_0 < 2**16, 0 <= a_1 < 2**16) and build:
+//! ```ignore
+//!  a_0 + (q_n_high + 1) * a_1
+//!   = a_0 + a_1 + q_n_high * a_1
+//!   < q_n + 2**17 == P // n + 2**17
+//! ```
 //!
 //! # Columns
 //!
@@ -17,18 +38,16 @@
 //! - src_prev_clock
 //! - dst_prev_val
 //! - dst_prev_clock
-//! - a (where a is supposed to be <= b)
+//! - a
 //! - b
-//! - diff_inv
-//! - keep_0
-//! - keep_1
-//! - keep_2
+//! - keep_0_1
+//! - keep_0_2
+//! - keep_1_2
 //! - arc_short_lo
 //! - arc_short_hi
 //! - arc_long_lo
 //! - arc_long_hi
-//! - invert
-//! - is_lt
+//! - is_le
 //!
 //! # Constraints
 //!
@@ -42,27 +61,23 @@
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * keep_{i} is a bool
-//!   * `keep_0 * (1 - keep_0)`
-//!   * `keep_1 * (1 - keep_1)`
-//!   * `keep_2 * (1 - keep_2)`
-//! * two of keep_0, keep_1, keep_2 are equal to 1
-//!   * `enabler * (keep_0 + keep_1 + keep_2 - 2)`
-//! * diff_inv is the inverse of diff or diff is 0
-//!   * `- diff * (diff_inv * diff - 1)`
-//! * diff_inv is the inverse of diff or diff_inv is 0
-//!   * `- diff_inv * (diff_inv * diff - 1)`
-//! * is_lt is 1 if a < b, 0 otherwise
-//!   * `- is_lt - (1 - invert) * diff_inv * (a - b)`
+//!   * `keep_0_1 * (1 - keep_0_1)`
+//!   * `keep_0_2 * (1 - keep_0_2)`
+//!   * `keep_1_2 * (1 - keep_1_2)`
+//! * only one of keep_0_1, keep_0_2, keep_1_2 is equal to 1
+//!   * `enabler * (keep_0_1 + keep_0_2 + keep_1_2 - 1)`
+//! * is_le is a bool
+//!   * `is_le * (1 - is_le)`
 //! * enforce that 2 of the 3 arcs are arc_short_lo and arc_short_hi
-//!   * `(1 - keep_0) * ( arc_sum - ( - 1 - a ) )`
-//!   * `(1 - keep_0) * ( arc_prod - ( a - b ) * ( 1 + b ) )`
-//!   * `(1 - keep_1) * ( arc_sum - ( a - b - 1 ) )`
-//!   * `(1 - keep_1) * ( arc_prod - a * ( - b - 1 ) )`
-//!   * `(1 - keep_2) * ( arc_sum - b )`
-//!   * `(1 - keep_2) * ( arc_prod - a * ( b - a ) )`
+//!   * `keep_0_1 * (arc_sum - (a + b - a))`
+//!   * `keep_0_1 * (arc_prod - a * (b - a))`
+//!   * `keep_0_2 * (arc_sum - (a + P - 1 - b))`
+//!   * `keep_0_2 * (arc_prod - a * (P - 1 - b))`
+//!   * `keep_1_2 * (arc_sum - (b - a + P - 1 - b))`
+//!   * `keep_1_2 * (arc_prod - (b - a) * (P - 1 - b))`
 //! * rebuild imm and src_val from a and b
-//!   * `imm - (1 - invert) * b - invert * a`
-//!   * `src_val - (1 - invert) * a - invert * b`
+//!   * `a - is_le * src_val - (1 - is_le) * imm`
+//!   * `b - is_le * imm - (1 - is_le) * src_val`
 //! * registers update is regular
 //!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
 //! * read instruction from memory
@@ -72,7 +87,7 @@
 //!   * `- [fp + src_off, src_prev_clk, src_val] + [fp + src_off, clk, src_val]` in `Memory` relation
 //!   * `- [clk - src_prev_clk - 1]` in `RangeCheck20` relation
 //! * write dst in [fp + dst_off]
-//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, 1 - invert]` in `Memory` Relation
+//!   * `- [fp + dst_off, dst_prev_clk, dst_prev_val] + [fp + dst_off, clk, is_le]` in `Memory` Relation
 //!   * `- [clk - dst_prev_clk - 1]` in `RangeCheck20` relation
 //! * range check arc limbs
 //!   * `- [arc_short_lo]` in `RangeCheck16` relation
@@ -80,7 +95,7 @@
 //!   * `- [arc_long_lo]` in `RangeCheck16` relation
 //!   * `- [arc_long_hi]` in `RangeCheck16` relation
 
-use cairo_m_common::instruction::STORE_LT_FP_IMM;
+use cairo_m_common::instruction::STORE_LE_FP_IMM;
 use num_traits::{One, Zero};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -114,10 +129,10 @@ use crate::utils::data_accesses::{get_prev_clock, get_prev_value, get_value};
 use crate::utils::enabler::Enabler;
 use crate::utils::execution_bundle::PackedExecutionBundle;
 
-const PRIME_OVER_3_HIGH: u32 = (P / 3) >> 16;
-const PRIME_OVER_2_HIGH: u32 = (P / 2) >> 16;
+const PRIME_OVER_3_HIGH: u32 = ((P / 3) >> 16) + 1;
+const PRIME_OVER_2_HIGH: u32 = ((P / 2) >> 16) + 1;
 
-const N_TRACE_COLUMNS: usize = 24;
+const N_TRACE_COLUMNS: usize = 22;
 const N_MEMORY_LOOKUPS: usize = 6;
 const N_REGISTERS_LOOKUPS: usize = 2;
 const N_RANGE_CHECK_20_LOOKUPS: usize = 3;
@@ -172,7 +187,7 @@ impl Claim {
         TreeVec::new(vec![vec![], trace, interaction_trace])
     }
 
-    /// Writes the trace for the StoreLtFpImm opcode.
+    /// Writes the trace for the StoreLeFpImm opcode.
     ///
     /// # Important
     /// This function consumes the contents of `inputs` by clearing it after processing.
@@ -225,7 +240,7 @@ impl Claim {
                 let fp = input.fp;
                 let clock = input.clock;
                 let inst_prev_clock = input.inst_prev_clock;
-                let opcode_constant = PackedM31::from(M31::from(STORE_LT_FP_IMM));
+                let opcode_constant = PackedM31::from(M31::from(STORE_LE_FP_IMM));
                 let src_off = input.inst_value_1;
                 let imm = input.inst_value_2;
                 let dst_off = input.inst_value_3;
@@ -239,7 +254,7 @@ impl Claim {
                 let dst_prev_clock = get_prev_clock(input, data_accesses, 1);
 
                 // Simple comparison logic for packed values
-                let mut invert: [M31; N_LANES] = [M31::zero(); N_LANES];
+                let mut is_le: [M31; N_LANES] = [M31::zero(); N_LANES];
 
                 let a = PackedM31::from_array(
                     src_val
@@ -249,9 +264,9 @@ impl Claim {
                         .enumerate()
                         .map(|(i, (x, y))| {
                             if x.0 <= y.0 {
+                                is_le[i] = M31::one();
                                 *x
                             } else {
-                                invert[i] = M31::one();
                                 *y
                             }
                         })
@@ -269,18 +284,7 @@ impl Claim {
                         .try_into()
                         .unwrap(),
                 );
-
-                let invert = PackedM31::from_array(invert);
-
-                let diff_inv = PackedM31::from_array((a - b).to_array().map(|x| {
-                    if x.0 != 0 {
-                        x.inverse()
-                    } else {
-                        M31::zero()
-                    }
-                }));
-
-                let is_lt = (one - invert) * diff_inv * (a - b);
+                let is_le = PackedM31::from_array(is_le);
 
                 // Compute arcs for range checking the comparison
                 // We need to prove that a <= b using the arc method
@@ -292,9 +296,9 @@ impl Claim {
                 let mut arc_short_hi_val: [M31; N_LANES] = [M31::zero(); N_LANES];
                 let mut arc_long_lo_val: [M31; N_LANES] = [M31::zero(); N_LANES];
                 let mut arc_long_hi_val: [M31; N_LANES] = [M31::zero(); N_LANES];
-                let mut keep_0: [M31; N_LANES] = [M31::one(); N_LANES];
-                let mut keep_1: [M31; N_LANES] = [M31::one(); N_LANES];
-                let mut keep_2: [M31; N_LANES] = [M31::one(); N_LANES];
+                let mut keep_0_1: [M31; N_LANES] = [M31::zero(); N_LANES];
+                let mut keep_0_2: [M31; N_LANES] = [M31::zero(); N_LANES];
+                let mut keep_1_2: [M31; N_LANES] = [M31::zero(); N_LANES];
 
                 for (i, lane) in (0..N_LANES).enumerate() {
                     let a_val = a.to_array()[lane].0;
@@ -310,7 +314,7 @@ impl Claim {
                     // Sort by length
                     lengths_and_indices.sort_by_key(|x| x.0);
 
-                    // The longest arc is keep
+                    // The longest arc is excluded
                     let exclude = lengths_and_indices[2].1;
 
                     arc_short_lo_val[i] = M31::from(lengths_and_indices[0].0 % PRIME_OVER_3_HIGH);
@@ -318,9 +322,9 @@ impl Claim {
                     arc_long_lo_val[i] = M31::from(lengths_and_indices[1].0 % PRIME_OVER_2_HIGH);
                     arc_long_hi_val[i] = M31::from(lengths_and_indices[1].0 / PRIME_OVER_2_HIGH);
                     if enabler.to_array()[i] == M31::one() {
-                        keep_0[i] = M31::from(u32::from(exclude != 0));
-                        keep_1[i] = M31::from(u32::from(exclude != 1));
-                        keep_2[i] = M31::from(u32::from(exclude != 2));
+                        keep_0_1[i] = M31::from(u32::from(exclude == 2));
+                        keep_0_2[i] = M31::from(u32::from(exclude == 1));
+                        keep_1_2[i] = M31::from(u32::from(exclude == 0));
                     }
                 }
 
@@ -329,9 +333,9 @@ impl Claim {
                 let arc_short_hi = PackedM31::from_array(arc_short_hi_val);
                 let arc_long_lo = PackedM31::from_array(arc_long_lo_val);
                 let arc_long_hi = PackedM31::from_array(arc_long_hi_val);
-                let keep_0 = PackedM31::from_array(keep_0);
-                let keep_1 = PackedM31::from_array(keep_1);
-                let keep_2 = PackedM31::from_array(keep_2);
+                let keep_0_1 = PackedM31::from_array(keep_0_1);
+                let keep_0_2 = PackedM31::from_array(keep_0_2);
+                let keep_1_2 = PackedM31::from_array(keep_1_2);
 
                 *row[0] = enabler;
                 *row[1] = pc;
@@ -347,16 +351,14 @@ impl Claim {
                 *row[11] = dst_prev_clock;
                 *row[12] = a;
                 *row[13] = b;
-                *row[14] = diff_inv;
-                *row[15] = keep_0;
-                *row[16] = keep_1;
-                *row[17] = keep_2;
-                *row[18] = arc_short_lo;
-                *row[19] = arc_short_hi;
-                *row[20] = arc_long_lo;
-                *row[21] = arc_long_hi;
-                *row[22] = invert;
-                *row[23] = is_lt;
+                *row[14] = keep_0_1;
+                *row[15] = keep_0_2;
+                *row[16] = keep_1_2;
+                *row[17] = arc_short_lo;
+                *row[18] = arc_short_hi;
+                *row[19] = arc_long_lo;
+                *row[20] = arc_long_hi;
+                *row[21] = is_le;
 
                 *lookup_data.registers[0] = [input.pc, input.fp];
                 *lookup_data.registers[1] = [input.pc + one, input.fp];
@@ -379,7 +381,7 @@ impl Claim {
                 // Write destination
                 *lookup_data.memory[4] =
                     [fp + dst_off, dst_prev_clock, dst_prev_val, zero, zero, zero];
-                *lookup_data.memory[5] = [fp + dst_off, clock, is_lt, zero, zero, zero];
+                *lookup_data.memory[5] = [fp + dst_off, clock, is_le, zero, zero, zero];
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
                 *lookup_data.range_check_20[1] = clock - src_prev_clock - enabler;
@@ -546,8 +548,7 @@ impl FrameworkEval for Eval {
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let one = E::F::from(M31::one());
-        let two = E::F::from(M31::from(2));
-        let opcode_constant = E::F::from(M31::from(STORE_LT_FP_IMM));
+        let opcode_constant = E::F::from(M31::from(STORE_LE_FP_IMM));
 
         // Constants for arc computation
         let prime_over_3_high = E::F::from(M31::from(PRIME_OVER_3_HIGH));
@@ -567,42 +568,33 @@ impl FrameworkEval for Eval {
         let dst_prev_clock = eval.next_trace_mask();
         let a = eval.next_trace_mask();
         let b = eval.next_trace_mask();
-        let diff_inv = eval.next_trace_mask();
-        let keep_0 = eval.next_trace_mask();
-        let keep_1 = eval.next_trace_mask();
-        let keep_2 = eval.next_trace_mask();
+        let keep_0_1 = eval.next_trace_mask();
+        let keep_0_2 = eval.next_trace_mask();
+        let keep_1_2 = eval.next_trace_mask();
         let arc_short_lo = eval.next_trace_mask();
         let arc_short_hi = eval.next_trace_mask();
         let arc_long_lo = eval.next_trace_mask();
         let arc_long_hi = eval.next_trace_mask();
-        let invert = eval.next_trace_mask();
-        let is_lt = eval.next_trace_mask();
-
-        let diff = a.clone() - b.clone();
+        let is_le = eval.next_trace_mask();
 
         // Enabler is 1 or 0
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
-        // keep_0 is 1 or 0
-        eval.add_constraint(keep_0.clone() * (one.clone() - keep_0.clone()));
-        // keep_1 is 1 or 0
-        eval.add_constraint(keep_1.clone() * (one.clone() - keep_1.clone()));
-        // keep_2 is 1 or 0
-        eval.add_constraint(keep_2.clone() * (one.clone() - keep_2.clone()));
+        // keep_0_1 is 1 or 0
+        eval.add_constraint(keep_0_1.clone() * (one.clone() - keep_0_1.clone()));
+        // keep_0_2 is 1 or 0
+        eval.add_constraint(keep_0_2.clone() * (one.clone() - keep_0_2.clone()));
+        // keep_1_2 is 1 or 0
+        eval.add_constraint(keep_1_2.clone() * (one.clone() - keep_1_2.clone()));
 
-        // Two of keep flags must be 1
+        // Only one of keep flags must be 1
         eval.add_constraint(
-            enabler.clone() * (keep_0.clone() + keep_1.clone() + keep_2.clone() - two),
+            enabler.clone()
+                * (keep_0_1.clone() + keep_0_2.clone() + keep_1_2.clone() - one.clone()),
         );
 
-        // diff_inv is the inverse of diff or diff is 0
-        eval.add_constraint(diff.clone() * (diff_inv.clone() * diff.clone() - one.clone()));
-
-        // diff_inv is the inverse of diff or diff_inv is 0
-        eval.add_constraint(diff_inv.clone() * (diff_inv.clone() * diff.clone() - one.clone()));
-
-        // is_lt is 1 if a < b, 0 otherwise
-        eval.add_constraint(is_lt.clone() - (one.clone() - invert.clone()) * diff_inv * diff);
+        // is_le is 1 or 0
+        eval.add_constraint(is_le.clone() * (one.clone() - is_le.clone()));
 
         // Arc computations
         let arc_short = arc_short_lo.clone() + arc_short_hi.clone() * prime_over_3_high;
@@ -611,42 +603,31 @@ impl FrameworkEval for Eval {
         let arc_prod = arc_short * arc_long;
 
         // Arc constraints based on keep flags
-        // (1 - keep_0) * ( arc_sum - ( - 1 - a ) )
         eval.add_constraint(
-            (one.clone() - keep_0.clone()) * (arc_sum.clone() - (-one.clone() - a.clone())),
+            keep_0_1.clone() * (arc_sum.clone() - (a.clone() + b.clone() - a.clone())),
         );
-        // (1 - keep_0) * ( arc_prod - ( a - b ) * ( 1 + b ) )
+        eval.add_constraint(keep_0_1 * (arc_prod.clone() - a.clone() * (b.clone() - a.clone())));
         eval.add_constraint(
-            (one.clone() - keep_0)
-                * (arc_prod.clone() - (a.clone() - b.clone()) * (one.clone() + b.clone())),
+            keep_0_2.clone() * (arc_sum.clone() - (a.clone() - one.clone() - b.clone())),
         );
-
-        // (1 - keep_1) * ( arc_sum - ( a - b - 1 ) )
+        eval.add_constraint(keep_0_2 * (arc_prod.clone() - a.clone() * (-one.clone() - b.clone())));
         eval.add_constraint(
-            (one.clone() - keep_1.clone())
-                * (arc_sum.clone() - (a.clone() - b.clone() - one.clone())),
+            keep_1_2.clone() * (arc_sum - (b.clone() - a.clone() - one.clone() - b.clone())),
         );
-        // (1 - keep_1) * ( arc_prod - a * ( - b - 1 ) )
         eval.add_constraint(
-            (one.clone() - keep_1) * (arc_prod.clone() - a.clone() * (-b.clone() - one.clone())),
+            keep_1_2 * (arc_prod - (b.clone() - a.clone()) * (-one.clone() - b.clone())),
         );
 
-        // (1 - keep_2) * ( arc_sum - b )
-        eval.add_constraint((one.clone() - keep_2.clone()) * (arc_sum - b.clone()));
-        // (1 - keep_2) * ( arc_prod - a * ( b - a ) )
-        eval.add_constraint(
-            (one.clone() - keep_2) * (arc_prod - a.clone() * (b.clone() - a.clone())),
-        );
-
-        // Rebuild imm and src_val from a and b
+        // Assert (a, b) = (src_val, imm) if is_le else (imm, src_val)
         eval.add_constraint(
             enabler.clone()
-                * (imm.clone()
-                    - (one.clone() - invert.clone()) * b.clone()
-                    - invert.clone() * a.clone()),
+                * (a - is_le.clone() * src_val.clone()
+                    - (one.clone() - is_le.clone()) * imm.clone()),
         );
         eval.add_constraint(
-            enabler.clone() * (src_val.clone() - (one.clone() - invert.clone()) * a - invert * b),
+            enabler.clone()
+                * (b - is_le.clone() * imm.clone()
+                    - (one.clone() - is_le.clone()) * src_val.clone()),
         );
 
         // Registers update
@@ -716,7 +697,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.memory,
             E::EF::from(enabler.clone()),
-            &[fp + dst_off, clock.clone(), is_lt],
+            &[fp + dst_off, clock.clone(), is_le],
         ));
 
         // Range check 16 for arc limbs

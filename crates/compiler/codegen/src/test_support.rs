@@ -112,13 +112,13 @@ pub fn exec(mem: &mut Mem, instrs: &[InstructionBuilder]) -> Result<(), Executio
                 let val = a * M31::from(imm.0);
                 mem.set(dst_off.0 as i32, val);
             }
-            Instruction::StoreLtFpImm {
+            Instruction::StoreLeFpImm {
                 src_off,
                 imm,
                 dst_off,
             } => {
                 let a = mem.get(src_off.0 as i32);
-                let val = a < M31::from(imm.0);
+                let val = a <= M31::from(imm.0);
                 mem.set(dst_off.0 as i32, M31::from(val as u32));
             }
             Instruction::AssertEqFpImm { src_off, imm } => {

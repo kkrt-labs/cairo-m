@@ -694,12 +694,12 @@ fn test_try_from_smallvec() {
         ),
         (
             smallvec![M31::from(48), M31::from(1), M31::from(2), M31::from(3)],
-            Instruction::StoreLtFpImm {
+            Instruction::StoreLeFpImm {
                 src_off: M31::from(1),
                 imm: M31::from(2),
                 dst_off: M31::from(3),
             },
-            "StoreLtFpImm instruction",
+            "StoreLeFpImm instruction",
         ),
         (
             smallvec![M31::from(50), M31::from(1), M31::from(2)],
@@ -940,7 +940,7 @@ fn test_roundtrip_all_instructions() {
             imm_lo: M31::from(0x5678),
             dst_off: M31::from(23),
         },
-        Instruction::StoreLtFpImm {
+        Instruction::StoreLeFpImm {
             src_off: M31::from(24),
             imm: M31::from(25),
             dst_off: M31::from(26),

@@ -173,19 +173,19 @@ impl_store_bin_op_fp_imm!(store_mul_fp_imm, StoreMulFpImm, *);
 
 /// CASM equivalent:
 /// ```casm
-/// [fp + dst_off] = [fp + src_off] < imm
+/// [fp + dst_off] = [fp + src_off] <= imm
 /// ```
 ///
 /// Store the result of a less-than comparison as a felt (0 or 1)
-pub fn store_lt_fp_imm(
+pub fn store_le_fp_imm(
     memory: &mut Memory,
     state: State,
     instruction: &Instruction,
 ) -> Result<State, InstructionExecutionError> {
-    let (src_off, imm, dst_off) = extract_as!(instruction, StoreLtFpImm, (src_off, imm, dst_off));
+    let (src_off, imm, dst_off) = extract_as!(instruction, StoreLeFpImm, (src_off, imm, dst_off));
 
     let src_value = memory.get_data(state.fp + src_off)?;
-    let value = M31::from((src_value < imm) as u32);
+    let value = M31::from((src_value <= imm) as u32);
 
     memory.insert(state.fp + dst_off, value.into())?;
     Ok(state.advance_by(instruction.size_in_qm31s()))

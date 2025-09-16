@@ -230,7 +230,7 @@ impl super::CasmBuilder {
 
     felt_fp_imm_op!(felt_mul_fp_imm, StoreMulFpImm);
     felt_fp_imm_op!(felt_add_fp_imm, StoreAddFpImm);
-    felt_fp_imm_op!(felt_lower_than_fp_imm, StoreLtFpImm);
+    felt_fp_imm_op!(felt_le_fp_imm, StoreLeFpImm);
 
     pub(crate) fn felt_sub_fp_imm(
         &mut self,
