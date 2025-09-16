@@ -24,19 +24,19 @@ sum_to_n_1:
    4: 4 3 2147483637 4     // [fp + 4] = [fp + 3] + (-10) (-10 as M31 -> 2147483637 (=-10 mod M31))
    5: 14 4 3 _             // if [fp + 4] != 0 jmp rel neq_non_zero_0
    6: 9 0 4 _              // [fp + 4] = 0
-   7: 12 9 _ _             // jump abs neq_end_1
+   7: 13 2 _ _             // jump rel neq_end_1
 neq_non_zero_0:
    8: 9 1 4 _              // [fp + 4] = 1
 neq_end_1:
    9: 14 4 2 _             // if [fp + 4] != 0 jmp rel sum_to_n_2
-  10: 12 16 _ _            // jump abs sum_to_n_4
+  10: 13 6 _ _             // jump rel sum_to_n_4
 sum_to_n_2:
   11: 0 2 3 5              // [fp + 5] = [fp + 2] op [fp + 3]
 sum_to_n_3:
   12: 4 3 1 6              // [fp + 6] = [fp + 3] + 1
   13: 4 5 0 2              // [fp + 2] = [fp + 5] + 0
   14: 4 6 0 3              // [fp + 3] = [fp + 6] + 0
-  15: 12 4 _ _             // jump abs sum_to_n_1
+  15: 13 2147483636 _ _    // jump rel sum_to_n_1
 sum_to_n_4:
   16: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
   17: 11 _ _ _             // return

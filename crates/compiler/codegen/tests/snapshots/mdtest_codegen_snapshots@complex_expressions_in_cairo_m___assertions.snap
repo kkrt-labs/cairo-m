@@ -33,7 +33,7 @@ test_assert_0:
    5: 4 3 2147483646 4     // [fp + 4] = [fp + 3] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
    6: 14 4 3 _             // if [fp + 4] != 0 jmp rel not_zero_0
    7: 9 1 4 _              // [fp + 4] = 1
-   8: 12 11 _ _            // jump abs end_1
+   8: 13 2 _ _             // jump rel end_1
 not_zero_0:
    9: 9 0 4 _              // [fp + 4] = 0
 end_1:
@@ -41,14 +41,14 @@ end_1:
   11: 34 0 10 0 5          // [fp + 5] = u32([fp + 0], [fp + 1]) U32Less u32(10, 0) /* imm = 0x0000000a */
   12: 14 5 3 _             // if [fp + 5] != 0 jmp rel not_zero_2
   13: 9 1 6 _              // [fp + 6] = 1
-  14: 12 18 _ _            // jump abs not_end_3
+  14: 13 2 _ _             // jump rel not_end_3
 not_zero_2:
   15: 9 0 6 _              // [fp + 6] = 0
 not_end_3:
   16: 4 6 2147483646 7     // [fp + 7] = [fp + 6] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
   17: 14 7 3 _             // if [fp + 7] != 0 jmp rel not_zero_4
   18: 9 1 7 _              // [fp + 7] = 1
-  19: 12 23 _ _            // jump abs end_5
+  19: 13 2 _ _             // jump rel end_5
 not_zero_4:
   20: 9 0 7 _              // [fp + 7] = 0
 end_5:
@@ -57,7 +57,7 @@ end_5:
   23: 4 8 2147483635 9     // [fp + 9] = [fp + 8] + (-12) (-12 as M31 -> 2147483635 (=-12 mod M31))
   24: 14 9 3 _             // if [fp + 9] != 0 jmp rel neq_non_zero_6
   25: 9 0 9 _              // [fp + 9] = 0
-  26: 12 30 _ _            // jump abs neq_end_7
+  26: 13 2 _ _             // jump rel neq_end_7
 neq_non_zero_6:
   27: 9 1 9 _              // [fp + 9] = 1
 neq_end_7:
@@ -66,7 +66,7 @@ neq_end_7:
   30: 4 10 2147483646 11   // [fp + 11] = [fp + 10] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
   31: 14 11 3 _            // if [fp + 11] != 0 jmp rel not_zero_8
   32: 9 1 11 _             // [fp + 11] = 1
-  33: 12 37 _ _            // jump abs end_9
+  33: 13 2 _ _             // jump rel end_9
 not_zero_8:
   34: 9 0 11 _             // [fp + 11] = 0
 end_9:
@@ -74,14 +74,14 @@ end_9:
   36: 9 0 12 _             // [fp + 12] = false
   37: 14 12 3 _            // if [fp + 12] != 0 jmp rel not_zero_10
   38: 9 1 13 _             // [fp + 13] = 1
-  39: 12 43 _ _            // jump abs not_end_11
+  39: 13 2 _ _             // jump rel not_end_11
 not_zero_10:
   40: 9 0 13 _             // [fp + 13] = 0
 not_end_11:
   41: 4 13 2147483646 14   // [fp + 14] = [fp + 13] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
   42: 14 14 3 _            // if [fp + 14] != 0 jmp rel not_zero_12
   43: 9 1 14 _             // [fp + 14] = 1
-  44: 12 48 _ _            // jump abs end_13
+  44: 13 2 _ _             // jump rel end_13
 not_zero_12:
   45: 9 0 14 _             // [fp + 14] = 0
 end_13:

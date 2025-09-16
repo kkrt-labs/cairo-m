@@ -29,7 +29,7 @@ calculate_area_u32_0:
    2: 23 7 0 0             // [fp + 0], [fp + 1] = u32(7)
    3: 30 0 5 0 10          // [fp + 10] = u32([fp + 0], [fp + 1]) U32Eq u32(5, 0) /* imm = 0x00000005 */
    4: 14 10 2 _            // if [fp + 10] != 0 jmp rel calculate_area_u32_1
-   5: 12 16 _ _            // jump abs calculate_area_u32_2
+   5: 13 10 _ _            // jump rel calculate_area_u32_2
 calculate_area_u32_1:
    6: 21 0 3 0 13          // u32([fp + 13], [fp + 14]) = u32([fp + 0], [fp + 1]) U32Mul u32(3, 0) /* imm = 0x00000003 */
    7: 4 13 0 0             // [fp + 0] = [fp + 13] + 0
@@ -38,7 +38,7 @@ calculate_area_u32_1:
   10: 4 1 0 20             //  slot 1: [fp + 20] = [fp + 1] + 0
   11: 4 2 0 21             //  slot 2: [fp + 21] = [fp + 2] + 0
   12: 4 3 0 22             //  slot 3: [fp + 22] = [fp + 3] + 0
-  13: 12 22 _ _            // jump abs calculate_area_u32_3
+  13: 13 7 _ _             // jump rel calculate_area_u32_3
 calculate_area_u32_2:
   14: 4 2 0 0              // [fp + 0] = [fp + 2] + 0
   15: 4 3 0 1              // [fp + 1] = [fp + 3] + 0

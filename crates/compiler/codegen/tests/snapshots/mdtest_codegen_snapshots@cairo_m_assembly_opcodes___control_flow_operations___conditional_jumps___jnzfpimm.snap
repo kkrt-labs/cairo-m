@@ -31,13 +31,13 @@ test_conditional_jumps_0:
    2: 4 0 0 2              // [fp + 2] = [fp + 0] + (-0) (-0 as M31 -> 0)
    3: 14 2 3 _             // if [fp + 2] != 0 jmp rel neq_non_zero_0
    4: 9 0 2 _              // [fp + 2] = 0
-   5: 12 7 _ _             // jump abs neq_end_1
+   5: 13 2 _ _             // jump rel neq_end_1
 neq_non_zero_0:
    6: 9 1 2 _              // [fp + 2] = 1
 neq_end_1:
    7: 4 1 0 3              // [fp + 3] = [fp + 1] + 0
    8: 14 2 2 _             // if [fp + 2] != 0 jmp rel test_conditional_jumps_1
-   9: 12 26 _ _            // jump abs test_conditional_jumps_6
+   9: 13 17 _ _            // jump rel test_conditional_jumps_6
 test_conditional_jumps_1:
   10: 9 100 4 _            // [fp + 4] = 100
   11: 4 4 0 3              // [fp + 3] = [fp + 4] + 0
@@ -45,16 +45,16 @@ test_conditional_jumps_2:
   12: 4 0 2147483642 5     // [fp + 5] = [fp + 0] + (-5) (-5 as M31 -> 2147483642 (=-5 mod M31))
   13: 14 5 3 _             // if [fp + 5] != 0 jmp rel not_zero_2
   14: 9 1 5 _              // [fp + 5] = 1
-  15: 12 17 _ _            // jump abs end_3
+  15: 13 2 _ _             // jump rel end_3
 not_zero_2:
   16: 9 0 5 _              // [fp + 5] = 0
 end_3:
   17: 14 5 2 _             // if [fp + 5] != 0 jmp rel test_conditional_jumps_3
-  18: 12 22 _ _            // jump abs test_conditional_jumps_4
+  18: 13 4 _ _             // jump rel test_conditional_jumps_4
 test_conditional_jumps_3:
   19: 9 200 6 _            // [fp + 6] = 200
   20: 4 6 0 7              // [fp + 7] = [fp + 6] + 0
-  21: 12 24 _ _            // jump abs test_conditional_jumps_5
+  21: 13 3 _ _             // jump rel test_conditional_jumps_5
 test_conditional_jumps_4:
   22: 4 3 50 8             // [fp + 8] = [fp + 3] + 50
   23: 4 8 0 7              // [fp + 7] = [fp + 8] + 0
@@ -62,4 +62,4 @@ test_conditional_jumps_5:
   24: 4 7 0 2147483644     // Return value 0: [fp -3] = [fp + 7] + 0
   25: 11 _ _ _             // return
 test_conditional_jumps_6:
-  26: 12 12 _ _            // jump abs test_conditional_jumps_2
+  26: 13 2147483633 _ _    // jump rel test_conditional_jumps_2

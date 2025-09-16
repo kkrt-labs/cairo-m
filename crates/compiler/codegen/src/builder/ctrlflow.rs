@@ -7,12 +7,13 @@ use stwo_prover::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Generates an unconditional jump to a label.
+    /// Uses a relative jump (offset resolved in a later pass).
     pub(crate) fn jump(&mut self, target_label: &str) {
         let instr = InstructionBuilder::new(
-            CasmInstr::JmpAbsImm {
-                target: M31::from(0),
+            CasmInstr::JmpRelImm {
+                offset: M31::from(0),
             },
-            Some(format!("jump abs {target_label}")),
+            Some(format!("jump rel {target_label}")),
         )
         .with_label(target_label.to_string());
 
@@ -239,8 +240,8 @@ mod tests {
         assert_eq!(b.instructions.len(), 1);
         assert_eq!(
             b.instructions[0].inner_instr().clone(),
-            CasmInstr::JmpAbsImm {
-                target: M31::from(0)
+            CasmInstr::JmpRelImm {
+                offset: M31::from(0)
             }
         );
         assert_eq!(b.instructions[0].label, Some("my_label".to_string()));
@@ -284,8 +285,8 @@ mod tests {
         // Should generate unconditional jump - with unresolved target (0)
         assert_eq!(
             b.instructions[0].inner_instr(),
-            &CasmInstr::JmpAbsImm {
-                target: M31::from(0)
+            &CasmInstr::JmpRelImm {
+                offset: M31::from(0)
             }
         );
     }

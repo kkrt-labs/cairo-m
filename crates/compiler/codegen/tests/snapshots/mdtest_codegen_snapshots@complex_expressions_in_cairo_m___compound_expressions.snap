@@ -44,17 +44,17 @@ test_compound_expressions_0:
   12: 34 21 25 0 23        // [fp + 23] = u32([fp + 21], [fp + 22]) U32Less u32(25, 0) /* imm = 0x00000019 */
   13: 9 0 24 _             // [fp + 24] = 0
   14: 14 20 2 _            // if [fp + 20] != 0 jmp rel and_check_right_0
-  15: 12 22 _ _            // jump abs and_end_2
+  15: 13 4 _ _             // jump rel and_end_2
 and_check_right_0:
   16: 14 23 2 _            // if [fp + 23] != 0 jmp rel and_true_1
-  17: 12 22 _ _            // jump abs and_end_2
+  17: 13 2 _ _             // jump rel and_end_2
 and_true_1:
   18: 9 1 24 _             // [fp + 24] = 1
 and_end_2:
   19: 15 10 18 25          // u32([fp + 25], [fp + 26]) = u32([fp + 10], [fp + 11]) U32Add u32([fp + 18], [fp + 19])
   20: 19 25 0 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 25], [fp + 26]) + u32(0, 0)
   21: 14 24 2 _            // if [fp + 24] != 0 jmp rel test_compound_expressions_1
-  22: 12 34 _ _            // jump abs test_compound_expressions_3
+  22: 13 8 _ _             // jump rel test_compound_expressions_3
 test_compound_expressions_1:
   23: 19 25 1 0 29         // u32([fp + 29], [fp + 30]) = u32([fp + 25], [fp + 26]) U32Add u32(1, 0) /* imm = 0x00000001 */
   24: 19 29 0 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 29], [fp + 30]) + u32(0, 0)
@@ -63,4 +63,4 @@ test_compound_expressions_2:
   26: 4 28 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 28] + 0
   27: 11 _ _ _             // return
 test_compound_expressions_3:
-  28: 12 31 _ _            // jump abs test_compound_expressions_2
+  28: 13 2147483644 _ _    // jump rel test_compound_expressions_2

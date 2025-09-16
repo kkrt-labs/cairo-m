@@ -1056,11 +1056,12 @@ impl CodeGenerator {
             })?;
 
             match instruction.inner_instr_mut() {
-                CasmInstr::JmpAbsImm { target } => {
+                CasmInstr::JmpRelImm { offset } => {
                     let &target_addr = label_map
                         .get(&label_name)
                         .ok_or_else(|| CodegenError::UnresolvedLabel(label_name.clone()))?;
-                    *target = M31::from(target_addr as i32);
+                    let rel = (target_addr as i32) - (physical_pc as i32);
+                    *offset = M31::from(rel);
                     instruction.label = None;
                 }
                 CasmInstr::JnzFpImm { offset, .. } => {
