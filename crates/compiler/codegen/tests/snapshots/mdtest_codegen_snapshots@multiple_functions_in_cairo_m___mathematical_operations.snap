@@ -55,12 +55,12 @@ power:
   14: 4 2147483643 0 0     // [fp + 0] = [fp + -4] + (-0) (-0 as M31 -> 0)
   15: 14 0 3 _             // if [fp + 0] != 0 jmp rel not_zero_0
   16: 9 1 0 _              // [fp + 0] = 1
-  17: 12 19 _ _            // jump abs end_1
+  17: 13 2 _ _             // jump rel end_1
 not_zero_0:
   18: 9 0 0 _              // [fp + 0] = 0
 end_1:
   19: 14 0 2 _             // if [fp + 0] != 0 jmp rel power_1
-  20: 12 23 _ _            // jump abs power_2
+  20: 13 3 _ _             // jump rel power_2
 power_1:
   21: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
   22: 11 _ _ _             // return
@@ -75,12 +75,12 @@ factorial:
   29: 4 2147483643 0 0     // [fp + 0] = [fp + -4] + (-0) (-0 as M31 -> 0)
   30: 14 0 3 _             // if [fp + 0] != 0 jmp rel not_zero_2
   31: 9 1 0 _              // [fp + 0] = 1
-  32: 12 34 _ _            // jump abs end_3
+  32: 13 2 _ _             // jump rel end_3
 not_zero_2:
   33: 9 0 0 _              // [fp + 0] = 0
 end_3:
   34: 14 0 2 _             // if [fp + 0] != 0 jmp rel factorial_1
-  35: 12 38 _ _            // jump abs factorial_2
+  35: 13 3 _ _             // jump rel factorial_2
 factorial_1:
   36: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
   37: 11 _ _ _             // return

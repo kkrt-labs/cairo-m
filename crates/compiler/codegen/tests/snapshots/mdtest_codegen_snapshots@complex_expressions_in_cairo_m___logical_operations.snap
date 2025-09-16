@@ -43,116 +43,116 @@ test_logical_ops_0:
    3: 4 0 0 3              // [fp + 3] = [fp + 0] + (-0) (-0 as M31 -> 0)
    4: 14 3 3 _             // if [fp + 3] != 0 jmp rel neq_non_zero_0
    5: 9 0 3 _              // [fp + 3] = 0
-   6: 12 8 _ _             // jump abs neq_end_1
+   6: 13 2 _ _             // jump rel neq_end_1
 neq_non_zero_0:
    7: 9 1 3 _              // [fp + 3] = 1
 neq_end_1:
    8: 4 2 0 4              // [fp + 4] = [fp + 2] + (-0) (-0 as M31 -> 0)
    9: 14 4 3 _             // if [fp + 4] != 0 jmp rel neq_non_zero_2
   10: 9 0 4 _              // [fp + 4] = 0
-  11: 12 13 _ _            // jump abs neq_end_3
+  11: 13 2 _ _             // jump rel neq_end_3
 neq_non_zero_2:
   12: 9 1 4 _              // [fp + 4] = 1
 neq_end_3:
   13: 9 0 5 _              // [fp + 5] = 0
   14: 14 3 2 _             // if [fp + 3] != 0 jmp rel and_check_right_4
-  15: 12 19 _ _            // jump abs and_end_6
+  15: 13 4 _ _             // jump rel and_end_6
 and_check_right_4:
   16: 14 4 2 _             // if [fp + 4] != 0 jmp rel and_true_5
-  17: 12 19 _ _            // jump abs and_end_6
+  17: 13 2 _ _             // jump rel and_end_6
 and_true_5:
   18: 9 1 5 _              // [fp + 5] = 1
 and_end_6:
   19: 4 0 0 6              // [fp + 6] = [fp + 0] + (-0) (-0 as M31 -> 0)
   20: 14 6 3 _             // if [fp + 6] != 0 jmp rel neq_non_zero_7
   21: 9 0 6 _              // [fp + 6] = 0
-  22: 12 24 _ _            // jump abs neq_end_8
+  22: 13 2 _ _             // jump rel neq_end_8
 neq_non_zero_7:
   23: 9 1 6 _              // [fp + 6] = 1
 neq_end_8:
   24: 4 1 0 7              // [fp + 7] = [fp + 1] + (-0) (-0 as M31 -> 0)
   25: 14 7 3 _             // if [fp + 7] != 0 jmp rel neq_non_zero_9
   26: 9 0 7 _              // [fp + 7] = 0
-  27: 12 29 _ _            // jump abs neq_end_10
+  27: 13 2 _ _             // jump rel neq_end_10
 neq_non_zero_9:
   28: 9 1 7 _              // [fp + 7] = 1
 neq_end_10:
   29: 9 0 8 _              // [fp + 8] = 0
   30: 14 6 2 _             // if [fp + 6] != 0 jmp rel and_check_right_11
-  31: 12 35 _ _            // jump abs and_end_13
+  31: 13 4 _ _             // jump rel and_end_13
 and_check_right_11:
   32: 14 7 2 _             // if [fp + 7] != 0 jmp rel and_true_12
-  33: 12 35 _ _            // jump abs and_end_13
+  33: 13 2 _ _             // jump rel and_end_13
 and_true_12:
   34: 9 1 8 _              // [fp + 8] = 1
 and_end_13:
   35: 4 0 0 9              // [fp + 9] = [fp + 0] + (-0) (-0 as M31 -> 0)
   36: 14 9 3 _             // if [fp + 9] != 0 jmp rel neq_non_zero_14
   37: 9 0 9 _              // [fp + 9] = 0
-  38: 12 40 _ _            // jump abs neq_end_15
+  38: 13 2 _ _             // jump rel neq_end_15
 neq_non_zero_14:
   39: 9 1 9 _              // [fp + 9] = 1
 neq_end_15:
   40: 4 1 0 10             // [fp + 10] = [fp + 1] + (-0) (-0 as M31 -> 0)
   41: 14 10 3 _            // if [fp + 10] != 0 jmp rel neq_non_zero_16
   42: 9 0 10 _             // [fp + 10] = 0
-  43: 12 45 _ _            // jump abs neq_end_17
+  43: 13 2 _ _             // jump rel neq_end_17
 neq_non_zero_16:
   44: 9 1 10 _             // [fp + 10] = 1
 neq_end_17:
   45: 9 0 11 _             // Initialize OR result to 0
   46: 14 9 3 _             // if [fp + 9] != 0 jmp rel or_true_18
   47: 14 10 2 _            // if [fp + 10] != 0 jmp rel or_true_18
-  48: 12 50 _ _            // jump abs or_end_19
+  48: 13 2 _ _             // jump rel or_end_19
 or_true_18:
   49: 9 1 11 _             // [fp + 11] = 1
 or_end_19:
   50: 4 1 0 12             // [fp + 12] = [fp + 1] + (-0) (-0 as M31 -> 0)
   51: 14 12 3 _            // if [fp + 12] != 0 jmp rel neq_non_zero_20
   52: 9 0 12 _             // [fp + 12] = 0
-  53: 12 55 _ _            // jump abs neq_end_21
+  53: 13 2 _ _             // jump rel neq_end_21
 neq_non_zero_20:
   54: 9 1 12 _             // [fp + 12] = 1
 neq_end_21:
   55: 4 1 0 13             // [fp + 13] = [fp + 1] + (-0) (-0 as M31 -> 0)
   56: 14 13 3 _            // if [fp + 13] != 0 jmp rel neq_non_zero_22
   57: 9 0 13 _             // [fp + 13] = 0
-  58: 12 60 _ _            // jump abs neq_end_23
+  58: 13 2 _ _             // jump rel neq_end_23
 neq_non_zero_22:
   59: 9 1 13 _             // [fp + 13] = 1
 neq_end_23:
   60: 9 0 14 _             // Initialize OR result to 0
   61: 14 12 3 _            // if [fp + 12] != 0 jmp rel or_true_24
   62: 14 13 2 _            // if [fp + 13] != 0 jmp rel or_true_24
-  63: 12 65 _ _            // jump abs or_end_25
+  63: 13 2 _ _             // jump rel or_end_25
 or_true_24:
   64: 9 1 14 _             // [fp + 14] = 1
 or_end_25:
   65: 9 0 15 _             // [fp + 15] = 0
   66: 4 15 0 16            // [fp + 16] = [fp + 15] + 0
   67: 14 5 2 _             // if [fp + 5] != 0 jmp rel test_logical_ops_1
-  68: 12 88 _ _            // jump abs test_logical_ops_9
+  68: 13 20 _ _            // jump rel test_logical_ops_9
 test_logical_ops_1:
   69: 4 15 1 17            // [fp + 17] = [fp + 15] + 1
   70: 4 17 0 16            // [fp + 16] = [fp + 17] + 0
 test_logical_ops_2:
   71: 4 16 0 18            // [fp + 18] = [fp + 16] + 0
   72: 14 8 2 _             // if [fp + 8] != 0 jmp rel test_logical_ops_3
-  73: 12 89 _ _            // jump abs test_logical_ops_10
+  73: 13 16 _ _            // jump rel test_logical_ops_10
 test_logical_ops_3:
   74: 4 16 1 19            // [fp + 19] = [fp + 16] + 1
   75: 4 19 0 18            // [fp + 18] = [fp + 19] + 0
 test_logical_ops_4:
   76: 4 18 0 20            // [fp + 20] = [fp + 18] + 0
   77: 14 11 2 _            // if [fp + 11] != 0 jmp rel test_logical_ops_5
-  78: 12 90 _ _            // jump abs test_logical_ops_11
+  78: 13 12 _ _            // jump rel test_logical_ops_11
 test_logical_ops_5:
   79: 4 18 1 21            // [fp + 21] = [fp + 18] + 1
   80: 4 21 0 20            // [fp + 20] = [fp + 21] + 0
 test_logical_ops_6:
   81: 4 20 0 22            // [fp + 22] = [fp + 20] + 0
   82: 14 14 2 _            // if [fp + 14] != 0 jmp rel test_logical_ops_7
-  83: 12 91 _ _            // jump abs test_logical_ops_12
+  83: 13 8 _ _             // jump rel test_logical_ops_12
 test_logical_ops_7:
   84: 4 20 1 23            // [fp + 23] = [fp + 20] + 1
   85: 4 23 0 22            // [fp + 22] = [fp + 23] + 0
@@ -160,10 +160,10 @@ test_logical_ops_8:
   86: 4 22 0 2147483644    // Return value 0: [fp -3] = [fp + 22] + 0
   87: 11 _ _ _             // return
 test_logical_ops_9:
-  88: 12 71 _ _            // jump abs test_logical_ops_2
+  88: 13 2147483630 _ _    // jump rel test_logical_ops_2
 test_logical_ops_10:
-  89: 12 76 _ _            // jump abs test_logical_ops_4
+  89: 13 2147483634 _ _    // jump rel test_logical_ops_4
 test_logical_ops_11:
-  90: 12 81 _ _            // jump abs test_logical_ops_6
+  90: 13 2147483638 _ _    // jump rel test_logical_ops_6
 test_logical_ops_12:
-  91: 12 86 _ _            // jump abs test_logical_ops_8
+  91: 13 2147483642 _ _    // jump rel test_logical_ops_8

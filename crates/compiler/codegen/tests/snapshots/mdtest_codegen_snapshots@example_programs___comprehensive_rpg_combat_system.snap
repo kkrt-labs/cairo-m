@@ -262,16 +262,16 @@ calculate_distance_squared:
   47: 28 2147483635 2147483639 6 // [fp + 6] = u32([fp + -12], [fp + -11]) U32Less u32([fp + -8], [fp + -7])
   48: 14 6 3 _             // if [fp + 6] != 0 jmp rel not_zero_0
   49: 9 1 7 _              // [fp + 7] = 1
-  50: 12 53 _ _            // jump abs not_end_1
+  50: 13 2 _ _             // jump rel not_end_1
 not_zero_0:
   51: 9 0 7 _              // [fp + 7] = 0
 not_end_1:
   52: 14 7 2 _             // if [fp + 7] != 0 jmp rel calculate_distance_squared_1
-  53: 12 59 _ _            // jump abs calculate_distance_squared_2
+  53: 13 5 _ _             // jump rel calculate_distance_squared_2
 calculate_distance_squared_1:
   54: 16 2147483635 2147483639 12 // u32([fp + 12], [fp + 13]) = u32([fp + -12], [fp + -11]) U32Sub u32([fp + -8], [fp + -7])
   55: 19 12 0 0 14         // u32([fp + 14], [fp + 15]) = u32([fp + 12], [fp + 13]) + u32(0, 0)
-  56: 12 62 _ _            // jump abs calculate_distance_squared_3
+  56: 13 4 _ _             // jump rel calculate_distance_squared_3
 calculate_distance_squared_2:
   57: 16 2147483639 2147483635 20 // u32([fp + 20], [fp + 21]) = u32([fp + -8], [fp + -7]) U32Sub u32([fp + -12], [fp + -11])
   58: 19 20 0 0 14         // u32([fp + 14], [fp + 15]) = u32([fp + 20], [fp + 21]) + u32(0, 0)
@@ -280,16 +280,16 @@ calculate_distance_squared_3:
   60: 28 2147483637 2147483641 28 // [fp + 28] = u32([fp + -10], [fp + -9]) U32Less u32([fp + -6], [fp + -5])
   61: 14 28 3 _            // if [fp + 28] != 0 jmp rel not_zero_2
   62: 9 1 29 _             // [fp + 29] = 1
-  63: 12 68 _ _            // jump abs not_end_3
+  63: 13 2 _ _             // jump rel not_end_3
 not_zero_2:
   64: 9 0 29 _             // [fp + 29] = 0
 not_end_3:
   65: 14 29 2 _            // if [fp + 29] != 0 jmp rel calculate_distance_squared_4
-  66: 12 74 _ _            // jump abs calculate_distance_squared_5
+  66: 13 5 _ _             // jump rel calculate_distance_squared_5
 calculate_distance_squared_4:
   67: 16 2147483637 2147483641 34 // u32([fp + 34], [fp + 35]) = u32([fp + -10], [fp + -9]) U32Sub u32([fp + -6], [fp + -5])
   68: 19 34 0 0 36         // u32([fp + 36], [fp + 37]) = u32([fp + 34], [fp + 35]) + u32(0, 0)
-  69: 12 77 _ _            // jump abs calculate_distance_squared_6
+  69: 13 4 _ _             // jump rel calculate_distance_squared_6
 calculate_distance_squared_5:
   70: 16 2147483641 2147483637 42 // u32([fp + 42], [fp + 43]) = u32([fp + -6], [fp + -5]) U32Sub u32([fp + -10], [fp + -9])
   71: 19 42 0 0 36         // u32([fp + 36], [fp + 37]) = u32([fp + 42], [fp + 43]) + u32(0, 0)
@@ -310,18 +310,18 @@ calculate_damage_0:
   83: 23 100 0 21          // [fp + 21], [fp + 22] = u32(100)
   84: 28 21 2147483641 6   // [fp + 6] = u32([fp + 21], [fp + 22]) U32Less u32([fp + -6], [fp + -5])
   85: 14 6 2 _             // if [fp + 6] != 0 jmp rel calculate_damage_1
-  86: 12 99 _ _            // jump abs calculate_damage_2
+  86: 13 5 _ _             // jump rel calculate_damage_2
 calculate_damage:
 calculate_damage_1:
   87: 23 5 0 7             // u32([fp + 7], [fp + 8]) = u32(5)
   88: 19 7 0 0 9           // u32([fp + 9], [fp + 10]) = u32([fp + 7], [fp + 8]) + u32(0, 0)
-  89: 12 110 _ _           // jump abs calculate_damage_5
+  89: 13 12 _ _            // jump rel calculate_damage_5
 calculate_damage_2:
   90: 23 50 0 23           // [fp + 23], [fp + 24] = u32(50)
   91: 28 23 2147483641 11  // [fp + 11] = u32([fp + 23], [fp + 24]) U32Less u32([fp + -6], [fp + -5])
   92: 19 4 0 0 12          // u32([fp + 12], [fp + 13]) = u32([fp + 4], [fp + 5]) + u32(0, 0)
   93: 14 11 2 _            // if [fp + 11] != 0 jmp rel calculate_damage_3
-  94: 12 120 _ _           // jump abs calculate_damage_8
+  94: 13 16 _ _            // jump rel calculate_damage_8
 calculate_damage_3:
   95: 23 2 0 14            // u32([fp + 14], [fp + 15]) = u32(2)
   96: 19 14 0 0 12         // u32([fp + 12], [fp + 13]) = u32([fp + 14], [fp + 15]) + u32(0, 0)
@@ -331,7 +331,7 @@ calculate_damage_5:
   98: 15 0 2 16            // u32([fp + 16], [fp + 17]) = u32([fp + 0], [fp + 1]) U32Add u32([fp + 2], [fp + 3])
   99: 28 9 16 18           // [fp + 18] = u32([fp + 9], [fp + 10]) U32Less u32([fp + 16], [fp + 17])
  100: 14 18 2 _            // if [fp + 18] != 0 jmp rel calculate_damage_6
- 101: 12 118 _ _           // jump abs calculate_damage_7
+ 101: 13 5 _ _             // jump rel calculate_damage_7
 calculate_damage_6:
  102: 16 16 9 19           // u32([fp + 19], [fp + 20]) = u32([fp + 16], [fp + 17]) U32Sub u32([fp + 9], [fp + 10])
  103: 4 19 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 19] + 0
@@ -341,7 +341,7 @@ calculate_damage_7:
  106: 23 1 0 2147483643    // Return value 0: [fp -4, fp -4 + 1] = u32(1)
  107: 11 _ _ _             // return
 calculate_damage_8:
- 108: 12 108 _ _           // jump abs calculate_damage_4
+ 108: 13 2147483635 _ _    // jump rel calculate_damage_4
 perform_combat:
 perform_combat_0:
  109: 4 2147483626 0 47    // Arg 0 slot 0: [fp + 47] = [fp + -21] + 0
@@ -368,7 +368,7 @@ perform_combat:
  129: 19 65 0 0 22         // u32([fp + 22], [fp + 23]) = u32([fp + 65], [fp + 66]) + u32(0, 0)
  130: 4 20 0 24            // [fp + 24] = [fp + 20] + 0
  131: 14 21 2 _            // if [fp + 21] != 0 jmp rel perform_combat_1
- 132: 12 178 _ _           // jump abs perform_combat_6
+ 132: 13 32 _ _            // jump rel perform_combat_6
 perform_combat_1:
  133: 9 1 25 _             // [fp + 25] = true
  134: 21 65 2 0 26         // u32([fp + 26], [fp + 27]) = u32([fp + 65], [fp + 66]) U32Mul u32(2, 0) /* imm = 0x00000002 */
@@ -378,16 +378,16 @@ perform_combat_2:
  137: 28 22 2147483630 32  // [fp + 32] = u32([fp + 22], [fp + 23]) U32Less u32([fp + -17], [fp + -16])
  138: 14 32 3 _            // if [fp + 32] != 0 jmp rel not_zero_8
  139: 9 1 33 _             // [fp + 33] = 1
- 140: 12 158 _ _           // jump abs not_end_9
+ 140: 13 2 _ _             // jump rel not_end_9
 not_zero_8:
  141: 9 0 33 _             // [fp + 33] = 0
 not_end_9:
  142: 14 33 2 _            // if [fp + 33] != 0 jmp rel perform_combat_3
- 143: 12 164 _ _           // jump abs perform_combat_4
+ 143: 13 5 _ _             // jump rel perform_combat_4
 perform_combat_3:
  144: 23 0 0 34            // u32([fp + 34], [fp + 35]) = u32(0)
  145: 19 34 0 0 36         // u32([fp + 36], [fp + 37]) = u32([fp + 34], [fp + 35]) + u32(0, 0)
- 146: 12 167 _ _           // jump abs perform_combat_5
+ 146: 13 4 _ _             // jump rel perform_combat_5
 perform_combat_4:
  147: 16 2147483630 22 40  // u32([fp + 40], [fp + 41]) = u32([fp + -17], [fp + -16]) U32Sub u32([fp + 22], [fp + 23])
  148: 19 40 0 0 36         // u32([fp + 36], [fp + 37]) = u32([fp + 40], [fp + 41]) + u32(0, 0)
@@ -404,7 +404,7 @@ perform_combat_5:
  158: 4 46 0 2147483644    // Return value 0 slot 4: [fp -3] = [fp + 46] + 0
  159: 11 _ _ _             // return
 perform_combat_6:
- 160: 12 153 _ _           // jump abs perform_combat_2
+ 160: 13 2147483622 _ _    // jump rel perform_combat_2
 simulate_battle_round:
 simulate_battle_round_0:
  161: 4 2147483623 0 17    // Arg 0 slot 0: [fp + 17] = [fp + -24] + 0
@@ -432,7 +432,7 @@ simulate_battle_round:
  182: 23 0 0 47            // [fp + 47], [fp + 48] = u32(0)
  183: 28 47 40 7           // [fp + 7] = u32([fp + 47], [fp + 48]) U32Less u32([fp + 40], [fp + 41])
  184: 14 7 2 _             // if [fp + 7] != 0 jmp rel simulate_battle_round_1
- 185: 12 229 _ _           // jump abs simulate_battle_round_2
+ 185: 13 26 _ _            // jump rel simulate_battle_round_2
 simulate_battle_round_1:
  186: 4 2147483633 0 49    // Arg 0 slot 0: [fp + 49] = [fp + -14] + 0
  187: 4 2147483634 0 50    // Arg 0 slot 1: [fp + 50] = [fp + -13] + 0
@@ -457,7 +457,7 @@ simulate_battle_round_1:
  206: 10 74 121 _          // call perform_combat
  207: 30 40 0 0 15         // [fp + 15] = u32([fp + 40], [fp + 41]) U32Eq u32(0, 0) /* imm = 0x00000000 */
  208: 14 15 4 _            // if [fp + 15] != 0 jmp rel simulate_battle_round_3
- 209: 12 233 _ _           // jump abs simulate_battle_round_4
+ 209: 13 5 _ _             // jump rel simulate_battle_round_4
 simulate_battle_round_2:
  210: 23 1 0 2147483643    // Return value 0: [fp -4, fp -4 + 1] = u32(1)
  211: 11 _ _ _             // return
@@ -467,7 +467,7 @@ simulate_battle_round_3:
 simulate_battle_round_4:
  214: 30 72 0 0 16         // [fp + 16] = u32([fp + 72], [fp + 73]) U32Eq u32(0, 0) /* imm = 0x00000000 */
  215: 14 16 2 _            // if [fp + 16] != 0 jmp rel simulate_battle_round_5
- 216: 12 239 _ _           // jump abs simulate_battle_round_6
+ 216: 13 3 _ _             // jump rel simulate_battle_round_6
 simulate_battle_round_5:
  217: 23 2 0 2147483643    // Return value 0: [fp -4, fp -4 + 1] = u32(2)
  218: 11 _ _ _             // return
@@ -521,12 +521,12 @@ simulate_full_battle:
 simulate_full_battle_1:
  262: 28 30 42 54          // [fp + 54] = u32([fp + 30], [fp + 31]) U32Less u32([fp + 42], [fp + 43])
  263: 14 54 4 _            // if [fp + 54] != 0 jmp rel simulate_full_battle_3
- 264: 12 289 _ _           // jump abs simulate_full_battle_4
+ 264: 13 4 _ _             // jump rel simulate_full_battle_4
 simulate_full_battle_2:
  265: 23 0 0 2147483643    // Return value 0: [fp -4, fp -4 + 1] = u32(0)
  266: 11 _ _ _             // return
 simulate_full_battle_3:
- 267: 12 286 _ _           // jump abs simulate_full_battle_2
+ 267: 13 2147483645 _ _    // jump rel simulate_full_battle_2
 simulate_full_battle_4:
  268: 4 32 0 115           // Arg 0 slot 0: [fp + 115] = [fp + 32] + 0
  269: 4 33 0 116           // Arg 0 slot 1: [fp + 116] = [fp + 33] + 0
@@ -551,14 +551,14 @@ simulate_full_battle_4:
  288: 10 137 179 _         // call simulate_battle_round
  289: 30 135 1 0 57        // [fp + 57] = u32([fp + 135], [fp + 136]) U32Eq u32(1, 0) /* imm = 0x00000001 */
  290: 14 57 2 _            // if [fp + 57] != 0 jmp rel simulate_full_battle_5
- 291: 12 316 _ _           // jump abs simulate_full_battle_6
+ 291: 13 3 _ _             // jump rel simulate_full_battle_6
 simulate_full_battle_5:
  292: 23 1 0 2147483643    // Return value 0: [fp -4, fp -4 + 1] = u32(1)
  293: 11 _ _ _             // return
 simulate_full_battle_6:
  294: 30 135 2 0 58        // [fp + 58] = u32([fp + 135], [fp + 136]) U32Eq u32(2, 0) /* imm = 0x00000002 */
  295: 14 58 2 _            // if [fp + 58] != 0 jmp rel simulate_full_battle_7
- 296: 12 322 _ _           // jump abs simulate_full_battle_8
+ 296: 13 3 _ _             // jump rel simulate_full_battle_8
 simulate_full_battle_7:
  297: 23 2 0 2147483643    // Return value 0: [fp -4, fp -4 + 1] = u32(2)
  298: 11 _ _ _             // return
@@ -577,7 +577,7 @@ simulate_full_battle_9:
  309: 4 40 0 70            //  slot 8: [fp + 70] = [fp + 40] + 0
  310: 4 41 0 71            //  slot 9: [fp + 71] = [fp + 41] + 0
  311: 14 61 2 _            // if [fp + 61] != 0 jmp rel simulate_full_battle_10
- 312: 12 403 _ _           // jump abs simulate_full_battle_14
+ 312: 13 68 _ _            // jump rel simulate_full_battle_14
 simulate_full_battle_10:
  313: 19 32 65531 65535 74 // u32([fp + 74], [fp + 75]) = u32([fp + 32], [fp + 33]) U32Sub u32(65531, 65535) (two's complement of 5 -> 4294967291)
  314: 4 74 0 32            // [fp + 32] = [fp + 74] + 0
@@ -606,7 +606,7 @@ simulate_full_battle_11:
  336: 4 52 0 97            //  slot 8: [fp + 97] = [fp + 52] + 0
  337: 4 53 0 98            //  slot 9: [fp + 98] = [fp + 53] + 0
  338: 14 88 2 _            // if [fp + 88] != 0 jmp rel simulate_full_battle_12
- 339: 12 404 _ _           // jump abs simulate_full_battle_15
+ 339: 13 41 _ _            // jump rel simulate_full_battle_15
 simulate_full_battle_12:
  340: 19 44 65532 65535 101 // u32([fp + 101], [fp + 102]) = u32([fp + 44], [fp + 45]) U32Sub u32(65532, 65535) (two's complement of 4 -> 4294967292)
  341: 4 101 0 44           // [fp + 44] = [fp + 101] + 0
@@ -644,8 +644,8 @@ simulate_full_battle_13:
  372: 4 96 0 51            //  slot 7: [fp + 51] = [fp + 96] + 0
  373: 4 97 0 52            //  slot 8: [fp + 52] = [fp + 97] + 0
  374: 4 98 0 53            //  slot 9: [fp + 53] = [fp + 98] + 0
- 375: 12 283 _ _           // jump abs simulate_full_battle_1
+ 375: 13 2147483528 _ _    // jump rel simulate_full_battle_1
 simulate_full_battle_14:
- 376: 12 350 _ _           // jump abs simulate_full_battle_11
+ 376: 13 2147483594 _ _    // jump rel simulate_full_battle_11
 simulate_full_battle_15:
- 377: 12 378 _ _           // jump abs simulate_full_battle_13
+ 377: 13 2147483621 _ _    // jump rel simulate_full_battle_13

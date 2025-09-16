@@ -60,7 +60,7 @@ calculate_multiplier_0:
    8: 23 10 0 5            // [fp + 5], [fp + 6] = u32(10)
    9: 28 5 2147483641 0    // [fp + 0] = u32([fp + 5], [fp + 6]) U32Less u32([fp + -6], [fp + -5])
   10: 14 0 2 _             // if [fp + 0] != 0 jmp rel calculate_multiplier_1
-  11: 12 18 _ _            // jump abs calculate_multiplier_2
+  11: 13 7 _ _             // jump rel calculate_multiplier_2
 calculate_multiplier_1:
   12: 4 2147483641 0 7     // Arg 0 slot 0: [fp + 7] = [fp + -6] + 0
   13: 4 2147483642 0 8     // Arg 0 slot 1: [fp + 8] = [fp + -5] + 0

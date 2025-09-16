@@ -27,34 +27,34 @@ continue_in_loop_1:
    4: 4 3 2147483637 4     // [fp + 4] = [fp + 3] + (-10) (-10 as M31 -> 2147483637 (=-10 mod M31))
    5: 14 4 3 _             // if [fp + 4] != 0 jmp rel neq_non_zero_0
    6: 9 0 4 _              // [fp + 4] = 0
-   7: 12 9 _ _             // jump abs neq_end_1
+   7: 13 2 _ _             // jump rel neq_end_1
 neq_non_zero_0:
    8: 9 1 4 _              // [fp + 4] = 1
 neq_end_1:
    9: 14 4 2 _             // if [fp + 4] != 0 jmp rel continue_in_loop_2
-  10: 12 22 _ _            // jump abs continue_in_loop_4
+  10: 13 12 _ _            // jump rel continue_in_loop_4
 continue_in_loop_2:
   11: 4 3 2147483642 5     // [fp + 5] = [fp + 3] + (-5) (-5 as M31 -> 2147483642 (=-5 mod M31))
   12: 14 5 3 _             // if [fp + 5] != 0 jmp rel not_zero_2
   13: 9 1 5 _              // [fp + 5] = 1
-  14: 12 16 _ _            // jump abs end_3
+  14: 13 2 _ _             // jump rel end_3
 not_zero_2:
   15: 9 0 5 _              // [fp + 5] = 0
 end_3:
   16: 14 5 8 _             // if [fp + 5] != 0 jmp rel continue_in_loop_5
-  17: 12 26 _ _            // jump abs continue_in_loop_6
+  17: 13 9 _ _             // jump rel continue_in_loop_6
 continue_in_loop_3:
   18: 4 3 1 6              // [fp + 6] = [fp + 3] + 1
   19: 4 7 0 2              // [fp + 2] = [fp + 7] + 0
   20: 4 6 0 3              // [fp + 3] = [fp + 6] + 0
-  21: 12 4 _ _             // jump abs continue_in_loop_1
+  21: 13 2147483630 _ _    // jump rel continue_in_loop_1
 continue_in_loop_4:
   22: 4 2 0 2147483644     // Return value 0: [fp -3] = [fp + 2] + 0
   23: 11 _ _ _             // return
 continue_in_loop_5:
   24: 4 2 0 7              // [fp + 7] = [fp + 2] + 0
-  25: 12 18 _ _            // jump abs continue_in_loop_3
+  25: 13 2147483640 _ _    // jump rel continue_in_loop_3
 continue_in_loop_6:
   26: 0 2 3 8              // [fp + 8] = [fp + 2] op [fp + 3]
   27: 4 8 0 7              // [fp + 7] = [fp + 8] + 0
-  28: 12 18 _ _            // jump abs continue_in_loop_3
+  28: 13 2147483637 _ _    // jump rel continue_in_loop_3

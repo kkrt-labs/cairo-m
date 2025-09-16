@@ -34,19 +34,19 @@ loop_with_escape_1:
    3: 23 1000 0 8          // [fp + 8], [fp + 9] = u32(1000)
    4: 28 8 4 6             // [fp + 6] = u32([fp + 8], [fp + 9]) U32Less u32([fp + 4], [fp + 5])
    5: 14 6 5 _             // if [fp + 6] != 0 jmp rel loop_with_escape_3
-   6: 12 13 _ _            // jump abs loop_with_escape_4
+   6: 13 5 _ _             // jump rel loop_with_escape_4
 loop_with_escape_2:
    7: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
    8: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
    9: 11 _ _ _             // return
 loop_with_escape_3:
-  10: 12 9 _ _             // jump abs loop_with_escape_2
+  10: 13 2147483644 _ _    // jump rel loop_with_escape_2
 loop_with_escape_4:
   11: 30 4 10 0 7          // [fp + 7] = u32([fp + 4], [fp + 5]) U32Eq u32(10, 0) /* imm = 0x0000000a */
   12: 14 7 2 _             // if [fp + 7] != 0 jmp rel loop_with_escape_5
-  13: 12 18 _ _            // jump abs loop_with_escape_6
+  13: 13 2 _ _             // jump rel loop_with_escape_6
 loop_with_escape_5:
-  14: 12 9 _ _             // jump abs loop_with_escape_2
+  14: 13 2147483639 _ _    // jump rel loop_with_escape_2
 loop_with_escape_6:
   15: 19 4 0 0 2           // u32([fp + 2], [fp + 3]) = u32([fp + 4], [fp + 5]) + u32(0, 0)
-  16: 12 3 _ _             // jump abs loop_with_escape_1
+  16: 13 2147483630 _ _    // jump rel loop_with_escape_1

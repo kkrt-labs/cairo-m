@@ -33,12 +33,12 @@ array_sum_loop_1:
   10: 4 6 2147483642 7     // [fp + 7] = [fp + 6] + (-5) (-5 as M31 -> 2147483642 (=-5 mod M31))
   11: 14 7 3 _             // if [fp + 7] != 0 jmp rel neq_non_zero_0
   12: 9 0 7 _              // [fp + 7] = 0
-  13: 12 16 _ _            // jump abs neq_end_1
+  13: 13 2 _ _             // jump rel neq_end_1
 neq_non_zero_0:
   14: 9 1 7 _              // [fp + 7] = 1
 neq_end_1:
   15: 14 7 2 _             // if [fp + 7] != 0 jmp rel array_sum_loop_2
-  16: 12 28 _ _            // jump abs array_sum_loop_3
+  16: 13 11 _ _            // jump rel array_sum_loop_3
 array_sum_loop_2:
   17: 6 6 2 23             // [fp + 23] = [fp + 6] * 2 - Scale index by element size
   18: 42 0 23 8            // [fp + 8] = [[fp + 0] + [fp + 23]]
@@ -48,7 +48,7 @@ array_sum_loop_2:
   22: 4 6 1 12             // [fp + 12] = [fp + 6] + 1
   23: 19 10 0 0 4          // u32([fp + 4], [fp + 5]) = u32([fp + 10], [fp + 11]) + u32(0, 0)
   24: 4 12 0 6             // [fp + 6] = [fp + 12] + 0
-  25: 12 11 _ _            // jump abs array_sum_loop_1
+  25: 13 2147483631 _ _    // jump rel array_sum_loop_1
 array_sum_loop_3:
   26: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
   27: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0

@@ -40,12 +40,12 @@ is_even_0:
    7: 4 2147483643 0 0     // [fp + 0] = [fp + -4] + (-0) (-0 as M31 -> 0)
    8: 14 0 3 _             // if [fp + 0] != 0 jmp rel not_zero_0
    9: 9 1 0 _              // [fp + 0] = 1
-  10: 12 12 _ _            // jump abs end_1
+  10: 13 2 _ _             // jump rel end_1
 not_zero_0:
   11: 9 0 0 _              // [fp + 0] = 0
 end_1:
   12: 14 0 2 _             // if [fp + 0] != 0 jmp rel is_even_1
-  13: 12 16 _ _            // jump abs is_even_2
+  13: 13 3 _ _             // jump rel is_even_2
 is_even_1:
   14: 9 1 2147483644 _     // Return value 0: [fp -3] = 1
   15: 11 _ _ _             // return
@@ -60,12 +60,12 @@ is_odd_0:
   20: 4 2147483643 0 0     // [fp + 0] = [fp + -4] + (-0) (-0 as M31 -> 0)
   21: 14 0 3 _             // if [fp + 0] != 0 jmp rel not_zero_2
   22: 9 1 0 _              // [fp + 0] = 1
-  23: 12 25 _ _            // jump abs end_3
+  23: 13 2 _ _             // jump rel end_3
 not_zero_2:
   24: 9 0 0 _              // [fp + 0] = 0
 end_3:
   25: 14 0 2 _             // if [fp + 0] != 0 jmp rel is_odd_1
-  26: 12 29 _ _            // jump abs is_odd_2
+  26: 13 3 _ _             // jump rel is_odd_2
 is_odd_1:
   27: 9 0 2147483644 _     // Return value 0: [fp -3] = 0
   28: 11 _ _ _             // return

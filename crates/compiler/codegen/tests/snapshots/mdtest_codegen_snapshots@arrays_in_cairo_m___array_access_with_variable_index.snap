@@ -36,40 +36,40 @@ variable_index_access_0:
   13: 4 2147483643 0 4     // [fp + 4] = [fp + -4] + (-0) (-0 as M31 -> 0)
   14: 14 4 3 _             // if [fp + 4] != 0 jmp rel not_zero_0
   15: 9 1 4 _              // [fp + 4] = 1
-  16: 12 18 _ _            // jump abs end_1
+  16: 13 2 _ _             // jump rel end_1
 not_zero_0:
   17: 9 0 4 _              // [fp + 4] = 0
 end_1:
   18: 4 2147483643 2147483646 5 // [fp + 5] = [fp + -4] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
   19: 14 5 3 _             // if [fp + 5] != 0 jmp rel not_zero_2
   20: 9 1 5 _              // [fp + 5] = 1
-  21: 12 23 _ _            // jump abs end_3
+  21: 13 2 _ _             // jump rel end_3
 not_zero_2:
   22: 9 0 5 _              // [fp + 5] = 0
 end_3:
   23: 9 0 6 _              // Initialize OR result to 0
   24: 14 4 3 _             // if [fp + 4] != 0 jmp rel or_true_4
   25: 14 5 2 _             // if [fp + 5] != 0 jmp rel or_true_4
-  26: 12 28 _ _            // jump abs or_end_5
+  26: 13 2 _ _             // jump rel or_end_5
 or_true_4:
   27: 9 1 6 _              // [fp + 6] = 1
 or_end_5:
   28: 4 2147483643 2147483645 7 // [fp + 7] = [fp + -4] + (-2) (-2 as M31 -> 2147483645 (=-2 mod M31))
   29: 14 7 3 _             // if [fp + 7] != 0 jmp rel not_zero_6
   30: 9 1 7 _              // [fp + 7] = 1
-  31: 12 33 _ _            // jump abs end_7
+  31: 13 2 _ _             // jump rel end_7
 not_zero_6:
   32: 9 0 7 _              // [fp + 7] = 0
 end_7:
   33: 9 0 8 _              // Initialize OR result to 0
   34: 14 6 3 _             // if [fp + 6] != 0 jmp rel or_true_8
   35: 14 7 2 _             // if [fp + 7] != 0 jmp rel or_true_8
-  36: 12 38 _ _            // jump abs or_end_9
+  36: 13 2 _ _             // jump rel or_end_9
 or_true_8:
   37: 9 1 8 _              // [fp + 8] = 1
 or_end_9:
   38: 14 8 2 _             // if [fp + 8] != 0 jmp rel variable_index_access_1
-  39: 12 43 _ _            // jump abs variable_index_access_2
+  39: 13 4 _ _             // jump rel variable_index_access_2
 variable_index_access_1:
   40: 42 3 2147483643 9    // [fp + 9] = [[fp + 3] + [fp + -4]]
   41: 4 9 0 2147483644     // Return value 0: [fp -3] = [fp + 9] + 0

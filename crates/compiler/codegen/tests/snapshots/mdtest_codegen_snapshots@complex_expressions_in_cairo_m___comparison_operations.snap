@@ -49,7 +49,7 @@ test_comparisons_0:
    4: 24 0 2 7             // [fp + 7] = u32([fp + 0], [fp + 1]) U32Eq u32([fp + 2], [fp + 3])
    5: 14 7 3 _             // if [fp + 7] != 0 jmp rel not_zero_0
    6: 9 1 8 _              // [fp + 8] = 1
-   7: 12 9 _ _             // jump abs not_end_1
+   7: 13 2 _ _             // jump rel not_end_1
 not_zero_0:
    8: 9 0 8 _              // [fp + 8] = 0
 not_end_1:
@@ -57,7 +57,7 @@ not_end_1:
   10: 28 4 0 10            // [fp + 10] = u32([fp + 4], [fp + 5]) U32Less u32([fp + 0], [fp + 1])
   11: 14 10 3 _            // if [fp + 10] != 0 jmp rel not_zero_2
   12: 9 1 11 _             // [fp + 11] = 1
-  13: 12 15 _ _            // jump abs not_end_3
+  13: 13 2 _ _             // jump rel not_end_3
 not_zero_2:
   14: 9 0 11 _             // [fp + 11] = 0
 not_end_3:
@@ -65,49 +65,49 @@ not_end_3:
   16: 28 4 0 13            // [fp + 13] = u32([fp + 4], [fp + 5]) U32Less u32([fp + 0], [fp + 1])
   17: 14 13 3 _            // if [fp + 13] != 0 jmp rel not_zero_4
   18: 9 1 14 _             // [fp + 14] = 1
-  19: 12 21 _ _            // jump abs not_end_5
+  19: 13 2 _ _             // jump rel not_end_5
 not_zero_4:
   20: 9 0 14 _             // [fp + 14] = 0
 not_end_5:
   21: 23 0 0 15            // u32([fp + 15], [fp + 16]) = u32(0)
   22: 19 15 0 0 17         // u32([fp + 17], [fp + 18]) = u32([fp + 15], [fp + 16]) + u32(0, 0)
   23: 14 6 2 _             // if [fp + 6] != 0 jmp rel test_comparisons_1
-  24: 12 73 _ _            // jump abs test_comparisons_13
+  24: 13 48 _ _            // jump rel test_comparisons_13
 test_comparisons_1:
   25: 19 15 1 0 19         // u32([fp + 19], [fp + 20]) = u32([fp + 15], [fp + 16]) U32Add u32(1, 0) /* imm = 0x00000001 */
   26: 19 19 0 0 17         // u32([fp + 17], [fp + 18]) = u32([fp + 19], [fp + 20]) + u32(0, 0)
 test_comparisons_2:
   27: 19 17 0 0 21         // u32([fp + 21], [fp + 22]) = u32([fp + 17], [fp + 18]) + u32(0, 0)
   28: 14 8 2 _             // if [fp + 8] != 0 jmp rel test_comparisons_3
-  29: 12 74 _ _            // jump abs test_comparisons_14
+  29: 13 41 _ _            // jump rel test_comparisons_14
 test_comparisons_3:
   30: 19 17 1 0 23         // u32([fp + 23], [fp + 24]) = u32([fp + 17], [fp + 18]) U32Add u32(1, 0) /* imm = 0x00000001 */
   31: 19 23 0 0 21         // u32([fp + 21], [fp + 22]) = u32([fp + 23], [fp + 24]) + u32(0, 0)
 test_comparisons_4:
   32: 19 21 0 0 25         // u32([fp + 25], [fp + 26]) = u32([fp + 21], [fp + 22]) + u32(0, 0)
   33: 14 9 2 _             // if [fp + 9] != 0 jmp rel test_comparisons_5
-  34: 12 75 _ _            // jump abs test_comparisons_15
+  34: 13 34 _ _            // jump rel test_comparisons_15
 test_comparisons_5:
   35: 19 21 1 0 27         // u32([fp + 27], [fp + 28]) = u32([fp + 21], [fp + 22]) U32Add u32(1, 0) /* imm = 0x00000001 */
   36: 19 27 0 0 25         // u32([fp + 25], [fp + 26]) = u32([fp + 27], [fp + 28]) + u32(0, 0)
 test_comparisons_6:
   37: 19 25 0 0 29         // u32([fp + 29], [fp + 30]) = u32([fp + 25], [fp + 26]) + u32(0, 0)
   38: 14 11 2 _            // if [fp + 11] != 0 jmp rel test_comparisons_7
-  39: 12 76 _ _            // jump abs test_comparisons_16
+  39: 13 27 _ _            // jump rel test_comparisons_16
 test_comparisons_7:
   40: 19 25 1 0 31         // u32([fp + 31], [fp + 32]) = u32([fp + 25], [fp + 26]) U32Add u32(1, 0) /* imm = 0x00000001 */
   41: 19 31 0 0 29         // u32([fp + 29], [fp + 30]) = u32([fp + 31], [fp + 32]) + u32(0, 0)
 test_comparisons_8:
   42: 19 29 0 0 33         // u32([fp + 33], [fp + 34]) = u32([fp + 29], [fp + 30]) + u32(0, 0)
   43: 14 12 2 _            // if [fp + 12] != 0 jmp rel test_comparisons_9
-  44: 12 77 _ _            // jump abs test_comparisons_17
+  44: 13 20 _ _            // jump rel test_comparisons_17
 test_comparisons_9:
   45: 19 29 1 0 35         // u32([fp + 35], [fp + 36]) = u32([fp + 29], [fp + 30]) U32Add u32(1, 0) /* imm = 0x00000001 */
   46: 19 35 0 0 33         // u32([fp + 33], [fp + 34]) = u32([fp + 35], [fp + 36]) + u32(0, 0)
 test_comparisons_10:
   47: 19 33 0 0 37         // u32([fp + 37], [fp + 38]) = u32([fp + 33], [fp + 34]) + u32(0, 0)
   48: 14 14 2 _            // if [fp + 14] != 0 jmp rel test_comparisons_11
-  49: 12 78 _ _            // jump abs test_comparisons_18
+  49: 13 13 _ _            // jump rel test_comparisons_18
 test_comparisons_11:
   50: 19 33 1 0 39         // u32([fp + 39], [fp + 40]) = u32([fp + 33], [fp + 34]) U32Add u32(1, 0) /* imm = 0x00000001 */
   51: 19 39 0 0 37         // u32([fp + 37], [fp + 38]) = u32([fp + 39], [fp + 40]) + u32(0, 0)
@@ -116,14 +116,14 @@ test_comparisons_12:
   53: 4 38 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 38] + 0
   54: 11 _ _ _             // return
 test_comparisons_13:
-  55: 12 30 _ _            // jump abs test_comparisons_2
+  55: 13 2147483604 _ _    // jump rel test_comparisons_2
 test_comparisons_14:
-  56: 12 38 _ _            // jump abs test_comparisons_4
+  56: 13 2147483611 _ _    // jump rel test_comparisons_4
 test_comparisons_15:
-  57: 12 46 _ _            // jump abs test_comparisons_6
+  57: 13 2147483618 _ _    // jump rel test_comparisons_6
 test_comparisons_16:
-  58: 12 54 _ _            // jump abs test_comparisons_8
+  58: 13 2147483625 _ _    // jump rel test_comparisons_8
 test_comparisons_17:
-  59: 12 62 _ _            // jump abs test_comparisons_10
+  59: 13 2147483632 _ _    // jump rel test_comparisons_10
 test_comparisons_18:
-  60: 12 70 _ _            // jump abs test_comparisons_12
+  60: 13 2147483639 _ _    // jump rel test_comparisons_12
