@@ -1,7 +1,7 @@
 use rustc_hash::FxHashMap;
 
 use super::{const_eval::ConstEvaluator, MirPass};
-use crate::{InstructionKind, Literal, MirFunction, Value, ValueId};
+use crate::{InstructionKind, Literal, MirFunction, Place, Projection, Value, ValueId};
 
 /// Lattice of constant propagation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -136,16 +136,18 @@ impl ConstantPropagation {
                 acc
             }
 
+            // Stores don't define values, but handle defensively
+            K::Store { .. } => return None,
+
             // Pure constructions without a literal representation in `Literal`
-            K::MakeTuple { .. }
+            K::Load { .. }
+            | K::MakeTuple { .. }
             | K::ExtractTupleElement { .. }
             | K::MakeStruct { .. }
             | K::ExtractStructField { .. }
             | K::InsertField { .. }
             | K::InsertTuple { .. }
             | K::MakeFixedArray { .. }
-            | K::ArrayIndex { .. }
-            | K::ArrayInsert { .. }
             | K::Cast { .. }
             | K::Call { .. }
             | K::Debug { .. }
@@ -165,92 +167,110 @@ impl ConstantPropagation {
         let mut modified = false;
 
         // Helper to replace a single value if it refers to a constant operand
-        let mut replace_value = |val: &mut Value| {
+        fn replace_value(
+            val: &mut Value,
+            state: &FxHashMap<ValueId, Lattice>,
+            modified: &mut bool,
+        ) {
             if let Value::Operand(id) = val {
                 if let Some(Lattice::Const(lit)) = state.get(id) {
                     *val = Value::Literal(*lit);
-                    modified = true;
+                    *modified = true;
                 }
             }
-        };
+        }
+
+        fn replace_place(
+            place: &mut Place,
+            state: &FxHashMap<ValueId, Lattice>,
+            modified: &mut bool,
+        ) {
+            for projection in &mut place.projections {
+                if let Projection::Index(value) = projection {
+                    replace_value(value, state, modified);
+                }
+            }
+        }
 
         for block in function.basic_blocks.iter_mut() {
+            // First pass: replace operands with constants when possible
             for instr in &mut block.instructions {
                 match &mut instr.kind {
-                    InstructionKind::Assign { source, .. } => replace_value(source),
-                    InstructionKind::UnaryOp { source, .. } => replace_value(source),
+                    InstructionKind::Assign { source, .. } => {
+                        replace_value(source, state, &mut modified)
+                    }
+                    InstructionKind::UnaryOp { source, .. } => {
+                        replace_value(source, state, &mut modified)
+                    }
                     InstructionKind::BinaryOp { left, right, .. } => {
-                        replace_value(left);
-                        replace_value(right);
+                        replace_value(left, state, &mut modified);
+                        replace_value(right, state, &mut modified);
                     }
                     InstructionKind::Call { args, .. } => {
                         for a in args {
-                            replace_value(a);
+                            replace_value(a, state, &mut modified);
                         }
                     }
-                    InstructionKind::Cast { source, .. } => replace_value(source),
+                    InstructionKind::Cast { source, .. } => {
+                        replace_value(source, state, &mut modified)
+                    }
+                    InstructionKind::Load { place, .. } => {
+                        replace_place(place, state, &mut modified)
+                    }
+                    InstructionKind::Store { place, value, .. } => {
+                        replace_place(place, state, &mut modified);
+                        replace_value(value, state, &mut modified);
+                    }
                     InstructionKind::Debug { values, .. } => {
                         for v in values {
-                            replace_value(v);
+                            replace_value(v, state, &mut modified);
                         }
                     }
                     InstructionKind::Phi { sources, .. } => {
                         for (_, v) in sources {
-                            replace_value(v);
+                            replace_value(v, state, &mut modified);
                         }
                     }
                     InstructionKind::MakeTuple { elements, .. } => {
                         for e in elements {
-                            replace_value(e);
+                            replace_value(e, state, &mut modified);
                         }
                     }
-                    InstructionKind::ExtractTupleElement { tuple, .. } => replace_value(tuple),
+                    InstructionKind::ExtractTupleElement { tuple, .. } => {
+                        replace_value(tuple, state, &mut modified)
+                    }
                     InstructionKind::MakeStruct { fields, .. } => {
                         for (_, v) in fields {
-                            replace_value(v);
+                            replace_value(v, state, &mut modified);
                         }
                     }
                     InstructionKind::ExtractStructField { struct_val, .. } => {
-                        replace_value(struct_val)
+                        replace_value(struct_val, state, &mut modified)
                     }
                     InstructionKind::InsertField {
                         struct_val,
                         new_value,
                         ..
                     } => {
-                        replace_value(struct_val);
-                        replace_value(new_value);
+                        replace_value(struct_val, state, &mut modified);
+                        replace_value(new_value, state, &mut modified);
                     }
                     InstructionKind::InsertTuple {
                         tuple_val,
                         new_value,
                         ..
                     } => {
-                        replace_value(tuple_val);
-                        replace_value(new_value);
+                        replace_value(tuple_val, state, &mut modified);
+                        replace_value(new_value, state, &mut modified);
                     }
                     InstructionKind::MakeFixedArray { elements, .. } => {
                         for e in elements {
-                            replace_value(e);
+                            replace_value(e, state, &mut modified);
                         }
                     }
-                    InstructionKind::ArrayIndex { array, index, .. } => {
-                        replace_value(array);
-                        replace_value(index);
-                    }
-                    InstructionKind::ArrayInsert {
-                        array_val,
-                        index,
-                        new_value,
-                        ..
-                    } => {
-                        replace_value(array_val);
-                        replace_value(index);
-                        replace_value(new_value);
-                    }
                     InstructionKind::AssertEq { left, right } => {
-                        replace_value(left);
-                        replace_value(right);
+                        replace_value(left, state, &mut modified);
+                        replace_value(right, state, &mut modified);
                     }
                     InstructionKind::Nop => {}
                 }
@@ -261,6 +281,8 @@ impl ConstantPropagation {
             // dedicated control-flow passes (e.g., SimplifyBranches) after
             // folding at instruction level, reducing chances of creating
             // dangling uses during aggressive propagation.
+
+            // No structural rewrites here; SROA is responsible for aggregate forwarding.
         }
 
         modified

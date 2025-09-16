@@ -33,7 +33,7 @@ module {
 
     0:
       %1 = makefixedarray [1, 2, 4]
-      %2 = arrayindex %1, %0
+      %2 = load %1[%0]
       return %2
 
   }

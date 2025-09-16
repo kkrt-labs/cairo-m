@@ -9,7 +9,7 @@ use cairo_m_common::program::{AbiSlot, AbiType, EntrypointInfo};
 use cairo_m_common::{Program, ProgramData, ProgramMetadata};
 use cairo_m_compiler_mir::{
     BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
-    MirModule, MirType, Terminator, Value, ValueId,
+    MirModule, MirType, Projection, Terminator, Value, ValueId,
 };
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -179,9 +179,9 @@ impl CodeGenerator {
             }
             MirType::U32 => {
                 for v in elements {
-                    let Lit::Integer(n) = v
-                        .as_literal()
-                        .ok_or_else(|| CodegenError::InvalidMir("Non-literal u32 element".into()))?
+                    let Lit::Integer(n) = v.as_literal().ok_or_else(|| {
+                        CodegenError::InvalidMir("Non-literal u32 element".into())
+                    })?
                     else {
                         return Err(CodegenError::InvalidMir(
                             "Non-integer element for u32 array".to_string(),
@@ -699,50 +699,445 @@ impl CodeGenerator {
                 builder.make_fixed_array(*dest, elements, element_ty)?;
             }
 
-            InstructionKind::ArrayIndex {
-                dest,
-                array,
-                index,
-                element_ty,
-            } => {
-                use crate::builder::ArrayOperation;
-                builder.array_operation(
-                    *array,
-                    *index,
-                    element_ty,
-                    ArrayOperation::Load { dest: *dest },
-                    function,
-                )?;
-            }
-
-            InstructionKind::ArrayInsert {
-                dest,
-                array_val,
-                index,
-                new_value,
-                array_ty,
-            } => {
-                // Use unified array operation for storing
-                use crate::builder::ArrayOperation;
-                // Extract element type from array type
-                let element_ty = match array_ty {
-                    MirType::FixedArray { element_type, .. } => element_type.as_ref(),
-                    _ => {
+            // New memory ops over places
+            InstructionKind::Load { dest, place, ty } => {
+                // Currently support base + optional Index projection
+                let base_offset = builder.layout.get_offset(place.base)?;
+                match place.projections.first() {
+                    Some(Projection::Index(idx)) => match idx {
+                        Value::Literal(Literal::Integer(i)) => {
+                            let elem_size = DataLayout::value_size_of(ty);
+                            let elem_off = (*i as i32) * (elem_size as i32);
+                            builder.load_from_memory_static(*dest, base_offset, elem_off, ty)?;
+                        }
+                        Value::Operand(idx_id) => {
+                            let idx_layout = builder
+                                .layout
+                                .value_layouts
+                                .get(idx_id)
+                                .cloned()
+                                .ok_or_else(|| {
+                                    CodegenError::InvalidMir("Missing layout for index".to_string())
+                                })?;
+                            let indexing_value_offset = match idx_layout {
+                                crate::layout::ValueLayout::Slot { offset } => offset,
+                                _ => {
+                                    return Err(CodegenError::InternalError(
+                                        "Invalid index value layout".to_string(),
+                                    ))
+                                }
+                            };
+                            // Enforce felt index when available in function types
+                            if let Some(idx_ty) = function.value_types.get(idx_id) {
+                                if !matches!(idx_ty, MirType::Felt) {
+                                    return Err(CodegenError::InvalidMir(format!(
+                                        "Array index must be a felt; got {:?}",
+                                        idx_ty
+                                    )));
+                                }
+                            }
+                            builder.load_from_memory_dynamic(
+                                *dest,
+                                base_offset,
+                                indexing_value_offset,
+                                ty,
+                            )?;
+                        }
+                        _ => {
+                            return Err(CodegenError::InvalidMir(
+                                "Invalid index value for load".to_string(),
+                            ))
+                        }
+                    },
+                    Some(Projection::Field(_)) | Some(Projection::Tuple(_)) => {
                         return Err(CodegenError::InvalidMir(
-                            "ArrayInsert requires array type".to_string(),
+                            "Unsupported non-index projection for load".to_string(),
                         ))
                     }
-                };
-                builder.array_operation(
-                    *array_val,
-                    *index,
-                    element_ty,
-                    ArrayOperation::Store {
-                        dest: *dest,
-                        value: *new_value,
+                    None => {
+                        // No projection -> element 0
+                        builder.load_from_memory_static(*dest, base_offset, 0, ty)?;
+                    }
+                }
+            }
+
+            InstructionKind::Store { place, value, ty } => {
+                let base_offset = builder.layout.get_offset(place.base)?;
+                let elem_size = DataLayout::value_size_of(ty);
+
+                match place.projections.first() {
+                    Some(Projection::Index(idx)) => match idx {
+                        Value::Literal(Literal::Integer(i)) => {
+                            let elem_off = (*i as i32) * (elem_size as i32);
+                            match value {
+                                Value::Operand(src_id) => {
+                                    let src_off = builder.layout.get_offset(*src_id)?;
+                                    for s in 0..elem_size {
+                                        builder.store_to_double_deref_fp_imm(
+                                            src_off + s as i32,
+                                            base_offset,
+                                            elem_off + s as i32,
+                                            format!(
+                                                "[[fp + {}] + {}] = [fp + {}] (slot {})",
+                                                base_offset,
+                                                elem_off + s as i32,
+                                                src_off + s as i32,
+                                                s
+                                            ),
+                                        );
+                                    }
+                                }
+                                Value::Literal(Literal::Integer(v)) => {
+                                    if elem_size == 1 {
+                                        let tmp = builder.layout.reserve_stack(1);
+                                        builder.store_immediate(
+                                            *v,
+                                            tmp,
+                                            format!("[fp + {}] = {}", tmp, *v),
+                                        );
+                                        builder.store_to_double_deref_fp_imm(
+                                            tmp,
+                                            base_offset,
+                                            elem_off,
+                                            format!(
+                                                "[[fp + {}] + {}] = [fp + {}]",
+                                                base_offset, elem_off, tmp
+                                            ),
+                                        );
+                                    } else if matches!(ty, MirType::U32) && elem_size == 2 {
+                                        let tmp = builder.layout.reserve_stack(2);
+                                        builder.store_u32_immediate(
+                                            *v,
+                                            tmp,
+                                            format!(
+                                                "[fp + {}], [fp + {}] = u32({v})",
+                                                tmp,
+                                                tmp + 1
+                                            ),
+                                        );
+                                        for s in 0..2 {
+                                            builder.store_to_double_deref_fp_imm(
+                                                tmp + s,
+                                                base_offset,
+                                                elem_off + s,
+                                                format!(
+                                                    "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
+                                                    base_offset,
+                                                    elem_off + s,
+                                                    tmp + s,
+                                                    s
+                                                ),
+                                            );
+                                        }
+                                    } else {
+                                        return Err(CodegenError::UnsupportedInstruction(
+                                            "Storing immediate into multi-slot element is unsupported"
+                                                .to_string(),
+                                        ));
+                                    }
+                                }
+                                Value::Literal(Literal::Boolean(b)) => {
+                                    if elem_size != 1 {
+                                        return Err(CodegenError::InvalidMir(
+                                            "Boolean literal store into multi-slot element"
+                                                .to_string(),
+                                        ));
+                                    }
+                                    let val = if *b { 1 } else { 0 };
+                                    let tmp = builder.layout.reserve_stack(1);
+                                    builder.store_immediate(
+                                        val,
+                                        tmp,
+                                        format!("[fp + {}] = {}", tmp, val),
+                                    );
+                                    builder.store_to_double_deref_fp_imm(
+                                        tmp,
+                                        base_offset,
+                                        elem_off,
+                                        format!(
+                                            "[[fp + {}] + {}] = [fp + {}]",
+                                            base_offset, elem_off, tmp
+                                        ),
+                                    );
+                                }
+                                _ => {
+                                    return Err(CodegenError::InvalidMir(
+                                        "Invalid value for array store".to_string(),
+                                    ))
+                                }
+                            }
+                        }
+                        Value::Operand(idx_id) => {
+                            // dynamic index
+                            let idx_layout = builder
+                                .layout
+                                .value_layouts
+                                .get(idx_id)
+                                .cloned()
+                                .ok_or_else(|| {
+                                    CodegenError::InvalidMir("Missing layout for index".to_string())
+                                })?;
+                            let indexing_value_offset = match idx_layout {
+                                crate::layout::ValueLayout::Slot { offset } => offset,
+                                _ => {
+                                    return Err(CodegenError::InternalError(
+                                        "Invalid index value layout".to_string(),
+                                    ))
+                                }
+                            };
+                            if let Some(idx_ty) = function.value_types.get(idx_id) {
+                                if !matches!(idx_ty, MirType::Felt) {
+                                    return Err(CodegenError::InvalidMir(format!(
+                                        "Array index must be a felt; got {:?}",
+                                        idx_ty
+                                    )));
+                                }
+                            }
+
+                            match value {
+                                Value::Operand(src_id) => {
+                                    let src_off = builder.layout.get_offset(*src_id)?;
+                                    if elem_size == 1 {
+                                        builder.store_to_double_deref_fp_fp(
+                                            base_offset,
+                                            indexing_value_offset,
+                                            src_off,
+                                            format!(
+                                                "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                                                base_offset, indexing_value_offset, src_off
+                                            ),
+                                        );
+                                    } else {
+                                        for s in 0..elem_size {
+                                            let off_slot = if s == 0 {
+                                                indexing_value_offset
+                                            } else {
+                                                let adjusted = builder.layout.reserve_stack(1);
+                                                builder.felt_add_fp_imm(
+                                                    indexing_value_offset,
+                                                    s as i32,
+                                                    adjusted,
+                                                    format!(
+                                                        "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
+                                                        adjusted, indexing_value_offset, s, s
+                                                    ),
+                                                );
+                                                adjusted
+                                            };
+                                            builder.store_to_double_deref_fp_fp(
+                                                base_offset,
+                                                off_slot,
+                                                src_off + s as i32,
+                                                format!(
+                                                    "[[fp + {}] + [fp + {}]] = [fp + {}] (slot {})",
+                                                    base_offset,
+                                                    off_slot,
+                                                    src_off + s as i32,
+                                                    s
+                                                ),
+                                            );
+                                        }
+                                    }
+                                }
+                                Value::Literal(Literal::Integer(v)) => {
+                                    if elem_size == 1 {
+                                        let tmp = builder.layout.reserve_stack(1);
+                                        builder.store_immediate(
+                                            *v,
+                                            tmp,
+                                            format!("[fp + {}] = {}", tmp, *v),
+                                        );
+                                        builder.store_to_double_deref_fp_fp(
+                                            base_offset,
+                                            indexing_value_offset,
+                                            tmp,
+                                            format!(
+                                                "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                                                base_offset, indexing_value_offset, tmp
+                                            ),
+                                        );
+                                    } else if matches!(ty, MirType::U32) && elem_size == 2 {
+                                        let tmp = builder.layout.reserve_stack(2);
+                                        builder.store_u32_immediate(
+                                            *v,
+                                            tmp,
+                                            format!(
+                                                "[fp + {}], [fp + {}] = u32({v})",
+                                                tmp,
+                                                tmp + 1
+                                            ),
+                                        );
+                                        for s in 0..2 {
+                                            let off_slot = if s == 0 {
+                                                indexing_value_offset
+                                            } else {
+                                                let adjusted = builder.layout.reserve_stack(1);
+                                                builder.felt_add_fp_imm(
+                                                    indexing_value_offset,
+                                                    s,
+                                                    adjusted,
+                                                    format!(
+                                                        "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
+                                                        adjusted, indexing_value_offset, s, s
+                                                    ),
+                                                );
+                                                adjusted
+                                            };
+                                            builder.store_to_double_deref_fp_fp(
+                                                base_offset,
+                                                off_slot,
+                                                tmp + s,
+                                                format!(
+                                                    "[[fp + {}] + [fp + {}]] = [fp + {}] (u32 slot {})",
+                                                    base_offset,
+                                                    off_slot,
+                                                    tmp + s,
+                                                    s
+                                                ),
+                                            );
+                                        }
+                                    } else {
+                                        return Err(CodegenError::UnsupportedInstruction(
+                                            "Storing immediate into multi-slot element is unsupported"
+                                                .to_string(),
+                                        ));
+                                    }
+                                }
+                                Value::Literal(Literal::Boolean(b)) => {
+                                    if elem_size != 1 {
+                                        return Err(CodegenError::InvalidMir(
+                                            "Boolean literal store into multi-slot element"
+                                                .to_string(),
+                                        ));
+                                    }
+                                    let val = if *b { 1 } else { 0 };
+                                    let tmp = builder.layout.reserve_stack(1);
+                                    builder.store_immediate(
+                                        val,
+                                        tmp,
+                                        format!("[fp + {}] = {}", tmp, val),
+                                    );
+                                    builder.store_to_double_deref_fp_fp(
+                                        base_offset,
+                                        indexing_value_offset,
+                                        tmp,
+                                        format!(
+                                            "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                                            base_offset, indexing_value_offset, tmp
+                                        ),
+                                    );
+                                }
+                                _ => {
+                                    return Err(CodegenError::InvalidMir(
+                                        "Invalid value for array store".to_string(),
+                                    ))
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(CodegenError::InvalidMir(
+                                "Invalid index value for store".to_string(),
+                            ))
+                        }
                     },
-                    function,
-                )?;
+                    Some(Projection::Field(_)) | Some(Projection::Tuple(_)) => {
+                        return Err(CodegenError::InvalidMir(
+                            "Unsupported non-index projection for store".to_string(),
+                        ))
+                    }
+                    None => {
+                        // Treat as element 0
+                        match value {
+                            Value::Operand(src_id) => {
+                                let src_off = builder.layout.get_offset(*src_id)?;
+                                for s in 0..elem_size {
+                                    builder.store_to_double_deref_fp_imm(
+                                        src_off + s as i32,
+                                        base_offset,
+                                        s as i32,
+                                        format!(
+                                            "[[fp + {}] + {}] = [fp + {}] (slot {})",
+                                            base_offset,
+                                            (s as i32),
+                                            src_off + s as i32,
+                                            s
+                                        ),
+                                    );
+                                }
+                            }
+                            Value::Literal(Literal::Integer(v)) => {
+                                if elem_size == 1 {
+                                    let tmp = builder.layout.reserve_stack(1);
+                                    builder.store_immediate(
+                                        *v,
+                                        tmp,
+                                        format!("[fp + {}] = {}", tmp, *v),
+                                    );
+                                    builder.store_to_double_deref_fp_imm(
+                                        tmp,
+                                        base_offset,
+                                        0,
+                                        format!(
+                                            "[[fp + {}] + {}] = [fp + {}]",
+                                            base_offset, 0, tmp
+                                        ),
+                                    );
+                                } else if matches!(ty, MirType::U32) && elem_size == 2 {
+                                    let tmp = builder.layout.reserve_stack(2);
+                                    builder.store_u32_immediate(
+                                        *v,
+                                        tmp,
+                                        format!("[fp + {}], [fp + {}] = u32({v})", tmp, tmp + 1),
+                                    );
+                                    for s in 0..2 {
+                                        builder.store_to_double_deref_fp_imm(
+                                            tmp + s,
+                                            base_offset,
+                                            s,
+                                            format!(
+                                                "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
+                                                base_offset,
+                                                s,
+                                                tmp + s,
+                                                s
+                                            ),
+                                        );
+                                    }
+                                } else {
+                                    return Err(CodegenError::UnsupportedInstruction(
+                                        "Storing immediate into multi-slot element is unsupported"
+                                            .to_string(),
+                                    ));
+                                }
+                            }
+                            Value::Literal(Literal::Boolean(b)) => {
+                                if elem_size != 1 {
+                                    return Err(CodegenError::InvalidMir(
+                                        "Boolean literal store into multi-slot element".to_string(),
+                                    ));
+                                }
+                                let val = if *b { 1 } else { 0 };
+                                let tmp = builder.layout.reserve_stack(1);
+                                builder.store_immediate(
+                                    val,
+                                    tmp,
+                                    format!("[fp + {}] = {}", tmp, val),
+                                );
+                                builder.store_to_double_deref_fp_imm(
+                                    tmp,
+                                    base_offset,
+                                    0,
+                                    format!("[[fp + {}] + {}] = [fp + {}]", base_offset, 0, tmp),
+                                );
+                            }
+                            _ => {
+                                return Err(CodegenError::InvalidMir(
+                                    "Invalid value for array store".to_string(),
+                                ))
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1048,8 +1443,8 @@ impl CodeGenerator {
         for (logical_pc, instruction) in self.instructions.iter_mut().enumerate() {
             // Only process instructions that carry a label placeholder
             let Some(label_name) = instruction.label.clone() else {
-                    continue;
-                };
+                continue;
+            };
 
             let physical_pc = self.memory_layout.get(logical_pc).copied().ok_or_else(|| {
                 CodegenError::UnresolvedLabel(format!("Invalid PC {} for instruction", logical_pc))
@@ -1304,7 +1699,9 @@ mod tests_asserts {
 #[cfg(test)]
 mod tests_rodata {
     use super::*;
-    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, MirType, Terminator, Value};
+    use cairo_m_compiler_mir::{
+        BasicBlock, MirFunction, MirModule, MirType, Place, Terminator, Value,
+    };
     use stwo_prover::core::fields::m31::M31;
     use stwo_prover::core::fields::qm31::QM31;
 
@@ -1337,14 +1734,14 @@ mod tests_rodata {
             comment: None,
         });
 
-        // Dynamic index: dest is u32
+        // Dynamic index load into u32
         let res_id = f.new_typed_value_id(MirType::U32);
+        let place = Place::new(arr_id).with_index(Value::operand(i_id));
         block.push_instruction(cairo_m_compiler_mir::Instruction {
-            kind: cairo_m_compiler_mir::InstructionKind::ArrayIndex {
+            kind: cairo_m_compiler_mir::InstructionKind::Load {
                 dest: res_id,
-                array: Value::operand(arr_id),
-                index: Value::operand(i_id),
-                element_ty: MirType::U32,
+                place,
+                ty: MirType::U32,
             },
             source_span: None,
             source_expr_id: None,
@@ -1463,10 +1860,10 @@ mod tests_rodata {
         let d2 = f.new_typed_value_id(MirType::U32);
         let d3 = f.new_typed_value_id(MirType::U32);
         for (arr, dest) in [arr1, arr2, arr3].iter().copied().zip([d1, d2, d3]) {
-            block.push_instruction(cairo_m_compiler_mir::Instruction::array_index(
+            let place = Place::new(arr).with_index(Value::operand(i_id));
+            block.push_instruction(cairo_m_compiler_mir::Instruction::load(
                 dest,
-                Value::operand(arr),
-                Value::operand(i_id),
+                place,
                 MirType::U32,
             ));
         }
@@ -1505,15 +1902,11 @@ mod tests_rodata {
         let mut cblock = BasicBlock::new();
         // store arr[idx] = 0
         let zero_u32 = Value::integer(0);
-        cblock.push_instruction(cairo_m_compiler_mir::Instruction::array_insert(
-            arr_param,
-            Value::operand(arr_param),
-            Value::operand(idx_param),
+        let store_place = Place::new(arr_param).with_index(Value::operand(idx_param));
+        cblock.push_instruction(cairo_m_compiler_mir::Instruction::store(
+            store_place,
             zero_u32,
-            MirType::FixedArray {
-                element_type: Box::new(MirType::U32),
-                size: 3,
-            },
+            MirType::U32,
         ));
         // return 0u32
         let ret0 = callee.new_typed_value_id(MirType::U32);
@@ -1582,6 +1975,7 @@ fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
         MirType::Felt => AbiType::Felt,
         MirType::Bool => AbiType::Bool,
         MirType::U32 => AbiType::U32,
+        MirType::Pointer { .. } => AbiType::Felt,
         MirType::Tuple(types) => {
             let elems: Vec<AbiType> = types
                 .iter()

@@ -49,6 +49,7 @@ impl DataLayout {
                 // Fixed-size arrays have compile-time known size
                 Self::value_size_of(element_type) * size
             }
+            MirType::Pointer { .. } => 1, // Pointers are single-slot addresses
             MirType::Function { .. } => 1, // Function pointers
             MirType::Unit => 0,
             MirType::Error | MirType::Unknown => 1, // Safe default
@@ -68,6 +69,7 @@ impl DataLayout {
                 fields.iter().map(|(_, t)| Self::memory_size_of(t)).sum()
             }
             MirType::FixedArray { .. } => 1, // passed by pointer
+            MirType::Pointer { .. } => 1,
             MirType::Unit => 0,
             MirType::Function { .. } => 1, // Function pointers
             MirType::Error | MirType::Unknown => 1, // Safe default
@@ -144,6 +146,43 @@ impl DataLayout {
             _ => false,
         }
     }
+
+    /// For pointer-like types, report the value size of their elements if known
+    ///
+    /// This is useful during lowering/codegen to compute how many felt slots a
+    /// pointee occupies without unwrapping the type manually in every caller.
+    pub fn pointee_value_size_of(ty: &MirType) -> Option<usize> {
+        match ty {
+            MirType::Pointer { element } => Some(Self::value_size_of(element)),
+            MirType::FixedArray { element_type, .. } => Some(Self::value_size_of(element_type)),
+            MirType::Struct { .. }
+            | MirType::Tuple(_)
+            | MirType::Felt
+            | MirType::Bool
+            | MirType::U32
+            | MirType::Function { .. }
+            | MirType::Unit
+            | MirType::Error
+            | MirType::Unknown => None,
+        }
+    }
+
+    /// For pointer-like types, report the memory size of their elements if known
+    pub fn pointee_memory_size_of(ty: &MirType) -> Option<usize> {
+        match ty {
+            MirType::Pointer { element } => Some(Self::memory_size_of(element)),
+            MirType::FixedArray { element_type, .. } => Some(Self::memory_size_of(element_type)),
+            MirType::Struct { .. }
+            | MirType::Tuple(_)
+            | MirType::Felt
+            | MirType::Bool
+            | MirType::U32
+            | MirType::Function { .. }
+            | MirType::Unit
+            | MirType::Error
+            | MirType::Unknown => None,
+        }
+    }
     /// Get detailed layout information for a type
     ///
     /// Returns a more detailed breakdown that could be useful for
@@ -180,6 +219,11 @@ mod tests {
         assert_eq!(DataLayout::value_size_of(&MirType::Bool), 1);
         assert_eq!(DataLayout::value_size_of(&MirType::U32), 2);
         assert_eq!(DataLayout::value_size_of(&MirType::Unit), 0);
+
+        let ptr = MirType::pointer(MirType::felt());
+        assert_eq!(DataLayout::value_size_of(&ptr), 1);
+        assert_eq!(DataLayout::memory_size_of(&ptr), 1);
+        assert_eq!(DataLayout::pointee_value_size_of(&ptr), Some(1));
     }
 
     #[test]

@@ -478,8 +478,279 @@ impl super::CasmBuilder {
         Ok(())
     }
 
+    /// Store an element into an array in-place (no new array value)
+    pub(crate) fn store_element_in_place(
+        &mut self,
+        array: Value,
+        index: Value,
+        element_ty: &MirType,
+        value: Value,
+        function: &cairo_m_compiler_mir::MirFunction,
+    ) -> CodegenResult<()> {
+        // Get array base pointer (arrays are always stored as pointers)
+        let array_offset = match array {
+            Value::Operand(id) => self.layout.get_offset(id)?,
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Array must be an operand (pointer)".to_string(),
+                ))
+            }
+        };
+
+        let element_size = DataLayout::value_size_of(element_ty);
+
+        match index {
+            Value::Literal(Literal::Integer(idx)) => {
+                // Static index path: reuse store_to_double_deref_fp_imm helpers
+                let elem_off = (idx as i32) * (element_size as i32);
+                match value {
+                    Value::Operand(src_id) => {
+                        let src_off = self.layout.get_offset(src_id)?;
+                        for s in 0..element_size {
+                            self.store_to_double_deref_fp_imm(
+                                src_off + s as i32,
+                                array_offset,
+                                elem_off + s as i32,
+                                format!(
+                                    "[[fp + {}] + {}] = [fp + {}] (slot {})",
+                                    array_offset,
+                                    elem_off + s as i32,
+                                    src_off + s as i32,
+                                    s
+                                ),
+                            );
+                        }
+                    }
+                    Value::Literal(Literal::Integer(v)) => {
+                        if element_size == 1 {
+                            let tmp = self.layout.reserve_stack(1);
+                            self.store_immediate(v, tmp, format!("[fp + {}] = {}", tmp, v));
+                            self.store_to_double_deref_fp_imm(
+                                tmp,
+                                array_offset,
+                                elem_off,
+                                format!(
+                                    "[[fp + {}] + {}] = [fp + {}]",
+                                    array_offset, elem_off, tmp
+                                ),
+                            );
+                        } else if matches!(element_ty, MirType::U32) && element_size == 2 {
+                            let tmp = self.layout.reserve_stack(2);
+                            self.store_u32_immediate(
+                                v,
+                                tmp,
+                                format!("[fp + {}], [fp + {}] = u32({v})", tmp, tmp + 1),
+                            );
+                            for s in 0..2 {
+                                self.store_to_double_deref_fp_imm(
+                                    tmp + s,
+                                    array_offset,
+                                    elem_off + s,
+                                    format!(
+                                        "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
+                                        array_offset,
+                                        elem_off + s,
+                                        tmp + s,
+                                        s
+                                    ),
+                                );
+                            }
+                        } else {
+                            return Err(CodegenError::UnsupportedInstruction(
+                                "Storing immediate into multi-slot element is unsupported"
+                                    .to_string(),
+                            ));
+                        }
+                    }
+                    Value::Literal(Literal::Boolean(b)) => {
+                        if element_size != 1 {
+                            return Err(CodegenError::InvalidMir(
+                                "Boolean literal store into multi-slot element".to_string(),
+                            ));
+                        }
+                        let val = if b { 1 } else { 0 };
+                        let tmp = self.layout.reserve_stack(1);
+                        self.store_immediate(val, tmp, format!("[fp + {}] = {}", tmp, val));
+                        self.store_to_double_deref_fp_imm(
+                            tmp,
+                            array_offset,
+                            elem_off,
+                            format!("[[fp + {}] + {}] = [fp + {}]", array_offset, elem_off, tmp),
+                        );
+                    }
+                    _ => {
+                        return Err(CodegenError::InvalidMir(
+                            "Invalid value for array store".to_string(),
+                        ))
+                    }
+                }
+            }
+            Value::Operand(idx_id) => {
+                // Dynamic index path
+                let idx_layout =
+                    self.layout
+                        .value_layouts
+                        .get(&idx_id)
+                        .cloned()
+                        .ok_or_else(|| {
+                            CodegenError::InvalidMir("Missing layout for index".to_string())
+                        })?;
+                let indexing_value_offset = match idx_layout {
+                    ValueLayout::Slot { offset } => offset,
+                    _ => {
+                        return Err(CodegenError::InternalError(
+                            "Invalid index value layout".to_string(),
+                        ))
+                    }
+                };
+                if let Some(idx_ty) = function.value_types.get(&idx_id) {
+                    if !matches!(idx_ty, MirType::Felt) {
+                        return Err(CodegenError::InvalidMir(format!(
+                            "Array index must be a felt; got {:?}",
+                            idx_ty
+                        )));
+                    }
+                }
+
+                match value {
+                    Value::Operand(src_id) => {
+                        let src_off = self.layout.get_offset(src_id)?;
+                        if element_size == 1 {
+                            self.store_to_double_deref_fp_fp(
+                                array_offset,
+                                indexing_value_offset,
+                                src_off,
+                                format!(
+                                    "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                                    array_offset, indexing_value_offset, src_off
+                                ),
+                            );
+                        } else {
+                            for s in 0..element_size {
+                                let off_slot = if s == 0 {
+                                    indexing_value_offset
+                                } else {
+                                    let adjusted = self.layout.reserve_stack(1);
+                                    self.felt_add_fp_imm(
+                                        indexing_value_offset,
+                                        s as i32,
+                                        adjusted,
+                                        format!(
+                                            "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
+                                            adjusted, indexing_value_offset, s, s
+                                        ),
+                                    );
+                                    adjusted
+                                };
+                                self.store_to_double_deref_fp_fp(
+                                    array_offset,
+                                    off_slot,
+                                    src_off + s as i32,
+                                    format!(
+                                        "[[fp + {}] + [fp + {}]] = [fp + {}] (slot {})",
+                                        array_offset,
+                                        off_slot,
+                                        src_off + s as i32,
+                                        s
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    Value::Literal(Literal::Integer(v)) => {
+                        if element_size == 1 {
+                            let tmp = self.layout.reserve_stack(1);
+                            self.store_immediate(v, tmp, format!("[fp + {}] = {}", tmp, v));
+                            self.store_to_double_deref_fp_fp(
+                                array_offset,
+                                indexing_value_offset,
+                                tmp,
+                                format!(
+                                    "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                                    array_offset, indexing_value_offset, tmp
+                                ),
+                            );
+                        } else if matches!(element_ty, MirType::U32) && element_size == 2 {
+                            let tmp = self.layout.reserve_stack(2);
+                            self.store_u32_immediate(
+                                v,
+                                tmp,
+                                format!("[fp + {}], [fp + {}] = u32({v})", tmp, tmp + 1),
+                            );
+                            for s in 0..2 {
+                                let off_slot = if s == 0 {
+                                    indexing_value_offset
+                                } else {
+                                    let adjusted = self.layout.reserve_stack(1);
+                                    self.felt_add_fp_imm(
+                                        indexing_value_offset,
+                                        s,
+                                        adjusted,
+                                        format!(
+                                            "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
+                                            adjusted, indexing_value_offset, s, s
+                                        ),
+                                    );
+                                    adjusted
+                                };
+                                self.store_to_double_deref_fp_fp(
+                                    array_offset,
+                                    off_slot,
+                                    tmp + s,
+                                    format!(
+                                        "[[fp + {}] + [fp + {}]] = [fp + {}] (u32 slot {})",
+                                        array_offset,
+                                        off_slot,
+                                        tmp + s,
+                                        s
+                                    ),
+                                );
+                            }
+                        } else {
+                            return Err(CodegenError::UnsupportedInstruction(
+                                "Storing immediate into multi-slot element is unsupported"
+                                    .to_string(),
+                            ));
+                        }
+                    }
+                    Value::Literal(Literal::Boolean(b)) => {
+                        if element_size != 1 {
+                            return Err(CodegenError::InvalidMir(
+                                "Boolean literal store into multi-slot element".to_string(),
+                            ));
+                        }
+                        let val = if b { 1 } else { 0 };
+                        let tmp = self.layout.reserve_stack(1);
+                        self.store_immediate(val, tmp, format!("[fp + {}] = {}", tmp, val));
+                        self.store_to_double_deref_fp_fp(
+                            array_offset,
+                            indexing_value_offset,
+                            tmp,
+                            format!(
+                                "[[fp + {}] + [fp + {}]] = [fp + {}]",
+                                array_offset, indexing_value_offset, tmp
+                            ),
+                        );
+                    }
+                    _ => {
+                        return Err(CodegenError::InvalidMir(
+                            "Invalid value for array store".to_string(),
+                        ))
+                    }
+                }
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Array index must be literal or operand".to_string(),
+                ))
+            }
+        }
+
+        Ok(())
+    }
+
     /// Helper for static loads - arrays store pointers so we load from computed address
-    fn load_from_memory_static(
+    pub(crate) fn load_from_memory_static(
         &mut self,
         dest: ValueId,
         base_offset: i32,
@@ -522,7 +793,7 @@ impl super::CasmBuilder {
     }
 
     /// Helper for dynamic loads - use STORE_DOUBLE_DEREF_FP_FP to load from memory
-    fn load_from_memory_dynamic(
+    pub(crate) fn load_from_memory_dynamic(
         &mut self,
         dest: ValueId,
         base_offset: i32,

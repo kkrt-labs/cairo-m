@@ -32,11 +32,11 @@
 //!
 //! - A `FixedArray` is treated like a tuple for SROA only if all array indices
 //!   involved are compile-time constants for the array and its SSA family.
-//!   - No `ArrayIndex`/`ArrayInsert` with non-constant `index` in the family
+//!   - No `Load`/`Store` on the array with non-constant index projections in the family
 //!
 //! If any non-constant indexing exists in the SSA family (the original array and all
-//! values derived from it via `Assign` and `ArrayInsert`), the array is not scalarized.
-//! Fixed-index `ArrayIndex`/`ArrayInsert` remain eligible for forwarding like tuples.
+//! values derived from it via `Assign` and in-place `Store` updates), the array is not
+//! scalarized. Fixed-index `Load`/`Store` remain eligible for forwarding like tuples.
 //!
 //! ### Implementation Strategy
 //!
@@ -49,10 +49,10 @@
 //!      - If scalarizable: capture field values in `AggState`, drop instruction
 //!      - If not: keep instruction unchanged
 //!
-//!    - **ExtractField/ExtractTuple/ArrayIndex (const)**: Replace with direct field access
+//!    - **ExtractField/ExtractTuple/Load (const)**: Replace with direct field access
 //!      - Rewrite to simple assignment of the tracked scalar value
 //!
-//!    - **InsertField/InsertTuple/ArrayInsert (const)**: Forward partial updates
+//!    - **InsertField/InsertTuple/Store (const)**: Forward partial updates
 //!      - Create new `AggState` with updated field/element
 //!
 //!    - **Assign**: Propagate aggregate states between values
@@ -84,7 +84,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     instruction::InstructionKind, value::Value, BasicBlockId, Instruction, MirFunction, MirType,
-    ValueId,
+    Projection, ValueId,
 };
 
 use super::MirPass;
@@ -209,13 +209,11 @@ impl ScalarReplacementOfAggregates {
         visited.insert(*dest);
 
         // Find the MakeStruct/MakeTuple/MakeFixedArray instruction for this dest
-        let Some(make_inst) = instructions.iter().find(|inst| {
-            match &inst.kind {
-                InstructionKind::MakeStruct { dest: d, .. } => d == dest,
-                InstructionKind::MakeTuple { dest: d, .. } => d == dest,
-                InstructionKind::MakeFixedArray { dest: d, .. } => d == dest,
-                _ => false,
-            }
+        let Some(make_inst) = instructions.iter().find(|inst| match &inst.kind {
+            InstructionKind::MakeStruct { dest: d, .. } => d == dest,
+            InstructionKind::MakeTuple { dest: d, .. } => d == dest,
+            InstructionKind::MakeFixedArray { dest: d, .. } => d == dest,
+            _ => false,
         }) else {
             return false;
         };
@@ -236,7 +234,9 @@ impl ScalarReplacementOfAggregates {
                 }
 
                 // Condition 3: Can create AggState
-                let Some(MirType::Struct { fields: ty_fields, .. }) = function
+                let Some(MirType::Struct {
+                    fields: ty_fields, ..
+                }) = function
                     .get_value_type(*dest)
                     .or(Some(struct_ty))
                     .filter(|t| matches!(t, MirType::Struct { .. }))
@@ -386,24 +386,16 @@ impl ScalarReplacementOfAggregates {
                         }
                     }
                 }
-                // Check if used in array indexing with non-constant index - cannot scalarize
-                InstructionKind::ArrayIndex { array, index, .. } => {
-                    if array.is_operand()
-                        && array.as_operand() == Some(*dest)
-                        && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
-                    {
-                        return false;
-                    }
-                }
-                // Check if used in array insert with non-constant index - cannot scalarize
-                InstructionKind::ArrayInsert {
-                    array_val, index, ..
-                } => {
-                    if array_val.is_operand()
-                        && array_val.as_operand() == Some(*dest)
-                        && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
-                    {
-                        return false;
+                // Check if used in load/store with non-constant index - cannot scalarize
+                InstructionKind::Load { place, .. } | InstructionKind::Store { place, .. } => {
+                    if place.base == *dest {
+                        if let Some(crate::Projection::Index(v)) = place.projections.first() {
+                            if !matches!(v, crate::Value::Literal(crate::Literal::Integer(_))) {
+                                return false;
+                            }
+                        } else if !place.projections.is_empty() {
+                            return false;
+                        }
                     }
                 }
                 _ => {}
@@ -454,16 +446,6 @@ impl ScalarReplacementOfAggregates {
                         }
                     }
                     // Insert operations create new family members
-                    InstructionKind::ArrayInsert {
-                        dest,
-                        array_val: Value::Operand(src_id),
-                        ..
-                    } => {
-                        if family.contains(src_id) && !family.contains(dest) {
-                            family.insert(*dest);
-                            changed = true;
-                        }
-                    }
                     InstructionKind::InsertTuple {
                         dest,
                         tuple_val: Value::Operand(src_id),
@@ -504,26 +486,22 @@ impl ScalarReplacementOfAggregates {
         // Check for non-constant indexing on any member of the family
         for inst in instructions {
             match &inst.kind {
-                InstructionKind::ArrayIndex {
-                    array: Value::Operand(id),
-                    index,
-                    ..
-                } => {
-                    if family.contains(id)
-                        && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
-                    {
-                        return true;
+                InstructionKind::Load { place, .. } => {
+                    if family.contains(&place.base) {
+                        if let Some(crate::Projection::Index(v)) = place.projections.first() {
+                            if !matches!(v, crate::Value::Literal(crate::Literal::Integer(_))) {
+                                return true;
+                            }
+                        }
                     }
                 }
-                InstructionKind::ArrayInsert {
-                    array_val: Value::Operand(id),
-                    index,
-                    ..
-                } => {
-                    if family.contains(id)
-                        && !matches!(index, Value::Literal(crate::value::Literal::Integer(_)))
-                    {
-                        return true;
+                InstructionKind::Store { place, .. } => {
+                    if family.contains(&place.base) {
+                        if let Some(crate::Projection::Index(v)) = place.projections.first() {
+                            if !matches!(v, crate::Value::Literal(crate::Literal::Integer(_))) {
+                                return true;
+                            }
+                        }
                     }
                 }
                 _ => {}
@@ -637,6 +615,14 @@ impl ScalarReplacementOfAggregates {
                     }
                 }
             }
+            InstructionKind::Load { place, .. } => {
+                callback(place.base);
+                for projection in &place.projections {
+                    if let Projection::Index(Value::Operand(id)) = projection {
+                        callback(*id);
+                    }
+                }
+            }
             InstructionKind::ExtractTupleElement { tuple, .. } => {
                 if let Value::Operand(id) = tuple {
                     callback(*id);
@@ -707,27 +693,14 @@ impl ScalarReplacementOfAggregates {
                     }
                 }
             }
-            InstructionKind::ArrayIndex { array, index, .. } => {
-                if let Value::Operand(id) = array {
-                    callback(*id);
+            InstructionKind::Store { place, value, .. } => {
+                callback(place.base);
+                for projection in &place.projections {
+                    if let Projection::Index(Value::Operand(id)) = projection {
+                        callback(*id);
+                    }
                 }
-                if let Value::Operand(id) = index {
-                    callback(*id);
-                }
-            }
-            InstructionKind::ArrayInsert {
-                array_val,
-                index,
-                new_value,
-                ..
-            } => {
-                if let Value::Operand(id) = array_val {
-                    callback(*id);
-                }
-                if let Value::Operand(id) = index {
-                    callback(*id);
-                }
-                if let Value::Operand(id) = new_value {
+                if let Value::Operand(id) = value {
                     callback(*id);
                 }
             }
@@ -932,7 +905,8 @@ impl MirPass for ScalarReplacementOfAggregates {
                     InstructionKind::MakeFixedArray { dest, elements, .. }
                         if self.config.enable_tuples =>
                     {
-                        let Some(ty @ MirType::FixedArray { .. }) = function.get_value_type(*dest) else {
+                        let Some(ty @ MirType::FixedArray { .. }) = function.get_value_type(*dest)
+                        else {
                             new_instrs.push(inst);
                             continue;
                         };
@@ -1033,40 +1007,6 @@ impl MirPass for ScalarReplacementOfAggregates {
                         block_modified = true;
                     }
 
-                    // Handle ArrayInsert with constant index like InsertTuple; dynamic index keeps instruction
-                    InstructionKind::ArrayInsert {
-                        dest,
-                        array_val,
-                        index,
-                        new_value,
-                        array_ty: _,
-                    } if self.config.enable_tuples => {
-                        // Only forward when index is a literal
-                        if let Value::Literal(crate::value::Literal::Integer(idx)) = index {
-                            let Some(src_id) = array_val.as_operand() else {
-                                new_instrs.push(inst);
-                                continue;
-                            };
-                            let Some(src_state) = agg_states.get(&src_id).cloned() else {
-                                new_instrs.push(inst);
-                                continue;
-                            };
-                            let mut next = src_state;
-                            let i = *idx as usize;
-                            if i >= next.elems.len() {
-                                new_instrs.push(inst);
-                                continue;
-                            }
-                            next.elems[i] = *new_value;
-                            agg_states.insert(*dest, next);
-                            self.stats.inserts_forwarded += 1;
-                            block_modified = true;
-                        } else {
-                            // Dynamic index: keep as-is
-                            new_instrs.push(inst);
-                        }
-                    }
-
                     // 3) Extracts → rewrite into Assign of the scalar; drop original
                     InstructionKind::ExtractTupleElement {
                         dest,
@@ -1152,19 +1092,14 @@ impl MirPass for ScalarReplacementOfAggregates {
                         block_modified = true;
                     }
 
-                    // Handle ArrayIndex with constant index like ExtractTupleElement; dynamic index keeps instruction
-                    InstructionKind::ArrayIndex {
-                        dest,
-                        array,
-                        index,
-                        element_ty,
-                    } if self.config.enable_tuples => {
-                        // Only forward when index is a literal
-                        if let Value::Literal(crate::value::Literal::Integer(idx)) = index {
-                            let Some(src_id) = array.as_operand() else {
-                                new_instrs.push(inst);
-                                continue;
-                            };
+                    // Handle Load from array with constant index like ExtractTupleElement; dynamic index keeps instruction
+                    InstructionKind::Load { dest, place, ty } if self.config.enable_tuples => {
+                        // Only forward when there is exactly one Index(...) projection and it is a literal
+                        if let Some(crate::Projection::Index(crate::Value::Literal(
+                            crate::Literal::Integer(idx),
+                        ))) = place.projections.first()
+                        {
+                            let src_id = place.base;
                             let Some(state) = agg_states.get(&src_id) else {
                                 new_instrs.push(inst);
                                 continue;
@@ -1176,10 +1111,9 @@ impl MirPass for ScalarReplacementOfAggregates {
                             }
                             let scalar = state.elems[i];
 
-                            // Check if the extracted element is itself an aggregate that's been scalarized
-                            if let Value::Operand(elem_val_id) = &scalar {
+                            // If the extracted element is itself a scalarized aggregate, propagate its state
+                            if let crate::Value::Operand(elem_val_id) = &scalar {
                                 if let Some(elem_state) = agg_states.get(elem_val_id) {
-                                    // The extracted element is a scalarized aggregate - propagate its state
                                     agg_states.insert(*dest, elem_state.clone());
                                     self.stats.extracts_rewritten += 1;
                                     block_modified = true;
@@ -1187,12 +1121,67 @@ impl MirPass for ScalarReplacementOfAggregates {
                                 }
                             }
 
-                            // For non-aggregate elements or non-scalarized aggregates, do normal assignment
-                            new_instrs.push(Instruction::assign(*dest, scalar, element_ty.clone()));
+                            new_instrs.push(Instruction::assign(*dest, scalar, ty.clone()));
                             self.stats.extracts_rewritten += 1;
                             block_modified = true;
                         } else {
-                            // Dynamic index: keep as-is
+                            new_instrs.push(inst);
+                        }
+                    }
+
+                    // Treat Store into array with constant index as an in-place update of the scalarized state
+                    InstructionKind::Store { place, value, .. } if self.config.enable_tuples => {
+                        if let Some(crate::Projection::Index(crate::Value::Literal(
+                            crate::Literal::Integer(idx),
+                        ))) = place.projections.first()
+                        {
+                            let src_id = place.base;
+                            if let Some(state) = agg_states.get_mut(&src_id) {
+                                let i = *idx as usize;
+                                if i < state.elems.len() {
+                                    state.elems[i] = *value;
+                                    self.stats.inserts_forwarded += 1;
+                                    block_modified = true;
+                                    // Drop the store; subsequent loads will be forwarded
+                                    continue;
+                                }
+                            }
+                        }
+                        // Fallback: keep original store
+                        new_instrs.push(inst)
+                    }
+
+                    // Treat Load from array with constant index as extracting the tracked scalar
+                    InstructionKind::Load { dest, place, ty } if self.config.enable_tuples => {
+                        if let Some(crate::Projection::Index(crate::Value::Literal(
+                            crate::Literal::Integer(idx),
+                        ))) = place.projections.first()
+                        {
+                            let src_id = place.base;
+                            let Some(state) = agg_states.get(&src_id) else {
+                                new_instrs.push(inst);
+                                continue;
+                            };
+                            let i = *idx as usize;
+                            if i >= state.elems.len() {
+                                new_instrs.push(inst);
+                                continue;
+                            }
+                            let scalar = state.elems[i];
+
+                            if let Value::Operand(elem_val_id) = &scalar {
+                                if let Some(elem_state) = agg_states.get(elem_val_id) {
+                                    agg_states.insert(*dest, elem_state.clone());
+                                    self.stats.extracts_rewritten += 1;
+                                    block_modified = true;
+                                    continue;
+                                }
+                            }
+
+                            new_instrs.push(Instruction::assign(*dest, scalar, ty.clone()));
+                            self.stats.extracts_rewritten += 1;
+                            block_modified = true;
+                        } else {
                             new_instrs.push(inst);
                         }
                     }

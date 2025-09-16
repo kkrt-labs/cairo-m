@@ -16,7 +16,7 @@ module {
     entry: 0
 
     0:
-      %1 = arrayindex %0, 0
+      %1 = load %0[0]
       return %1
 
   }

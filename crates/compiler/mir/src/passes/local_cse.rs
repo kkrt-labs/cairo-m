@@ -164,14 +164,14 @@ impl PureExpressionKey {
             InstructionKind::Call { .. }
             | InstructionKind::Assign { .. }
             | InstructionKind::Debug { .. }
+            | InstructionKind::Load { .. }
+            | InstructionKind::Store { .. }
             | InstructionKind::Phi { .. }
             | InstructionKind::Nop
             | InstructionKind::AssertEq { .. } => None,
 
             // Aggregate modification operations - skip for conservatism
-            InstructionKind::InsertField { .. }
-            | InstructionKind::InsertTuple { .. }
-            | InstructionKind::ArrayInsert { .. } => None,
+            InstructionKind::InsertField { .. } | InstructionKind::InsertTuple { .. } => None,
 
             // Cast operations - skip for now
             InstructionKind::Cast { .. } => None,
@@ -191,28 +191,6 @@ impl PureExpressionKey {
                     elements: ids,
                     tuple_type: MirType::Unknown, // Use MakeTuple variant for simplicity
                 })
-            }
-
-            InstructionKind::ArrayIndex {
-                array,
-                index,
-                element_ty,
-                ..
-            } => {
-                // Only CSE when array is operand and index is a constant literal
-                if let (
-                    Value::Operand(array_id),
-                    Value::Literal(crate::value::Literal::Integer(i)),
-                ) = (array, index)
-                {
-                    Some(Self::ExtractTuple {
-                        tuple: *array_id, // Reuse ExtractTuple variant
-                        index: *i as usize,
-                        element_type: element_ty.clone(),
-                    })
-                } else {
-                    None
-                }
             }
         }
     }

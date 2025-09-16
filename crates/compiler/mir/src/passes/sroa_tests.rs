@@ -2,7 +2,9 @@
 
 use crate::instruction::InstructionKind;
 use crate::passes::sroa::*;
-use crate::{BinaryOp, Instruction, Literal, MirFunction, MirModule, MirType, Terminator, Value};
+use crate::{
+    BinaryOp, Instruction, Literal, MirFunction, MirModule, MirType, Place, Terminator, Value,
+};
 
 #[test]
 fn test_simple_tuple_scalarization() {
@@ -697,15 +699,11 @@ fn test_dynamic_array_indexing_prevents_sroa() {
 
     // Dynamic array indexing: result = arr[index]
     let result = function.new_typed_value_id(MirType::Felt);
+    let load_place = Place::new(arr).with_index(Value::operand(index));
     function
         .get_basic_block_mut(entry)
         .unwrap()
-        .push_instruction(Instruction::array_index(
-            result,
-            Value::operand(arr),
-            Value::operand(index),
-            MirType::Felt,
-        ));
+        .push_instruction(Instruction::load(result, load_place, MirType::Felt));
 
     // Set terminator
     function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
@@ -729,12 +727,12 @@ fn test_dynamic_array_indexing_prevents_sroa() {
         "MakeFixedArray should NOT be eliminated when dynamic indexing is present"
     );
 
-    // The ArrayIndex instruction should still be present
-    let has_array_index = block
+    // The Load instruction should still be present
+    let has_load = block
         .instructions
         .iter()
-        .any(|inst| matches!(inst.kind, InstructionKind::ArrayIndex { .. }));
-    assert!(has_array_index, "ArrayIndex should remain");
+        .any(|inst| matches!(inst.kind, InstructionKind::Load { .. }));
+    assert!(has_load, "Load should remain");
 }
 
 #[test]
@@ -762,17 +760,26 @@ fn test_array_family_with_dynamic_indexing() {
             MirType::Felt,
         ));
 
-    // Update array: arr2 = arr1[0] := 10
+    // Copy array: arr2 = arr1
     let arr2 = function.new_typed_value_id(array_ty.clone());
     function
         .get_basic_block_mut(entry)
         .unwrap()
-        .push_instruction(Instruction::array_insert(
+        .push_instruction(Instruction::assign(
             arr2,
             Value::operand(arr1),
-            Value::Literal(Literal::Integer(0)),
-            Value::Literal(Literal::Integer(10)),
             array_ty.clone(),
+        ));
+
+    // Update array in place: arr2[0] := 10
+    let store_place = Place::new(arr2).with_index(Value::Literal(Literal::Integer(0)));
+    function
+        .get_basic_block_mut(entry)
+        .unwrap()
+        .push_instruction(Instruction::store(
+            store_place,
+            Value::Literal(Literal::Integer(10)),
+            MirType::Felt,
         ));
 
     // Copy array: arr3 = arr2
@@ -794,15 +801,11 @@ fn test_array_family_with_dynamic_indexing() {
         ));
 
     let result = function.new_typed_value_id(MirType::Felt);
+    let dyn_place = Place::new(arr3).with_index(Value::operand(index));
     function
         .get_basic_block_mut(entry)
         .unwrap()
-        .push_instruction(Instruction::array_index(
-            result,
-            Value::operand(arr3),
-            Value::operand(index),
-            MirType::Felt,
-        ));
+        .push_instruction(Instruction::load(result, dyn_place, MirType::Felt));
 
     // Set terminator
     function.get_basic_block_mut(entry).unwrap().terminator = Terminator::Return {
@@ -825,13 +828,13 @@ fn test_array_family_with_dynamic_indexing() {
         "MakeFixedArray should be preserved (family has dynamic indexing)"
     );
 
-    let has_insert = block
+    let has_store = block
         .instructions
         .iter()
-        .any(|inst| matches!(inst.kind, InstructionKind::ArrayInsert { .. }));
+        .any(|inst| matches!(inst.kind, InstructionKind::Store { .. }));
     assert!(
-        has_insert,
-        "ArrayInsert should be preserved (family has dynamic indexing)"
+        has_store,
+        "Store should be preserved (family has dynamic indexing)"
     );
 
     let array_assign_count = block
@@ -878,26 +881,18 @@ fn test_array_without_dynamic_indexing_is_scalarized() {
 
     // Static indexing only: elem0 = arr[0], elem1 = arr[1]
     let elem0 = function.new_typed_value_id(MirType::Felt);
+    let elem0_place = Place::new(arr).with_index(Value::Literal(Literal::Integer(0)));
     function
         .get_basic_block_mut(entry)
         .unwrap()
-        .push_instruction(Instruction::array_index(
-            elem0,
-            Value::operand(arr),
-            Value::Literal(Literal::Integer(0)),
-            MirType::Felt,
-        ));
+        .push_instruction(Instruction::load(elem0, elem0_place, MirType::Felt));
 
     let elem1 = function.new_typed_value_id(MirType::Felt);
+    let elem1_place = Place::new(arr).with_index(Value::Literal(Literal::Integer(1)));
     function
         .get_basic_block_mut(entry)
         .unwrap()
-        .push_instruction(Instruction::array_index(
-            elem1,
-            Value::operand(arr),
-            Value::Literal(Literal::Integer(1)),
-            MirType::Felt,
-        ));
+        .push_instruction(Instruction::load(elem1, elem1_place, MirType::Felt));
 
     // Add the elements
     let sum = function.new_typed_value_id(MirType::Felt);
@@ -937,11 +932,11 @@ fn test_array_without_dynamic_indexing_is_scalarized() {
     );
 
     // Extract operations should be replaced with assigns
-    let has_extract = block
+    let has_load = block
         .instructions
         .iter()
-        .any(|inst| matches!(inst.kind, InstructionKind::ArrayIndex { .. }));
-    assert!(!has_extract, "ArrayIndex should be replaced with assigns");
+        .any(|inst| matches!(inst.kind, InstructionKind::Load { .. }));
+    assert!(!has_load, "Load should be replaced with assigns");
 }
 
 #[test]

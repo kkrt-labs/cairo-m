@@ -1005,7 +1005,9 @@ impl TypeValidator {
         sink: &dyn DiagnosticSink,
     ) {
         // Resolve the struct type
-        let Some((def_idx, _)) = index.resolve_name_at_position(name.value(), scope_id, name.span()) else {
+        let Some((def_idx, _)) =
+            index.resolve_name_at_position(name.value(), scope_id, name.span())
+        else {
             // Undeclared struct type - let ScopeValidator handle this
             return;
         };

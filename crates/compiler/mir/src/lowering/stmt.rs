@@ -12,7 +12,7 @@ use cairo_m_compiler_semantic::types::TypeData;
 use crate::{Instruction, MirType, Terminator, Value, ValueId};
 
 use super::builder::MirBuilder;
-use super::expr::LowerExpr;
+use super::expr::{LowerExpr, LoweredExpr};
 
 /// Trait for lowering statements to MIR
 pub trait LowerStmt<'a> {
@@ -65,7 +65,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let scope_id = expr_info.scope_id;
 
         // Lower the expression and bind to pattern using the generic pattern lowering
-        let rhs_value = self.lower_expression(value)?;
+        let rhs_value = self.lower_expression(value)?.into_value();
         self.lower_pattern(pattern, rhs_value, scope_id)?;
         Ok(())
     }
@@ -88,7 +88,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Check if it's a tuple type
         if let TypeData::Tuple(_) = expr_semantic_type.data(self.ctx.db) {
-            let expr_value = self.lower_expression(expr)?;
+            let expr_value = self.lower_expression(expr)?.into_value();
 
             // Handle empty tuple case - return() should return no values
             if matches!(expr_value, Value::Literal(crate::Literal::Unit)) {
@@ -117,7 +117,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             return Err(format!("Expected tuple value but got: {:?}", expr_value));
         } else {
             // Single value return
-            let return_value = self.lower_expression(expr)?;
+            let return_value = self.lower_expression(expr)?.into_value();
             self.terminate_with_return(vec![return_value]);
         }
 
@@ -140,7 +140,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Early out: plain identifier assignment => SSA rebind to the resolved definition for LHS identifier
         if let Expression::Identifier(_name) = &lhs_expr_info.ast_node {
-            let rhs_value = self.lower_expression(rhs)?;
+            let rhs_value = self.lower_expression(rhs)?.into_value();
             // Resolve LHS identifier expression to its definition using builder mapping
             let (def_idx, _def) = self
                 .ctx
@@ -159,11 +159,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Check if this is a field assignment (rect.width = value)
         if let Expression::MemberAccess { object, field } = &lhs_expr_info.ast_node {
             // Check if the object is a value-based variable (not memory-allocated)
-            let struct_val = self.lower_expression(object)?;
+            let struct_val = self.lower_expression(object)?.into_value();
 
             // Query semantic type system for the container (struct) type, not the field type
             let struct_type = self.expr_mir_type(object.span())?;
-            let rhs_value = self.lower_expression(rhs)?;
+            let rhs_value = self.lower_expression(rhs)?.into_value();
             // Insert the field using the container (struct) type
             let new_struct_id =
                 self.insert_struct_field(struct_val, field.value(), rhs_value, struct_type);
@@ -186,8 +186,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Check if this is a tuple assignment (tuple.index  = value)
         if let Expression::TupleIndex { tuple, index } = &lhs_expr_info.ast_node {
             // Check if the tuple is a value-based variable (not memory-allocated)
-            let tuple_val = self.lower_expression(tuple)?;
-            let rhs_value = self.lower_expression(rhs)?;
+            let tuple_val = self.lower_expression(tuple)?.into_value();
+            let rhs_value = self.lower_expression(rhs)?.into_value();
             // Query semantic type system for the container (tuple) type, not the element type
             let tuple_type = self.expr_mir_type(tuple.span())?;
             let new_tuple_id = self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
@@ -208,41 +208,26 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // Check if this is an array assignment (array[index] = value)
-        if let Expression::IndexAccess { array, index } = &lhs_expr_info.ast_node {
-            let array_val = self.lower_expression(array)?;
-            let index_val = self.lower_expression(index)?;
-            let rhs_value = self.lower_expression(rhs)?;
-            let array_type = self.expr_mir_type(array.span())?;
-
-            // Use unified ArrayInsert, works for constant and dynamic indices
-            let new_array_dest = self.array_insert(array_val, index_val, rhs_value, array_type);
-
-            if let Expression::Identifier(_) = array.value() {
-                let obj_expr_id = self.expr_id(array.span())?;
-                let (def_idx, _def) = self
-                    .ctx
-                    .semantic_index
-                    .definition_for_identifier_expr(obj_expr_id)
-                    .ok_or_else(|| {
-                        "Failed to resolve array identifier in assignment".to_string()
-                    })?;
-                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                self.bind_variable_def(def_id, Value::operand(new_array_dest))?;
+        if let Expression::IndexAccess { .. } = &lhs_expr_info.ast_node {
+            if let Some(place) = self.lower_expression(lhs)?.place().cloned() {
+                let rhs_value = self.lower_expression(rhs)?.into_value();
+                let element_ty = self.ctx.get_expr_type(lhs_expr_id);
+                self.instr()
+                    .add_instruction(Instruction::store(place, rhs_value, element_ty));
+                return Ok(());
             }
-
-            return Ok(());
         }
 
         // Standard assignment
         let rhs_type = self.expr_mir_type(rhs.span())?;
-        let lhs_address = match self.lower_expression(lhs)? {
+        let lhs_address = match self.lower_expression(lhs)?.into_value() {
             Value::Literal(_) => {
                 return Err("Literal LHS not supported for assignment".to_string());
             }
             Value::Operand(id) => Result::<ValueId, String>::Ok(id),
             Value::Error => return Err("Invalid LHS type for assignment".to_string()),
         }?;
-        let rhs_value = self.lower_expression(rhs)?;
+        let rhs_value = self.lower_expression(rhs)?.into_value();
         self.instr().assign(lhs_address, rhs_value, rhs_type);
 
         Ok(())
@@ -270,7 +255,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                 // Lower arguments
                 let arg_values = args
                     .iter()
-                    .map(|arg| self.lower_expression(arg))
+                    .map(|arg| self.lower_expression(arg).map(LoweredExpr::into_value))
                     .collect::<Result<Vec<_>, _>>()?;
 
                 // Use our helper to emit the call and discard results
@@ -280,7 +265,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // For other statement expressions, lower normally and discard the result
-        self.lower_expression(expr)?;
+        let _ = self.lower_expression(expr)?;
         Ok(())
     }
 
@@ -296,7 +281,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         }
 
         // Lower the first argument as the condition; semantic layer ensures it's a bool.
-        let cond_val = self.lower_expression(&args[0])?;
+        let cond_val = self.lower_expression(&args[0])?.into_value();
 
         // Assert the boolean condition equals true (1)
         self.instr().add_instruction(crate::Instruction {
@@ -319,7 +304,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         else_block: Option<&Spanned<Statement>>,
     ) -> Result<(), String> {
         // Lower the condition expression
-        let condition_value = self.lower_expression(condition)?;
+        let condition_value = self.lower_expression(condition)?.into_value();
 
         // Create the then block
         let then_block_id = self.create_block();
@@ -469,7 +454,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Generate the loop header block - evaluate condition and branch
         self.switch_to_block(loop_header);
-        let condition_value = self.lower_expression(condition)?;
+        let condition_value = self.lower_expression(condition)?.into_value();
         self.terminate_with_branch(condition_value, loop_body, loop_exit);
 
         // Mark loop header as filled after processing condition
@@ -576,7 +561,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // 3. Header: evaluate condition and branch
         self.switch_to_block(loop_header);
-        let cond_val = self.lower_expression(condition)?;
+        let cond_val = self.lower_expression(condition)?.into_value();
         self.terminate_with_branch(cond_val, loop_body, loop_exit);
 
         // Seal loop_body and loop_exit since their predecessor sets are now final

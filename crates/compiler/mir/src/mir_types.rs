@@ -41,6 +41,12 @@ pub enum MirType {
         size: usize, // Required, compile-time known size
     },
 
+    /// Pointer to memory containing values of `element` type
+    ///
+    /// This lets lowering and codegen propagate pointee information without
+    /// repeatedly consulting semantic types.
+    Pointer { element: Box<MirType> },
+
     /// Function type with parameter and return types
     Function {
         params: Vec<MirType>,
@@ -99,6 +105,13 @@ impl MirType {
         }
     }
 
+    /// Creates a pointer type
+    pub fn pointer(element: Self) -> Self {
+        Self::Pointer {
+            element: Box::new(element),
+        }
+    }
+
     /// Creates a unit type
     pub const fn unit() -> Self {
         Self::Unit
@@ -127,7 +140,7 @@ impl MirType {
     /// Returns true if this type should use memory-based operations
     /// Currently no types require memory path by default (fixed arrays use value-based)
     pub const fn requires_memory_path(&self) -> bool {
-        false // Fixed arrays are value-based like tuples/structs
+        matches!(self, Self::Pointer { .. })
     }
 
     /// Returns true if this type can use value-based aggregate operations
@@ -212,6 +225,14 @@ impl MirType {
             TypeData::Unknown => Self::unknown(),
         }
     }
+
+    /// Returns pointer element type if this is a pointer
+    pub fn pointer_element_type(&self) -> Option<&Self> {
+        match self {
+            Self::Pointer { element } => Some(element.as_ref()),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for MirType {
@@ -246,6 +267,9 @@ impl std::fmt::Display for MirType {
                     write!(f, "{param}")?;
                 }
                 write!(f, ") -> {return_type}")
+            }
+            Self::Pointer { element } => {
+                write!(f, "{element}*")
             }
             Self::Unit => write!(f, "()"),
             Self::Error => write!(f, "<e>"),
