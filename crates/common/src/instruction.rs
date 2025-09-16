@@ -353,8 +353,8 @@ instructions! {
     };
 
     // Comparison operations
-    // [fp + dst_off] = [fp + src_off] < imm
-    StoreLowerThanFpImm = 48 {
+    // [fp + dst_off] = [fp + src_off] <= imm
+    StoreLeFpImm = 48 {
         src_off: (OperandType::Memory(DataType::Felt)),
         imm: (OperandType::Immediate),
         dst_off: (OperandType::Memory(DataType::Felt)),
