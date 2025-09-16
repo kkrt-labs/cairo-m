@@ -2,21 +2,21 @@
 
 ## Introduction
 
-The motivation behind building a new zkVM is strongly influenced by our
-experience of building a
+The motivation behind building a new _Zero-Knowledge Virtual Machine (zkVM)_ is
+strongly influenced by our experience of building a
 [non-provable EVM client in Cairo Zero](https://github.com/kkrt-labs/keth), the
-provable language (zkDSL) of Starkware, targeting the Cairo VM. How can a
-program written in a zkDSL eventually not be provable? Not because there are any
-logic issues, no, but just because of scaling issues! The Cairo VM has just not
-been designed to prove billions-long traces, nor to leverage parallel proving
-with recursion.
+provable language (zkDSL) of Starkware, targeting the
+[Cairo VM](https://eprint.iacr.org/2021/1063.pdf). How can a program written in
+a zkDSL eventually not be provable? Not because there are any logic issues, no,
+but just because of scaling issues! The Cairo VM has just not been designed to
+prove billions-long traces, nor to leverage parallel proving with recursion.
 
 Facing this hard truth made us re-evaluate the design of the Cairo VM in the
 light of the real needs of the current ZK ecosystem. Actually, some decision may
-be relevant when considering a given order of magnitude of program length
+be relevant when considering a given order of magnitude of execution length
 (around 10^5 steps at most), but become irrelevant when considering a much
-larger program length (10^8 steps at least). Furthermore, though being
-supposedly a general-purpose VM, it has been design mainly with Starknet in
+larger execution length (10^8 steps at least). Furthermore, though being
+supposedly a general-purpose VM, it has been designed mainly with Starknet in
 mind, i.e., with a focus on (small) transaction processing, rather than
 general-purpose computation.
 
@@ -29,7 +29,7 @@ some design decisions (like the instruction encoding) require a prime field
 larger that 2^64, while modern STARK provers favor smaller prime fields like
 Babybear (2^31 - 2^27 + 1) or Mersenne31 (2^31 - 1). Consequently, even the
 recent [stwo-cairo](https://github.com/starkware-libs/stwo-cairo) prover
-emulates the original prime number chosen 5 years ago
+emulates the original prime number chosen 5 years ago:
 [$2^251 + 17 * 2^192 + 1$](https://docs.starknet.io/learn/protocol/cryptography).
 This emulation makes the prover up to 28x less efficient as each native field
 element from the original Cairo VM is now up to 28 M31s, depending on the actual
@@ -43,7 +43,7 @@ with relocation, which creates two severe limitations:
 2. the final relocation step prevents from streaming the generated trace for
    parallel proving (a technique called
    [_continuation_](https://risczero.com/blog/continuations)) as final memory
-   addresses are only known after the program has executed.
+   addresses are only known after the program has exited.
 
 Cairo M has been designed to overcome these limitations:
 
@@ -65,7 +65,8 @@ The design of a virtual machine mainly encompasses the memory model, the
 registers, the opcodes and the addressing scheme. The remaining of this document
 addresses each of these questions in turn. An Appendix section provides general
 knowledge about some part of STARK provers and especially the
-[Stwo framework](https://github.com/starkware-libs/stwo), used by Cairo M.
+[Stwo framework](https://github.com/starkware-libs/stwo), used in our first
+implementation.
 
 ## Memory
 
@@ -122,7 +123,7 @@ component, it performs a clock update, which essentially consists in mimicking a
 read operation:
 
 - `-Memory(address, prev_clock, prev_value)`
-- `+Memory(address, clock + RC_LIMIT, prev_value)`
+- `+Memory(address, prev_clock + RC_LIMIT, prev_value)`
 
 It eventually adds as many clock updates as needed to cover the clock
 difference.
@@ -162,7 +163,7 @@ consequently count only 2 columns per lookup, the memory access overhead becomes
 
 Since the read-write memory allows for much easier control flow, reduces the
 need to copy memory values with new frames, and is much easier to reason about
-when developing software, this overhead is worthwhile.
+when developing software, this overhead is deemed worthwhile.
 
 On the other hand, not all parts of the memory need to be writable. In
 particular, the program with its embedded constant values can remain read-only.
@@ -195,7 +196,7 @@ without requiring the read-write memory to be initialized with zeros.
 Memory segments require efficient commitment for continuation, ensuring the
 final memory state of stage `n` matches the initial state of stage `n + 1`.
 
-Merkle trees provide the memory commitment mechanism due to their:
+Merkle trees provide a good memory commitment mechanism due to their:
 
 - Challenge-independent commitment through initial and final root hashes
 - Natural sparse memory handling via partial tree pruning of unused intermediate
@@ -215,15 +216,15 @@ RAM capacity beyond typical consumer device specifications.
 
 Furthermore, the Merkle tree omits leaf hashing to minimize computational
 overhead. Although leaf hashing prevents sibling value disclosure in inclusion
-proofs, it provides no benefit for state root proving and is therefore omitted.
-This approach requires all memory cells to contain values, resulting in implicit
-zero-initialization of the entire memory segment. The default zero value has no
-practical impact since the VM overwrites cells with actual values during
-execution.
+proofs, it provides no benefit for state root commitment and is therefore
+omitted. This approach requires all memory cells to contain values, resulting in
+implicit zero-initialization of the entire memory segment. The default zero
+value has no practical impact since the VM overwrites cells with actual values
+during the execution.
 
 The Merkle commitment component is responsible for proving the leaves from the
 public (initial or final) root. It does this by iteratively consuming a root and
-emitting the leaves with given multiplicity in the logup sum. The partial
+emitting the two leaves with given multiplicity in the logup sum. The partial
 underlying Merkle tree is built during witness generation. The component only
 enforces via the lookup arguments that the nodes and leaves actually derive from
 the root, using the `Merkle` relation. It also uses the `Poseidon2` relation to
@@ -249,10 +250,11 @@ This effectively reduces the memory size to 2^28 = 268,435,456.
 However, there is no requirement to use such a fixed-size memory word. Given
 that memory consistency is enforced only with lookup arguments, each address can
 "consume" any number of field elements that are ultimately all summed together
-with the relation's challenge coefficients. The only requirement is that an
-address always consumes and writes the same number of field elements. One can
-think of this as accessing a slice of an array at a given index, with the slice
-length depending on the index, instead of just a single value:
+with the relation's challenge coefficients. The only requirement is that
+consecutive read or write of an address consumes and writes the same number of
+field elements. One can think of this as accessing a slice of an array at a
+given index, with the slice length depending on the index, instead of just a
+single value:
 
 ```ignore
 memory[address: address + len(address)]
@@ -265,13 +267,24 @@ memory[address]
 ```
 
 To make limbs of a given address available, we shall introduce the `SPLIT`
-opcode. `SPLIT` would simply consume the lookup term with the entire slice at
+opcode. `SPLIT` would simply consume the logup term with the entire slice at
 address `a` and add one term for each of the `len` limbs at addresses
-`a + i, i = 0..len`.
+`a + i, i = 0..len`:
+
+- `-Memory(a, prev_clock, v_0, ..., v_{len - 1})`
+- `+Memory(a, clock, v_0`
+- `+Memory(a + 1, clock, v_1)`
+- ...
+- `+Memory(a + len - 1, clock, v_{len - 1})`
 
 The opposite operation is called `JOIN` and would allow the machine to gather a
 list of contiguous limbs into a single memory address, consuming each of the
-`(a + i; v_i)` lookup terms and adding a single `(a, [v_0, ..., v_{len - 1}])`.
+`(a + i; v_i)` lookup terms and adding a single `(a, [v_0, ..., v_{len - 1}])`:
+
+- `-Memory(a, prev_clock, v_0)`
+- ...
+- `-Memory(a + len - 1, prev_clock, v_{len - 1})`
+- `+Memory(a, clock, v_0, ..., v_{len - 1})`
 
 These opcodes don't necessarily need to be added at the VM level, similar to
 `ClockUpdate`. They can be determined during witness generation based on
@@ -303,7 +316,9 @@ The original Cairo VM uses 3 registers:
 
 In the context of a read-write memory, the free-memory pointer becomes
 unnecessary, and we can drop `ap`, leaving the VM initially with only two
-registers, similar to Valida, for example.
+registers, similar to
+[Valida](https://lita.gitbook.io/lita-documentation/architecture/valida-zk-vm/technical-design-vm),
+for example.
 
 Regular instruction set architectures also leverage registers to store temporary
 values used across multiple opcodes, acting as a fast buffer to avoid memory
@@ -346,9 +361,9 @@ project were started today.
 
 ### AIR basics
 
-An AIR (Algebraic Intermediate Representation) is a way to represent a
-computation in a way that is easy to prove. It is a set of constraints that must
-be satisfied by the computation.
+An AIR (Algebraic Intermediate Representation) represents a computation as a
+collection of algebraic relationships that must be satisfied for the computation
+to be considered valid.
 
 For the sake of simplicity, let use describe an AIR as a dataframe, with columns
 representing variables used in the defined constraint system (circuit) and rows
@@ -364,10 +379,10 @@ evaluated over a bigger domain. The prover commits to each column (each
 polynomial) and then generate Merkle inclusion proofs for some evaluations of
 these polynomials at random points. This means that the proof size and the
 verifier complexity are directly related to the number of columns in the AIR:
-the more columns, the more commitments and the more verifier complexity.
+the more columns, the more commitments and the greater the verifier complexity.
 
 The Stwo framework lets define the whole AIR of the state transition of the
-machine in several such dataframes, called
+virtual machine in several smaller such dataframes, called
 [_components_](https://docs.starknet.io/learn/s-two/air-development/components)
 (other frameworks may call them _chips_). Eventually, they are all concatenated
 by the column axis to form the whole AIR.
@@ -375,11 +390,12 @@ by the column axis to form the whole AIR.
 ### Design principles
 
 Generally speaking, a reduced instruction set will generate more cycles, i.e.
-more rows, for a given operation than a complex instruction set. On the other
-hand, a complex instruction set will require more columns, i.e. more
-commitments, for a given operation than a reduced instruction set. In short, a
-reduced instruction set is a long and thin dataframe, while a complex
-instruction set is a short and wide one.
+more rows, for a given operation than a complex instruction set (see also
+[this RISC-V versus Cairo ISA comparison](https://x.com/ClementWalter/status/1896131941109506309)).
+On the other hand, a complex instruction set will require more columns, i.e.
+more commitments, for a given operation than a reduced instruction set. In
+short, one can think of a reduced instruction set as a long and thin dataframe,
+as opposed to a complex instruction set as a short and wide one.
 
 Notice however that, given a component with shape (`n`, `m`) (`n` rows and `m`
 columns), one can always reshape it to (`n / k`, `m * k`), where `k` is an
@@ -389,12 +405,13 @@ other words, a reduced instruction set trace can always be reshaped to "look
 like" a complex instruction set one, while the other way around is not possible.
 Hence, reduced instruction sets give more flexibility.
 
-Furthermore, long traces can be proven in parallel, even when the program is
-still running (so-called
+Furthermore, long traces can be proven in batch, and even in parallel when the
+program is still running (so-called
 [_continuation_](https://risczero.com/blog/continuations)) and aggregated later
-on with recursions, reducing either the proving time or the memory usage of the
-host, which is directly proportional to the area of the AIR, (i.e. width times
-height).
+on with recursions. This effectively boils down to splitting the dataframe into
+chunks with less rows. This reduces either the proving time or the memory usage
+of the host, which is directly proportional to the area of the AIR, (i.e. width
+times height).
 
 Consequently, when designing an AIR, one tries to limit the number of columns as
 much as possible. This can be done by both limiting the number of opcodes in the
@@ -432,9 +449,10 @@ This proposed instruction set fits in a total of XXX columns. See the
 
 ### Opcodes columns
 
-This described the detailed list of columns for each component. Not mentioned is
-the possible need for an enabler column, which distinguishes between the actual
-trace row and the padding required for the trace length to be a power of 2.
+This section describes the detailed list of columns for each component. Not
+mentioned is the possible need for an enabler column, which distinguishes
+between the actual trace row and the padding required for the trace length to be
+a power of 2.
 
 The instruction is a variable-sized list of field elements, with the first one
 always being the opcode ID. The rest is context-dependent and usually denoted as
@@ -468,20 +486,22 @@ Columns:
 - imm
 - op0_prev_clock
 - op0_prev_val
+- op0_val
 - op0_plus_one_prev_clock
 - op0_plus_one_prev_val
+- pc_next
 
 Intermediate columns:
 
 - `is_ret = opcode_id - CALL_ABS_IMM_ID`
-- `pc_next = imm * (1 - is_ret) + op0_plus_one_prev_val * is_ret`
-- `fp_next = (fp + off0 + 2) * (1 - is_ret) + op0_prev_val * is_ret`
-- `op0_val = fp * (1 - is_ret) + op0_prev_val * is_ret`
-- `op0_plus_one_val = pc * (1 - is_ret) + op0_plus_one_prev_val * is_ret`
+- `fp_next = op0_prev_val * is_ret + (fp + off0 + 2) * (1 - is_ret)`
+- `op0_plus_one_val = op0_plus_one_prev_val * is_ret + pc * (1 - is_ret)`
 
 Constraints:
 
 - `is_ret * (1 - is_ret)`
+- `pc_next - op0_plus_one_prev_val * is_ret + imm * (1 - is_ret)`
+- `op0_val - op0_prev_val * is_ret + fp * (1 - is_ret)`
 
 Lookups
 
@@ -489,24 +509,67 @@ Lookups
   - `-Registers(pc, fp)`
   - `+Registers(pc_next, fp_next)`
 - read instruction from read-only memory
-  - `-Memory(pc, 0, opcode_id, off0, off1)`
+  - `-ROM(pc, opcode_id, off0)`
 - read/write operands from memory
-  - `-Memory(fp + off0, prev_clock, op0_prev_val)`
-  - `+Memory(fp + off0, clock, op0_val)`
-  - `-Memory(fp + off0 + 1, prev_clock, op0_plus_one_prev_val)`
-  - `+Memory(fp + off0 + 1, clock, op0_plus_one_val)`
+  - `-RAM(fp + off0, prev_clock, op0_prev_val)`
+  - `+RAM(fp + off0, clock, op0_val)`
+  - `-RAM(fp + off0 + 1, prev_clock, op0_plus_one_prev_val)`
+  - `+RAM(fp + off0 + 1, clock, op0_plus_one_val)`
 - range check clock difference
-  - `+RangeCheck20(clock - inst_prev_clock - 1)`
   - `+RangeCheck20(clock - op0_prev_clock - 1)`
   - `+RangeCheck20(clock - op0_plus_one_prev_clock - 1)`
 
+Total: `11T + 9L` Considering a max degree of 3, one can pre-sum the logup terms
+using plain columns:
+
+```ignore
+ = 11 + 6L + 3L
+ = 11 + 6*2 + 3*4
+ = 35
+```
+
 #### JmpRelImm, JnzFpImm
 
-- registers: pc | fp
-- global: clock
-- instruction: opcode_id | off0 | imm
-- operands: memory[fp + off0]: prev_clock | prev_val
-- memory[fp + off0 + 1]: prev_clock | prev_val
+Columns:
+
+- pc
+- fp
+- clock
+- opcode_id
+- off0
+- imm
+- op0_prev_clock
+- op0_prev_val
+- op0_plus_one_prev_clock
+- op0_plus_one_prev_val
+
+Intermediate columns:
+
+- `is_jnz = opcode_id - JNZ_FP_IMM_ID`
+- `fp_next = op0_prev_val * is_jnz + (fp + off0 + 2) * (1 - is_jnz)`
+- `pc_next = op0_plus_one_prev_val * is_jnz + imm * (1 - is_jnz)`
+- `op0_val = op0_prev_val * is_jnz + fp * (1 - is_jnz)`
+- `op0_plus_one_val = op0_plus_one_prev_val * is_jnz + pc * (1 - is_jnz)`
+
+Constraints:
+
+- `is_jnz * (1 - is_jnz)`
+
+Lookups:
+
+- read instruction from read-only memory
+  - `-ROM(pc, opcode_id, off0)`
+- read/write operands from memory
+  - `-RAM(fp + off0, prev_clock, op0_prev_val)`
+  - `+RAM(fp + off0, clock, op0_val)`
+  - `-RAM(fp + off0 + 1, prev_clock, op0_plus_one_prev_val)`
+  - `+RAM(fp + off0 + 1, clock, op0_plus_one_val)`
+- range check clock difference
+  - `+RangeCheck20(clock - op0_prev_clock - 1)`
+  - `+RangeCheck20(clock - op0_plus_one_prev_clock - 1)`
+- registers update
+  - `-Registers(pc, fp)`
+  - `+Registers(pc_next, fp_next)`
 
 #### StoreAdd, StoreSub, StoreMul, StoreDiv
 
