@@ -214,6 +214,9 @@ impl PureExpressionKey {
                     None
                 }
             }
+
+            InstructionKind::Load { .. } => None,
+            InstructionKind::Store { .. } => None,
         }
     }
 }

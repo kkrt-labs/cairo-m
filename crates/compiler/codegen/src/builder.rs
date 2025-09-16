@@ -352,6 +352,176 @@ impl CasmBuilder {
         self.label_counter
     }
 
+    pub fn load(
+        &mut self,
+        dest: ValueId,
+        base_address: Value,
+        offset: Value,
+        element_ty: &MirType,
+    ) -> CodegenResult<()> {
+        let dest_off = self.layout.get_offset(dest)?;
+        let element_size = DataLayout::memory_size_of(element_ty);
+
+        match (base_address, offset) {
+            (Value::Operand(base_address_id), Value::Operand(offset_id)) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let offset_off = self.layout.get_offset(offset_id)?;
+
+                // Compute base + offset once and store in temp
+                let base_plus_offset_temp = self.layout.reserve_stack(1);
+                self.felt_add_fp_fp(
+                    base_address_off,
+                    offset_off,
+                    base_plus_offset_temp,
+                    format!(
+                        "[fp + {}] = [fp + {}] + [fp + {}] // base + offset",
+                        base_plus_offset_temp, base_address_off, offset_off
+                    ),
+                );
+
+                // Load each slot of the element using the computed base
+                for i in 0..element_size {
+                    let slot_dest = dest_off + i as i32;
+                    self.store_from_double_deref_fp_imm(
+                        base_plus_offset_temp,
+                        i as i32,
+                        slot_dest,
+                        format!(
+                            "[fp + {}] = [[fp + {}] + {}] // load {} element slot {}",
+                            slot_dest, base_plus_offset_temp, i, element_ty, i
+                        ),
+                    );
+                }
+            }
+            (Value::Operand(base_address_id), Value::Literal(Literal::Integer(imm))) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let memory_offset = imm as i32;
+
+                // Compute base + offset once and store in temp
+                let base_plus_offset_temp = self.layout.reserve_stack(1);
+                self.felt_add_fp_imm(
+                    base_address_off,
+                    memory_offset,
+                    base_plus_offset_temp,
+                    format!(
+                        "[fp + {}] = [fp + {}] + {} // base + offset",
+                        base_plus_offset_temp, base_address_off, memory_offset
+                    ),
+                );
+
+                // Load each slot of the element using the computed base
+                for i in 0..element_size {
+                    let slot_dest = dest_off + i as i32;
+                    self.store_from_double_deref_fp_imm(
+                        base_plus_offset_temp,
+                        i as i32,
+                        slot_dest,
+                        format!(
+                            "[fp + {}] = [[fp + {}] + {}] // load {} element slot {}",
+                            slot_dest, base_plus_offset_temp, i, element_ty, i
+                        ),
+                    );
+                }
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Load requires base address as operand and offset as operand or immediate"
+                        .to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn store(
+        &mut self,
+        base_address: Value,
+        offset: Value,
+        source: Value,
+        element_ty: &MirType,
+    ) -> CodegenResult<()> {
+        let element_size = DataLayout::memory_size_of(element_ty);
+
+        match (base_address, offset, source) {
+            (
+                Value::Operand(base_address_id),
+                Value::Operand(offset_id),
+                Value::Operand(source_id),
+            ) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let offset_off = self.layout.get_offset(offset_id)?;
+                let source_off = self.layout.get_offset(source_id)?;
+
+                // Compute base + offset once and store in temp
+                let base_plus_offset_temp = self.layout.reserve_stack(1);
+                self.felt_add_fp_fp(
+                    base_address_off,
+                    offset_off,
+                    base_plus_offset_temp,
+                    format!(
+                        "[fp + {}] = [fp + {}] + [fp + {}] // base + offset",
+                        base_plus_offset_temp, base_address_off, offset_off
+                    ),
+                );
+
+                // Store each slot of the element using the computed base
+                for i in 0..element_size {
+                    let slot_source = source_off + i as i32;
+                    self.store_to_double_deref_fp_imm(
+                        slot_source,
+                        base_plus_offset_temp,
+                        i as i32,
+                        format!(
+                            "[[fp + {}] + {}] = [fp + {}] // store {} element slot {}",
+                            base_plus_offset_temp, i, slot_source, element_ty, i
+                        ),
+                    );
+                }
+            }
+            (
+                Value::Operand(base_address_id),
+                Value::Literal(Literal::Integer(imm)),
+                Value::Operand(source_id),
+            ) => {
+                let base_address_off = self.layout.get_offset(base_address_id)?;
+                let source_off = self.layout.get_offset(source_id)?;
+                let memory_offset = imm as i32;
+
+                // Compute base + offset once and store in temp
+                let base_plus_offset_temp = self.layout.reserve_stack(1);
+                self.felt_add_fp_imm(
+                    base_address_off,
+                    memory_offset,
+                    base_plus_offset_temp,
+                    format!(
+                        "[fp + {}] = [fp + {}] + {} // base + offset",
+                        base_plus_offset_temp, base_address_off, memory_offset
+                    ),
+                );
+
+                // Store each slot of the element using the computed base
+                for i in 0..element_size {
+                    let slot_source = source_off + i as i32;
+                    self.store_to_double_deref_fp_imm(
+                        slot_source,
+                        base_plus_offset_temp,
+                        i as i32,
+                        format!(
+                            "[[fp + {}] + {}] = [fp + {}] // store {} element slot {}",
+                            base_plus_offset_temp, i, slot_source, element_ty, i
+                        ),
+                    );
+                }
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "Store requires base address as operand, offset as operand or immediate, and source as operand".to_string(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     // ===== Casting Operations =====
 
     /// Generates code for type casting operations

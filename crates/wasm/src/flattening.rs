@@ -2,15 +2,16 @@
 
 use crate::loader::{BlocklessDagModule, WasmLoadError};
 use cairo_m_compiler_mir::{
-    instruction::{CalleeSignature, InstructionKind},
-    BasicBlock, BasicBlockId, BinaryOp, FunctionId, Instruction, MirFunction, MirModule, MirType,
-    PassManager, Terminator, Value, ValueId,
+    instruction::InstructionKind, BasicBlock, BasicBlockId, FunctionId, Instruction, MirFunction,
+    MirModule, MirType, PassManager, Terminator, Value, ValueId,
 };
 use std::collections::HashMap;
 use thiserror::Error;
-use wasmparser::Operator as Op;
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
+use womir::loader::Global;
+
+use cairo_m_runner::memory::MAX_ADDRESS;
 
 #[derive(Error, Debug)]
 pub enum DagToMirError {
@@ -36,12 +37,8 @@ pub enum DagToMirError {
         reason: String,
         available_count: usize,
     },
-    #[error("Unsupported WASM type {wasm_type:?} in function '{function_name}': {context}")]
-    UnsupportedWasmType {
-        wasm_type: wasmparser::ValType,
-        function_name: String,
-        context: String,
-    },
+    #[error("Unsupported WASM type {wasm_type:?}")]
+    UnsupportedWasmType { wasm_type: wasmparser::ValType },
     #[error("Loop structure error in function '{function_name}' at node {node_idx}: depth {requested_depth} exceeds available {available_depth}")]
     LoopDepthError {
         function_name: String,
@@ -49,18 +46,23 @@ pub enum DagToMirError {
         requested_depth: u32,
         available_depth: usize,
     },
+    #[error("Global address not found for global {global_index}")]
+    GlobalAddressNotFound { global_index: usize },
 }
 
 pub struct DagToMir {
-    module: BlocklessDagModule,
+    pub module: BlocklessDagModule,
+    pub global_addresses: HashMap<usize, u32>,
+    pub global_types: HashMap<usize, MirType>,
+    pub heap_start: u32,
 }
 
 /// Context for converting a single DAG to MIR
-struct DagToMirContext {
+pub struct DagToMirContext {
     /// MIR function being built
-    mir_function: MirFunction,
+    pub mir_function: MirFunction,
     /// Stack of value maps to scope ValueOrigin -> ValueId per DAG (avoids collisions)
-    value_maps: Vec<HashMap<ValueOrigin, ValueId>>,
+    pub value_maps: Vec<HashMap<ValueOrigin, ValueId>>,
     /// Mapping from DAG label IDs to MIR BasicBlockId
     label_map: HashMap<u32, BasicBlockId>,
     /// Current basic block being filled
@@ -100,7 +102,7 @@ impl DagToMirContext {
         }
     }
 
-    fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
+    pub fn get_current_block(&mut self) -> Result<&mut BasicBlock, DagToMirError> {
         let block_id = self
             .current_block_id
             .ok_or_else(|| DagToMirError::InvalidControlFlow {
@@ -119,7 +121,7 @@ impl DagToMirContext {
             })
     }
 
-    const fn set_current_block(&mut self, block_id: BasicBlockId) {
+    pub const fn set_current_block(&mut self, block_id: BasicBlockId) {
         self.current_source_block = self.current_block_id;
         self.current_block_id = Some(block_id);
     }
@@ -208,25 +210,78 @@ impl DagToMirContext {
 }
 
 impl DagToMir {
-    pub const fn new(module: BlocklessDagModule) -> Self {
-        Self { module }
+    pub fn new(module: BlocklessDagModule) -> Result<Self, DagToMirError> {
+        let mut dag_to_mir = Self {
+            module,
+            global_addresses: HashMap::new(),
+            global_types: HashMap::new(),
+            heap_start: 0,
+        };
+        dag_to_mir.allocate_globals()?;
+        Ok(dag_to_mir)
     }
 
     /// Convert WASM type to MIR type
     /// For now, we only support i32
-    fn wasm_type_to_mir_type(
+    pub(crate) const fn wasm_type_to_mir_type(
         wasm_type: &wasmparser::ValType,
-        function_name: &str,
-        context: &str,
     ) -> Result<MirType, DagToMirError> {
         match wasm_type {
             wasmparser::ValType::I32 => Ok(MirType::U32),
             _ => Err(DagToMirError::UnsupportedWasmType {
                 wasm_type: *wasm_type,
-                function_name: function_name.to_string(),
-                context: context.to_string(),
             }),
         }
+    }
+
+    /// Return the number of felts required to represent a given MIR type in memory.
+    /// Extend this mapping as more types are supported.
+    fn mir_type_size_in_felts(ty: &MirType) -> u32 {
+        match ty {
+            MirType::U32 => 2,
+            _ => unreachable!(
+                "Unsupported MIR type for globals size computation: {:?}",
+                ty
+            ),
+        }
+    }
+
+    /// Map each global to its address in memory and computes the address of the heap as
+    /// heap_start = VM_MEMORY_SIZE - 1 - size of all globals
+    fn allocate_globals(&mut self) -> Result<(), DagToMirError> {
+        let mut next_free_address = MAX_ADDRESS as u32;
+
+        let globals = self.module.with_program(|program| &program.c.globals);
+
+        // Process mutable globals and collect their allocation info
+        let mutable_globals: Result<Vec<_>, DagToMirError> = globals
+            .iter()
+            .enumerate()
+            .filter_map(|(i, global)| {
+                match global {
+                    Global::Mutable(allocated_var) => Some((i, allocated_var)),
+                    _ => None, // Immutable variables are already unpacked by womir block_tree loader.
+                }
+            })
+            .map(|(i, allocated_var)| {
+                let ty = Self::wasm_type_to_mir_type(&allocated_var.val_type)?;
+                let size = Self::mir_type_size_in_felts(&ty);
+                Ok((i, ty, size))
+            })
+            .collect();
+
+        let mutable_globals = mutable_globals?;
+
+        // Allocate addresses for mutable globals (in reverse order due to decreasing addresses)
+        for (i, ty, size) in mutable_globals {
+            self.global_types.insert(i, ty);
+            self.global_addresses
+                .insert(i, next_free_address - size + 1);
+            next_free_address -= size;
+        }
+
+        self.heap_start = next_free_address;
+        Ok(())
     }
 
     /// Convert a single WASM function to MIR using two-pass algorithm
@@ -251,7 +306,7 @@ impl DagToMir {
                 .ty
                 .params()
                 .iter()
-                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name, "function parameters"))
+                .map(Self::wasm_type_to_mir_type)
                 .collect();
 
             // Handle return types with proper error handling
@@ -259,7 +314,7 @@ impl DagToMir {
                 .ty
                 .results()
                 .iter()
-                .map(|ty| Self::wasm_type_to_mir_type(ty, &func_name, "function return types"))
+                .map(Self::wasm_type_to_mir_type)
                 .collect();
 
             (param_types, return_types)
@@ -346,8 +401,7 @@ impl DagToMir {
 
                 // Create phi nodes for each label output
                 for (output_idx, output_type) in node.output_types.iter().enumerate() {
-                    let mir_type =
-                        Self::wasm_type_to_mir_type(output_type, "unknown", "label output")?;
+                    let mir_type = Self::wasm_type_to_mir_type(output_type)?;
                     let phi_value_id = context.mir_function.new_typed_value_id(mir_type.clone());
 
                     // Create empty phi node that will be populated later
@@ -388,13 +442,15 @@ impl DagToMir {
                     // Convert WASM operation to MIR instruction
                     let mir_value =
                         self.convert_wasm_op_to_mir(node_idx, wasm_op, node, context)?;
-                    context.insert_value(
-                        ValueOrigin {
-                            node: node_idx,
-                            output_idx: 0,
-                        },
-                        mir_value,
-                    );
+                    if let Some(value_id) = mir_value {
+                        context.insert_value(
+                            ValueOrigin {
+                                node: node_idx,
+                                output_idx: 0,
+                            },
+                            value_id,
+                        );
+                    }
                 }
 
                 Operation::Label { id } => {
@@ -508,11 +564,7 @@ impl DagToMir {
                     // Create phi nodes in the header for loop-carried values
                     let mut header_phi_nodes = Vec::new();
                     for output_type in &input_node.output_types {
-                        let mir_type = Self::wasm_type_to_mir_type(
-                            output_type,
-                            &context.mir_function.name,
-                            "loop input",
-                        )?;
+                        let mir_type = Self::wasm_type_to_mir_type(output_type)?;
                         let phi_value_id =
                             context.mir_function.new_typed_value_id(mir_type.clone());
 
@@ -603,225 +655,8 @@ impl DagToMir {
         Ok(())
     }
 
-    /// Convert a WASM binary opcode to a MIR binary opcode
-    /// TODO : bit shifts, rotations, u8 operations, etc.
-    fn wasm_binary_opcode_to_mir(
-        &self,
-        wasm_op: &Op,
-        node_idx: usize,
-        context: &DagToMirContext,
-    ) -> Result<BinaryOp, DagToMirError> {
-        match wasm_op {
-            Op::I32Add => Ok(BinaryOp::U32Add),
-            Op::I32Sub => Ok(BinaryOp::U32Sub),
-            Op::I32Mul => Ok(BinaryOp::U32Mul),
-            Op::I32DivU => Ok(BinaryOp::U32Div),
-            Op::I32Eq => Ok(BinaryOp::U32Eq),
-            Op::I32Ne => Ok(BinaryOp::U32Neq),
-            Op::I32GtU => Ok(BinaryOp::U32Greater),
-            Op::I32GeU => Ok(BinaryOp::U32GreaterEqual),
-            Op::I32LtU => Ok(BinaryOp::U32Less),
-            Op::I32LeU => Ok(BinaryOp::U32LessEqual),
-            Op::I32And => Ok(BinaryOp::U32BitwiseAnd),
-            Op::I32Or => Ok(BinaryOp::U32BitwiseOr),
-            Op::I32Xor => Ok(BinaryOp::U32BitwiseXor),
-            _ => Err(DagToMirError::UnsupportedOperation {
-                op: format!("{:?}", wasm_op),
-                function_name: context.mir_function.name.clone(),
-                node_idx,
-                suggestion: "".to_string(),
-            }),
-        }
-    }
-
-    fn convert_wasm_binop_to_mir(
-        &self,
-        node_idx: usize,
-        wasm_op: &Op,
-        left: Value,
-        right: Value,
-        dest_type: MirType,
-        context: &mut DagToMirContext,
-    ) -> Result<ValueId, DagToMirError> {
-        let result_id = context.mir_function.new_typed_value_id(dest_type);
-        let mir_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx, context)?;
-        let instruction = Instruction::binary_op(mir_op, result_id, left, right);
-        context.get_current_block()?.push_instruction(instruction);
-        Ok(result_id)
-    }
-
-    /// Convert a WASM operation to MIR instructions
-    fn convert_wasm_op_to_mir(
-        &self,
-        node_idx: usize,
-        wasm_op: &Op,
-        node: &Node,
-        context: &mut DagToMirContext,
-    ) -> Result<ValueId, DagToMirError> {
-        let inputs: Result<Vec<Value>, _> = node
-            .inputs
-            .iter()
-            .map(|input| self.get_input_value(input, context))
-            .collect();
-        let inputs = inputs?;
-
-        match wasm_op {
-            // U32 Operations which are immediately convertible to MIR instructions
-            Op::I32Add
-            | Op::I32Sub
-            | Op::I32Mul
-            | Op::I32DivU
-            | Op::I32And
-            | Op::I32Or
-            | Op::I32Xor => self.convert_wasm_binop_to_mir(
-                node_idx,
-                wasm_op,
-                inputs[0],
-                inputs[1],
-                MirType::U32,
-                context,
-            ),
-
-            // For comparisons, we produce a boolean result
-            // This is not WASM compliant, but works if these values are only used in conditional branches
-            // TODO : cast everything correctly or sync with VM so that comparisons between u32 produce u32 booleans
-            Op::I32Eq | Op::I32Ne | Op::I32GtU | Op::I32GeU | Op::I32LtU | Op::I32LeU => self
-                .convert_wasm_binop_to_mir(
-                    node_idx,
-                    wasm_op,
-                    inputs[0],
-                    inputs[1],
-                    MirType::Bool,
-                    context,
-                ),
-
-            // Signed comparison instructions, constructed by shifting the inputs by 2^31 and then comparing the results with unsigned opcodes
-            Op::I32LtS | Op::I32GtS | Op::I32LeS | Op::I32GeS => {
-                let temp1 = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction1 = Instruction::binary_op(
-                    BinaryOp::U32Add,
-                    temp1,
-                    inputs[0],
-                    Value::integer(0x80000000),
-                );
-                let temp2 = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction2 = Instruction::binary_op(
-                    BinaryOp::U32Add,
-                    temp2,
-                    inputs[1],
-                    Value::integer(0x80000000),
-                );
-                let result_id = context.mir_function.new_typed_value_id(MirType::Bool);
-                let op = match wasm_op {
-                    Op::I32LtS => BinaryOp::U32Less,
-                    Op::I32GtS => BinaryOp::U32Greater,
-                    Op::I32LeS => BinaryOp::U32LessEqual,
-                    Op::I32GeS => BinaryOp::U32GreaterEqual,
-                    _ => unreachable!(),
-                };
-                let instruction3 = Instruction::binary_op(
-                    op,
-                    result_id,
-                    Value::operand(temp1),
-                    Value::operand(temp2),
-                );
-                context.get_current_block()?.push_instruction(instruction1);
-                context.get_current_block()?.push_instruction(instruction2);
-                context.get_current_block()?.push_instruction(instruction3);
-                Ok(result_id)
-            }
-
-            // Zero comparison instruction, constructed by comparing the input to 0
-            // TODO : fix type of result_id
-            Op::I32Eqz => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::Bool);
-                let instruction = Instruction::binary_op(
-                    BinaryOp::U32Eq,
-                    result_id,
-                    inputs[0],
-                    Value::integer(0),
-                );
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
-            }
-
-            // Assigning a constant to a variable
-            Op::I32Const { value } => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::assign(result_id, Value::integer(*value as u32), MirType::U32);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
-            }
-
-            // Local variable operations should be eliminated by WOMIR
-            Op::LocalGet { .. } | Op::LocalSet { .. } | Op::LocalTee { .. } => {
-                unreachable!()
-            }
-
-            Op::Call { function_index } => {
-                let result_id = context.mir_function.new_typed_value_id(MirType::U32);
-                let callee_id = FunctionId::new(*function_index as usize);
-
-                // Get signature from wasm module
-                let signature = self.module.with_program(|program| {
-                    let func_type = program.c.get_func_type(*function_index);
-
-                    // Handle param types with proper error handling
-                    let param_types: Result<Vec<MirType>, DagToMirError> = func_type
-                        .ty
-                        .params()
-                        .iter()
-                        .map(|ty| {
-                            Self::wasm_type_to_mir_type(ty, "unknown", "function call parameters")
-                        })
-                        .collect();
-
-                    // Handle return types with proper error handling
-                    let return_types: Result<Vec<MirType>, DagToMirError> = func_type
-                        .ty
-                        .results()
-                        .iter()
-                        .map(|ty| {
-                            Self::wasm_type_to_mir_type(ty, "unknown", "function call return types")
-                        })
-                        .collect();
-
-                    // Return both results
-                    (param_types, return_types)
-                });
-
-                // Handle the errors from type conversion
-                let (param_types, return_types) = signature;
-                let param_types = param_types?;
-                let return_types = return_types?;
-
-                let signature = CalleeSignature {
-                    param_types,
-                    return_types,
-                };
-
-                let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
-                context.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
-            }
-
-            _ => {
-                // Unsupported operation
-                let suggestion = "This WASM operation is not yet implemented in the compiler";
-
-                Err(DagToMirError::UnsupportedOperation {
-                    op: format!("{:?}", wasm_op),
-                    function_name: context.mir_function.name.clone(),
-                    node_idx,
-                    suggestion: suggestion.to_string(),
-                })
-            }
-        }
-    }
-
     /// Get MIR value for a WASM ValueOrigin
-    fn get_input_value(
+    pub(crate) fn get_input_value(
         &self,
         value_origin: &ValueOrigin,
         context: &DagToMirContext,
@@ -848,7 +683,7 @@ impl DagToMir {
     }
 
     /// Resolve a WASM break target to a MIR BasicBlockId
-    fn resolve_break_target(
+    pub(crate) fn resolve_break_target(
         &self,
         node_idx: usize,
         node: &Node,

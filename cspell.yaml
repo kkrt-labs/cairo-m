@@ -77,6 +77,7 @@ words:
   - maketuple
   - mathrm
   - mdtest
+  - memarg
   - merkle
   - mpsc
   - mult
