@@ -247,6 +247,9 @@ fn generate_random_value(ty: &AbiType, rng: &mut StdRng, depth: u32) -> InputVal
             let b: bool = rng.gen::<bool>();
             InputValue::Bool(b)
         }
+        AbiType::Pointer { .. } => {
+            unimplemented!()
+        }
         AbiType::Unit => InputValue::Unit,
         AbiType::Tuple(types) => {
             let values: Vec<InputValue> = types

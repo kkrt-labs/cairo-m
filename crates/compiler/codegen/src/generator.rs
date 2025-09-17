@@ -2337,7 +2337,10 @@ fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
         MirType::Felt => AbiType::Felt,
         MirType::Bool => AbiType::Bool,
         MirType::U32 => AbiType::U32,
-        MirType::Pointer { .. } => AbiType::Felt,
+        MirType::Pointer { element } => AbiType::Pointer {
+            element: Box::new(abi_type_from_mir(element)?),
+            len: None,
+        },
         MirType::Tuple(types) => {
             let elems: Vec<AbiType> = types
                 .iter()

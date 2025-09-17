@@ -5,9 +5,7 @@ pub mod instruction;
 pub mod program;
 pub mod state;
 
-pub use abi_codec::{
-    decode_abi_values, encode_input_args, parse_cli_arg, AbiCodecError, CairoMValue, InputValue,
-};
+pub use abi_codec::{parse_cli_arg, AbiCodecError, CairoMValue, InputValue};
 pub use instruction::{Instruction, InstructionError};
 pub use program::{Program, ProgramData, ProgramMetadata, PublicAddressRanges};
 pub use state::State;

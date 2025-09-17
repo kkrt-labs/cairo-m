@@ -92,6 +92,48 @@ fn calculate_array_materialization_size(ty: &AbiType) -> usize {
     }
 }
 
+/// Value-aware materialization size calculator for arguments.
+/// Handles dynamic pointers by using the provided values to determine the
+/// number of cells to allocate inline.
+fn calculate_array_materialization_size_with_value(ty: &AbiType, val: &InputValue) -> usize {
+    match (ty, val) {
+        // Static arrays: compute based on declared size and recurse into element type for nested arrays
+        (AbiType::FixedSizeArray { element, size }, InputValue::List(values)) => {
+            assert_eq!(*size, values.len() as u32);
+            let element_call_size = AbiType::call_slot_size(element);
+            let nested_array_size = calculate_array_materialization_size(element);
+            (*size as usize) * (element_call_size + nested_array_size)
+        }
+        // Dynamic pointer: count elements and account for nested arrays in element
+        (AbiType::Pointer { element, len }, InputValue::List(values)) => {
+            let element_call_size = AbiType::call_slot_size(element);
+            let nested_array_size = calculate_array_materialization_size(element);
+            let count = len.unwrap_or(values.len() as u32) as usize;
+            count * (element_call_size + nested_array_size)
+        }
+        // Numeric value for pointer means a single element
+        (AbiType::Pointer { element, len }, InputValue::Number(_)) => {
+            let element_call_size = AbiType::call_slot_size(element);
+            let nested_array_size = calculate_array_materialization_size(element);
+            let count = len.unwrap_or(1) as usize;
+            count * (element_call_size + nested_array_size)
+        }
+        // Aggregates: recurse element-wise
+        (AbiType::Tuple(types), InputValue::List(values)) => types
+            .iter()
+            .zip(values.iter())
+            .map(|(t, v)| calculate_array_materialization_size_with_value(t, v))
+            .sum(),
+        (AbiType::Struct { fields, .. }, InputValue::Struct(values)) => fields
+            .iter()
+            .zip(values.iter())
+            .map(|((_, t), v)| calculate_array_materialization_size_with_value(t, v))
+            .sum(),
+        // No materialization for numeric pointers (raw addresses) or scalars
+        _ => 0,
+    }
+}
+
 /// Validates and converts an M31 value to a boolean.
 ///
 /// ## Arguments
@@ -188,6 +230,15 @@ where
         AbiType::Felt => {
             let m31_value = read(base_off)?;
             Ok((CairoMValue::Felt(m31_value), 1))
+        }
+        AbiType::Pointer { element, len } => {
+            let m31_value = read(base_off)?;
+            if let Some(count) = len {
+                let arr = read_array_from_memory(element, *count, m31_value, vm)?;
+                Ok((CairoMValue::Array(arr), 1))
+            } else {
+                Ok((CairoMValue::Pointer(m31_value), 1))
+            }
         }
         AbiType::Bool => {
             let m31_value = read(base_off)?;
@@ -368,7 +419,8 @@ pub fn run_cairo_program(
     let array_materialization_size: usize = entrypoint_info
         .params
         .iter()
-        .map(|param| calculate_array_materialization_size(&param.ty))
+        .zip(args.iter())
+        .map(|(param, arg)| calculate_array_materialization_size_with_value(&param.ty, arg))
         .sum();
 
     let return_slot_count: usize = entrypoint_info
@@ -449,6 +501,35 @@ fn encode_value_for_call(
 ) -> Result<()> {
     match (ty, val) {
         (AbiType::Felt, InputValue::Number(n)) => dst.push(m31_from_i64(*n)),
+        (AbiType::Pointer { element, len }, InputValue::List(values)) => {
+            // Encode elements using argument ABI, materialize to memory and push base pointer
+            let element_slot_size = AbiType::call_slot_size(element);
+            let expected_capacity = values.len() * element_slot_size;
+            let mut elements_m31: Vec<M31> = Vec::with_capacity(expected_capacity);
+            if let Some(expected) = len {
+                if *expected as usize != values.len() {
+                    return Err(AbiCodecError::TypeMismatch(format!(
+                        "pointer length mismatch: expected {} got {}",
+                        expected,
+                        values.len()
+                    ))
+                    .into());
+                }
+            }
+            for v in values {
+                encode_value_for_call(vm, array_cursor, element, v, &mut elements_m31)?;
+            }
+
+            let base = *array_cursor;
+            for (i, m) in elements_m31.iter().enumerate() {
+                vm.memory
+                    .insert_no_trace(base + M31::from(i as u32), (*m).into())
+                    .map_err(VmError::from)?;
+            }
+            let total_cells = elements_m31.len() as u32;
+            dst.push(base);
+            *array_cursor = base + M31::from(total_cells);
+        }
         (AbiType::Bool, InputValue::Number(n)) => match *n {
             0 => dst.push(M31::from(0u32)),
             1 => dst.push(M31::from(1u32)),
