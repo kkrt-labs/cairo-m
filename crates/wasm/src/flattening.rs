@@ -11,6 +11,7 @@ use thiserror::Error;
 use wasmparser::Operator as Op;
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
+use womir::loader::FunctionProcessingStage;
 
 #[derive(Error, Debug)]
 pub enum DagToMirError {
@@ -230,12 +231,12 @@ impl DagToMir {
     }
 
     /// Convert a single WASM function to MIR using two-pass algorithm
-    fn function_to_mir(&self, func_idx: &u32) -> Result<MirFunction, DagToMirError> {
+    fn function_to_mir(&self, func_idx: usize) -> Result<MirFunction, DagToMirError> {
         let func_name = self.module.with_program(|program| {
             program
-                .c
+                .m
                 .exported_functions
-                .get(func_idx)
+                .get(&(func_idx as u32))
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| format!("func_{}", func_idx))
         });
@@ -244,7 +245,7 @@ impl DagToMir {
 
         // Get function type information for parameters and return types
         let (param_types, return_types) = self.module.with_program(|program| {
-            let func_type = program.c.get_func_type(*func_idx);
+            let func_type = program.m.get_func_type(func_idx as u32);
 
             // Handle param types with proper error handling
             let param_types: Result<Vec<MirType>, DagToMirError> = func_type
@@ -283,20 +284,30 @@ impl DagToMir {
 
         // Get the DAG for this function
         let result = self.module.with_program(|program| {
-            let func = program.functions.get(func_idx).ok_or_else(|| {
-                DagToMirError::ValueMappingError {
-                    function_name: "unknown".to_string(),
-                    node_idx: 0,
-                    reason: format!("Function {} not found", func_idx),
-                    available_count: 0,
+            let dag = match program.functions.get(func_idx) {
+                Some(FunctionProcessingStage::BlocklessDag(dag)) => dag,
+                Some(_) => {
+                    return Err(DagToMirError::InvalidControlFlow {
+                        function_name: func_name.clone(),
+                        reason: "Function not at BlocklessDag stage".to_string(),
+                        operation_context: "lowering function".to_string(),
+                    });
                 }
-            })?;
+                None => {
+                    return Err(DagToMirError::ValueMappingError {
+                        function_name: func_name.clone(),
+                        node_idx: 0,
+                        reason: format!("Function {} not found", func_idx),
+                        available_count: program.functions.len(),
+                    });
+                }
+            };
 
             // Preallocate all the blocks associated with DAG labels and loops
-            self.allocate_blocks_and_phi_nodes(func, &mut context)?;
+            self.allocate_blocks_and_phi_nodes(dag, &mut context)?;
 
             // Generate instructions and control flow
-            self.generate_instructions_from_dag(func, &mut context)?;
+            self.generate_instructions_from_dag(dag, &mut context)?;
 
             // Finalize all phi nodes with their operands
             context.finalize_phi_nodes()?;
@@ -765,7 +776,7 @@ impl DagToMir {
 
                 // Get signature from wasm module
                 let signature = self.module.with_program(|program| {
-                    let func_type = program.c.get_func_type(*function_index);
+                    let func_type = program.m.get_func_type(*function_index);
 
                     // Handle param types with proper error handling
                     let param_types: Result<Vec<MirType>, DagToMirError> = func_type
@@ -1028,8 +1039,8 @@ impl DagToMir {
     pub fn to_mir(&self, mut pipeline: PassManager) -> Result<MirModule, DagToMirError> {
         let mut mir_module = MirModule::new();
         self.module.with_program(|program| {
-            for (func_idx, _) in program.functions.iter() {
-                let function_id = FunctionId::new(*func_idx as usize);
+            for (func_idx, _) in program.functions.iter().enumerate() {
+                let function_id = FunctionId::new(func_idx);
                 let mut mir_function = self.function_to_mir(func_idx)?;
                 pipeline.run(&mut mir_function);
                 mir_module

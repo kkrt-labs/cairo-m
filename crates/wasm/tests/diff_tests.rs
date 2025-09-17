@@ -58,7 +58,10 @@ fn collect_u32s(values: Vec<CairoMValue>) -> Vec<u32> {
 fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     let wasm_file = std::fs::read(path).unwrap();
 
-    let womir_program = load_wasm(GenericIrSetting, &wasm_file).unwrap();
+    let womir_program = load_wasm(GenericIrSetting, &wasm_file)
+        .unwrap()
+        .process_all_functions()
+        .unwrap();
 
     let dag_module = BlocklessDagModule::from_file(path).unwrap();
     let mir_module = DagToMir::new(dag_module)

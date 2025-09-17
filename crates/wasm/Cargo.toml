@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-womir.workspace = true
+womir = { git = "https://github.com/powdr-labs/womir", rev = "3d36244" }
 thiserror.workspace = true
 cairo-m-compiler-mir.workspace = true
 cairo-m-compiler-codegen.workspace = true
