@@ -313,6 +313,11 @@ pub enum Expression {
         expr: Box<Spanned<Expression>>,
         target_type: Spanned<TypeExpr>,
     },
+    /// Heap allocation: `new T[n]` returns a typed pointer `T*`
+    New {
+        elem_type: Spanned<TypeExpr>,
+        count: Box<Spanned<Expression>>,
+    },
     /// Parenthesized expression (e.g., `(a + b)`)
     ///
     /// This node preserves source parentheses for the formatter while being a no-op
@@ -809,6 +814,81 @@ where
             .map(|(name, fields)| Expression::StructLiteral { name, fields })
             .map_with(|expr, extra| Spanned::new(expr, extra.span()));
 
+        // Simple named type parser used in `new T[n]` and cast to avoid recursion
+        let simple_named_type = ident_parser().map_with(|name, extra| {
+            let named_type = match name.as_str() {
+                "felt" => NamedType::Felt,
+                "bool" => NamedType::Bool,
+                "u32" => NamedType::U32,
+                _ => NamedType::Custom(name),
+            };
+            let span = extra.span();
+            Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
+        });
+
+        // Allocation type parser: Named | Tuple, with Pointer folding (excludes FixedArray to avoid recursion)
+        let alloc_type_expr = recursive(|ty_expr| {
+            let named = ident_parser().map_with(|name, extra| {
+                let named_type = match name.as_str() {
+                    "felt" => NamedType::Felt,
+                    "bool" => NamedType::Bool,
+                    "u32" => NamedType::U32,
+                    _ => NamedType::Custom(name),
+                };
+                let span = extra.span();
+                Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
+            });
+
+            let tuple_type = just(TokenType::LParen)
+                .ignore_then(
+                    ty_expr
+                        .clone()
+                        .separated_by(just(TokenType::Comma))
+                        .collect::<Vec<_>>()
+                        .then(just(TokenType::Comma).or_not()),
+                )
+                .then_ignore(just(TokenType::RParen))
+                .map_with(|(types, trailing_comma), extra| {
+                    let span = extra.span();
+                    match (types.len(), trailing_comma.is_some()) {
+                        (1, true) => Spanned::new(TypeExpr::Tuple(types), span),
+                        (1, false) => types.into_iter().next().unwrap(),
+                        (_, _) => Spanned::new(TypeExpr::Tuple(types), span),
+                    }
+                });
+
+            let base = named.or(tuple_type);
+
+            base.foldl(
+                just(TokenType::Mul)
+                    .map_with(|_, extra| extra.span())
+                    .repeated(),
+                |ty, star_span: SimpleSpan| {
+                    let start = ty.span().start;
+                    let end = star_span.end;
+                    let span = SimpleSpan::from(start..end);
+                    Spanned::new(TypeExpr::Pointer(Box::new(ty)), span)
+                },
+            )
+        });
+
+        // Heap allocation: new T[expr]
+        let new_expr = just(TokenType::New)
+            .ignore_then(alloc_type_expr.clone())
+            .then(
+                expr.clone()
+                    .delimited_by(just(TokenType::LBrack), just(TokenType::RBrack)),
+            )
+            .map_with(|(elem_type, count), extra| {
+                Spanned::new(
+                    Expression::New {
+                        elem_type,
+                        count: Box::new(count),
+                    },
+                    extra.span(),
+                )
+            });
+
         // Deterministic parens using lookahead with `.rewind()`
         let paren_or_tuple = just(TokenType::LParen)
             .ignore_then(
@@ -888,6 +968,7 @@ where
         // Basic atomic expressions - try each alternative in order
         let atom = literal
             .or(boolean_literal)
+            .or(new_expr)
             .or(struct_literal)
             .or(array_repeat.clone())
             .or(array_literal)
@@ -1018,18 +1099,8 @@ where
             },
         );
 
-        // Simple type parser for cast expressions - only supports basic named types
-        // This avoids the infinite recursion issue with the full type_expr_parser
-        let simple_cast_type = ident_parser().map_with(|name, extra| {
-            let named_type = match name.as_str() {
-                "felt" => NamedType::Felt,
-                "bool" => NamedType::Bool,
-                "u32" => NamedType::U32,
-                _ => NamedType::Custom(name),
-            };
-            let span = extra.span();
-            Spanned::new(TypeExpr::Named(Spanned::new(named_type, span)), span)
-        });
+        // Reuse simple named type parser for cast expressions to avoid recursion
+        let simple_cast_type = simple_named_type.clone();
 
         // Cast operator: expr as Type (left-associative, lower than unary, higher than binary)
         let cast = unary.clone().foldl(

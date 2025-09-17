@@ -1,0 +1,48 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 60
+description: "Codegen snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate felt and read back"
+input_file: mdtest/03-types/03-pointers-and-heap.md
+---
+Source:
+fn alloc_felt() -> felt {
+    let p: felt* = new felt[3];
+    // Initialize via pointer indexing
+    p[0] = 7;
+    p[1] = 8;
+    p[2] = 9;
+    return p[0] + p[1] + p[2];
+}
+============================================================
+Generated CASM:
+alloc_felt:
+alloc_felt:
+alloc_felt_0:
+   0: 9 25 9 _             // [fp + 9] = <HEAP_CURSOR>
+   1: 8 9 0 10             // [fp + 10] = [[fp + 9] + 0] (load heap cursor)
+   2: 9 3 11 _             // [fp + 11] = 3 (cells)
+   3: 0 10 11 12           // [fp + 12] = [fp + 10] + [fp + 11] (cur+size)
+   4: 4 12 2147483646 12   // [fp + 12] = [fp + 12] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   5: 9 268435455 13 _     // [fp + 13] = MAX_ADDRESS (268435455)
+   6: 1 13 12 14           // [fp + 14] = [fp + 13] - [fp + 12] (base)
+   7: 0 10 11 15           // [fp + 15] = [fp + 10] + [fp + 11] (advance cursor)
+   8: 44 9 0 15            // [[fp + 9] + 0] = [fp + 15] (store heap cursor)
+   9: 4 14 0 0             // [fp + 0] = [fp + 14] (heap ptr)
+  10: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load slot 0)
+  11: 9 7 16 _             // [fp + 16] = 7
+  12: 44 0 0 16            // [[fp + 0] + 0] = [fp + 16]
+  13: 8 0 1 2              // [fp + 2] = [[fp + 0] + 1] (load slot 0)
+  14: 9 8 17 _             // [fp + 17] = 8
+  15: 44 0 1 17            // [[fp + 0] + 1] = [fp + 17]
+  16: 8 0 2 3              // [fp + 3] = [[fp + 0] + 2] (load slot 0)
+  17: 9 9 18 _             // [fp + 18] = 9
+  18: 44 0 2 18            // [[fp + 0] + 2] = [fp + 18]
+  19: 8 0 0 4              // [fp + 4] = [[fp + 0] + 0] (load slot 0)
+  20: 8 0 1 5              // [fp + 5] = [[fp + 0] + 1] (load slot 0)
+  21: 0 4 5 6              // [fp + 6] = [fp + 4] op [fp + 5]
+  22: 8 0 2 7              // [fp + 7] = [[fp + 0] + 2] (load slot 0)
+  23: 0 6 7 2147483644     // [fp + -3] = [fp + 6] op [fp + 7]
+  24: 11 _ _ _             // return
+---- data (base 25) ----
+; blob 0 (1 words)
+  25: 0 0 0 0

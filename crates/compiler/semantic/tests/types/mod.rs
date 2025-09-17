@@ -12,6 +12,7 @@
 //! - **Function Signatures**: Tests for `function_semantic_signature` resolution
 //! - **Struct Types**: Tests for `struct_semantic_data` and field resolution
 //! - **Type Compatibility**: Tests for type compatibility and conversion rules
+//! - **Pointer Types**: Tests for pointer types and dereferencing
 
 mod definition_type_tests;
 mod expression_type_tests;
@@ -19,6 +20,7 @@ mod fixed_array_tests;
 mod function_signature_tests;
 mod literal_range_validation_tests;
 mod literal_type_inference_tests;
+mod pointer_type_tests;
 mod query_integration_tests;
 mod recursive_and_error_types_tests;
 mod return_type_inference;

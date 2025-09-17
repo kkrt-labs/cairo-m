@@ -63,6 +63,7 @@ use crate::definition::{DefinitionKind, ParameterDefRef, UseDefRef};
 use crate::place::{FileScopeId, Scope};
 use crate::semantic_errors::{SemanticSyntaxChecker, SemanticSyntaxContext};
 use crate::visitor::{walk_type_expr, Visitor};
+// TypeUsage is defined in this module; refer to it directly
 use crate::{module_semantic_index, Crate, Definition, File, SemanticDb};
 
 // Define DefinitionIndex as an index type for definitions within a single file.
@@ -1319,6 +1320,12 @@ impl<'db, 'sink> SemanticIndexBuilder<'db, 'sink> {
                 } else {
                     self.visit_expr_with_origin(element, elem_origin);
                 }
+            }
+            Expression::New { elem_type, count } => {
+                // Leverage existing TypeExpr visitor to record type usages (and nested types)
+                self.visit_type_expr(elem_type);
+                // Visit count expression normally
+                self.visit_expr(count);
             }
             Expression::Cast {
                 expr,

@@ -1,0 +1,60 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 60
+description: "Codegen snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate struct pointer and access fields"
+input_file: mdtest/03-types/03-pointers-and-heap.md
+---
+Source:
+struct Point { x: felt, y: felt }
+
+fn alloc_struct() -> felt {
+    let ps: Point* = new Point[2];
+    // Write fields via pointer indexing then field
+    (ps[0]).x = 3;
+    (ps[0]).y = 4;
+    (ps[1]).x = 5;
+    (ps[1]).y = 6;
+    return ps[0].x + ps[1].y;
+}
+============================================================
+Generated CASM:
+alloc_struct:
+alloc_struct:
+alloc_struct_0:
+   0: 9 4 0 _              // [fp + 0] = 4
+   1: 9 34 17 _            // [fp + 17] = <HEAP_CURSOR>
+   2: 8 17 0 18            // [fp + 18] = [[fp + 17] + 0] (load heap cursor)
+   3: 0 18 0 19            // [fp + 19] = [fp + 18] + [fp + 0] (cur+size)
+   4: 4 19 2147483646 19   // [fp + 19] = [fp + 19] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   5: 9 268435455 20 _     // [fp + 20] = MAX_ADDRESS (268435455)
+   6: 1 20 19 21           // [fp + 21] = [fp + 20] - [fp + 19] (base)
+   7: 0 18 0 22            // [fp + 22] = [fp + 18] + [fp + 0] (advance cursor)
+   8: 44 17 0 22           // [[fp + 17] + 0] = [fp + 22] (store heap cursor)
+   9: 4 21 0 1             // [fp + 1] = [fp + 21] (heap ptr)
+  10: 8 1 0 2              // [fp + 2] = [[fp + 1] + 0] (load slot 0)
+  11: 8 1 1 3              // [fp + 3] = [[fp + 1] + 1] (load slot 1)
+  12: 9 3 23 _             // [fp + 23] = 3
+  13: 44 1 0 23            // [[fp + 1] + 0] = [fp + 23]
+  14: 8 1 0 4              // [fp + 4] = [[fp + 1] + 0] (load slot 0)
+  15: 8 1 1 5              // [fp + 5] = [[fp + 1] + 1] (load slot 1)
+  16: 9 4 24 _             // [fp + 24] = 4
+  17: 44 1 1 24            // [[fp + 1] + 1] = [fp + 24]
+  18: 8 1 2 6              // [fp + 6] = [[fp + 1] + 2] (load slot 0)
+  19: 8 1 3 7              // [fp + 7] = [[fp + 1] + 3] (load slot 1)
+  20: 9 5 25 _             // [fp + 25] = 5
+  21: 44 1 2 25            // [[fp + 1] + 2] = [fp + 25]
+  22: 8 1 2 8              // [fp + 8] = [[fp + 1] + 2] (load slot 0)
+  23: 8 1 3 9              // [fp + 9] = [[fp + 1] + 3] (load slot 1)
+  24: 9 6 26 _             // [fp + 26] = 6
+  25: 44 1 3 26            // [[fp + 1] + 3] = [fp + 26]
+  26: 8 1 0 10             // [fp + 10] = [[fp + 1] + 0] (load slot 0)
+  27: 8 1 1 11             // [fp + 11] = [[fp + 1] + 1] (load slot 1)
+  28: 8 1 0 12             // [fp + 12] = [[fp + 1] + 0] (load slot 0)
+  29: 8 1 2 13             // [fp + 13] = [[fp + 1] + 2] (load slot 0)
+  30: 8 1 3 14             // [fp + 14] = [[fp + 1] + 3] (load slot 1)
+  31: 8 1 3 15             // [fp + 15] = [[fp + 1] + 3] (load slot 0)
+  32: 0 12 15 2147483644   // [fp + -3] = [fp + 12] op [fp + 15]
+  33: 11 _ _ _             // return
+---- data (base 34) ----
+; blob 0 (1 words)
+  34: 0 0 0 0

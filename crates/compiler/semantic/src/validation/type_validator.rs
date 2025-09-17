@@ -281,6 +281,30 @@ impl TypeValidator {
         sink: &dyn DiagnosticSink,
     ) {
         match &expr_info.ast_node {
+            Expression::New { elem_type, count } => {
+                // Element type must resolve; diagnostics for undeclared will be produced elsewhere
+                let _ = resolve_ast_type(db, crate_id, file, elem_type.clone(), expr_info.scope_id);
+
+                // Count must be a felt
+                if let Some(count_id) = index.expression_id_by_span(count.span()) {
+                    let count_ty = expression_semantic_type(db, crate_id, file, count_id, None);
+                    match count_ty.data(db) {
+                        TypeData::Felt | TypeData::Error | TypeData::Unknown => {}
+                        other => {
+                            sink.push(
+                                Diagnostic::error(
+                                    DiagnosticCode::TypeMismatch,
+                                    format!(
+                                        "count for `new` must be felt, found `{}`",
+                                        other.display_name(db)
+                                    ),
+                                )
+                                .with_location(file.file_path(db).to_string(), count.span()),
+                            );
+                        }
+                    }
+                }
+            }
             Expression::UnaryOp { expr, op } => {
                 self.check_unary_op_types(db, crate_id, file, index, expr, op, sink);
             }
@@ -777,6 +801,25 @@ impl TypeValidator {
                     }
                 }
                 // TODO: Add bounds checking for compile-time constant expressions
+            }
+            TypeData::Pointer { .. } => {
+                // Allow pointer indexing; require felt index (consistent with arrays)
+                let Some(index_id) = index.expression_id_by_span(index_expr.span()) else {
+                    return;
+                };
+                let index_type_id = expression_semantic_type(db, crate_id, file, index_id, None);
+                if !matches!(index_type_id.data(db), TypeData::Felt) {
+                    sink.push(
+                        Diagnostic::error(
+                            DiagnosticCode::InvalidIndexType,
+                            format!(
+                                "Array index must be of type felt, found `{}`",
+                                index_type_id.data(db).display_name(db)
+                            ),
+                        )
+                        .with_location(file.file_path(db).to_string(), index_expr.span()),
+                    );
+                }
             }
             TypeData::Tuple(_) => {
                 sink.push(

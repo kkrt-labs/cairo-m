@@ -18,10 +18,10 @@ fn test() { Point { x: 1, y: 2, z }; }
 --- Input 2 (ERROR) ---
 fn test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: }; }
 --- Diagnostics ---
-[02] Error: found '}' expected '!', '-', something else, identifier, '[', or '('
+[02] Error: found '}' expected '!', '-', something else, 'new', identifier, '[', or '('
    ╭─[ test.cairo:1:64 ]
    │
  1 │ fn test() { Rectangle { top_left: Point { x: 0, y: 0 }, width: }; }
    │                                                                ┬  
-   │                                                                ╰── found '}' expected '!', '-', something else, identifier, '[', or '('
+   │                                                                ╰── found '}' expected '!', '-', something else, 'new', identifier, '[', or '('
 ───╯

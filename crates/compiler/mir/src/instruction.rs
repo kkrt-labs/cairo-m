@@ -366,6 +366,13 @@ pub enum InstructionKind {
 
     /// Assert equality between two values.
     AssertEq { left: Value, right: Value },
+
+    /// Allocate `cells` QM31 cells on the heap and return a pointer
+    /// to the first cell in `dest` (felt pointer). Advances the global
+    /// heap cursor by `cells`.
+    ///
+    /// Side effects: mutates the global heap register.
+    HeapAllocCells { dest: ValueId, cells: Value },
 }
 
 impl Instruction {
@@ -622,6 +629,17 @@ impl Instruction {
         }
     }
 
+    /// Creates a new heap allocation instruction that allocates the given
+    /// number of cells and returns a heap pointer in `dest`.
+    pub const fn heap_alloc_cells(dest: ValueId, cells: Value) -> Self {
+        Self {
+            kind: InstructionKind::HeapAllocCells { dest, cells },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
     /// Creates a new const make fixed array instruction
     pub const fn make_const_fixed_array(
         dest: ValueId,
@@ -668,7 +686,8 @@ impl Instruction {
             | InstructionKind::ExtractStructField { dest, .. }
             | InstructionKind::InsertField { dest, .. }
             | InstructionKind::InsertTuple { dest, .. }
-            | InstructionKind::MakeFixedArray { dest, .. } => vec![*dest],
+            | InstructionKind::MakeFixedArray { dest, .. }
+            | InstructionKind::HeapAllocCells { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
@@ -817,6 +836,11 @@ impl Instruction {
                     used.insert(id);
                 });
             }
+            InstructionKind::HeapAllocCells { cells, .. } => {
+                visit_value(cells, |id| {
+                    used.insert(id);
+                });
+            }
 
             InstructionKind::AssertEq { left, right } => {
                 visit_value(left, |id| {
@@ -907,6 +931,9 @@ impl Instruction {
             InstructionKind::MakeFixedArray { elements, .. } => {
                 replace_value_ids(elements, from, to);
             }
+            InstructionKind::HeapAllocCells { cells, .. } => {
+                replace_value_id(cells, from, to);
+            }
             InstructionKind::AssertEq { left, right } => {
                 replace_value_id(left, from, to);
                 replace_value_id(right, from, to);
@@ -934,6 +961,7 @@ impl Instruction {
             InstructionKind::InsertField { .. } => Ok(()),
             InstructionKind::InsertTuple { .. } => Ok(()),
             InstructionKind::MakeFixedArray { .. } => Ok(()),
+            InstructionKind::HeapAllocCells { .. } => Ok(()),
             InstructionKind::AssertEq { .. } => Ok(()),
         }
     }
@@ -947,6 +975,7 @@ impl Instruction {
             InstructionKind::Call { .. }
                 | InstructionKind::Debug { .. }
                 | InstructionKind::Store { .. }
+                | InstructionKind::HeapAllocCells { .. }
         )
     }
 
@@ -1230,6 +1259,13 @@ impl PrettyPrint for Instruction {
                     "{} = makefixedarray [{}]",
                     dest.pretty_print(0),
                     elements_str
+                ));
+            }
+            InstructionKind::HeapAllocCells { dest, cells } => {
+                result.push_str(&format!(
+                    "{} = heapalloccells {}",
+                    dest.pretty_print(0),
+                    cells.pretty_print(0)
                 ));
             }
 

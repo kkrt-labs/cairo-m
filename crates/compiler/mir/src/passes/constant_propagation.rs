@@ -148,6 +148,7 @@ impl ConstantPropagation {
             | K::InsertField { .. }
             | K::InsertTuple { .. }
             | K::MakeFixedArray { .. }
+            | K::HeapAllocCells { .. }
             | K::Cast { .. }
             | K::Call { .. }
             | K::Debug { .. }
@@ -267,6 +268,9 @@ impl ConstantPropagation {
                         for e in elements {
                             replace_value(e, state, &mut modified);
                         }
+                    }
+                    InstructionKind::HeapAllocCells { cells, .. } => {
+                        replace_value(cells, state, &mut modified);
                     }
                     InstructionKind::AssertEq { left, right } => {
                         replace_value(left, state, &mut modified);

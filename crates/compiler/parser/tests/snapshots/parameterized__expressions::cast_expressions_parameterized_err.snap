@@ -18,12 +18,12 @@ fn test() { x as; }
 --- Input 2 (ERROR) ---
 fn test() { as felt; }
 --- Diagnostics ---
-[02] Error: found 'as' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '[', '(', or '}'
+[02] Error: found 'as' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, 'new', identifier, '[', '(', or '}'
    ╭─[ test.cairo:1:13 ]
    │
  1 │ fn test() { as felt; }
    │             ─┬  
-   │              ╰── found 'as' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '[', '(', or '}'
+   │              ╰── found 'as' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, 'new', identifier, '[', '(', or '}'
 ───╯
 
 ============================================================

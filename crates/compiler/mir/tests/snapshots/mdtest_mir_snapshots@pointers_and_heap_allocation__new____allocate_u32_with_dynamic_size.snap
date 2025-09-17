@@ -1,0 +1,31 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+assertion_line: 52
+description: "MIR snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate u32 with dynamic size"
+input_file: mdtest/03-types/03-pointers-and-heap.md
+---
+Source:
+fn alloc_u32() -> u32 {
+    let p: u32* = new u32[3];
+    // Single element write/read
+    p[0] = 42u32;
+    return p[0];
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn alloc_u32 {
+    entry: 0
+
+    0:
+      %0 = 3 * 2
+      %1 = heapalloccells %0
+      %2 = load %1[0]
+      store 42 -> %1[0]
+      %3 = load %1[0]
+      return %3
+
+  }
+
+}

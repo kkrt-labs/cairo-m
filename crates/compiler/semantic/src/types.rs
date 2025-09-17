@@ -45,6 +45,9 @@ impl<'db> TypeId<'db> {
                     format!("({})", formatted_types.join(", "))
                 }
             }
+            TypeData::Pointer { element_type } => {
+                format!("{}*", Self::format_type(db, element_type))
+            }
             TypeData::FixedArray { element_type, size } => {
                 format!("[{}; {}]", Self::format_type(db, element_type), size)
             }
@@ -80,6 +83,9 @@ pub enum TypeData<'db> {
 
     /// A tuple type containing an ordered list of component types
     Tuple(Vec<TypeId<'db>>),
+
+    /// A typed pointer to an element type
+    Pointer { element_type: TypeId<'db> },
 
     /// A fixed-size array type with element type and size
     FixedArray {
@@ -196,6 +202,9 @@ impl<'db> TypeData<'db> {
                 } else {
                     format!("({})", type_names.join(", "))
                 }
+            }
+            TypeData::Pointer { element_type } => {
+                format!("{}*", element_type.data(db).display_name(db))
             }
             TypeData::FixedArray { element_type, size } => {
                 format!("[{}; {}]", element_type.data(db).display_name(db), size)

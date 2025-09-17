@@ -1,0 +1,41 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 60
+description: "Codegen snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate u32 with dynamic size"
+input_file: mdtest/03-types/03-pointers-and-heap.md
+---
+Source:
+fn alloc_u32() -> u32 {
+    let p: u32* = new u32[3];
+    // Single element write/read
+    p[0] = 42u32;
+    return p[0];
+}
+============================================================
+Generated CASM:
+alloc_u32:
+alloc_u32:
+alloc_u32_0:
+   0: 9 6 0 _              // [fp + 0] = 6
+   1: 9 20 6 _             // [fp + 6] = <HEAP_CURSOR>
+   2: 8 6 0 7              // [fp + 7] = [[fp + 6] + 0] (load heap cursor)
+   3: 0 7 0 8              // [fp + 8] = [fp + 7] + [fp + 0] (cur+size)
+   4: 4 8 2147483646 8     // [fp + 8] = [fp + 8] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   5: 9 268435455 9 _      // [fp + 9] = MAX_ADDRESS (268435455)
+   6: 1 9 8 10             // [fp + 10] = [fp + 9] - [fp + 8] (base)
+   7: 0 7 0 11             // [fp + 11] = [fp + 7] + [fp + 0] (advance cursor)
+   8: 44 6 0 11            // [[fp + 6] + 0] = [fp + 11] (store heap cursor)
+   9: 4 10 0 1             // [fp + 1] = [fp + 10] (heap ptr)
+  10: 8 1 0 2              // [fp + 2] = [[fp + 1] + 0] (load slot 0)
+  11: 8 1 1 3              // [fp + 3] = [[fp + 1] + 1] (load slot 1)
+  12: 23 42 0 12           // [fp + 12], [fp + 13] = u32(42)
+  13: 44 1 0 12            // [[fp + 1] + 0] = [fp + 12] (u32 slot 0)
+  14: 44 1 1 13            // [[fp + 1] + 1] = [fp + 13] (u32 slot 1)
+  15: 8 1 0 4              // [fp + 4] = [[fp + 1] + 0] (load slot 0)
+  16: 8 1 1 5              // [fp + 5] = [[fp + 1] + 1] (load slot 1)
+  17: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+  18: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+  19: 11 _ _ _             // return
+---- data (base 20) ----
+; blob 0 (1 words)
+  20: 0 0 0 0
