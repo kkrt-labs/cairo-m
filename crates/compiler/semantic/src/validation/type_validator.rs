@@ -285,17 +285,17 @@ impl TypeValidator {
                 // Element type must resolve; diagnostics for undeclared will be produced elsewhere
                 let _ = resolve_ast_type(db, crate_id, file, elem_type.clone(), expr_info.scope_id);
 
-                // Count must be numeric (felt or u32)
+                // Count must be a felt
                 if let Some(count_id) = index.expression_id_by_span(count.span()) {
                     let count_ty = expression_semantic_type(db, crate_id, file, count_id, None);
                     match count_ty.data(db) {
-                        TypeData::Felt | TypeData::U32 | TypeData::Error | TypeData::Unknown => {}
+                        TypeData::Felt | TypeData::Error | TypeData::Unknown => {}
                         other => {
                             sink.push(
                                 Diagnostic::error(
                                     DiagnosticCode::TypeMismatch,
                                     format!(
-                                        "count must be numeric (felt or u32), found `{}`",
+                                        "count for `new` must be felt, found `{}`",
                                         other.display_name(db)
                                     ),
                                 )

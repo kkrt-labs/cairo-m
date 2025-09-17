@@ -39,6 +39,9 @@ fn test_new_expression_semantics() {
             // Invalid count type
             in_function("let p = new felt[true];"),
             in_function("let p = new u32[Point { x: 1, y: 2 }];"),
+
+            // Invalid type for count (non felt)
+            in_function("let p = new felt[1u32];"),
         ]
     }
 }

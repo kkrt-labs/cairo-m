@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/semantic/tests/common/mod.rs
+assertion_line: 423
 expression: snapshot
 ---
 --- Input 1 (ERROR) ---
@@ -18,12 +19,12 @@ fn test() { let p = new Unknown[3]; return; }
 --- Input 2 (ERROR) ---
 fn test() { let p = new felt[true]; return; }
 --- Diagnostics ---
-[2001] Error: count must be numeric (felt or u32), found `bool`
+[2001] Error: count for `new` must be felt, found `bool`
    ╭─[ semantic_tests::expressions::pointer_expr::test_new_expression_semantics:1:30 ]
    │
  1 │ fn test() { let p = new felt[true]; return; }
    │                              ──┬─  
-   │                                ╰─── count must be numeric (felt or u32), found `bool`
+   │                                ╰─── count for `new` must be felt, found `bool`
 ───╯
 
 ============================================================
@@ -37,4 +38,17 @@ fn test() { let p = new u32[Point { x: 1, y: 2 }]; return; }
  1 │ fn test() { let p = new u32[Point { x: 1, y: 2 }]; return; }
    │                             ──┬──  
    │                               ╰──── Cannot find type 'Point' in this scope
+───╯
+
+============================================================
+
+--- Input 4 (ERROR) ---
+fn test() { let p = new felt[1u32]; return; }
+--- Diagnostics ---
+[2001] Error: count for `new` must be felt, found `u32`
+   ╭─[ semantic_tests::expressions::pointer_expr::test_new_expression_semantics:1:30 ]
+   │
+ 1 │ fn test() { let p = new felt[1u32]; return; }
+   │                              ──┬─  
+   │                                ╰─── count for `new` must be felt, found `u32`
 ───╯
