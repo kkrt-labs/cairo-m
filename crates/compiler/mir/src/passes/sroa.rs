@@ -83,8 +83,8 @@
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
-    instruction::InstructionKind, value::Value, BasicBlockId, Instruction, MirFunction, MirType,
-    Projection, ValueId,
+    instruction::InstructionKind, value::Value, BasicBlockId, Instruction, Literal, MirFunction,
+    MirType, Projection, ValueId,
 };
 
 use super::MirPass;
@@ -1092,36 +1092,47 @@ impl MirPass for ScalarReplacementOfAggregates {
                         block_modified = true;
                     }
 
-                    // Handle Load from array with constant index like ExtractTupleElement; dynamic index keeps instruction
+                    // Handle Load through aggregates with constant projections (arrays/tuples/structs)
                     InstructionKind::Load { dest, place, ty } if self.config.enable_tuples => {
-                        // Only forward when there is exactly one Index(...) projection and it is a literal
-                        if let Some(crate::Projection::Index(crate::Value::Literal(
-                            crate::Literal::Integer(idx),
-                        ))) = place.projections.first()
-                        {
-                            let src_id = place.base;
-                            let Some(state) = agg_states.get(&src_id) else {
-                                new_instrs.push(inst);
-                                continue;
-                            };
-                            let i = *idx as usize;
-                            if i >= state.elems.len() {
-                                new_instrs.push(inst);
-                                continue;
-                            }
-                            let scalar = state.elems[i];
+                        // Only attempt forwarding if base is a tracked aggregate and first step is constant index (array)
+                        let Some(crate::Projection::Index(crate::Value::Literal(
+                            crate::Literal::Integer(_),
+                        ))) = place.projections.first() else {
+                            new_instrs.push(inst);
+                            continue;
+                        };
 
-                            // If the extracted element is itself a scalarized aggregate, propagate its state
-                            if let crate::Value::Operand(elem_val_id) = &scalar {
-                                if let Some(elem_state) = agg_states.get(elem_val_id) {
-                                    agg_states.insert(*dest, elem_state.clone());
-                                    self.stats.extracts_rewritten += 1;
-                                    block_modified = true;
-                                    continue;
+                        if !agg_states.contains_key(&place.base) {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
+                        // Try to forward the entire projection chain
+                        if let Some(final_val) = forward_projection_chain(
+                            function,
+                            &agg_states,
+                            Value::operand(place.base),
+                            &place.projections,
+                        ) {
+                            // If we ended on a tracked aggregate operand and expecting an aggregate type,
+                            // propagate its state instead of assigning the operand directly
+                            if let Value::Operand(agg_id) = final_val {
+                                if let Some(state) = agg_states.get(&agg_id) {
+                                    if matches!(
+                                        ty,
+                                        MirType::Tuple(_)
+                                            | MirType::Struct { .. }
+                                            | MirType::FixedArray { .. }
+                                    ) {
+                                        agg_states.insert(*dest, state.clone());
+                                        self.stats.extracts_rewritten += 1;
+                                        block_modified = true;
+                                        continue;
+                                    }
                                 }
                             }
 
-                            new_instrs.push(Instruction::assign(*dest, scalar, ty.clone()));
+                            new_instrs.push(Instruction::assign(*dest, final_val, ty.clone()));
                             self.stats.extracts_rewritten += 1;
                             block_modified = true;
                         } else {
@@ -1129,56 +1140,54 @@ impl MirPass for ScalarReplacementOfAggregates {
                         }
                     }
 
-                    // Treat Store into array with constant index as an in-place update of the scalarized state
+                    // Treat Store into aggregates: forward if we can resolve entire projection chain, else keep
                     InstructionKind::Store { place, value, .. } if self.config.enable_tuples => {
-                        if let Some(crate::Projection::Index(crate::Value::Literal(
-                            crate::Literal::Integer(idx),
-                        ))) = place.projections.first()
-                        {
-                            let src_id = place.base;
-                            if let Some(state) = agg_states.get_mut(&src_id) {
-                                let i = *idx as usize;
-                                if i < state.elems.len() {
-                                    state.elems[i] = *value;
-                                    self.stats.inserts_forwarded += 1;
-                                    block_modified = true;
-                                    // Drop the store; subsequent loads will be forwarded
-                                    continue;
-                                }
-                            }
+                        if try_forward_store_chain(function, &mut agg_states, place, *value) {
+                            self.stats.inserts_forwarded += 1;
+                            block_modified = true;
+                            // Store forwarded into state; drop instruction
+                            continue;
                         }
                         // Fallback: keep original store
                         new_instrs.push(inst)
                     }
 
-                    // Treat Load from array with constant index as extracting the tracked scalar
+                    // Treat Load with constant projections as extract/load forwarding (duplicate arm consolidated)
                     InstructionKind::Load { dest, place, ty } if self.config.enable_tuples => {
-                        if let Some(crate::Projection::Index(crate::Value::Literal(
-                            crate::Literal::Integer(idx),
-                        ))) = place.projections.first()
-                        {
-                            let src_id = place.base;
-                            let Some(state) = agg_states.get(&src_id) else {
-                                new_instrs.push(inst);
-                                continue;
-                            };
-                            let i = *idx as usize;
-                            if i >= state.elems.len() {
-                                new_instrs.push(inst);
-                                continue;
-                            }
-                            let scalar = state.elems[i];
+                        let Some(crate::Projection::Index(crate::Value::Literal(
+                            crate::Literal::Integer(_),
+                        ))) = place.projections.first() else {
+                            new_instrs.push(inst);
+                            continue;
+                        };
 
-                            if let Value::Operand(elem_val_id) = &scalar {
-                                if let Some(elem_state) = agg_states.get(elem_val_id) {
-                                    agg_states.insert(*dest, elem_state.clone());
-                                    self.stats.extracts_rewritten += 1;
-                                    block_modified = true;
-                                    continue;
+                        if !agg_states.contains_key(&place.base) {
+                            new_instrs.push(inst);
+                            continue;
+                        }
+
+                        if let Some(final_val) = forward_projection_chain(
+                            function,
+                            &agg_states,
+                            Value::operand(place.base),
+                            &place.projections,
+                        ) {
+                            if let Value::Operand(agg_id) = final_val {
+                                if let Some(state) = agg_states.get(&agg_id) {
+                                    if matches!(
+                                        ty,
+                                        MirType::Tuple(_)
+                                            | MirType::Struct { .. }
+                                            | MirType::FixedArray { .. }
+                                    ) {
+                                        agg_states.insert(*dest, state.clone());
+                                        self.stats.extracts_rewritten += 1;
+                                        block_modified = true;
+                                        continue;
+                                    }
                                 }
                             }
-
-                            new_instrs.push(Instruction::assign(*dest, scalar, ty.clone()));
+                            new_instrs.push(Instruction::assign(*dest, final_val, ty.clone()));
                             self.stats.extracts_rewritten += 1;
                             block_modified = true;
                         } else {
@@ -1433,3 +1442,140 @@ fn materialize(
 #[cfg(test)]
 #[path = "sroa_tests.rs"]
 mod tests;
+/// Attempt to forward a chain of projections through tracked aggregate state.
+///
+/// Starting from a base aggregate `base_id` and its AggState, apply the
+/// provided `projections` (Index/Tuple/Field) in order, returning either a
+/// final scalar `Value` or, when the last projection stops at an aggregate
+/// that is itself tracked, propagate that aggregate state to the destination
+/// via the provided callback.
+///
+/// Returns Some(Value) when the chain fully resolves to a scalar or a non-tracked
+/// operand. Returns None when the chain cannot be resolved (e.g., dynamic index,
+/// missing aggregate state, or mismatched projection for the aggregate kind).
+fn forward_projection_chain(
+    function: &MirFunction,
+    agg_states: &FxHashMap<ValueId, AggState>,
+    current: Value,
+    projections: &[Projection],
+) -> Option<Value> {
+    // Walk each projection step by step, using AggState when the current value
+    // is an operand with tracked aggregate contents. If the current value is a
+    // literal, we cannot project further.
+    let mut value = current;
+
+    for proj in projections {
+        match proj {
+            Projection::Index(idx_val) => {
+                // Only handle constant indices
+                let idx = idx_val.as_const_integer().map(|x| x as usize)?;
+
+                // Expect current to be an operand referencing a tracked array/tuple aggregate
+                let cur_id = value.as_operand()?;
+                let state = agg_states.get(&cur_id)?;
+                if idx >= state.elems.len() {
+                    return None;
+                }
+                value = state.elems[idx];
+            }
+            Projection::Tuple(index) => {
+                // Tuple projection: requires a tracked tuple state
+                let cur_id = value.as_operand()?;
+                let state = agg_states.get(&cur_id)?;
+                let i = *index;
+                if i >= state.elems.len() {
+                    return None;
+                }
+                value = state.elems[i];
+            }
+            Projection::Field(name) => {
+                // Struct field projection: requires we can locate field index from type
+                let cur_id = value.as_operand()?;
+                let ty = function.get_value_type(cur_id)?;
+                let field_index = struct_field_index(ty, name)?;
+                let state = agg_states.get(&cur_id)?;
+                if field_index >= state.elems.len() {
+                    return None;
+                }
+                value = state.elems[field_index];
+            }
+        }
+    }
+
+    Some(value)
+}
+
+/// Try to forward an in-place Store through tracked aggregate states.
+///
+/// Supports nested projections starting from an array element with a constant index,
+/// followed by zero or more tuple/field/index projections. Updates the corresponding
+/// AggState leaf with `new_value` and returns true if successful. Returns false if
+/// any step cannot be resolved conservatively, in which case the original Store
+/// must be kept.
+fn try_forward_store_chain(
+    function: &MirFunction,
+    agg_states: &mut FxHashMap<ValueId, AggState>,
+    place: &crate::Place,
+    new_value: Value,
+) -> bool {
+    // Require base to be a tracked array/tuple aggregate and first step to be constant index
+    let Some(Projection::Index(Value::Literal(Literal::Integer(idx)))) = place.projections.first() else {
+            return false;
+        };
+
+    let Some(state) = agg_states.get_mut(&place.base) else {
+            return false;
+        };
+    let i = *idx as usize;
+    if i >= state.elems.len() {
+        return false;
+    }
+
+    // If there is only one projection (pure array element update), replace the element
+    if place.projections.len() == 1 {
+        state.elems[i] = new_value;
+        return true;
+    }
+
+    // Otherwise, walk nested projections starting from the selected element
+    let mut current_val = state.elems[i];
+    let mut projections_iter = place.projections.iter().skip(1).peekable();
+
+    while let Some(proj) = projections_iter.next() {
+        // We must have an operand referencing a tracked aggregate state to go deeper
+        let Some(cur_id) = current_val.as_operand() else {
+                return false;
+            };
+        let Some(cur_state) = agg_states.get_mut(&cur_id) else {
+                return false;
+            };
+
+        // Determine the child index based on projection kind
+        let child_index_opt: Option<usize> = match proj {
+            Projection::Tuple(ti) => Some(*ti),
+            Projection::Field(name) => function
+                .get_value_type(cur_id)
+                .and_then(|ty| struct_field_index(ty, name)),
+            Projection::Index(v) => v.as_const_integer().map(|x| x as usize),
+        };
+
+        let Some(child_index) = child_index_opt else {
+                return false;
+            };
+        if child_index >= cur_state.elems.len() {
+            return false;
+        }
+
+        let is_last = projections_iter.peek().is_none();
+        if is_last {
+            // Perform the leaf update
+            cur_state.elems[child_index] = new_value;
+            return true;
+        } else {
+            // Descend into the child for the next iteration
+            current_val = cur_state.elems[child_index];
+        }
+    }
+
+    false
+}

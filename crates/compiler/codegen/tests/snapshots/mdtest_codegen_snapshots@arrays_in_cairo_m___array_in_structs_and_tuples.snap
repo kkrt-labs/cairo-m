@@ -33,7 +33,7 @@ compute_result_0:
    8: 0 2147483642 2147483643 4 // [fp + 4] = [fp + -5] op [fp + -4]
    9: 4 3 0 5              // [fp + 5] = [fp + 3] + 0
   10: 4 4 0 6              // [fp + 6] = [fp + 4] + 0
-  11: 8 2 0 8              // [fp + 8] = [[fp + 2] + 0] (load array element)
-  12: 8 5 1 10             // [fp + 10] = [[fp + 5] + 1] (load array element)
+  11: 8 2 0 8              // [fp + 8] = [[fp + 2] + 0] (load slot 0)
+  12: 8 5 1 10             // [fp + 10] = [[fp + 5] + 1] (load slot 0)
   13: 0 8 10 2147483644    // [fp + -3] = [fp + 8] op [fp + 10]
   14: 11 _ _ _             // return

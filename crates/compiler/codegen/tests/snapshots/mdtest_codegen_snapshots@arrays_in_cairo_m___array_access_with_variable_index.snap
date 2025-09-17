@@ -24,13 +24,13 @@ variable_index_access_0:
    1: 9 2 11 _             // [fp + 11] = 2
    2: 9 3 12 _             // [fp + 12] = 3
    3: 43 10 0 _            // [fp + 0] = fp + 10
-   4: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load array element)
+   4: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load slot 0)
    5: 9 10 13 _            // [fp + 13] = 10
    6: 44 0 0 13            // [[fp + 0] + 0] = [fp + 13]
-   7: 8 0 1 2              // [fp + 2] = [[fp + 0] + 1] (load array element)
+   7: 8 0 1 2              // [fp + 2] = [[fp + 0] + 1] (load slot 0)
    8: 9 20 14 _            // [fp + 14] = 20
    9: 44 0 1 14            // [[fp + 0] + 1] = [fp + 14]
-  10: 8 0 2 3              // [fp + 3] = [[fp + 0] + 2] (load array element)
+  10: 8 0 2 3              // [fp + 3] = [[fp + 0] + 2] (load slot 0)
   11: 9 30 15 _            // [fp + 15] = 30
   12: 44 0 2 15            // [[fp + 0] + 2] = [fp + 15]
   13: 4 2147483643 0 4     // [fp + 4] = [fp + -4] + (-0) (-0 as M31 -> 0)
@@ -71,7 +71,7 @@ or_end_9:
   38: 14 8 2 _             // if [fp + 8] != 0 jmp rel variable_index_access_1
   39: 13 4 _ _             // jump rel variable_index_access_2
 variable_index_access_1:
-  40: 42 0 2147483643 9    // [fp + 9] = [[fp + 0] + [fp + -4]]
+  40: 42 0 2147483643 9    // [fp + 9] = [[fp + 0] + [fp + -4]] (load slot 0)
   41: 4 9 0 2147483644     // Return value 0: [fp -3] = [fp + 9] + 0
   42: 11 _ _ _             // return
 variable_index_access_2:

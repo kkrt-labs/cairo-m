@@ -19,12 +19,12 @@ assign_array_element_0:
    1: 9 2 5 _              // [fp + 5] = 2
    2: 9 3 6 _              // [fp + 6] = 3
    3: 43 4 0 _             // [fp + 0] = fp + 4
-   4: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load array element)
+   4: 8 0 0 1              // [fp + 1] = [[fp + 0] + 0] (load slot 0)
    5: 9 42 7 _             // [fp + 7] = 42
    6: 44 0 0 7             // [[fp + 0] + 0] = [fp + 7]
-   7: 8 0 1 2              // [fp + 2] = [[fp + 0] + 1] (load array element)
+   7: 8 0 1 2              // [fp + 2] = [[fp + 0] + 1] (load slot 0)
    8: 9 24 8 _             // [fp + 8] = 24
    9: 44 0 1 8             // [[fp + 0] + 1] = [fp + 8]
-  10: 8 0 0 3              // [fp + 3] = [[fp + 0] + 0] (load array element)
+  10: 8 0 0 3              // [fp + 3] = [[fp + 0] + 0] (load slot 0)
   11: 4 3 0 2147483644     // Return value 0: [fp -3] = [fp + 3] + 0
   12: 11 _ _ _             // return

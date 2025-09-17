@@ -96,6 +96,7 @@ words:
   - rodata
   - roff
   - repr
+  - readback
   - resx
   - rfib
   - rfind

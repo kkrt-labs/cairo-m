@@ -20,10 +20,10 @@ test_main_0:
    0: 10 14 11 _           // call repeat_array_u32_one
    1: 4 12 0 2             // [fp + 2] = [fp + 12] + 0
    2: 4 13 0 3             // [fp + 3] = [fp + 13] + 0
-   3: 8 2 2 6              // [fp + 6] = [[fp + 2] + 2] (load array element)
-   4: 8 2 3 7              // [fp + 7] = [[fp + 2] + 3] (load array element slot 1)
-   5: 8 3 4 8              // [fp + 8] = [[fp + 3] + 4] (load array element)
-   6: 8 3 5 9              // [fp + 9] = [[fp + 3] + 5] (load array element slot 1)
+   3: 8 2 2 6              // [fp + 6] = [[fp + 2] + 2] (load slot 0)
+   4: 8 2 3 7              // [fp + 7] = [[fp + 2] + 3] (load slot 1)
+   5: 8 3 4 8              // [fp + 8] = [[fp + 3] + 4] (load slot 0)
+   6: 8 3 5 9              // [fp + 9] = [[fp + 3] + 5] (load slot 1)
    7: 15 6 8 10            // u32([fp + 10], [fp + 11]) = u32([fp + 6], [fp + 7]) U32Add u32([fp + 8], [fp + 9])
    8: 4 10 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 10] + 0
    9: 4 11 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 11] + 0

@@ -9,10 +9,38 @@ use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{Instruction, MirType, Terminator, Value, ValueId};
+use crate::{Instruction, MirType, Terminator, Value};
 
 use super::builder::MirBuilder;
 use super::expr::{LowerExpr, LoweredExpr};
+
+/// Internal representation of an lvalue access step on the LHS.
+/// Helps avoid re-evaluating AST while rebuilding nested assignments.
+#[derive(Clone)]
+enum LhsStep {
+    /// Struct field access: `container.field`
+    Field {
+        field: String,
+        /// Full result expression of this step (e.g., `container.field`)
+        result_expr:
+            cairo_m_compiler_parser::parser::Spanned<cairo_m_compiler_parser::parser::Expression>,
+        /// Container expression (e.g., `container`)
+        container_expr: Box<
+            cairo_m_compiler_parser::parser::Spanned<cairo_m_compiler_parser::parser::Expression>,
+        >,
+    },
+    /// Tuple index access: `container.<index>`
+    TupleIndex {
+        index: usize,
+        /// Full result expression of this step (e.g., `container.0`)
+        result_expr:
+            cairo_m_compiler_parser::parser::Spanned<cairo_m_compiler_parser::parser::Expression>,
+        /// Container expression (e.g., `container`)
+        container_expr: Box<
+            cairo_m_compiler_parser::parser::Spanned<cairo_m_compiler_parser::parser::Expression>,
+        >,
+    },
+}
 
 /// Trait for lowering statements to MIR
 pub trait LowerStmt<'a> {
@@ -51,6 +79,48 @@ impl<'a, 'db> LowerStmt<'a> for MirBuilder<'a, 'db> {
 
 // Placeholder implementations - these will be filled in during the actual refactoring
 impl<'a, 'db> MirBuilder<'a, 'db> {
+    /// Decompose a nested LHS expression into a single base and a sequence of
+    /// steps from the base to the target. Steps are ordered from base -> target.
+    fn decompose_lhs_path(
+        &self,
+        lhs: &Spanned<Expression>,
+    ) -> (
+        Spanned<Expression>, /* base */
+        Vec<LhsStep>,        /* steps from base -> target */
+    ) {
+        let mut steps: Vec<LhsStep> = Vec::new();
+        let mut cursor = lhs.clone();
+
+        loop {
+            match cursor.value() {
+                Expression::MemberAccess { object, field } => {
+                    let step = LhsStep::Field {
+                        field: field.value().clone(),
+                        result_expr: cursor.clone(),
+                        container_expr: object.clone(),
+                    };
+                    steps.push(step);
+                    cursor = *object.clone();
+                }
+                Expression::TupleIndex { tuple, index } => {
+                    let step = LhsStep::TupleIndex {
+                        index: *index,
+                        result_expr: cursor.clone(),
+                        container_expr: tuple.clone(),
+                    };
+                    steps.push(step);
+                    cursor = *tuple.clone();
+                }
+                Expression::Parenthesized(inner) => {
+                    cursor = *inner.clone();
+                }
+                _ => break,
+            }
+        }
+
+        steps.reverse();
+        (cursor, steps)
+    }
     pub(super) fn lower_let_statement(
         &mut self,
         pattern: &Pattern,
@@ -129,8 +199,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         lhs: &Spanned<Expression>,
         rhs: &Spanned<Expression>,
     ) -> Result<(), String> {
-        // Check if RHS is a binary operation that we can optimize
-        // Check if LHS is a field assignment that can be optimized
+        // Resolve LHS info once
         let lhs_expr_id = self.expr_id(lhs.span())?;
         let lhs_expr_info = self
             .ctx
@@ -138,10 +207,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .expression(lhs_expr_id)
             .ok_or_else(|| format!("MIR: No ExpressionInfo for LHS ID {lhs_expr_id:?}"))?;
 
-        // Early out: plain identifier assignment => SSA rebind to the resolved definition for LHS identifier
+        // Simple identifier assignment
         if let Expression::Identifier(_name) = &lhs_expr_info.ast_node {
             let rhs_value = self.lower_expression(rhs)?.into_value();
-            // Resolve LHS identifier expression to its definition using builder mapping
             let (def_idx, _def) = self
                 .ctx
                 .semantic_index
@@ -156,202 +224,135 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             return self.bind_variable_def(def_id, rhs_value);
         }
 
-        // Check if this is a field assignment (rect.width = value)
-        if let Expression::MemberAccess { object, field } = &lhs_expr_info.ast_node {
-            // Lower the object expression and preserve both value and potential place
-            let lowered_object = self.lower_expression(object)?;
+        // General path: decompose LHS once, reuse lowered results
+        let (base_expr, steps) = self.decompose_lhs_path(lhs);
 
-            // Query semantic type system for the container (struct) type, not the field type
-            let struct_type = self.expr_mir_type(object.span())?;
-            let rhs_value = self.lower_expression(rhs)?.into_value();
+        // Lower RHS once
+        let mut updated_val: Value = self.lower_expression(rhs)?.into_value();
 
-            // Perform a value-based field insertion to obtain the updated struct value
-            let new_struct_id = self.insert_struct_field(
-                lowered_object.clone().into_value(),
-                field.value(),
-                rhs_value,
-                struct_type.clone(),
-            );
+        // Lower base once (get both value and potential place)
+        let base_lowered = self.lower_expression(&base_expr)?;
+        let base_val = *base_lowered.value();
+        let base_place = base_lowered.place().cloned();
 
-            // If the object came from memory (e.g., arr[i].nested), rebuild outward to the base element
-            // TODO: Codegen supports only Index projections in Place. We therefore rebuild
-            //       intermediate aggregates by value, and write the final element back to arr[i].
-            if let Some(place) = lowered_object.place() {
-                let mut cursor = object.clone();
-                let mut updated_val: Value = Value::operand(new_struct_id);
-                let mut updated_ty: MirType = struct_type;
-
-                loop {
-                    match cursor.value() {
-                        cairo_m_compiler_parser::parser::Expression::MemberAccess {
-                            object: outer,
-                            field: inner_field,
-                        } => {
-                            let outer_ty = self.expr_mir_type(outer.span())?;
-                            let outer_val = self.lower_expression(outer)?.into_value();
-                            let wrapped = self.insert_struct_field(
-                                outer_val,
-                                inner_field.value(),
-                                updated_val,
-                                outer_ty.clone(),
-                            );
-                            updated_val = Value::operand(wrapped);
-                            updated_ty = outer_ty;
-                            cursor = outer.clone();
-                            continue;
-                        }
-                        cairo_m_compiler_parser::parser::Expression::TupleIndex {
-                            tuple: outer,
-                            index: idx2,
-                        } => {
-                            let outer_ty = self.expr_mir_type(outer.span())?;
-                            let outer_val = self.lower_expression(outer)?.into_value();
-                            let wrapped =
-                                self.insert_tuple(outer_val, *idx2, updated_val, outer_ty.clone());
-                            updated_val = Value::operand(wrapped);
-                            updated_ty = outer_ty;
-                            cursor = outer.clone();
-                            continue;
-                        }
-                        _ => {
-                            break;
-                        }
-                    }
-                }
-
-                // Store the fully rebuilt element back into the array slot
-                self.instr().add_instruction(Instruction::store(
-                    place.clone(),
-                    updated_val,
-                    updated_ty,
-                ));
-                return Ok(());
-            }
-
-            // Otherwise, rebind the identifier to the new value for pure SSA form
-            if let Expression::Identifier(_) = object.value() {
-                let obj_expr_id = self.expr_id(object.span())?;
-                let (def_idx, _def) = self
-                    .ctx
-                    .semantic_index
-                    .definition_for_identifier_expr(obj_expr_id)
-                    .ok_or_else(|| {
-                        "Failed to resolve object identifier in assignment".to_string()
-                    })?;
-                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                self.bind_variable_def(def_id, Value::operand(new_struct_id))?;
-                return Ok(());
-            }
-
-            // Non-identifier object with no place: nothing to write back
-            return Ok(());
-        }
-
-        // Check if this is a tuple assignment (tuple.index  = value)
-        if let Expression::TupleIndex { tuple, index } = &lhs_expr_info.ast_node {
-            // Lower the tuple expression and preserve both value and potential place
-            let lowered_tuple = self.lower_expression(tuple)?;
-            let rhs_value = self.lower_expression(rhs)?.into_value();
-            // Query semantic type system for the container (tuple) type, not the element type
-            let tuple_type = self.expr_mir_type(tuple.span())?;
-            let new_tuple_id = self.insert_tuple(
-                lowered_tuple.clone().into_value(),
-                *index,
-                rhs_value,
-                tuple_type.clone(),
-            );
-            // If came from memory (e.g., arr[i].t.0), rebuild outward to the base element and store back.
-            // TODO: Same as above — no field/tuple projections in Place; rebuild and store back.
-            if let Some(place) = lowered_tuple.place() {
-                let mut cursor = tuple.clone();
-                let mut updated_val: Value = Value::operand(new_tuple_id);
-                let mut updated_ty: MirType = tuple_type;
-
-                loop {
-                    match cursor.value() {
-                        cairo_m_compiler_parser::parser::Expression::MemberAccess {
-                            object: outer,
-                            field,
-                        } => {
-                            let outer_ty = self.expr_mir_type(outer.span())?;
-                            let outer_val = self.lower_expression(outer)?.into_value();
-                            let wrapped = self.insert_struct_field(
-                                outer_val,
-                                field.value(),
-                                updated_val,
-                                outer_ty.clone(),
-                            );
-                            updated_val = Value::operand(wrapped);
-                            updated_ty = outer_ty;
-                            cursor = outer.clone();
-                            continue;
-                        }
-                        cairo_m_compiler_parser::parser::Expression::TupleIndex {
-                            tuple: outer,
-                            index: idx2,
-                        } => {
-                            let outer_ty = self.expr_mir_type(outer.span())?;
-                            let outer_val = self.lower_expression(outer)?.into_value();
-                            let wrapped =
-                                self.insert_tuple(outer_val, *idx2, updated_val, outer_ty.clone());
-                            updated_val = Value::operand(wrapped);
-                            updated_ty = outer_ty;
-                            cursor = outer.clone();
-                            continue;
-                        }
-                        _ => {
-                            break;
-                        }
-                    }
-                }
-
-                self.instr().add_instruction(Instruction::store(
-                    place.clone(),
-                    updated_val,
-                    updated_ty,
-                ));
-                return Ok(());
-            }
-            // Otherwise, rebind identifier
-            if let Expression::Identifier(_) = tuple.value() {
-                let obj_expr_id = self.expr_id(tuple.span())?;
-                let (def_idx, _def) = self
-                    .ctx
-                    .semantic_index
-                    .definition_for_identifier_expr(obj_expr_id)
-                    .ok_or_else(|| {
-                        "Failed to resolve tuple identifier in assignment".to_string()
-                    })?;
-                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
-                self.bind_variable_def(def_id, Value::operand(new_tuple_id))?;
-                return Ok(());
-            }
-            return Ok(());
-        }
-
-        // Check if this is an array assignment (array[index] = value)
-        if let Expression::IndexAccess { .. } = &lhs_expr_info.ast_node {
-            if let Some(place) = self.lower_expression(lhs)?.place().cloned() {
-                let rhs_value = self.lower_expression(rhs)?.into_value();
-                let element_ty = self.ctx.get_expr_type(lhs_expr_id);
+        // No steps: either array element or identifier/temporary
+        if steps.is_empty() {
+            if let Some(place) = base_place {
+                let element_ty = self.ctx.get_expr_type(self.expr_id(base_expr.span())?);
                 self.instr()
-                    .add_instruction(Instruction::store(place, rhs_value, element_ty));
+                    .add_instruction(Instruction::store(place, updated_val, element_ty));
                 return Ok(());
+            }
+            if let Expression::Identifier(_) = base_expr.value() {
+                let obj_expr_id = self.expr_id(base_expr.span())?;
+                let (def_idx, _def) = self
+                    .ctx
+                    .semantic_index
+                    .definition_for_identifier_expr(obj_expr_id)
+                    .ok_or_else(|| "Failed to resolve identifier in assignment".to_string())?;
+                let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+                self.bind_variable_def(def_id, updated_val)?;
+            }
+            return Ok(());
+        }
+
+        // If base has a place (e.g., arr[i]), compute the fully-projected place and store once.
+        if let Some(mut place) = base_place {
+            for step in &steps {
+                match step {
+                    LhsStep::Field { field, .. } => {
+                        place = place.with_field(field.clone());
+                    }
+                    LhsStep::TupleIndex { index, .. } => {
+                        place = place.with_tuple(*index);
+                    }
+                }
+            }
+
+            let lhs_ty = self.expr_mir_type(lhs.span())?;
+            self.instr()
+                .add_instruction(Instruction::store(place, updated_val, lhs_ty));
+            return Ok(());
+        }
+
+        // Otherwise, rebuild the updated aggregate value by value (no memory place available)
+        // Compute intermediate values via value-based extracts from base -> target
+        let mut prefix_values: Vec<Value> = Vec::with_capacity(steps.len());
+        let mut current_container_val: Value = base_val;
+        for step in &steps {
+            match step {
+                LhsStep::Field {
+                    field, result_expr, ..
+                } => {
+                    let field_ty = self.expr_mir_type(result_expr.span())?;
+                    let field_val = Value::operand(self.extract_struct_field(
+                        current_container_val,
+                        field.clone(),
+                        field_ty,
+                    ));
+                    prefix_values.push(field_val);
+                    current_container_val = field_val;
+                }
+                LhsStep::TupleIndex {
+                    index, result_expr, ..
+                } => {
+                    let elem_ty = self.expr_mir_type(result_expr.span())?;
+                    let elem_val = Value::operand(self.extract_tuple_element(
+                        current_container_val,
+                        *index,
+                        elem_ty,
+                    ));
+                    prefix_values.push(elem_val);
+                    current_container_val = elem_val;
+                }
             }
         }
 
-        // Standard assignment
-        let rhs_type = self.expr_mir_type(rhs.span())?;
-        let lhs_address = match self.lower_expression(lhs)?.into_value() {
-            Value::Literal(_) => {
-                return Err("Literal LHS not supported for assignment".to_string());
-            }
-            Value::Operand(id) => Result::<ValueId, String>::Ok(id),
-            Value::Error => return Err("Invalid LHS type for assignment".to_string()),
-        }?;
-        let rhs_value = self.lower_expression(rhs)?.into_value();
-        self.instr().assign(lhs_address, rhs_value, rhs_type);
+        // Rebuild outward using inserts from deepest -> base
+        for (i, step) in steps.iter().enumerate().rev() {
+            let container_expr_span = match step {
+                LhsStep::Field { container_expr, .. } => container_expr.span(),
+                LhsStep::TupleIndex { container_expr, .. } => container_expr.span(),
+            };
+            let container_ty: MirType = self.expr_mir_type(container_expr_span)?;
+            let container_val = if i == 0 {
+                base_val
+            } else {
+                prefix_values[i - 1]
+            };
 
+            updated_val = match step {
+                LhsStep::Field { field, .. } => {
+                    let new_container_id = self.insert_struct_field(
+                        container_val,
+                        field.as_str(),
+                        updated_val,
+                        container_ty,
+                    );
+                    Value::operand(new_container_id)
+                }
+                LhsStep::TupleIndex { index, .. } => {
+                    let new_tuple_id =
+                        self.insert_tuple(container_val, *index, updated_val, container_ty);
+                    Value::operand(new_tuple_id)
+                }
+            };
+        }
+
+        // Or rebind identifier base
+        if let Expression::Identifier(_) = base_expr.value() {
+            let obj_expr_id = self.expr_id(base_expr.span())?;
+            let (def_idx, _def) = self
+                .ctx
+                .semantic_index
+                .definition_for_identifier_expr(obj_expr_id)
+                .ok_or_else(|| "Failed to resolve identifier in assignment".to_string())?;
+            let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
+            self.bind_variable_def(def_id, updated_val)?;
+            return Ok(());
+        }
+
+        // Non-identifier base with no place: nothing to write back
         Ok(())
     }
 

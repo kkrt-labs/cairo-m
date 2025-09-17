@@ -269,28 +269,30 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // - Arrays should use get_element_ptr + load for element access
         // - Arrays should NOT use ExtractTupleElement or similar value-based operations
         // - Use MirType::requires_memory_path() to check
-        // NEW: Value-based struct field extraction
-        // Lower the struct expression to get a value (and preserve place if any)
+        // Lower the struct expression to get a value and/or place
         let lowered_object = self.lower_expression(object)?;
-        let struct_val = lowered_object.clone().into_value();
 
         // Query semantic type system for the field type
         let field_type = self.ctx.get_expr_type(expr_id);
 
-        // Extract the field using ExtractStructField instruction
-        let field_dest = self.extract_struct_field(struct_val, field.value().clone(), field_type);
-
-        // TODO: Do not extend the Place with field/tuple projections.
-        //       Codegen only supports Index projections on Place. We preserve only the base
-        //       array element place (e.g., arr[i]) and let assignment lowering rebuild
-        //       aggregates by value and store the whole element back.
-        // If the object had a place (e.g., arr[i]), carry it so assignments can write back
+        // If the object has a place (e.g., arr[i]), extend it with a field projection
+        // and emit a Load directly from memory.
         if let Some(p) = lowered_object.place() {
-            Ok(LoweredExpr::with_place(
-                Value::operand(field_dest),
-                p.clone(),
-            ))
+            let mut place = p.clone();
+            place = place.with_field(field.value().clone());
+
+            let dest_id = self
+                .state
+                .mir_function
+                .new_typed_value_id(field_type.clone());
+            self.instr()
+                .add_instruction(Instruction::load(dest_id, place.clone(), field_type));
+            Ok(LoweredExpr::with_place(Value::operand(dest_id), place))
         } else {
+            // Pure value path: extract by value
+            let struct_val = lowered_object.into_value();
+            let field_dest =
+                self.extract_struct_field(struct_val, field.value().clone(), field_type);
             Ok(LoweredExpr::new(Value::operand(field_dest)))
         }
     }
@@ -419,16 +421,11 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         tuple: &Spanned<Expression>,
         index: usize,
     ) -> Result<LoweredExpr, String> {
-        // NEW: Value-based tuple element extraction
-        // Lower the tuple expression to get a value (and preserve place if any)
+        // Lower the tuple expression to get a value and/or place
         let lowered_tuple = self.lower_expression(tuple)?;
-        let tuple_val = lowered_tuple.clone().into_value();
 
-        // Get the semantic type of the tuple to determine element types
-        // Get the MIR type of the tuple
+        // Determine element type from tuple type
         let tuple_mir_type = self.expr_mir_type(tuple.span())?;
-
-        // Get element type
         let element_mir_type = match &tuple_mir_type {
             MirType::Tuple(types) => types
                 .get(index)
@@ -437,17 +434,24 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => return Err("TupleIndex on non-tuple type".to_string()),
         };
 
-        // Extract the element using ExtractTupleElement instruction
-        let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
-
-        // TODO: Same policy as above — do not append tuple projections to Place.
-        //       Preserve only the base array element place (arr[i]) for writeback.
         if let Some(p) = lowered_tuple.place() {
-            Ok(LoweredExpr::with_place(
-                Value::operand(element_dest),
-                p.clone(),
-            ))
+            // Extend place with tuple projection and load from memory
+            let mut place = p.clone();
+            place = place.with_tuple(index);
+            let dest_id = self
+                .state
+                .mir_function
+                .new_typed_value_id(element_mir_type.clone());
+            self.instr().add_instruction(Instruction::load(
+                dest_id,
+                place.clone(),
+                element_mir_type,
+            ));
+            Ok(LoweredExpr::with_place(Value::operand(dest_id), place))
         } else {
+            // Pure value path: extract by value
+            let tuple_val = lowered_tuple.into_value();
+            let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
             Ok(LoweredExpr::new(Value::operand(element_dest)))
         }
     }

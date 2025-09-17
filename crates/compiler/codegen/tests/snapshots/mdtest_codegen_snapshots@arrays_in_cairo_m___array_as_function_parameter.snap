@@ -12,8 +12,8 @@ Generated CASM:
 test_array:
 test_array:
 test_array_0:
-   0: 8 2147483642 0 0     // [fp + 0] = [[fp + -5] + 0] (load array element)
-   1: 8 2147483642 1 1     // [fp + 1] = [[fp + -5] + 1] (load array element slot 1)
+   0: 8 2147483642 0 0     // [fp + 0] = [[fp + -5] + 0] (load slot 0)
+   1: 8 2147483642 1 1     // [fp + 1] = [[fp + -5] + 1] (load slot 1)
    2: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
    3: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
    4: 11 _ _ _             // return
