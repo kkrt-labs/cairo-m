@@ -381,8 +381,9 @@ impl super::CasmBuilder {
     ) -> CodegenResult<()> {
         // Arrays store pointers to their data, so we need to dereference:
         // element N is at memory address [[fp + base_offset] + element_offset]
-        let elem_size = DataLayout::value_size_of(ty);
-        let dest_off = self.layout.allocate_local(dest, elem_size)?;
+        // Load only the memory footprint of the element (pointers/arrays occupy 1 slot)
+        let elem_mem_size = DataLayout::memory_size_of(ty);
+        let dest_off = self.layout.allocate_local(dest, elem_mem_size)?;
 
         // For static offsets, use StoreDoubleDerefFpImm
         // Load slot 0: [fp + dest_off] = [[fp + base_offset] + element_offset]
@@ -397,7 +398,7 @@ impl super::CasmBuilder {
         );
 
         // For multi-slot elements (like u32), load additional slots
-        for s in 1..elem_size {
+        for s in 1..elem_mem_size {
             let slot_offset = element_offset + s as i32;
             let dst_slot = dest_off + s as i32;
             self.store_from_double_deref_fp_imm(
@@ -422,16 +423,17 @@ impl super::CasmBuilder {
         indexing_value_offset: i32,
         ty: &MirType,
     ) -> CodegenResult<()> {
-        let elem_size = DataLayout::value_size_of(ty);
-        let dest_off = self.layout.allocate_local(dest, elem_size)?;
+        // Distinguish memory stride from the number of slots to load
+        let elem_mem_size = DataLayout::memory_size_of(ty);
+        let dest_off = self.layout.allocate_local(dest, elem_mem_size)?;
 
         // If the elem_size is N, then, the value we have to retrieved is located at [fp + base_ptr + [fp + scaled_offset] * N]
         // e.g. for a array of u32, index 1, the value is located at [fp + base_ptr + (1 * 2)]
 
-        let scaled_offset = if elem_size != 1 {
+        let scaled_offset = if elem_mem_size != 1 {
             // First, multiply the index by the element size
             let scaled_offset_ = self.layout.reserve_stack(1);
-            self.felt_mul_fp_imm(indexing_value_offset, elem_size as i32, scaled_offset_, format!("[fp + {scaled_offset_}] = [fp + {indexing_value_offset}] * {elem_size} - Scale index by element size"));
+            self.felt_mul_fp_imm(indexing_value_offset, elem_mem_size as i32, scaled_offset_, format!("[fp + {scaled_offset_}] = [fp + {indexing_value_offset}] * {elem_mem_size} - Scale index by element size"));
             scaled_offset_
         } else {
             indexing_value_offset
@@ -449,7 +451,7 @@ impl super::CasmBuilder {
         );
 
         // Additional slots if element spans multiple words (e.g., U32)
-        for s in 1..elem_size {
+        for s in 1..elem_mem_size {
             // temp_index = scaled_offset + s
             let tmp_idx = self.layout.reserve_stack(1);
             self.felt_add_fp_imm(

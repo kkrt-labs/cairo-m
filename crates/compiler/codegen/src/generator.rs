@@ -706,8 +706,9 @@ impl CodeGenerator {
                 match place.projections.first() {
                     Some(Projection::Index(idx)) => match idx {
                         Value::Literal(Literal::Integer(i)) => {
-                            let elem_size = DataLayout::value_size_of(ty);
-                            let elem_off = (*i as i32) * (elem_size as i32);
+                            // Use memory footprint for address stride (handles pointer-like aggregates)
+                            let elem_stride = DataLayout::memory_size_of(ty);
+                            let elem_off = (*i as i32) * (elem_stride as i32);
                             builder.load_from_memory_static(*dest, base_offset, elem_off, ty)?;
                         }
                         Value::Operand(idx_id) => {
@@ -763,7 +764,8 @@ impl CodeGenerator {
 
             InstructionKind::Store { place, value, ty } => {
                 let base_offset = builder.layout.get_offset(place.base)?;
-                let elem_size = DataLayout::value_size_of(ty);
+                // Use memory footprint for address stride and slot counts
+                let elem_size = DataLayout::memory_size_of(ty);
 
                 match place.projections.first() {
                     Some(Projection::Index(idx)) => match idx {
