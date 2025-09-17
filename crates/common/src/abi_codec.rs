@@ -263,7 +263,6 @@ pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
     use serde_json as json;
 
     // ==================== Unit Tests ====================
@@ -353,6 +352,8 @@ mod tests {
     // Tests for complex scenarios and JSON serialization
 
     mod integration {
+        use crate::program::AbiType;
+
         use super::*;
 
         #[test]
@@ -374,85 +375,6 @@ mod tests {
             let s = json::to_string(&ty).unwrap();
             let de: AbiType = json::from_str(&s).unwrap();
             assert_eq!(ty, de);
-        }
-    }
-
-    // ==================== Property-Based Tests ====================
-    // Comprehensive round-trip testing for all supported types
-
-    #[cfg(test)]
-    mod proptest_tests {
-        use super::*;
-
-        // Strategy for generating InputValue that matches a given AbiType
-        fn arb_input_for_type(ty: &AbiType, depth: u32) -> BoxedStrategy<InputValue> {
-            // Limit recursion depth
-            if depth > 3 {
-                return Just(InputValue::Unit).boxed();
-            }
-
-            match ty {
-                AbiType::Felt => (-1_000_000i64..1_000_000)
-                    .prop_map(InputValue::Number)
-                    .boxed(),
-                AbiType::Bool => prop_oneof![
-                    Just(InputValue::Bool(true)),
-                    Just(InputValue::Bool(false)),
-                    Just(0.into()),
-                    Just(1.into()),
-                ]
-                .boxed(),
-                AbiType::U32 => (0u32..=u32::MAX)
-                    .prop_map(|n| InputValue::Number(n as i64))
-                    .boxed(),
-                AbiType::Tuple(types) => {
-                    let strategies: Vec<_> = types
-                        .iter()
-                        .map(|t| arb_input_for_type(t, depth + 1))
-                        .collect();
-                    strategies.prop_map(InputValue::List).boxed()
-                }
-                AbiType::Struct { fields, .. } => {
-                    let strategies: Vec<_> = fields
-                        .iter()
-                        .map(|(_, t)| arb_input_for_type(t, depth + 1))
-                        .collect();
-                    strategies.prop_map(InputValue::Struct).boxed()
-                }
-                AbiType::Unit => Just(InputValue::Unit).boxed(),
-                _ => Just(InputValue::Unit).boxed(), // Unsupported types
-            }
-        }
-
-        // Strategy for generating simple AbiType instances (no arrays/pointers)
-        fn arb_simple_abi_type(depth: u32) -> BoxedStrategy<AbiType> {
-            if depth > 2 {
-                return prop_oneof![
-                    Just(AbiType::Felt),
-                    Just(AbiType::Bool),
-                    Just(AbiType::U32),
-                    Just(AbiType::Unit),
-                ]
-                .boxed();
-            }
-
-            prop_oneof![
-                Just(AbiType::Felt),
-                Just(AbiType::Bool),
-                Just(AbiType::U32),
-                Just(AbiType::Unit),
-                // Tuples with 0-3 elements
-                prop::collection::vec(arb_simple_abi_type(depth + 1), 0..=3)
-                    .prop_map(AbiType::Tuple),
-                // Structs with 0-3 fields
-                prop::collection::vec(("[a-z]+", arb_simple_abi_type(depth + 1)), 0..=3).prop_map(
-                    |fields| AbiType::Struct {
-                        name: "TestStruct".to_string(),
-                        fields,
-                    }
-                ),
-            ]
-            .boxed()
         }
     }
 }
