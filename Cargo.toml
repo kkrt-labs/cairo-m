@@ -41,7 +41,7 @@ cairo-m-wasm = { path = "crates/wasm" }
 cairo-m-test-utils = { path = "crates/test_utils" }
 
 # External dependencies
-womir = { git = "https://github.com/gael-bigot/womir.git", rev = "ee7e418" }
+womir = { git = "https://github.com/powdr-labs/womir", rev = "3d36244" }
 
 # Starkware dependencies
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
