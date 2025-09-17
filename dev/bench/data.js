@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758034735419,
+  "lastUpdate": 1758118986055,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2413,6 +2413,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 288058945,
             "range": "± 2697314",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c42308702d381ca22e8cff083c5f2cea4e31c0bb",
+          "message": "refactor(compiler): MIR with store / load for pointer types (#323)\n\n* refactor MIR with store / load for pointer types\n\n* address review\n\n* suggestion\n\n* fix lowering of aggregates\n\n* fix SROA passes\n\n* update tests",
+          "timestamp": "2025-09-17T16:15:49+02:00",
+          "tree_id": "09e6662d3381cd8edfd0f4cc73d8a9984255863a",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/c42308702d381ca22e8cff083c5f2cea4e31c0bb"
+        },
+        "date": 1758118984828,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 291383343,
+            "range": "± 2688087",
             "unit": "ns/iter"
           }
         ]
