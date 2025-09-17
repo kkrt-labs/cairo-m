@@ -12,17 +12,58 @@ use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
 use crate::instruction::CalleeSignature;
-use crate::{Instruction, MirType, Value};
+use crate::{Instruction, MirType, Place, Value};
 
 use super::builder::{CallResult, MirBuilder};
 
 /// Trait for lowering expressions to MIR values
 pub trait LowerExpr<'a> {
-    fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String>;
+    fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<LoweredExpr, String>;
+}
+
+#[derive(Clone, Debug)]
+pub struct LoweredExpr {
+    value: Value,
+    place: Option<Place>,
+}
+
+impl LoweredExpr {
+    pub const fn new(value: Value) -> Self {
+        Self { value, place: None }
+    }
+
+    pub const fn with_place(value: Value, place: Place) -> Self {
+        Self {
+            value,
+            place: Some(place),
+        }
+    }
+
+    pub const fn value(&self) -> &Value {
+        &self.value
+    }
+
+    pub fn into_value(self) -> Value {
+        self.value
+    }
+
+    pub const fn place(&self) -> Option<&Place> {
+        self.place.as_ref()
+    }
+
+    pub fn into_place(self) -> Option<Place> {
+        self.place
+    }
+}
+
+impl From<Value> for LoweredExpr {
+    fn from(value: Value) -> Self {
+        Self::new(value)
+    }
 }
 
 impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
-    fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<Value, String> {
+    fn lower_expression(&mut self, expr: &Spanned<Expression>) -> Result<LoweredExpr, String> {
         // First, get the ExpressionId and its associated info
         let expr_id = self.expr_id(expr.span())?;
 
@@ -36,8 +77,8 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
         // Use expr_info.ast_node instead of expr.value()
         match &expr_info.ast_node {
-            Expression::Literal(n, _) => Ok(Value::integer(*n as u32)),
-            Expression::BooleanLiteral(b) => Ok(Value::boolean(*b)),
+            Expression::Literal(n, _) => Ok(LoweredExpr::new(Value::integer(*n as u32))),
+            Expression::BooleanLiteral(b) => Ok(LoweredExpr::new(Value::boolean(*b))),
             Expression::Identifier(name) => self.lower_identifier(name, current_scope_id),
             Expression::UnaryOp { op, expr } => self.lower_unary_op(*op, expr, expr_id),
             Expression::BinaryOp { op, left, right } => {
@@ -80,7 +121,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &mut self,
         name: &Spanned<String>,
         _scope_id: FileScopeId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // Use the builder-recorded mapping from this identifier expression to its definition
         let expr_id = self.expr_id(name.span())?;
         if let Some((def_idx, def)) = self
@@ -118,14 +159,14 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             // Look up the MIR value for this definition (for variables, not constants)
             if let Ok(var_value) = self.read_variable(name.value(), name.span()) {
                 // It's a value (primitive, struct, tuple) - use directly
-                return Ok(Value::operand(var_value));
+                return Ok(LoweredExpr::new(Value::operand(var_value)));
             } else {
                 panic!("Unexpected error: could not read variable {}", name.value());
             }
         }
 
         // If we can't resolve the identifier, return an error value for recovery
-        Ok(Value::error())
+        Ok(LoweredExpr::new(Value::error()))
     }
 
     fn lower_unary_op(
@@ -133,8 +174,8 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         op: UnaryOp,
         expr: &Spanned<Expression>,
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
-        let expr_value = self.lower_expression(expr)?;
+    ) -> Result<LoweredExpr, String> {
+        let expr_value = self.lower_expression(expr)?.into_value();
 
         // Query semantic type system for result type based on this expression
         let result_type = self.ctx.get_expr_type(expr_id);
@@ -144,7 +185,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Register unary op result as a Value
 
-        Ok(Value::operand(dest))
+        Ok(LoweredExpr::new(Value::operand(dest)))
     }
 
     fn lower_binary_op(
@@ -153,9 +194,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         left: &Spanned<Expression>,
         right: &Spanned<Expression>,
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
-        let lhs_value = self.lower_expression(left)?;
-        let rhs_value = self.lower_expression(right)?;
+    ) -> Result<LoweredExpr, String> {
+        let lhs_value = self.lower_expression(left)?.into_value();
+        let rhs_value = self.lower_expression(right)?.into_value();
 
         // Query semantic type system for result type based on this expression
         let result_type = self.ctx.get_expr_type(expr_id);
@@ -178,7 +219,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let typed_op = crate::BinaryOp::from_parser(op, &left_type_data)?;
         self.instr()
             .binary_op_to(typed_op, dest, lhs_value, rhs_value);
-        Ok(Value::operand(dest))
+        Ok(LoweredExpr::new(Value::operand(dest)))
     }
 
     fn lower_function_call_expr(
@@ -186,7 +227,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         callee: &Spanned<Expression>,
         args: &[Spanned<Expression>],
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // Handle built-in assert(...) in expression position as well.
         // Emit the same MIR as in statement position, then return unit.
         if let Expression::Identifier(name) = callee.value() {
@@ -200,12 +241,12 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     .ok_or_else(|| format!("MIR: No ExpressionInfo for call ID {expr_id:?}"))?;
 
                 self.lower_assert_call(args, call_span)?;
-                return Ok(Value::unit());
+                return Ok(LoweredExpr::new(Value::unit()));
             }
         }
 
         match self.lower_function_call(callee, args, expr_id)? {
-            CallResult::Single(value) => Ok(value),
+            CallResult::Single(value) => Ok(LoweredExpr::new(value)),
             CallResult::Tuple(values) => {
                 // For expression context, we need to return a single value
                 // Use MakeTuple to create a value-based tuple from the returned values
@@ -213,7 +254,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
                 // Create a tuple value using MakeTuple instruction
                 let tuple_value = self.make_tuple(values, tuple_type);
-                Ok(Value::operand(tuple_value))
+                Ok(LoweredExpr::new(Value::operand(tuple_value)))
             }
         }
     }
@@ -223,22 +264,37 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         object: &Spanned<Expression>,
         field: &Spanned<String>,
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // NOTE: When arrays are implemented, they should use memory-based access:
         // - Arrays should use get_element_ptr + load for element access
         // - Arrays should NOT use ExtractTupleElement or similar value-based operations
         // - Use MirType::requires_memory_path() to check
-        // NEW: Value-based struct field extraction
-        // Lower the struct expression to get a value
-        let struct_val = self.lower_expression(object)?;
+        // Lower the struct expression to get a value and/or place
+        let lowered_object = self.lower_expression(object)?;
 
         // Query semantic type system for the field type
         let field_type = self.ctx.get_expr_type(expr_id);
 
-        // Extract the field using ExtractStructField instruction
-        let field_dest = self.extract_struct_field(struct_val, field.value().clone(), field_type);
+        // If the object has a place (e.g., arr[i]), extend it with a field projection
+        // and emit a Load directly from memory.
+        if let Some(p) = lowered_object.place() {
+            let mut place = p.clone();
+            place = place.with_field(field.value().clone());
 
-        Ok(Value::operand(field_dest))
+            let dest_id = self
+                .state
+                .mir_function
+                .new_typed_value_id(field_type.clone());
+            self.instr()
+                .add_instruction(Instruction::load(dest_id, place.clone(), field_type));
+            Ok(LoweredExpr::with_place(Value::operand(dest_id), place))
+        } else {
+            // Pure value path: extract by value
+            let struct_val = lowered_object.into_value();
+            let field_dest =
+                self.extract_struct_field(struct_val, field.value().clone(), field_type);
+            Ok(LoweredExpr::new(Value::operand(field_dest)))
+        }
     }
 
     pub(super) fn lower_function_call(
@@ -253,7 +309,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Lower the arguments
         let mut arg_values = Vec::new();
         for arg in args {
-            arg_values.push(self.lower_expression(arg)?);
+            arg_values.push(self.lower_expression(arg)?.into_value());
         }
 
         // Get the callee's signature by looking up the function definition
@@ -315,7 +371,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         &mut self,
         fields: &[(Spanned<String>, Spanned<Expression>)],
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // NEW: Value-based struct creation
         // Query semantic type system for struct type
         let struct_type = self.ctx.get_expr_type(expr_id);
@@ -323,31 +379,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Lower each field to a value
         let mut field_values = Vec::new();
         for (field_name, field_expr) in fields {
-            let field_val = self.lower_expression(field_expr)?;
+            let field_val = self.lower_expression(field_expr)?.into_value();
             field_values.push((field_name.value().clone(), field_val));
         }
 
         // Create the struct using a single MakeStruct instruction
         let struct_dest = self.make_struct(field_values, struct_type);
 
-        Ok(Value::operand(struct_dest))
+        Ok(LoweredExpr::new(Value::operand(struct_dest)))
     }
 
     fn lower_tuple_literal(
         &mut self,
         elements: &[Spanned<Expression>],
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // NEW: Value-based tuple creation
         if elements.is_empty() {
             // Empty tuple - return proper unit value
-            return Ok(Value::unit());
+            return Ok(LoweredExpr::new(Value::unit()));
         }
 
         // Lower each element to a value
         let mut element_values = Vec::new();
         for element_expr in elements {
-            let element_val = self.lower_expression(element_expr)?;
+            let element_val = self.lower_expression(element_expr)?.into_value();
             element_values.push(element_val);
         }
 
@@ -357,23 +413,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Create the tuple using a single MakeTuple instruction
         let tuple_dest = self.make_tuple(element_values, tuple_type);
 
-        Ok(Value::operand(tuple_dest))
+        Ok(LoweredExpr::new(Value::operand(tuple_dest)))
     }
 
     fn lower_tuple_index(
         &mut self,
         tuple: &Spanned<Expression>,
         index: usize,
-    ) -> Result<Value, String> {
-        // NEW: Value-based tuple element extraction
-        // Lower the tuple expression to get a value
-        let tuple_val = self.lower_expression(tuple)?;
+    ) -> Result<LoweredExpr, String> {
+        // Lower the tuple expression to get a value and/or place
+        let lowered_tuple = self.lower_expression(tuple)?;
 
-        // Get the semantic type of the tuple to determine element types
-        // Get the MIR type of the tuple
+        // Determine element type from tuple type
         let tuple_mir_type = self.expr_mir_type(tuple.span())?;
-
-        // Get element type
         let element_mir_type = match &tuple_mir_type {
             MirType::Tuple(types) => types
                 .get(index)
@@ -382,21 +434,37 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => return Err("TupleIndex on non-tuple type".to_string()),
         };
 
-        // Extract the element using ExtractTupleElement instruction
-        let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
-
-        Ok(Value::operand(element_dest))
+        if let Some(p) = lowered_tuple.place() {
+            // Extend place with tuple projection and load from memory
+            let mut place = p.clone();
+            place = place.with_tuple(index);
+            let dest_id = self
+                .state
+                .mir_function
+                .new_typed_value_id(element_mir_type.clone());
+            self.instr().add_instruction(Instruction::load(
+                dest_id,
+                place.clone(),
+                element_mir_type,
+            ));
+            Ok(LoweredExpr::with_place(Value::operand(dest_id), place))
+        } else {
+            // Pure value path: extract by value
+            let tuple_val = lowered_tuple.into_value();
+            let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
+            Ok(LoweredExpr::new(Value::operand(element_dest)))
+        }
     }
 
     fn lower_array_literal(
         &mut self,
         elements: &[Spanned<Expression>],
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // Lower each element to a value
         let mut element_values = Vec::new();
         for element_expr in elements {
-            let element_val = self.lower_expression(element_expr)?;
+            let element_val = self.lower_expression(element_expr)?.into_value();
             element_values.push(element_val);
         }
 
@@ -412,7 +480,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Create the array using MakeFixedArray instruction (const context respected in builder)
         let array_dest = self.make_fixed_array(element_values, element_mir_type);
 
-        Ok(Value::operand(array_dest))
+        Ok(LoweredExpr::new(Value::operand(array_dest)))
     }
 
     fn lower_array_repeat(
@@ -420,9 +488,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         element: &Spanned<Expression>,
         count: usize,
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // Lower the element expression once
-        let elem_value = self.lower_expression(element)?;
+        let elem_value = self.lower_expression(element)?.into_value();
 
         // Query semantic array type to obtain element MIR type
         let array_type = self.ctx.get_expr_type(expr_id);
@@ -437,16 +505,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Create the array using MakeFixedArray instruction (const context respected)
         let array_dest = self.make_fixed_array(elements, element_mir_type);
 
-        Ok(Value::operand(array_dest))
+        Ok(LoweredExpr::new(Value::operand(array_dest)))
     }
 
     fn lower_cast(
         &mut self,
         expr: &Spanned<Expression>,
         expr_id: ExpressionId,
-    ) -> Result<Value, String> {
+    ) -> Result<LoweredExpr, String> {
         // Lower the source expression
-        let source_value = self.lower_expression(expr)?;
+        let source_value = self.lower_expression(expr)?.into_value();
 
         // Get the source type from semantic analysis
         let source_expr_id = self.expr_id(expr.span())?;
@@ -470,7 +538,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             .new_typed_value_id(target_type.clone());
         let cast_instr = Instruction::cast(dest_id, source_value, source_type, target_type);
         self.instr().add_instruction(cast_instr);
-        Ok(Value::operand(dest_id))
+        Ok(LoweredExpr::new(Value::operand(dest_id)))
     }
 
     fn lower_array_index(
@@ -478,9 +546,10 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         array: &Spanned<Expression>,
         index: &Spanned<Expression>,
         _expr_id: ExpressionId,
-    ) -> Result<Value, String> {
-        // Lower the array expression to get a value
-        let array_val = self.lower_expression(array)?;
+    ) -> Result<LoweredExpr, String> {
+        // Lower the array expression to get a value and/or a place
+        let array_lowered = self.lower_expression(array)?;
+        let array_val = *array_lowered.value();
 
         // Get the MIR type of the array
         let array_mir_type = self.expr_mir_type(array.span())?;
@@ -491,9 +560,31 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
             _ => return Err("IndexAccess on non-array type".to_string()),
         };
 
-        // Lower index expression and use unified ArrayIndex
-        let index_val = self.lower_expression(index)?;
-        let element_dest = self.array_index(array_val, index_val, element_mir_type);
-        Ok(Value::operand(element_dest))
+        // Lower index expression and reuse it for both load and potential store
+        let index_lowered = self.lower_expression(index)?;
+        let index_value = *index_lowered.value();
+
+        // Build the place for this indexed element
+        // Preserve any existing place (e.g., arr[i].nested)[j] by extending it,
+        // otherwise fall back to using the operand base value.
+        let mut place = if let Some(p) = array_lowered.place().cloned() {
+            p
+        } else {
+            match array_val {
+                Value::Operand(id) => Place::new(id),
+                _ => return Err("Array index requires operand base".to_string()),
+            }
+        };
+        place = place.with_index(index_value);
+
+        // Emit load for the element value
+        let dest = self
+            .state
+            .mir_function
+            .new_typed_value_id(element_mir_type.clone());
+        self.instr()
+            .add_instruction(Instruction::load(dest, place.clone(), element_mir_type));
+
+        Ok(LoweredExpr::with_place(Value::operand(dest), place))
     }
 }

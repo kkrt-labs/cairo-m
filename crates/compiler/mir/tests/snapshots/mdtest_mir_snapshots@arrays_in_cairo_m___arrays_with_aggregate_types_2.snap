@@ -1,0 +1,44 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+description: "MIR snapshot for mdtest: Arrays in Cairo-M - Arrays with Aggregate Types 2"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+
+fn test_main() -> u32 {
+    let points: [Point; 3] = [Point { x: 1, y: 2 }, Point { x: 3, y: 4 }, Point { x: 5, y: 6 }];
+    points[0].x = 10;
+    return points[0].x + points[1].y + points[2].x;
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn test_main {
+    entry: 0
+
+    0:
+      %0 = makestruct { x: 1, y: 2 }
+      %1 = makestruct { x: 3, y: 4 }
+      %2 = makestruct { x: 5, y: 6 }
+      %3 = makefixedarray [%0, %1, %2]
+      %4 = load %3[0]
+      store 10 -> %3[0].x
+      %5 = load %3[0]
+      %6 = load %3[0].x
+      %7 = load %3[1]
+      %8 = load %3[1].y
+      %9 = %6 U32Add %8
+      %10 = load %3[2]
+      %11 = load %3[2].x
+      %12 = %9 U32Add %11
+      return %12
+
+  }
+
+}

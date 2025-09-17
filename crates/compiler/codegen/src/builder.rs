@@ -45,7 +45,7 @@ pub struct CasmBuilder {
     /// Labels that need to be resolved
     pub(super) labels: Vec<Label>,
     /// Current function layout for offset lookups
-    layout: FunctionLayout,
+    pub(crate) layout: FunctionLayout,
     /// Counter for generating unique labels
     pub(super) label_counter: usize,
     /// Highest fp+ offset that has been written to (for optimization tracking)

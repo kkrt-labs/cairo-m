@@ -8,8 +8,8 @@ use std::collections::HashSet;
 use cairo_m_compiler_parser::parser::UnaryOp;
 use chumsky::span::SimpleSpan;
 
-use crate::value_visitor::{visit_value, visit_values};
-use crate::{BasicBlockId, MirType, PrettyPrint, Value, ValueId};
+use crate::value_visitor::{replace_place_value_ids, visit_place, visit_value, visit_values};
+use crate::{BasicBlockId, MirType, Place, PrettyPrint, Value, ValueId};
 
 /// Binary operators supported in MIR
 ///
@@ -276,6 +276,20 @@ pub enum InstructionKind {
         target_type: MirType,
     },
 
+    /// Load from a memory location into an SSA value
+    Load {
+        dest: ValueId,
+        place: Place,
+        ty: MirType,
+    },
+
+    /// Store a value into a memory location
+    Store {
+        place: Place,
+        value: Value,
+        ty: MirType,
+    },
+
     /// Debug/diagnostic instruction
     /// Used for debugging and diagnostic output
     Debug { message: String, values: Vec<Value> },
@@ -348,25 +362,6 @@ pub enum InstructionKind {
         elements: Vec<Value>,
         element_ty: MirType,
         is_const: bool,
-    },
-
-    /// Index into a fixed-size array: `dest = arrayindex array, index`
-    /// When `index` is a literal, enables SROA; otherwise materialization paths apply.
-    ArrayIndex {
-        dest: ValueId,
-        array: Value,
-        index: Value,
-        element_ty: MirType,
-    },
-
-    /// Insert/Update array element: `dest = arrayinsert array_val, index, value`
-    /// Creates a new array value with element at `index` replaced.
-    ArrayInsert {
-        dest: ValueId,
-        array_val: Value,
-        index: Value,
-        new_value: Value,
-        array_ty: MirType,
     },
 
     /// Assert equality between two values.
@@ -451,6 +446,26 @@ impl Instruction {
                 source_type,
                 target_type,
             },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new load instruction
+    pub const fn load(dest: ValueId, place: Place, ty: MirType) -> Self {
+        Self {
+            kind: InstructionKind::Load { dest, place, ty },
+            source_span: None,
+            source_expr_id: None,
+            comment: None,
+        }
+    }
+
+    /// Creates a new store instruction
+    pub const fn store(place: Place, value: Value, ty: MirType) -> Self {
+        Self {
+            kind: InstructionKind::Store { place, value, ty },
             source_span: None,
             source_expr_id: None,
             comment: None,
@@ -626,48 +641,6 @@ impl Instruction {
         }
     }
 
-    /// Creates a new array index instruction
-    pub const fn array_index(
-        dest: ValueId,
-        array: Value,
-        index: Value,
-        element_ty: MirType,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::ArrayIndex {
-                dest,
-                array,
-                index,
-                element_ty,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
-    /// Creates a new array insert instruction
-    pub const fn array_insert(
-        dest: ValueId,
-        array_val: Value,
-        index: Value,
-        new_value: Value,
-        array_ty: MirType,
-    ) -> Self {
-        Self {
-            kind: InstructionKind::ArrayInsert {
-                dest,
-                array_val,
-                index,
-                new_value,
-                array_ty,
-            },
-            source_span: None,
-            source_expr_id: None,
-            comment: None,
-        }
-    }
-
     /// Sets the source span for this instruction
     pub const fn with_span(mut self, span: SimpleSpan<usize>) -> Self {
         self.source_span = Some(span);
@@ -687,6 +660,7 @@ impl Instruction {
             | InstructionKind::UnaryOp { dest, .. }
             | InstructionKind::BinaryOp { dest, .. }
             | InstructionKind::Cast { dest, .. }
+            | InstructionKind::Load { dest, .. }
             | InstructionKind::Phi { dest, .. }
             | InstructionKind::MakeTuple { dest, .. }
             | InstructionKind::ExtractTupleElement { dest, .. }
@@ -694,14 +668,13 @@ impl Instruction {
             | InstructionKind::ExtractStructField { dest, .. }
             | InstructionKind::InsertField { dest, .. }
             | InstructionKind::InsertTuple { dest, .. }
-            | InstructionKind::MakeFixedArray { dest, .. }
-            | InstructionKind::ArrayIndex { dest, .. }
-            | InstructionKind::ArrayInsert { dest, .. } => vec![*dest],
+            | InstructionKind::MakeFixedArray { dest, .. } => vec![*dest],
 
             InstructionKind::Call { dests, .. } => dests.clone(),
 
             InstructionKind::Debug { .. }
             | InstructionKind::Nop
+            | InstructionKind::Store { .. }
             | InstructionKind::AssertEq { .. } => vec![],
         }
     }
@@ -750,6 +723,21 @@ impl Instruction {
 
             InstructionKind::Cast { source, .. } => {
                 visit_value(source, |id| {
+                    used.insert(id);
+                });
+            }
+
+            InstructionKind::Load { place, .. } => {
+                visit_place(place, |id| {
+                    used.insert(id);
+                });
+            }
+
+            InstructionKind::Store { place, value, .. } => {
+                visit_place(place, |id| {
+                    used.insert(id);
+                });
+                visit_value(value, |id| {
                     used.insert(id);
                 });
             }
@@ -830,31 +818,6 @@ impl Instruction {
                 });
             }
 
-            InstructionKind::ArrayIndex { array, index, .. } => {
-                visit_value(array, |id| {
-                    used.insert(id);
-                });
-                visit_value(index, |id| {
-                    used.insert(id);
-                });
-            }
-
-            InstructionKind::ArrayInsert {
-                array_val,
-                index,
-                new_value,
-                ..
-            } => {
-                visit_value(array_val, |id| {
-                    used.insert(id);
-                });
-                visit_value(index, |id| {
-                    used.insert(id);
-                });
-                visit_value(new_value, |id| {
-                    used.insert(id);
-                });
-            }
             InstructionKind::AssertEq { left, right } => {
                 visit_value(left, |id| {
                     used.insert(id);
@@ -892,6 +855,13 @@ impl Instruction {
             }
             InstructionKind::Cast { source, .. } => {
                 replace_value_id(source, from, to);
+            }
+            InstructionKind::Load { place, .. } => {
+                replace_place_value_ids(place, from, to);
+            }
+            InstructionKind::Store { place, value, .. } => {
+                replace_place_value_ids(place, from, to);
+                replace_value_id(value, from, to);
             }
             InstructionKind::Debug { values, .. } => {
                 replace_value_ids(values, from, to);
@@ -937,20 +907,6 @@ impl Instruction {
             InstructionKind::MakeFixedArray { elements, .. } => {
                 replace_value_ids(elements, from, to);
             }
-            InstructionKind::ArrayIndex { array, index, .. } => {
-                replace_value_id(array, from, to);
-                replace_value_id(index, from, to);
-            }
-            InstructionKind::ArrayInsert {
-                array_val,
-                index,
-                new_value,
-                ..
-            } => {
-                replace_value_id(array_val, from, to);
-                replace_value_id(index, from, to);
-                replace_value_id(new_value, from, to);
-            }
             InstructionKind::AssertEq { left, right } => {
                 replace_value_id(left, from, to);
                 replace_value_id(right, from, to);
@@ -966,6 +922,8 @@ impl Instruction {
             InstructionKind::BinaryOp { .. } => Ok(()),
             InstructionKind::Call { .. } => Ok(()),
             InstructionKind::Cast { .. } => Ok(()),
+            InstructionKind::Load { .. } => Ok(()),
+            InstructionKind::Store { .. } => Ok(()),
             InstructionKind::Debug { .. } => Ok(()),
             InstructionKind::Phi { .. } => Ok(()),
             InstructionKind::Nop => Ok(()),
@@ -976,8 +934,6 @@ impl Instruction {
             InstructionKind::InsertField { .. } => Ok(()),
             InstructionKind::InsertTuple { .. } => Ok(()),
             InstructionKind::MakeFixedArray { .. } => Ok(()),
-            InstructionKind::ArrayIndex { .. } => Ok(()),
-            InstructionKind::ArrayInsert { .. } => Ok(()),
             InstructionKind::AssertEq { .. } => Ok(()),
         }
     }
@@ -990,7 +946,7 @@ impl Instruction {
             self.kind,
             InstructionKind::Call { .. }
                 | InstructionKind::Debug { .. }
-                | InstructionKind::ArrayInsert { .. }
+                | InstructionKind::Store { .. }
         )
     }
 
@@ -1124,6 +1080,22 @@ impl PrettyPrint for Instruction {
                     source.pretty_print(0),
                     source_type,
                     target_type
+                ));
+            }
+
+            InstructionKind::Load { dest, place, .. } => {
+                result.push_str(&format!(
+                    "{} = load {}",
+                    dest.pretty_print(0),
+                    place.pretty_print(0)
+                ));
+            }
+
+            InstructionKind::Store { place, value, .. } => {
+                result.push_str(&format!(
+                    "store {} -> {}",
+                    value.pretty_print(0),
+                    place.pretty_print(0)
                 ));
             }
 
@@ -1261,35 +1233,6 @@ impl PrettyPrint for Instruction {
                 ));
             }
 
-            InstructionKind::ArrayIndex {
-                dest,
-                array,
-                index,
-                element_ty: _, // Type info not shown for cleaner output
-            } => {
-                result.push_str(&format!(
-                    "{} = arrayindex {}, {}",
-                    dest.pretty_print(0),
-                    array.pretty_print(0),
-                    index.pretty_print(0)
-                ));
-            }
-
-            InstructionKind::ArrayInsert {
-                dest,
-                array_val,
-                index,
-                new_value,
-                array_ty: _, // Type info not shown for cleaner output
-            } => {
-                result.push_str(&format!(
-                    "{} = arrayinsert {}, {}, {}",
-                    dest.pretty_print(0),
-                    array_val.pretty_print(0),
-                    index.pretty_print(0),
-                    new_value.pretty_print(0)
-                ));
-            }
             InstructionKind::AssertEq { left, right } => {
                 result.push_str(&format!(
                     "AssertEq {}, {}",

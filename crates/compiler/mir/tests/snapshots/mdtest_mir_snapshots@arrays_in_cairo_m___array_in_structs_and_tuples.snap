@@ -32,9 +32,9 @@ module {
       %5 = %0 + %1
       %6 = makestruct { values: %4, sum: %5 }
       %7 = extracttuple %3, 1
-      %8 = arrayindex %7, 0
+      %8 = load %7[0]
       %9 = extractfield %6, "values"
-      %10 = arrayindex %9, 1
+      %10 = load %9[1]
       %11 = %8 + %10
       return %11
 

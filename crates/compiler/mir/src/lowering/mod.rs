@@ -16,6 +16,9 @@ mod value_based_tests;
 #[cfg(test)]
 mod array_memory_tests;
 
+#[cfg(test)]
+mod member_access_array_index_tests;
+
 // Re-export the main entry points
 pub use function::{generate_mir, generate_mir_with_config};
 

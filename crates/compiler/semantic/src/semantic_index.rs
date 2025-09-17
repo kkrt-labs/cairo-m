@@ -441,22 +441,22 @@ impl SemanticIndex {
                         }
 
                         // Skip if usage falls inside this let initializer
-                        let skip = if let crate::definition::DefinitionKind::Let(let_ref) = &def.kind
-                        {
-                            if let Some(init_expr_id) = let_ref.value_expr_id {
-                                if let Some(init_expr) = self.expression(init_expr_id) {
-                                    let init_span = init_expr.ast_span;
-                                    position.start >= init_span.start
-                                        && position.end <= init_span.end
+                        let skip =
+                            if let crate::definition::DefinitionKind::Let(let_ref) = &def.kind {
+                                if let Some(init_expr_id) = let_ref.value_expr_id {
+                                    if let Some(init_expr) = self.expression(init_expr_id) {
+                                        let init_span = init_expr.ast_span;
+                                        position.start >= init_span.start
+                                            && position.end <= init_span.end
+                                    } else {
+                                        false
+                                    }
                                 } else {
                                     false
                                 }
                             } else {
                                 false
-                            }
-                        } else {
-                            false
-                        };
+                            };
                         if skip {
                             continue;
                         }

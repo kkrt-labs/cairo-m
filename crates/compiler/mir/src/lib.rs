@@ -63,7 +63,7 @@ pub use passes::{
 };
 pub use pipeline::{OptimizationLevel, PipelineConfig};
 pub use terminator::Terminator;
-pub use value::{Literal, Place, Value};
+pub use value::{Literal, Place, Projection, Value};
 
 pub mod basic_block;
 pub mod builder;

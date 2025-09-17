@@ -27,10 +27,10 @@ const_arr_access_const_value:
 const_arr_access_const_value:
 const_arr_access_const_value_0:
    5: 9 13 0 _             // [fp + 0] = <RODATA_0>
-   6: 6 2147483642 2 3     // [fp + 3] = [fp + -5] * 2 - Scale index by element size
-   7: 42 0 3 1             // [fp + 1] = [[fp + 0] + [fp + 3]]
-   8: 4 3 1 4              // [fp + 4] = [fp + 3] + 1 (offset for slot 1)
-   9: 42 0 4 2             // [fp + 2] = [[fp + 0] + [fp + 4]] (slot 1)
+   6: 6 2147483642 2 3     // [fp + 3] = [fp + -5] * 2 (scale index)
+   7: 42 0 3 1             // [fp + 1] = [[fp + 0] + [fp + 3]] (load slot 0)
+   8: 4 3 1 4              // [fp + 4] = [fp + 3] + 1 (load slot 1)
+   9: 42 0 4 2             // [fp + 2] = [[fp + 0] + [fp + 4]] (load slot 1)
   10: 4 1 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 1] + 0
   11: 4 2 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 2] + 0
   12: 11 _ _ _             // return

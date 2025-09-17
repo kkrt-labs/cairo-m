@@ -192,7 +192,9 @@ impl MirPass for DeadCodeElimination {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BinaryOp, Instruction, InstructionKind, MirFunction, MirType, Terminator, Value};
+    use crate::{
+        BinaryOp, Instruction, InstructionKind, MirFunction, MirType, Place, Terminator, Value,
+    };
 
     #[test]
     fn test_remove_dead_pure_instructions() {
@@ -266,10 +268,9 @@ mod tests {
     }
 
     #[test]
-    fn test_preserve_array_insert_side_effect() {
-        // Build a function with an ArrayInsert whose destination is unused.
-        // Because ArrayInsert mutates the array (arrays passed by pointer), it has
-        // side effects and must not be removed by DCE.
+    fn test_preserve_store_side_effect() {
+        // Build a function with a Store whose destination place is unused directly.
+        // Stores mutate memory-backed arrays and must not be removed by DCE.
 
         let mut f = MirFunction::new("array_insert_side_effect".to_string());
         let b = f.entry_block;
@@ -284,17 +285,13 @@ mod tests {
         let arr = f.new_typed_value_id(array_ty.clone());
         f.parameters.push(arr);
 
-        // Destination value for ArrayInsert (intentionally unused)
-        let new_arr = f.new_typed_value_id(array_ty.clone());
-
         // Perform arr[1] = 42 (in-place mutation semantics)
         let block = f.get_basic_block_mut(b).unwrap();
-        block.push_instruction(Instruction::array_insert(
-            new_arr,
-            Value::operand(arr),
-            Value::integer(1),
+        let place = Place::new(arr).with_index(Value::integer(1));
+        block.push_instruction(Instruction::store(
+            place,
             Value::integer(42),
-            array_ty,
+            MirType::felt(),
         ));
 
         // Return something unrelated so the insert's dest remains unused
@@ -307,7 +304,7 @@ mod tests {
         assert_eq!(block.instructions.len(), 1);
         assert!(matches!(
             block.instructions[0].kind,
-            InstructionKind::ArrayInsert { .. }
+            InstructionKind::Store { .. }
         ));
     }
 }

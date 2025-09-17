@@ -214,6 +214,44 @@ fn const_arr_access_const_value(i: felt) -> u32 {
 }
 ```
 
+## Arrays with Aggregate Types
+
+```cairo-m
+const POINTS: [(u32, u32); 3] = [(1, 2), (3, 4), (5, 6)];
+
+fn test_main() -> u32 {
+    return POINTS[0].0 + POINTS[1].1 + POINTS[2].0;
+}
+```
+
+```cairo-m
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+
+fn test_main() -> u32 {
+    let points: [Point; 3] = [Point { x: 1, y: 2 }, Point { x: 3, y: 4 }, Point { x: 5, y: 6 }];
+    points[0].x = 10;
+    return points[0].x + points[1].y + points[2].x;
+}
+```
+
+You can nest them as deep as you want.
+
+```cairo-m
+    struct C { c: u32 }
+    struct B { b: C }
+    struct A { a: B }
+
+    fn test_main() -> u32 {
+        let arr: [A; 1] = [A { a: B { b: C { c: 0 } } }];
+        arr[0].a.b.c = 42;
+        return arr[0].a.b.c;
+    }
+```
+
 ### Optimizations with arrays
 
 Several optimizations can be made with arrays:

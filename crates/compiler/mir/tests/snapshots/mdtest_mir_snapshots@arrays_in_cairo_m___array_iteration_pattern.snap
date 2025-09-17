@@ -36,7 +36,7 @@ module {
 
     2 (loop_body):
       ; loop_body
-      %7 = arrayindex %0, %3
+      %7 = load %0[%3]
       %8 = %5 U32Add %7
       %9 = %3 + 1
       %5 = %8 (u32)

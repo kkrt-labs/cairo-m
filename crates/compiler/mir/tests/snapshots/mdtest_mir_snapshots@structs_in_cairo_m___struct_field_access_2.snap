@@ -28,32 +28,35 @@ module {
 
     0:
       %0 = makestruct { width: 5, height: 10 }
-      %1 = insertfield %0, "width", 7
-      %2 = extractfield %1, "width"
-      %3 = %2 U32Eq 5
-      if %3 then jump 1 else jump 2
+      %1 = extractfield %0, "width"
+      %2 = insertfield %0, "width", 7
+      %3 = extractfield %2, "width"
+      %4 = %3 U32Eq 5
+      if %4 then jump 1 else jump 2
 
     1 (block_1):
       ; block_1
-      %4 = extractfield %1, "width"
-      %5 = %4 U32Mul 3
-      %6 = insertfield %1, "width", %5
-      %9 = %6 (RectangleU32)
+      %5 = extractfield %2, "width"
+      %6 = %5 U32Mul 3
+      %7 = extractfield %2, "width"
+      %8 = insertfield %2, "width", %6
+      %12 = %8 (RectangleU32)
       jump 3
 
     2 (block_2):
       ; block_2
-      %7 = extractfield %1, "height"
-      %8 = insertfield %1, "width", %7
-      %9 = %8 (RectangleU32)
+      %9 = extractfield %2, "height"
+      %10 = extractfield %2, "width"
+      %11 = insertfield %2, "width", %9
+      %12 = %11 (RectangleU32)
       jump 3
 
     3 (block_3):
       ; block_3
-      %10 = extractfield %9, "width"
-      %11 = extractfield %9, "height"
-      %12 = %10 U32Mul %11
-      return %12
+      %13 = extractfield %12, "width"
+      %14 = extractfield %12, "height"
+      %15 = %13 U32Mul %14
+      return %15
 
   }
 

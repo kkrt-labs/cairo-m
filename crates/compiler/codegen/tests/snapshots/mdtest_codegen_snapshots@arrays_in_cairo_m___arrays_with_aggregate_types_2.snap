@@ -1,0 +1,71 @@
+---
+source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+description: "Codegen snapshot for mdtest: Arrays in Cairo-M - Arrays with Aggregate Types 2"
+input_file: mdtest/01-basics/05-arrays.md
+---
+Source:
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+
+fn test_main() -> u32 {
+    let points: [Point; 3] = [Point { x: 1, y: 2 }, Point { x: 3, y: 4 }, Point { x: 5, y: 6 }];
+    points[0].x = 10;
+    return points[0].x + points[1].y + points[2].x;
+}
+============================================================
+Generated CASM:
+test_main:
+test_main:
+test_main_0:
+   0: 23 1 0 0             // [fp + 0], [fp + 1] = u32(1)
+   1: 23 2 0 2             // [fp + 2], [fp + 3] = u32(2)
+   2: 23 3 0 4             // [fp + 4], [fp + 5] = u32(3)
+   3: 23 4 0 6             // [fp + 6], [fp + 7] = u32(4)
+   4: 23 5 0 8             // [fp + 8], [fp + 9] = u32(5)
+   5: 23 6 0 10            // [fp + 10], [fp + 11] = u32(6)
+   6: 4 0 0 39             // [fp + 39] = [fp + 0] + 0
+   7: 4 1 0 40             // [fp + 40] = [fp + 1] + 0
+   8: 4 2 0 41             // [fp + 41] = [fp + 2] + 0
+   9: 4 3 0 42             // [fp + 42] = [fp + 3] + 0
+  10: 4 4 0 43             // [fp + 43] = [fp + 4] + 0
+  11: 4 5 0 44             // [fp + 44] = [fp + 5] + 0
+  12: 4 6 0 45             // [fp + 45] = [fp + 6] + 0
+  13: 4 7 0 46             // [fp + 46] = [fp + 7] + 0
+  14: 4 8 0 47             // [fp + 47] = [fp + 8] + 0
+  15: 4 9 0 48             // [fp + 48] = [fp + 9] + 0
+  16: 4 10 0 49            // [fp + 49] = [fp + 10] + 0
+  17: 4 11 0 50            // [fp + 50] = [fp + 11] + 0
+  18: 43 39 12 _           // [fp + 12] = fp + 39
+  19: 8 12 0 13            // [fp + 13] = [[fp + 12] + 0] (load slot 0)
+  20: 8 12 1 14            // [fp + 14] = [[fp + 12] + 1] (load slot 1)
+  21: 8 12 2 15            // [fp + 15] = [[fp + 12] + 2] (load slot 2)
+  22: 8 12 3 16            // [fp + 16] = [[fp + 12] + 3] (load slot 3)
+  23: 23 10 0 51           // [fp + 51], [fp + 52] = u32(10)
+  24: 44 12 0 51           // [[fp + 12] + 0] = [fp + 51] (u32 slot 0)
+  25: 44 12 1 52           // [[fp + 12] + 1] = [fp + 52] (u32 slot 1)
+  26: 8 12 0 17            // [fp + 17] = [[fp + 12] + 0] (load slot 0)
+  27: 8 12 1 18            // [fp + 18] = [[fp + 12] + 1] (load slot 1)
+  28: 8 12 2 19            // [fp + 19] = [[fp + 12] + 2] (load slot 2)
+  29: 8 12 3 20            // [fp + 20] = [[fp + 12] + 3] (load slot 3)
+  30: 8 12 0 21            // [fp + 21] = [[fp + 12] + 0] (load slot 0)
+  31: 8 12 1 22            // [fp + 22] = [[fp + 12] + 1] (load slot 1)
+  32: 8 12 4 23            // [fp + 23] = [[fp + 12] + 4] (load slot 0)
+  33: 8 12 5 24            // [fp + 24] = [[fp + 12] + 5] (load slot 1)
+  34: 8 12 6 25            // [fp + 25] = [[fp + 12] + 6] (load slot 2)
+  35: 8 12 7 26            // [fp + 26] = [[fp + 12] + 7] (load slot 3)
+  36: 8 12 6 27            // [fp + 27] = [[fp + 12] + 6] (load slot 0)
+  37: 8 12 7 28            // [fp + 28] = [[fp + 12] + 7] (load slot 1)
+  38: 15 21 27 29          // u32([fp + 29], [fp + 30]) = u32([fp + 21], [fp + 22]) U32Add u32([fp + 27], [fp + 28])
+  39: 8 12 8 31            // [fp + 31] = [[fp + 12] + 8] (load slot 0)
+  40: 8 12 9 32            // [fp + 32] = [[fp + 12] + 9] (load slot 1)
+  41: 8 12 10 33           // [fp + 33] = [[fp + 12] + 10] (load slot 2)
+  42: 8 12 11 34           // [fp + 34] = [[fp + 12] + 11] (load slot 3)
+  43: 8 12 8 35            // [fp + 35] = [[fp + 12] + 8] (load slot 0)
+  44: 8 12 9 36            // [fp + 36] = [[fp + 12] + 9] (load slot 1)
+  45: 15 29 35 37          // u32([fp + 37], [fp + 38]) = u32([fp + 29], [fp + 30]) U32Add u32([fp + 35], [fp + 36])
+  46: 4 37 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 37] + 0
+  47: 4 38 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 38] + 0
+  48: 11 _ _ _             // return

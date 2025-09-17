@@ -3,7 +3,7 @@
 //! This module provides macros and utilities to visit and replace Value::Operand references
 //! uniformly across the codebase, eliminating repetitive pattern matching.
 
-use crate::{Value, ValueId};
+use crate::{Place, Projection, Value, ValueId};
 
 /// Visit a single value and apply a closure if it's an operand
 #[inline]
@@ -46,6 +46,32 @@ where
 {
     for value in values {
         replace_value_id(value, from, to);
+    }
+}
+
+/// Visit a place and apply a closure to every operand it references (base + projections)
+pub(crate) fn visit_place<F>(place: &Place, mut visitor: F)
+where
+    F: FnMut(ValueId),
+{
+    visitor(place.base);
+    for projection in &place.projections {
+        if let Projection::Index(value) = projection {
+            visit_value(value, &mut visitor);
+        }
+    }
+}
+
+/// Replace occurrences of a value ID inside a place (base + projections)
+pub(crate) fn replace_place_value_ids(place: &mut Place, from: ValueId, to: ValueId) {
+    if place.base == from {
+        place.base = to;
+    }
+
+    for projection in &mut place.projections {
+        if let Projection::Index(value) = projection {
+            replace_value_id(value, from, to);
+        }
     }
 }
 
