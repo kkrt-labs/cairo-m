@@ -158,16 +158,77 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
 
         // Check if this is a field assignment (rect.width = value)
         if let Expression::MemberAccess { object, field } = &lhs_expr_info.ast_node {
-            // Check if the object is a value-based variable (not memory-allocated)
-            let struct_val = self.lower_expression(object)?.into_value();
+            // Lower the object expression and preserve both value and potential place
+            let lowered_object = self.lower_expression(object)?;
 
             // Query semantic type system for the container (struct) type, not the field type
             let struct_type = self.expr_mir_type(object.span())?;
             let rhs_value = self.lower_expression(rhs)?.into_value();
-            // Insert the field using the container (struct) type
-            let new_struct_id =
-                self.insert_struct_field(struct_val, field.value(), rhs_value, struct_type);
-            // Rebind the object to the new value for pure SSA form using identifier mapping
+
+            // Perform a value-based field insertion to obtain the updated struct value
+            let new_struct_id = self.insert_struct_field(
+                lowered_object.clone().into_value(),
+                field.value(),
+                rhs_value,
+                struct_type.clone(),
+            );
+
+            // If the object came from memory (e.g., arr[i].nested), rebuild outward to the base element
+            // TODO: Codegen supports only Index projections in Place. We therefore rebuild
+            //       intermediate aggregates by value, and write the final element back to arr[i].
+            if let Some(place) = lowered_object.place() {
+                let mut cursor = object.clone();
+                let mut updated_val: Value = Value::operand(new_struct_id);
+                let mut updated_ty: MirType = struct_type;
+
+                loop {
+                    match cursor.value() {
+                        cairo_m_compiler_parser::parser::Expression::MemberAccess {
+                            object: outer,
+                            field: inner_field,
+                        } => {
+                            let outer_ty = self.expr_mir_type(outer.span())?;
+                            let outer_val = self.lower_expression(outer)?.into_value();
+                            let wrapped = self.insert_struct_field(
+                                outer_val,
+                                inner_field.value(),
+                                updated_val,
+                                outer_ty.clone(),
+                            );
+                            updated_val = Value::operand(wrapped);
+                            updated_ty = outer_ty;
+                            cursor = outer.clone();
+                            continue;
+                        }
+                        cairo_m_compiler_parser::parser::Expression::TupleIndex {
+                            tuple: outer,
+                            index: idx2,
+                        } => {
+                            let outer_ty = self.expr_mir_type(outer.span())?;
+                            let outer_val = self.lower_expression(outer)?.into_value();
+                            let wrapped =
+                                self.insert_tuple(outer_val, *idx2, updated_val, outer_ty.clone());
+                            updated_val = Value::operand(wrapped);
+                            updated_ty = outer_ty;
+                            cursor = outer.clone();
+                            continue;
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+
+                // Store the fully rebuilt element back into the array slot
+                self.instr().add_instruction(Instruction::store(
+                    place.clone(),
+                    updated_val,
+                    updated_ty,
+                ));
+                return Ok(());
+            }
+
+            // Otherwise, rebind the identifier to the new value for pure SSA form
             if let Expression::Identifier(_) = object.value() {
                 let obj_expr_id = self.expr_id(object.span())?;
                 let (def_idx, _def) = self
@@ -179,19 +240,79 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     })?;
                 let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                 self.bind_variable_def(def_id, Value::operand(new_struct_id))?;
+                return Ok(());
             }
+
+            // Non-identifier object with no place: nothing to write back
             return Ok(());
         }
 
         // Check if this is a tuple assignment (tuple.index  = value)
         if let Expression::TupleIndex { tuple, index } = &lhs_expr_info.ast_node {
-            // Check if the tuple is a value-based variable (not memory-allocated)
-            let tuple_val = self.lower_expression(tuple)?.into_value();
+            // Lower the tuple expression and preserve both value and potential place
+            let lowered_tuple = self.lower_expression(tuple)?;
             let rhs_value = self.lower_expression(rhs)?.into_value();
             // Query semantic type system for the container (tuple) type, not the element type
             let tuple_type = self.expr_mir_type(tuple.span())?;
-            let new_tuple_id = self.insert_tuple(tuple_val, *index, rhs_value, tuple_type);
-            // Rebind the object to the new value for pure SSA form
+            let new_tuple_id = self.insert_tuple(
+                lowered_tuple.clone().into_value(),
+                *index,
+                rhs_value,
+                tuple_type.clone(),
+            );
+            // If came from memory (e.g., arr[i].t.0), rebuild outward to the base element and store back.
+            // TODO: Same as above — no field/tuple projections in Place; rebuild and store back.
+            if let Some(place) = lowered_tuple.place() {
+                let mut cursor = tuple.clone();
+                let mut updated_val: Value = Value::operand(new_tuple_id);
+                let mut updated_ty: MirType = tuple_type;
+
+                loop {
+                    match cursor.value() {
+                        cairo_m_compiler_parser::parser::Expression::MemberAccess {
+                            object: outer,
+                            field,
+                        } => {
+                            let outer_ty = self.expr_mir_type(outer.span())?;
+                            let outer_val = self.lower_expression(outer)?.into_value();
+                            let wrapped = self.insert_struct_field(
+                                outer_val,
+                                field.value(),
+                                updated_val,
+                                outer_ty.clone(),
+                            );
+                            updated_val = Value::operand(wrapped);
+                            updated_ty = outer_ty;
+                            cursor = outer.clone();
+                            continue;
+                        }
+                        cairo_m_compiler_parser::parser::Expression::TupleIndex {
+                            tuple: outer,
+                            index: idx2,
+                        } => {
+                            let outer_ty = self.expr_mir_type(outer.span())?;
+                            let outer_val = self.lower_expression(outer)?.into_value();
+                            let wrapped =
+                                self.insert_tuple(outer_val, *idx2, updated_val, outer_ty.clone());
+                            updated_val = Value::operand(wrapped);
+                            updated_ty = outer_ty;
+                            cursor = outer.clone();
+                            continue;
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+
+                self.instr().add_instruction(Instruction::store(
+                    place.clone(),
+                    updated_val,
+                    updated_ty,
+                ));
+                return Ok(());
+            }
+            // Otherwise, rebind identifier
             if let Expression::Identifier(_) = tuple.value() {
                 let obj_expr_id = self.expr_id(tuple.span())?;
                 let (def_idx, _def) = self
@@ -203,6 +324,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
                     })?;
                 let def_id = DefinitionId::new(self.ctx.db, self.ctx.file, def_idx);
                 self.bind_variable_def(def_id, Value::operand(new_tuple_id))?;
+                return Ok(());
             }
             return Ok(());
         }

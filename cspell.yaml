@@ -126,6 +126,7 @@ words:
   - stackalloc
   - starkware
   - stdext
+  - storeback
   - stwo
   - subexpression
   - subspan
@@ -150,6 +151,7 @@ words:
   - womir
   - worklist
   - worktree
+  - writeback
   - worktrees
   - yarnrc
   - ybool

@@ -751,9 +751,12 @@ impl CodeGenerator {
                         }
                     },
                     Some(Projection::Field(_)) | Some(Projection::Tuple(_)) => {
+                        // TODO: Codegen intentionally supports only Index projections on places.
+                        //       Lowering rebuilds aggregates by value and stores to arr[i] instead
+                        //       of attempting field/tuple projections in memory.
                         return Err(CodegenError::InvalidMir(
                             "Unsupported non-index projection for load".to_string(),
-                        ))
+                        ));
                     }
                     None => {
                         // No projection -> element 0
@@ -1059,9 +1062,11 @@ impl CodeGenerator {
                         }
                     },
                     Some(Projection::Field(_)) | Some(Projection::Tuple(_)) => {
+                        // TODO: Same policy as in loads — only Index projections are supported.
+                        //       Use value rebuild + store to arr[i] from lowering.
                         return Err(CodegenError::InvalidMir(
                             "Unsupported non-index projection for store".to_string(),
-                        ))
+                        ));
                     }
                     None => {
                         // Treat as element 0

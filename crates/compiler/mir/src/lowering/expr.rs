@@ -270,8 +270,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // - Arrays should NOT use ExtractTupleElement or similar value-based operations
         // - Use MirType::requires_memory_path() to check
         // NEW: Value-based struct field extraction
-        // Lower the struct expression to get a value
-        let struct_val = self.lower_expression(object)?.into_value();
+        // Lower the struct expression to get a value (and preserve place if any)
+        let lowered_object = self.lower_expression(object)?;
+        let struct_val = lowered_object.clone().into_value();
 
         // Query semantic type system for the field type
         let field_type = self.ctx.get_expr_type(expr_id);
@@ -279,7 +280,19 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Extract the field using ExtractStructField instruction
         let field_dest = self.extract_struct_field(struct_val, field.value().clone(), field_type);
 
-        Ok(LoweredExpr::new(Value::operand(field_dest)))
+        // TODO: Do not extend the Place with field/tuple projections.
+        //       Codegen only supports Index projections on Place. We preserve only the base
+        //       array element place (e.g., arr[i]) and let assignment lowering rebuild
+        //       aggregates by value and store the whole element back.
+        // If the object had a place (e.g., arr[i]), carry it so assignments can write back
+        if let Some(p) = lowered_object.place() {
+            Ok(LoweredExpr::with_place(
+                Value::operand(field_dest),
+                p.clone(),
+            ))
+        } else {
+            Ok(LoweredExpr::new(Value::operand(field_dest)))
+        }
     }
 
     pub(super) fn lower_function_call(
@@ -407,8 +420,9 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         index: usize,
     ) -> Result<LoweredExpr, String> {
         // NEW: Value-based tuple element extraction
-        // Lower the tuple expression to get a value
-        let tuple_val = self.lower_expression(tuple)?.into_value();
+        // Lower the tuple expression to get a value (and preserve place if any)
+        let lowered_tuple = self.lower_expression(tuple)?;
+        let tuple_val = lowered_tuple.clone().into_value();
 
         // Get the semantic type of the tuple to determine element types
         // Get the MIR type of the tuple
@@ -426,7 +440,16 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Extract the element using ExtractTupleElement instruction
         let element_dest = self.extract_tuple_element(tuple_val, index, element_mir_type);
 
-        Ok(LoweredExpr::new(Value::operand(element_dest)))
+        // TODO: Same policy as above — do not append tuple projections to Place.
+        //       Preserve only the base array element place (arr[i]) for writeback.
+        if let Some(p) = lowered_tuple.place() {
+            Ok(LoweredExpr::with_place(
+                Value::operand(element_dest),
+                p.clone(),
+            ))
+        } else {
+            Ok(LoweredExpr::new(Value::operand(element_dest)))
+        }
     }
 
     fn lower_array_literal(

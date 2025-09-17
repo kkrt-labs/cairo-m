@@ -95,4 +95,34 @@ mod array_load_store_lowering_tests {
         assert!(mir_text.contains("store "));
         assert!(!mir_text.to_lowercase().contains("arrayinsert"));
     }
+
+    #[test]
+    fn test_array_element_field_assignment_lowers_to_store() {
+        let source = r#"
+        struct Point { x: felt, y: felt }
+
+        fn test() -> felt {
+            let arr: [Point; 2] = [Point { x: 1, y: 0 }, Point { x: 2, y: 0 }];
+            let i = 1;
+            arr[i].x = 5;
+            return arr[i].x;
+        }
+        "#;
+
+        let db = TestDatabase::default();
+        let crate_id = create_test_crate(&db, source);
+        let module = generate_mir(&db, crate_id).expect("MIR generation failed");
+        let mir_text = module.pretty_print(0);
+
+        // Expect the field update to be performed by value (insertfield)
+        assert!(
+            mir_text.to_lowercase().contains("insertfield"),
+            "expected insertfield for struct field update"
+        );
+        // And the updated struct should be stored back into the array element
+        assert!(
+            mir_text.contains("store "),
+            "expected store back to arr[i] after field assignment"
+        );
+    }
 }
