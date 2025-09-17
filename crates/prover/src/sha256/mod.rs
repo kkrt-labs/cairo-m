@@ -1,3 +1,80 @@
+//! ### SHA-256 Overview
+//! SHA-256 produces a 256-bit (32-byte) hash from arbitrary input.
+//! It processes the message in 512-bit blocks using padding, initialization, and compression
+//! with bitwise operations and modular addition.
+//!
+//! ### Steps
+//!
+//! 1. **Preprocessing (Padding)**:
+//!
+//!    - Append '1' bit.
+//!    - Pad with '0' bits to make length ≡ 448 mod 512.
+//!    - Append 64-bit big-endian length of original message (in bits).
+//!    - The resulting message length is a multiple of 512 bits.
+//!
+//! 2. **Initialization**:
+//!
+//!    - Eight 32-bit hash values (H0 to H7) from first 32 bits of fractional parts of sqrt(primes 2 to 37):
+//!      ```
+//!      H0 = 0x 6a 09 e6 67
+//!      H1 = 0x bb 67 ae 85
+//!      H2 = 0x 3c 6e f3 72
+//!      H3 = 0x a5 4f f5 3a
+//!      H4 = 0x 51 0e 52 7f
+//!      H5 = 0x 9b 05 68 8c
+//!      H6 = 0x 1f 83 d9 ab
+//!      H7 = 0x 5b e0 cd 19
+//!      ```
+
+//! 3. **Process Each 512-bit Block**:
+//!
+//!    - Divide block into 16 32-bit words (W0 to W15).
+//!    - Expand to 64 words (W16 to W63):
+//!
+//!      ```
+//!      for i = 16 to 63:
+//!          s0 = rotr(W[i-15], 7) ^ rotr(W[i-15], 18) ^ shr(W[i-15], 3)
+//!          s1 = rotr(W[i-2], 17) ^ rotr(W[i-2], 19) ^ shr(W[i-2], 10)
+//!          W[i] = W[i-16] + s0 + W[i-7] + s1  (mod 2^32)
+//!      ```
+//!
+//!      Where rotr(x, n) = right rotate x by n bits; shr(x, n) = right shift x by n bits.
+
+//!    - Initialize working variables (a to h) = H0 to H7.
+
+//!    - 64 rounds:
+//!      ```
+//!      for i = 0 to 63:
+//!          K[i] = 64-bit round constants (first 32 bits of fractional parts of sqrt(primes 2 to 311)
+//!          e.g., K[0] = 0x428a2f98, ..., K[63] = 0xc19bf174
+
+//!          S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
+//!          ch = (e & f) ^ (¬e & g)
+//!          temp1 = h + S1 + ch + K[i] + W[i]  (mod 2^32)
+//!          S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)
+//!          maj = (a & b) ^ (a & c) ^ (b & c)
+//!          temp2 = S0 + maj  (mod 2^32)
+
+//!          h = g
+//!          g = f
+//!          f = e
+//!          e = d + temp1  (mod 2^32)
+//!          d = c
+//!          c = b
+//!          b = a
+//!          a = temp1 + temp2  (mod 2^32)
+//!      ```
+
+//!    - Update hash values:
+//!      ```
+//!      H0 += a; H1 += b; ... H7 += h  (all mod 2^32)
+//!      ```
+
+//! 4. **Output**:
+//!    - Concatenate H0 || H1 || ... || H7 as 256-bit hash.
+
+//! All operations use 32-bit words; + is mod 2^32; ^ is XOR; & is AND; ¬ is NOT.
+
 pub mod debug_tools;
 pub mod prover_sha256;
 #[cfg(test)]

@@ -32,7 +32,7 @@ pub fn assert_constraints(input: &mut Vec<SHA256HashInput>) {
     tree_builder.finalize_interaction();
 
     // Base trace.
-    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel>(&input);
+    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel>(input);
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(trace);
     tree_builder.finalize_interaction();
