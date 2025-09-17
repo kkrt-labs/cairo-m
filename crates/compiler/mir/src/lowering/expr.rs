@@ -93,27 +93,35 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
 
                 // Lower count expression to a value
                 let count_val = self.lower_expression(count)?;
+                // Enforce: count must be felt (single-slot). Upstream validation should catch
+                // this, but MIR lowering defends here to avoid width mismatches.
+                let count_sem_ty = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    self.expr_id(count.span())?,
+                    None,
+                );
+                let count_mir_ty = MirType::from_semantic_type(self.ctx.db, count_sem_ty);
+                if !matches!(count_mir_ty, MirType::Felt) {
+                    return Err("MIR: new count must be felt".to_string());
+                }
 
-                // If element occupies more than one slot, multiply
+                // If element occupies more than one slot, multiply.
+                // Ensure we produce a felt (single-slot) cells value for HeapAllocCells.
                 let cells_val = if elem_slots == 1 {
                     count_val
                 } else {
-                    // Build literal for elem_slots
+                    // Literal scale factor
                     let lit = crate::Value::integer(elem_slots as u32);
-                    // Determine typed binary op based on left type
-                    let left_expr_id = self.expr_id(count.span())?;
-                    let left_type = expression_semantic_type(
-                        self.ctx.db,
-                        self.ctx.crate_id,
-                        self.ctx.file,
-                        left_expr_id,
-                        None,
-                    );
-                    let left_type_data = left_type.data(self.ctx.db);
-                    let typed_op = crate::BinaryOp::from_parser(BinaryOp::Mul, &left_type_data)?;
+                    // Multiply in felt domain: cells = count * elem_slots
                     let dest_tmp = self.state.mir_function.new_typed_value_id(MirType::Felt);
-                    self.instr()
-                        .binary_op_to(typed_op, dest_tmp, count_val.into_value(), lit);
+                    self.instr().binary_op_to(
+                        crate::BinaryOp::Mul,
+                        dest_tmp,
+                        count_val.into_value(),
+                        lit,
+                    );
                     LoweredExpr::new(Value::operand(dest_tmp))
                 };
 

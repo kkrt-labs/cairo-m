@@ -5,12 +5,12 @@ expression: snapshot
 --- Input 1 (ERROR) ---
 fn test() { let p = new [10]; }
 --- Diagnostics ---
-[02] Error: found '[' expected identifier
+[02] Error: found '[' expected identifier, or '('
    ╭─[ test.cairo:1:25 ]
    │
  1 │ fn test() { let p = new [10]; }
    │                         ┬  
-   │                         ╰── found '[' expected identifier
+   │                         ╰── found '[' expected identifier, or '('
 ───╯
 
 ============================================================
@@ -18,10 +18,10 @@ fn test() { let p = new [10]; }
 --- Input 2 (ERROR) ---
 fn test() { let p = new felt; }
 --- Diagnostics ---
-[02] Error: found ';' expected '['
+[02] Error: found ';' expected '*', or '['
    ╭─[ test.cairo:1:29 ]
    │
  1 │ fn test() { let p = new felt; }
    │                             ┬  
-   │                             ╰── found ';' expected '['
+   │                             ╰── found ';' expected '*', or '['
 ───╯
