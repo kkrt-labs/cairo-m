@@ -37,13 +37,6 @@ impl<'f> InstrBuilder<'f> {
         block.push_instruction(instruction);
     }
 
-    /// Assigns a value to a destination
-    pub(crate) fn assign(&mut self, dest: ValueId, source: Value, ty: MirType) -> &mut Self {
-        let instr = Instruction::assign(dest, source, ty);
-        self.add_instruction(instr);
-        self
-    }
-
     /// Create and add a binary operation instruction with explicit destination
     pub(crate) fn binary_op_to(
         &mut self,

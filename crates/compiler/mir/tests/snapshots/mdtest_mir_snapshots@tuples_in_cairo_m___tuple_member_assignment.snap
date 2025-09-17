@@ -18,13 +18,14 @@ module {
 
     0:
       %0 = maketuple 1, 2, 3
-      %1 = inserttuple %0, 0, 4
-      %2 = extracttuple %1, 0
-      %3 = extracttuple %1, 1
-      %4 = %2 + %3
-      %5 = extracttuple %1, 2
-      %6 = %4 + %5
-      return %6
+      %1 = extracttuple %0, 0
+      %2 = inserttuple %0, 0, 4
+      %3 = extracttuple %2, 0
+      %4 = extracttuple %2, 1
+      %5 = %3 + %4
+      %6 = extracttuple %2, 2
+      %7 = %5 + %6
+      return %7
 
   }
 

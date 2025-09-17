@@ -547,7 +547,7 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         index: &Spanned<Expression>,
         _expr_id: ExpressionId,
     ) -> Result<LoweredExpr, String> {
-        // Lower the array expression to get a value
+        // Lower the array expression to get a value and/or a place
         let array_lowered = self.lower_expression(array)?;
         let array_val = *array_lowered.value();
 
@@ -565,14 +565,17 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         let index_value = *index_lowered.value();
 
         // Build the place for this indexed element
-        let base_id = match array_val {
-            Value::Operand(id) => id,
-            _ => {
-                return Err("Array index requires operand base".to_string());
+        // Preserve any existing place (e.g., arr[i].nested)[j] by extending it,
+        // otherwise fall back to using the operand base value.
+        let mut place = if let Some(p) = array_lowered.place().cloned() {
+            p
+        } else {
+            match array_val {
+                Value::Operand(id) => Place::new(id),
+                _ => return Err("Array index requires operand base".to_string()),
             }
         };
-
-        let place = Place::new(base_id).with_index(index_value);
+        place = place.with_index(index_value);
 
         // Emit load for the element value
         let dest = self

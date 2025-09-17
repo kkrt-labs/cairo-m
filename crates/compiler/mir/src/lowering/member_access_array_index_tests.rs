@@ -76,15 +76,19 @@ mod member_access_array_index_lowering_tests {
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
 
-        // Expect the field update to be performed by value (insertfield)
-        assert!(
-            mir_text.to_lowercase().contains("insertfield"),
-            "expected insertfield for struct field update"
-        );
-        // And the updated struct should be stored back into the array element
+        // With place-based lowering, expect a store to arr[i].x and a subsequent load
         assert!(
             mir_text.contains("store "),
             "expected store back to arr[i] after field assignment"
+        );
+        assert!(mir_text.contains("load "), "expected load of arr[i].x");
+        assert!(
+            mir_text.contains(".x"),
+            "expected field projection .x in place"
+        );
+        assert!(
+            !mir_text.to_lowercase().contains("insertfield"),
+            "did not expect value-based insertfield in place-based update"
         );
     }
 
@@ -111,17 +115,19 @@ mod member_access_array_index_lowering_tests {
         let mir_text = module.pretty_print(0);
 
         let lc = mir_text.to_lowercase();
+        // Expect a direct store to the nested place and a load on readback
         assert!(
-            lc.contains("insertfield"),
-            "expected insertfield(s) for nested field update"
+            lc.contains("store "),
+            "expected store back to arr[i].nested.x after nested field assignment"
+        );
+        assert!(lc.contains("load "), "expected load of arr[i].nested.x");
+        assert!(
+            lc.contains(".nested.x"),
+            "expected .nested.x projection in place"
         );
         assert!(
-            lc.contains("\"nested\""),
-            "expected wrapping insertfield on outer struct field 'nested'"
-        );
-        assert!(
-            mir_text.contains("store "),
-            "expected store back to arr[i] after nested field assignment"
+            !lc.contains("insertfield"),
+            "did not expect value-based insertfield for place-based nested update"
         );
     }
 
@@ -146,17 +152,17 @@ mod member_access_array_index_lowering_tests {
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0);
 
+        let lc = mir_text.to_lowercase();
+        assert!(lc.contains("store "), "expected store to arr[i].t.0");
+        assert!(lc.contains("load "), "expected load of arr[i].t.0");
+        assert!(lc.contains(".t.0"), "expected .t.0 projection in place");
         assert!(
-            mir_text.to_lowercase().contains("inserttuple"),
-            "expected inserttuple for tuple element update"
+            !lc.contains("inserttuple"),
+            "did not expect inserttuple in place-based tuple element update"
         );
         assert!(
-            mir_text.to_lowercase().contains("insertfield"),
-            "expected wrapping insertfield to update outer struct"
-        );
-        assert!(
-            mir_text.contains("store "),
-            "expected store back to arr[i] after nested tuple element assignment"
+            !lc.contains("insertfield"),
+            "did not expect insertfield wrapper for place-based update"
         );
     }
 
@@ -180,16 +186,19 @@ mod member_access_array_index_lowering_tests {
         let module = generate_mir(&db, crate_id).expect("MIR generation failed");
         let mir_text = module.pretty_print(0).to_lowercase();
 
-        let count_insertfield = mir_text.matches("insertfield").count();
-        assert!(
-            count_insertfield >= 3,
-            "expected at least 3 insertfield ops (leaf, mid, outer), got {}\n{}",
-            count_insertfield,
-            mir_text
-        );
+        // Expect direct place-based store and load with deep projection chain
         assert!(
             mir_text.contains("store "),
-            "expected store back to arr[i] after deep nested assignment"
+            "expected store to arr[i].a.b.c"
+        );
+        assert!(mir_text.contains("load "), "expected load of arr[i].a.b.c");
+        assert!(
+            mir_text.contains(".a.b.c"),
+            "expected .a.b.c projection in place"
+        );
+        assert!(
+            !mir_text.contains("insertfield"),
+            "did not expect insertfield for place-based deep nested update"
         );
     }
 
@@ -213,16 +222,21 @@ mod member_access_array_index_lowering_tests {
         let mir_text = module.pretty_print(0).to_lowercase();
 
         assert!(
-            mir_text.contains("inserttuple"),
-            "expected inserttuple for tuple update"
+            mir_text.contains("store "),
+            "expected store back to arr[i].s.t.1"
         );
-        let count_insertfield = mir_text.matches("insertfield").count();
+        assert!(mir_text.contains("load "), "expected load of arr[i].s.t.1");
         assert!(
-            count_insertfield >= 2,
-            "expected at least 2 insertfield ops (wrap tuple into S, wrap S into O), got {}\n{}",
-            count_insertfield,
-            mir_text
+            mir_text.contains(".s.t.1"),
+            "expected .s.t.1 projection in place"
         );
-        assert!(mir_text.contains("store "), "expected store back to arr[i]");
+        assert!(
+            !mir_text.contains("inserttuple"),
+            "did not expect inserttuple in place-based update"
+        );
+        assert!(
+            !mir_text.contains("insertfield"),
+            "did not expect insertfield in place-based update"
+        );
     }
 }

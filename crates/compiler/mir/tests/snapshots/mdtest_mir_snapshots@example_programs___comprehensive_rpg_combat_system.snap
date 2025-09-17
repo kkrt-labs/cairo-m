@@ -514,38 +514,40 @@ module {
       ; block_9
       %14 = extractfield %9, "health"
       %15 = %14 U32Greater 10
-      %29 = %9 (Character)
+      %31 = %9 (Character)
       if %15 then jump 10 else jump 14
 
     10 (block_10):
       ; block_10
       %16 = extractfield %9, "health"
       %17 = %16 U32Sub 5
-      %18 = insertfield %9, "health", %17
-      %29 = %18 (Character)
+      %18 = extractfield %9, "health"
+      %19 = insertfield %9, "health", %17
+      %31 = %19 (Character)
       jump 11
 
     11 (block_11):
       ; block_11
-      %20 = extractfield %10, "health"
-      %21 = %20 U32Greater 8
-      %32 = %10 (Character)
-      if %21 then jump 12 else jump 15
+      %21 = extractfield %10, "health"
+      %22 = %21 U32Greater 8
+      %34 = %10 (Character)
+      if %22 then jump 12 else jump 15
 
     12 (block_12):
       ; block_12
-      %22 = extractfield %10, "health"
-      %23 = %22 U32Sub 4
-      %24 = insertfield %10, "health", %23
-      %32 = %24 (Character)
+      %23 = extractfield %10, "health"
+      %24 = %23 U32Sub 4
+      %25 = extractfield %10, "health"
+      %26 = insertfield %10, "health", %24
+      %34 = %26 (Character)
       jump 13
 
     13 (block_13):
       ; block_13
-      %27 = %6 U32Add 1
-      %9 = %29 (Character)
-      %6 = %27 (u32)
-      %10 = %32 (Character)
+      %29 = %6 U32Add 1
+      %9 = %31 (Character)
+      %6 = %29 (u32)
+      %10 = %34 (Character)
       jump 1
 
     14 (edge_9_11):

@@ -45,6 +45,14 @@ pub enum MirType {
     ///
     /// This lets lowering and codegen propagate pointee information without
     /// repeatedly consulting semantic types.
+    ///
+    /// Notes:
+    /// - Today, array values use `FixedArray` in MIR (value-aggregate semantics),
+    ///   and materialize to memory/pointers only when needed by lowering/codegen.
+    /// - `Pointer` is reserved for general pointer-based representations and
+    ///   future work where more types are passed/handled via pointers in MIR.
+    /// - Some codegen tests construct `Pointer` explicitly; current semantic
+    ///   conversion (`from_semantic_type`) does not produce `Pointer` yet.
     Pointer { element: Box<MirType> },
 
     /// Function type with parameter and return types
