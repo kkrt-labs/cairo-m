@@ -229,6 +229,7 @@ fn test_expression_type_coverage() {
             Expression::ArrayRepeat { .. } => "ArrayRepeat",
             Expression::TupleIndex { .. } => "TupleIndex",
             Expression::Cast { .. } => "Cast",
+            Expression::New { .. } => "New",
         };
         expression_types_found.insert(variant_name);
 

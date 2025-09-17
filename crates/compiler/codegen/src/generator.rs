@@ -18,6 +18,9 @@ use crate::mir_passes::legalize::legalize_module_for_vm;
 use crate::passes;
 use crate::{CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
 
+// Mirror runner's memory model: MAX_ADDRESS = 2^28 - 1
+const MAX_ADDRESS: i32 = (1 << 28) - 1;
+
 /// Main code generator that orchestrates MIR to CASM translation
 #[derive(Debug)]
 pub struct CodeGenerator {
@@ -42,6 +45,10 @@ pub struct CodeGenerator {
     rodata_label_to_blob: std::collections::HashMap<String, usize>,
     /// Map of blob index -> rodata label (one label per blob)
     rodata_blob_to_label: std::collections::HashMap<usize, String>,
+    /// Mutable data blobs appended after rodata (no dedup)
+    data_blobs: Vec<Vec<QM31>>,
+    /// Label -> mutable data blob index
+    data_label_to_blob: std::collections::HashMap<String, usize>,
 }
 
 impl CodeGenerator {
@@ -58,9 +65,128 @@ impl CodeGenerator {
             rodata_dedup: std::collections::HashMap::new(),
             rodata_label_to_blob: std::collections::HashMap::new(),
             rodata_blob_to_label: std::collections::HashMap::new(),
+            data_blobs: Vec::new(),
+            data_label_to_blob: std::collections::HashMap::new(),
         }
     }
 
+    /// Ensure a single mutable data cell exists for the heap cursor.
+    /// Returns the label name to use for addressing it.
+    fn ensure_heap_cursor_label(&mut self) -> String {
+        let label = "HEAP_CURSOR".to_string();
+        if !self.data_label_to_blob.contains_key(&label) {
+            // One QM31 cell initialized to zero
+            let q = QM31::from_m31_array([M31::from(0), 0.into(), 0.into(), 0.into()]);
+            let idx = self.data_blobs.len();
+            self.data_blobs.push(vec![q]);
+            self.data_label_to_blob.insert(label.clone(), idx);
+        }
+        label
+    }
+
+    /// Lower a HeapAllocCells MIR instruction into CASM using a bump allocator over a global cell.
+    fn lower_heap_alloc_cells(
+        &mut self,
+        dest: ValueId,
+        cells: &Value,
+        builder: &mut CasmBuilder,
+    ) -> CodegenResult<()> {
+        // 1) Materialize address of HEAP_CURSOR in a temp via StoreImm with label
+        let hp_label = self.ensure_heap_cursor_label();
+        let hp_addr_off = builder.layout_mut().reserve_stack(1);
+        let ib = InstructionBuilder::from(CasmInstr::StoreImm {
+            imm: M31::from(0),
+            dst_off: M31::from(hp_addr_off),
+        })
+        .with_comment(format!("[fp + {hp_addr_off}] = <{hp_label}>"))
+        .with_label(hp_label);
+        builder.emit_push(ib);
+
+        // 2) Load current cursor: cur = [[fp + hp_addr_off] + 0]
+        let cur_off = builder.layout_mut().reserve_stack(1);
+        builder.store_from_double_deref_fp_imm(
+            hp_addr_off,
+            0,
+            cur_off,
+            format!("[fp + {cur_off}] = [[fp + {hp_addr_off}] + 0] (load heap cursor)"),
+        );
+
+        // 3) Materialize size (cells) into a slot
+        let size_off = match cells {
+            Value::Operand(id) => builder.layout_mut().get_offset(*id)?,
+            Value::Literal(Literal::Integer(n)) => {
+                let off = builder.layout_mut().reserve_stack(1);
+                builder.store_immediate(*n, off, format!("[fp + {off}] = {n} (cells)"));
+                off
+            }
+            Value::Literal(Literal::Boolean(b)) => {
+                let off = builder.layout_mut().reserve_stack(1);
+                let v = if *b { 1 } else { 0 };
+                builder.store_immediate(v, off, format!("[fp + {off}] = {v} (cells)"));
+                off
+            }
+            _ => {
+                return Err(CodegenError::InvalidMir(
+                    "HeapAllocCells: cells must be a felt operand or literal".into(),
+                ))
+            }
+        };
+
+        // 4) sum = cur + size - 1
+        let sum_off = builder.layout_mut().reserve_stack(1);
+        builder.felt_add_fp_fp(
+            cur_off,
+            size_off,
+            sum_off,
+            format!("[fp + {sum_off}] = [fp + {cur_off}] + [fp + {size_off}] (cur+size)"),
+        );
+        builder.felt_sub_fp_imm(
+            sum_off,
+            1,
+            sum_off,
+            format!("[fp + {sum_off}] = [fp + {sum_off}] - 1"),
+        );
+
+        // 5) base = MAX_ADDRESS - sum
+        let max_off = builder.layout_mut().reserve_stack(1);
+        builder.store_immediate(
+            MAX_ADDRESS as u32,
+            max_off,
+            format!("[fp + {max_off}] = MAX_ADDRESS ({MAX_ADDRESS})"),
+        );
+        let base_off = builder.layout_mut().reserve_stack(1);
+        builder.felt_sub_fp_fp(
+            max_off,
+            sum_off,
+            base_off,
+            format!("[fp + {base_off}] = [fp + {max_off}] - [fp + {sum_off}] (base)"),
+        );
+
+        // 6) new_cur = cur + size ; store to HEAP_CURSOR
+        let new_cur_off = builder.layout_mut().reserve_stack(1);
+        builder.felt_add_fp_fp(
+            cur_off,
+            size_off,
+            new_cur_off,
+            format!("[fp + {new_cur_off}] = [fp + {cur_off}] + [fp + {size_off}] (advance cursor)"),
+        );
+        builder.store_to_double_deref_fp_imm(
+            new_cur_off,
+            hp_addr_off,
+            0,
+            format!("[[fp + {hp_addr_off}] + 0] = [fp + {new_cur_off}] (store heap cursor)"),
+        );
+
+        // 7) Write result pointer to destination
+        let dest_off = builder.layout_mut().allocate_local(dest, 1)?;
+        builder.store_copy_single(
+            base_off,
+            dest_off,
+            format!("[fp + {dest_off}] = [fp + {base_off}] (heap ptr)"),
+        );
+
+        Ok(())
+    }
     /// Generate CASM code for an entire MIR module
     pub fn generate_module(&mut self, module: &MirModule) -> CodegenResult<()> {
         // Clone MIR and run target-specific legalization so builder can assume invariants.
@@ -96,6 +222,12 @@ impl CodeGenerator {
             .map(ProgramData::Instruction)
             .collect();
         for blob in &self.rodata_blobs {
+            for &q in blob.iter() {
+                data.push(ProgramData::Value(q));
+            }
+        }
+        // Append mutable data blobs after rodata
+        for blob in &self.data_blobs {
             for &q in blob.iter() {
                 data.push(ProgramData::Value(q));
             }
@@ -370,6 +502,9 @@ impl CodeGenerator {
                             // Fallback to stack materialization
                             builder.make_fixed_array(*dest, elements, element_ty)?;
                         }
+                    }
+                    InstructionKind::HeapAllocCells { dest, cells } => {
+                        self.lower_heap_alloc_cells(*dest, cells, builder)?;
                     }
                     _ => {
                         self.generate_instruction(
@@ -1188,398 +1323,10 @@ impl CodeGenerator {
                         ))
                     }
                 }
-            } /* BEGIN: old Store arm residual (disabled)
-                                      Value::Literal(Literal::Integer(i)) => {
-                                          let elem_off = (*i as i32) * (elem_size as i32);
-                                          match value {
-                                              Value::Operand(src_id) => {
-                                                  let src_off = builder.layout.get_offset(*src_id)?;
-                                                  for s in 0..elem_size {
-                                                      builder.store_to_double_deref_fp_imm(
-                                                          src_off + s as i32,
-                                                          base_offset,
-                                                          elem_off + s as i32,
-                                                          format!(
-                                                              "[[fp + {}] + {}] = [fp + {}] (slot {})",
-                                                              base_offset,
-                                                              elem_off + s as i32,
-                                                              src_off + s as i32,
-                                                              s
-                                                          ),
-                                                      );
-                                                  }
-                                              }
-                                              Value::Literal(Literal::Integer(v)) => {
-                                                  if elem_size == 1 {
-                                                      let tmp = builder.layout.reserve_stack(1);
-                                                      builder.store_immediate(
-                                                          *v,
-                                                          tmp,
-                                                          format!("[fp + {}] = {}", tmp, *v),
-                                                      );
-                                                      builder.store_to_double_deref_fp_imm(
-                                                          tmp,
-                                                          base_offset,
-                                                          elem_off,
-                                                          format!(
-                                                              "[[fp + {}] + {}] = [fp + {}]",
-                                                              base_offset, elem_off, tmp
-                                                          ),
-                                                      );
-                                                  } else if matches!(ty, MirType::U32) && elem_size == 2 {
-                                                      let tmp = builder.layout.reserve_stack(2);
-                                                      builder.store_u32_immediate(
-                                                          *v,
-                                                          tmp,
-                                                          format!(
-                                                              "[fp + {}], [fp + {}] = u32({v})",
-                                                              tmp,
-                                                              tmp + 1
-                                                          ),
-                                                      );
-                                                      for s in 0..2 {
-                                                          builder.store_to_double_deref_fp_imm(
-                                                              tmp + s,
-                                                              base_offset,
-                                                              elem_off + s,
-                                                              format!(
-                                                                  "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
-                                                                  base_offset,
-                                                                  elem_off + s,
-                                                                  tmp + s,
-                                                                  s
-                                                              ),
-                                                          );
-                                                      }
-                                                  } else {
-                                                      return Err(CodegenError::UnsupportedInstruction(
-                                                          "Storing immediate into multi-slot element is unsupported"
-                                                              .to_string(),
-                                                      ));
-                                                  }
-                                              }
-                                              Value::Literal(Literal::Boolean(b)) => {
-                                                  if elem_size != 1 {
-                                                      return Err(CodegenError::InvalidMir(
-                                                          "Boolean literal store into multi-slot element"
-                                                              .to_string(),
-                                                      ));
-                                                  }
-                                                  let val = if *b { 1 } else { 0 };
-                                                  let tmp = builder.layout.reserve_stack(1);
-                                                  builder.store_immediate(
-                                                      val,
-                                                      tmp,
-                                                      format!("[fp + {}] = {}", tmp, val),
-                                                  );
-                                                  builder.store_to_double_deref_fp_imm(
-                                                      tmp,
-                                                      base_offset,
-                                                      elem_off,
-                                                      format!(
-                                                          "[[fp + {}] + {}] = [fp + {}]",
-                                                          base_offset, elem_off, tmp
-                                                      ),
-                                                  );
-                                              }
-                                              _ => {
-                                                  return Err(CodegenError::InvalidMir(
-                                                      "Invalid value for array store".to_string(),
-                                                  ))
-                                              }
-                                          }
-                                      }
-                                      Value::Operand(idx_id) => {
-                                          // dynamic index
-                                          let idx_layout = builder
-                                              .layout
-                                              .value_layouts
-                                              .get(idx_id)
-                                              .cloned()
-                                              .ok_or_else(|| {
-                                                  CodegenError::InvalidMir("Missing layout for index".to_string())
-                                              })?;
-                                          let indexing_value_offset = match idx_layout {
-                                              crate::layout::ValueLayout::Slot { offset } => offset,
-                                              _ => {
-                                                  return Err(CodegenError::InternalError(
-                                                      "Invalid index value layout".to_string(),
-                                                  ))
-                                              }
-                                          };
-                                          if let Some(idx_ty) = function.value_types.get(idx_id) {
-                                              if !matches!(idx_ty, MirType::Felt) {
-                                                  return Err(CodegenError::InvalidMir(format!(
-                                                      "Array index must be a felt; got {:?}",
-                                                      idx_ty
-                                                  )));
-                                              }
-                                          }
-
-                                          let scaled_offset = if elem_size != 1 {
-                                              let scaled = builder.layout.reserve_stack(1);
-                                              builder.felt_mul_fp_imm(
-                                                  indexing_value_offset,
-                                                  elem_size as i32,
-                                                  scaled,
-                                                  format!(
-                                                      "[fp + {}] = [fp + {}] * {} (scale index for elem size)",
-                                                      scaled, indexing_value_offset, elem_size
-                                                  ),
-                                              );
-                                              scaled
-                                          } else {
-                                              indexing_value_offset
-                                          };
-
-                                          match value {
-                                              Value::Operand(src_id) => {
-                                                  let src_off = builder.layout.get_offset(*src_id)?;
-                                                  if elem_size == 1 {
-                                                      builder.store_to_double_deref_fp_fp(
-                                                          base_offset,
-                                                          scaled_offset,
-                                                          src_off,
-                                                          format!(
-                                                              "[[fp + {}] + [fp + {}]] = [fp + {}]",
-                                                              base_offset, scaled_offset, src_off
-                                                          ),
-                                                      );
-                                                  } else {
-                                                      for s in 0..elem_size {
-                                                          let off_slot = if s == 0 {
-                                                              scaled_offset
-                                                          } else {
-                                                              let adjusted = builder.layout.reserve_stack(1);
-                                                              builder.felt_add_fp_imm(
-                                                                  scaled_offset,
-                                                                  s as i32,
-                                                                  adjusted,
-                                                                  format!(
-                                                                      "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
-                                                                      adjusted, scaled_offset, s, s
-                                                                  ),
-                                                              );
-                                                              adjusted
-                                                          };
-                                                          builder.store_to_double_deref_fp_fp(
-                                                              base_offset,
-                                                              off_slot,
-                                                              src_off + s as i32,
-                                                              format!(
-                                                                  "[[fp + {}] + [fp + {}]] = [fp + {}] (slot {})",
-                                                                  base_offset,
-                                                                  off_slot,
-                                                                  src_off + s as i32,
-                                                                  s
-                                                              ),
-                                                          );
-                                                      }
-                                                  }
-                                              }
-                                              Value::Literal(Literal::Integer(v)) => {
-                                                  if elem_size == 1 {
-                                                      let tmp = builder.layout.reserve_stack(1);
-                                                      builder.store_immediate(
-                                                          *v,
-                                                          tmp,
-                                                          format!("[fp + {}] = {}", tmp, *v),
-                                                      );
-                                                      builder.store_to_double_deref_fp_fp(
-                                                          base_offset,
-                                                          scaled_offset,
-                                                          tmp,
-                                                          format!(
-                                                              "[[fp + {}] + [fp + {}]] = [fp + {}]",
-                                                              base_offset, scaled_offset, tmp
-                                                          ),
-                                                      );
-                                                  } else if matches!(ty, MirType::U32) && elem_size == 2 {
-                                                      let tmp = builder.layout.reserve_stack(2);
-                                                      builder.store_u32_immediate(
-                                                          *v,
-                                                          tmp,
-                                                          format!(
-                                                              "[fp + {}], [fp + {}] = u32({v})",
-                                                              tmp,
-                                                              tmp + 1
-                                                          ),
-                                                      );
-                                                      for s in 0..2 {
-                                                          let off_slot = if s == 0 {
-                                                              scaled_offset
-                                                          } else {
-                                                              let adjusted = builder.layout.reserve_stack(1);
-                                                              builder.felt_add_fp_imm(
-                                                                  scaled_offset,
-                                                                  s,
-                                                                  adjusted,
-                                                                  format!(
-                                                                      "[fp + {}] = [fp + {}] + {} (adjust for slot {})",
-                                                                      adjusted, scaled_offset, s, s
-                                                                  ),
-                                                              );
-                                                              adjusted
-                                                          };
-                                                          builder.store_to_double_deref_fp_fp(
-                                                              base_offset,
-                                                              off_slot,
-                                                              tmp + s,
-                                                              format!(
-                                                                  "[[fp + {}] + [fp + {}]] = [fp + {}] (u32 slot {})",
-                                                                  base_offset,
-                                                                  off_slot,
-                                                                  tmp + s,
-                                                                  s
-                                                              ),
-                                                          );
-                                                      }
-                                                  } else {
-                                                      return Err(CodegenError::UnsupportedInstruction(
-                                                          "Storing immediate into multi-slot element is unsupported"
-                                                              .to_string(),
-                                                      ));
-                                                  }
-                                              }
-                                              Value::Literal(Literal::Boolean(b)) => {
-                                                  if elem_size != 1 {
-                                                      return Err(CodegenError::InvalidMir(
-                                                          "Boolean literal store into multi-slot element"
-                                                              .to_string(),
-                                                      ));
-                                                  }
-                                                  let val = if *b { 1 } else { 0 };
-                                                  let tmp = builder.layout.reserve_stack(1);
-                                                  builder.store_immediate(
-                                                      val,
-                                                      tmp,
-                                                      format!("[fp + {}] = {}", tmp, val),
-                                                  );
-                                                  builder.store_to_double_deref_fp_fp(
-                                                      base_offset,
-                                                      scaled_offset,
-                                                      tmp,
-                                                      format!(
-                                                          "[[fp + {}] + [fp + {}]] = [fp + {}]",
-                                                          base_offset, scaled_offset, tmp
-                                                      ),
-                                                  );
-                                              }
-                                              _ => {
-                                                  return Err(CodegenError::InvalidMir(
-                                                      "Invalid value for array store".to_string(),
-                                                  ))
-                                              }
-                                          }
-                                      }
-                                      _ => {
-                                          return Err(CodegenError::InvalidMir(
-                                              "Invalid index value for store".to_string(),
-                                          ))
-                                      }
-                                  },
-                                  Some(Projection::Field(_)) | Some(Projection::Tuple(_)) => {
-                                      // TODO: Same policy as in loads — only Index projections are supported.
-                                      //       Use value rebuild + store to arr[i] from lowering.
-                                      return Err(CodegenError::InvalidMir(
-                                          "Unsupported non-index projection for store".to_string(),
-                                      ));
-                                  }
-                                  None => {
-                                      // Treat as element 0
-                                      match value {
-                                          Value::Operand(src_id) => {
-                                              let src_off = builder.layout.get_offset(*src_id)?;
-                                              for s in 0..elem_size {
-                                                  builder.store_to_double_deref_fp_imm(
-                                                      src_off + s as i32,
-                                                      base_offset,
-                                                      s as i32,
-                                                      format!(
-                                                          "[[fp + {}] + {}] = [fp + {}] (slot {})",
-                                                          base_offset,
-                                                          (s as i32),
-                                                          src_off + s as i32,
-                                                          s
-                                                      ),
-                                                  );
-                                              }
-                                          }
-                                          Value::Literal(Literal::Integer(v)) => {
-                                              if elem_size == 1 {
-                                                  let tmp = builder.layout.reserve_stack(1);
-                                                  builder.store_immediate(
-                                                      *v,
-                                                      tmp,
-                                                      format!("[fp + {}] = {}", tmp, *v),
-                                                  );
-                                                  builder.store_to_double_deref_fp_imm(
-                                                      tmp,
-                                                      base_offset,
-                                                      0,
-                                                      format!(
-                                                          "[[fp + {}] + {}] = [fp + {}]",
-                                                          base_offset, 0, tmp
-                                                      ),
-                                                  );
-                                              } else if matches!(ty, MirType::U32) && elem_size == 2 {
-                                                  let tmp = builder.layout.reserve_stack(2);
-                                                  builder.store_u32_immediate(
-                                                      *v,
-                                                      tmp,
-                                                      format!("[fp + {}], [fp + {}] = u32({v})", tmp, tmp + 1),
-                                                  );
-                                                  for s in 0..2 {
-                                                      builder.store_to_double_deref_fp_imm(
-                                                          tmp + s,
-                                                          base_offset,
-                                                          s,
-                                                          format!(
-                                                              "[[fp + {}] + {}] = [fp + {}] (u32 slot {})",
-                                                              base_offset,
-                                                              s,
-                                                              tmp + s,
-                                                              s
-                                                          ),
-                                                      );
-                                                  }
-                                              } else {
-                                                  return Err(CodegenError::UnsupportedInstruction(
-                                                      "Storing immediate into multi-slot element is unsupported"
-                                                          .to_string(),
-                                                  ));
-                                              }
-                                          }
-                                          Value::Literal(Literal::Boolean(b)) => {
-                                              if elem_size != 1 {
-                                                  return Err(CodegenError::InvalidMir(
-                                                      "Boolean literal store into multi-slot element".to_string(),
-                                                  ));
-                                              }
-                                              let val = if *b { 1 } else { 0 };
-                                              let tmp = builder.layout.reserve_stack(1);
-                                              builder.store_immediate(
-                                                  val,
-                                                  tmp,
-                                                  format!("[fp + {}] = {}", tmp, val),
-                                              );
-                                              builder.store_to_double_deref_fp_imm(
-                                                  tmp,
-                                                  base_offset,
-                                                  0,
-                                                  format!("[[fp + {}] + {}] = [fp + {}]", base_offset, 0, tmp),
-                                              );
-                                          }
-                                          _ => {
-                                              return Err(CodegenError::InvalidMir(
-                                                  "Invalid value for array store".to_string(),
-                                              ))
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-              END: old Store arm residual */
+            }
+            InstructionKind::HeapAllocCells { .. } => {
+                // Handled at the basic-block level to enable label and data layout decisions.
+            }
         }
 
         Ok(())
@@ -1842,42 +1589,61 @@ impl CodeGenerator {
             }
         }
 
-        // Before resolving instruction labels, add rodata labels to the map
-        if !self.rodata_blobs.is_empty() && !self.rodata_label_to_blob.is_empty() {
-            // Compute total code length in QM31 words
-            let mut code_len_qm31: u32 = 0;
-            for instr_builder in &self.instructions {
-                let opcode = instr_builder.inner_instr().opcode_value();
-                let sz = cairo_m_common::Instruction::size_in_qm31s_for_opcode(opcode).ok_or_else(
-                    || CodegenError::InvalidMir(format!("Unknown opcode: {}", opcode)),
-                )?;
-                code_len_qm31 += sz;
-            }
+        // Before resolving instruction labels, add rodata and data labels to the map
+        // Compute total code length in QM31 words
+        let mut code_len_qm31: u32 = 0;
+        for instr_builder in &self.instructions {
+            let opcode = instr_builder.inner_instr().opcode_value();
+            let sz = cairo_m_common::Instruction::size_in_qm31s_for_opcode(opcode)
+                .ok_or_else(|| CodegenError::InvalidMir(format!("Unknown opcode: {}", opcode)))?;
+            code_len_qm31 += sz;
+        }
 
-            // Assign addresses to rodata blobs in insertion order
-            let mut offsets: Vec<u32> = Vec::with_capacity(self.rodata_blobs.len());
-            let mut running: u32 = 0;
-            for blob in &self.rodata_blobs {
-                offsets.push(code_len_qm31 + running);
-                running += blob.len() as u32;
-            }
+        // Assign addresses to rodata blobs in insertion order
+        let mut ro_offsets: Vec<u32> = Vec::with_capacity(self.rodata_blobs.len());
+        let mut ro_running: u32 = 0;
+        for blob in &self.rodata_blobs {
+            ro_offsets.push(code_len_qm31 + ro_running);
+            ro_running += blob.len() as u32;
+        }
 
-            // Sanity check: program size bound (2^30)
-            let total = code_len_qm31 + running;
-            let limit: u32 = 1 << 30;
-            if total >= limit {
-                return Err(CodegenError::InternalError(format!(
-                    "Program (code + rodata) too large: {} >= {}",
-                    total, limit
-                )));
-            }
-            // Add rodata labels to label_map with their absolute addresses
-            for (lbl, &blob_idx) in &self.rodata_label_to_blob {
-                let addr = *offsets.get(blob_idx).ok_or_else(|| {
-                    CodegenError::InternalError("Invalid rodata blob index".into())
-                })?;
-                label_map.insert(lbl.clone(), addr as usize);
-            }
+        // Sanity check: program size bound (2^30)
+        let limit: u32 = 1 << 30;
+        let ro_total = code_len_qm31 + ro_running;
+        if ro_total >= limit {
+            return Err(CodegenError::InternalError(format!(
+                "Program (code + rodata) too large: {} >= {}",
+                ro_total, limit
+            )));
+        }
+        // Add rodata labels
+        for (lbl, &blob_idx) in &self.rodata_label_to_blob {
+            let addr = *ro_offsets
+                .get(blob_idx)
+                .ok_or_else(|| CodegenError::InternalError("Invalid rodata blob index".into()))?;
+            label_map.insert(lbl.clone(), addr as usize);
+        }
+
+        // Now add mutable data labels after rodata
+        let data_base = ro_total;
+        let mut data_offsets: Vec<u32> = Vec::with_capacity(self.data_blobs.len());
+        let mut d_running: u32 = 0;
+        for blob in &self.data_blobs {
+            data_offsets.push(data_base + d_running);
+            d_running += blob.len() as u32;
+        }
+        let total = data_base + d_running;
+        if total >= limit {
+            return Err(CodegenError::InternalError(format!(
+                "Program (code + rodata + data) too large: {} >= {}",
+                total, limit
+            )));
+        }
+        for (lbl, &blob_idx) in &self.data_label_to_blob {
+            let addr = *data_offsets
+                .get(blob_idx)
+                .ok_or_else(|| CodegenError::InternalError("Invalid data blob index".into()))?;
+            label_map.insert(lbl.clone(), addr as usize);
         }
 
         // Resolve label references in instructions (typed API)
@@ -2133,6 +1899,140 @@ mod tests_asserts {
             assert_fp_imm == 2,
             "expected 2 AssertEqFpImm, got {}",
             assert_fp_imm
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests_heap_alloc {
+    use super::*;
+    use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, MirType, Terminator, Value};
+    use stwo_prover::core::fields::m31::M31;
+
+    // Helper: compute code length in QM31 units and index of first Value
+    fn program_code_len_and_first_value_idx(program: &Program) -> (u32, Option<usize>) {
+        let mut code_len_qm31: u32 = 0;
+        let mut first_value_idx: Option<usize> = None;
+        for (idx, item) in program.data.iter().enumerate() {
+            match item {
+                ProgramData::Instruction(instr) => {
+                    code_len_qm31 += instr.size_in_qm31s();
+                }
+                ProgramData::Value(_) => {
+                    first_value_idx = Some(idx);
+                    break;
+                }
+            }
+        }
+        (code_len_qm31, first_value_idx)
+    }
+
+    #[test]
+    fn heap_alloc_cells_emits_heap_cursor_and_addresses_it_via_label() {
+        // Build MIR: fn main() { let p: felt = heapalloccells 3; }
+        let mut module = MirModule::new();
+        let mut f = MirFunction::new("main".to_string());
+
+        // Destination pointer value
+        let ptr_id = f.new_typed_value_id(MirType::Felt);
+        let mut block = BasicBlock::new();
+        block.push_instruction(cairo_m_compiler_mir::Instruction::heap_alloc_cells(
+            ptr_id,
+            Value::integer(3),
+        ));
+        block.terminator = Terminator::return_void();
+        f.basic_blocks.push(block);
+        module.add_function(f);
+
+        // Generate CASM and compile
+        let mut gen = CodeGenerator::new();
+        gen.generate_module(&module).unwrap();
+        let program = gen.compile().unwrap();
+
+        // Expect at least one Value (our HEAP_CURSOR cell) appended after code
+        let (code_len_qm31, first_value_idx) = program_code_len_and_first_value_idx(&program);
+        let first_value_idx = first_value_idx.expect("Program should contain data value(s)");
+
+        // Validate the first data value is the zero-initialized heap cursor
+        match &program.data[first_value_idx] {
+            ProgramData::Value(q) => {
+                let arr = q.to_m31_array();
+                assert_eq!(arr[0].0, 0, "heap cursor init must be zero");
+                assert_eq!(arr[1].0, 0);
+                assert_eq!(arr[2].0, 0);
+                assert_eq!(arr[3].0, 0);
+            }
+            _ => panic!("Expected first data item to be a value"),
+        }
+
+        // The first instruction must include a StoreImm that materializes the absolute address
+        // of the HEAP_CURSOR cell. That immediate equals the absolute base of the first Value,
+        // which is code_len_qm31 in QM31 units.
+        let heap_addr_m31 = M31::from(code_len_qm31 as i32);
+
+        // Scan for a StoreImm imm == heap_addr_m31
+        let mut found = false;
+        for item in &program.data {
+            if let ProgramData::Instruction(cairo_m_common::Instruction::StoreImm { imm, .. }) =
+                item
+            {
+                if imm.0 == heap_addr_m31.0 {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        assert!(
+            found,
+            "Expected a StoreImm that materializes the HEAP_CURSOR absolute address ({heap_addr_m31:?})"
+        );
+    }
+
+    #[test]
+    fn heap_alloc_cells_includes_double_deref_ops() {
+        // Build MIR: fn main() { let n: felt = 5; let p: felt = heapalloccells n; }
+        let mut module = MirModule::new();
+        let mut f = MirFunction::new("main".to_string());
+
+        let n_id = f.new_typed_value_id(MirType::Felt);
+        let ptr_id = f.new_typed_value_id(MirType::Felt);
+
+        let mut block = BasicBlock::new();
+        block.push_instruction(cairo_m_compiler_mir::Instruction::assign(
+            n_id,
+            Value::integer(5),
+            MirType::Felt,
+        ));
+        block.push_instruction(cairo_m_compiler_mir::Instruction::heap_alloc_cells(
+            ptr_id,
+            Value::operand(n_id),
+        ));
+        block.terminator = Terminator::return_void();
+        f.basic_blocks.push(block);
+        module.add_function(f);
+
+        let mut gen = CodeGenerator::new();
+        gen.generate_module(&module).unwrap();
+        let program = gen.compile().unwrap();
+
+        let mut saw_load_cursor = false;
+        let mut saw_store_cursor = false;
+        for item in &program.data {
+            if let ProgramData::Instruction(instr) = item {
+                match instr {
+                    CasmInstr::StoreDoubleDerefFp { .. } => saw_load_cursor = true,
+                    CasmInstr::StoreToDoubleDerefFpImm { .. } => saw_store_cursor = true,
+                    _ => {}
+                }
+            }
+        }
+        assert!(
+            saw_load_cursor,
+            "expected StoreDoubleDerefFp for loading heap cursor"
+        );
+        assert!(
+            saw_store_cursor,
+            "expected StoreToDoubleDerefFpImm for storing heap cursor"
         );
     }
 }

@@ -310,3 +310,24 @@ fn complex_expression_precedence() {
         "result = a.field[0].method(b + c * d, e && f || g).value;"
     ));
 }
+
+// ===================
+// Heap Allocation (new T[n])
+// ===================
+
+#[test]
+fn heap_allocation_new_parameterized() {
+    assert_parses_parameterized! {
+        ok: [
+            in_function("let p = new felt[10];"),
+            in_function("let q = new u32[n];"),
+            // With struct type name in scope
+            r#"struct Point { x: felt, y: felt }
+               fn test() { let r = new Point[2]; }"#,
+        ],
+        err: [
+            in_function("let p = new [10];"),
+            in_function("let p = new felt;"),
+        ]
+    }
+}

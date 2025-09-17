@@ -79,6 +79,54 @@ impl<'a, 'db> LowerExpr<'a> for MirBuilder<'a, 'db> {
         match &expr_info.ast_node {
             Expression::Literal(n, _) => Ok(LoweredExpr::new(Value::integer(*n as u32))),
             Expression::BooleanLiteral(b) => Ok(LoweredExpr::new(Value::boolean(*b))),
+            Expression::New { elem_type, count } => {
+                // Compute cells = count * elem_slots, where elem_slots depends on T
+                let sem_elem_type = cairo_m_compiler_semantic::type_resolution::resolve_ast_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    elem_type.clone(),
+                    expr_info.scope_id,
+                );
+                let elem_mir_ty = MirType::from_semantic_type(self.ctx.db, sem_elem_type);
+                let elem_slots = crate::DataLayout::value_size_of(&elem_mir_ty);
+
+                // Lower count expression to a value
+                let count_val = self.lower_expression(count)?;
+
+                // If element occupies more than one slot, multiply
+                let cells_val = if elem_slots == 1 {
+                    count_val
+                } else {
+                    // Build literal for elem_slots
+                    let lit = crate::Value::integer(elem_slots as u32);
+                    // Determine typed binary op based on left type
+                    let left_expr_id = self.expr_id(count.span())?;
+                    let left_type = expression_semantic_type(
+                        self.ctx.db,
+                        self.ctx.crate_id,
+                        self.ctx.file,
+                        left_expr_id,
+                        None,
+                    );
+                    let left_type_data = left_type.data(self.ctx.db);
+                    let typed_op = crate::BinaryOp::from_parser(BinaryOp::Mul, &left_type_data)?;
+                    let dest_tmp = self.state.mir_function.new_typed_value_id(MirType::Felt);
+                    self.instr()
+                        .binary_op_to(typed_op, dest_tmp, count_val.into_value(), lit);
+                    LoweredExpr::new(Value::operand(dest_tmp))
+                };
+
+                // Destination pointer value with element type information
+                let dest = self
+                    .state
+                    .mir_function
+                    .new_typed_value_id(MirType::pointer(elem_mir_ty));
+                // Emit heap allocation instruction
+                self.instr()
+                    .add_instruction(Instruction::heap_alloc_cells(dest, cells_val.into_value()));
+                Ok(LoweredExpr::new(Value::operand(dest)))
+            }
             Expression::Identifier(name) => self.lower_identifier(name, current_scope_id),
             Expression::UnaryOp { op, expr } => self.lower_unary_op(*op, expr, expr_id),
             Expression::BinaryOp { op, left, right } => {
@@ -554,10 +602,28 @@ impl<'a, 'db> MirBuilder<'a, 'db> {
         // Get the MIR type of the array
         let array_mir_type = self.expr_mir_type(array.span())?;
 
-        // Get element type
+        // Get element type. Prefer MIR information (FixedArray or Pointer),
+        // otherwise fall back to semantic pointer element type.
         let element_mir_type = match &array_mir_type {
             MirType::FixedArray { element_type, .. } => (**element_type).clone(),
-            _ => return Err("IndexAccess on non-array type".to_string()),
+            MirType::Pointer { element } => (**element).clone(),
+            _ => {
+                // Fallback to semantic type: support pointers (T*)
+                let array_expr_id = self.expr_id(array.span())?;
+                let sem_ty = expression_semantic_type(
+                    self.ctx.db,
+                    self.ctx.crate_id,
+                    self.ctx.file,
+                    array_expr_id,
+                    None,
+                );
+                match sem_ty.data(self.ctx.db) {
+                    cairo_m_compiler_semantic::types::TypeData::Pointer { element_type } => {
+                        MirType::from_semantic_type(self.ctx.db, element_type)
+                    }
+                    _ => return Err("IndexAccess on non-array type".to_string()),
+                }
+            }
         };
 
         // Lower index expression and reuse it for both load and potential store

@@ -1,0 +1,40 @@
+---
+source: crates/compiler/mir/tests/mdtest_snapshots.rs
+assertion_line: 52
+description: "MIR snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate felt and read back"
+input_file: mdtest/03-types/03-pointers-and-heap.md
+---
+Source:
+fn alloc_felt() -> felt {
+    let p: felt* = new felt[3];
+    // Initialize via pointer indexing
+    p[0] = 7;
+    p[1] = 8;
+    p[2] = 9;
+    return p[0] + p[1] + p[2];
+}
+============================================================
+Generated MIR:
+module {
+  // Function 0
+  fn alloc_felt {
+    entry: 0
+
+    0:
+      %0 = heapalloccells 3
+      %1 = load %0[0]
+      store 7 -> %0[0]
+      %2 = load %0[1]
+      store 8 -> %0[1]
+      %3 = load %0[2]
+      store 9 -> %0[2]
+      %4 = load %0[0]
+      %5 = load %0[1]
+      %6 = %4 + %5
+      %7 = load %0[2]
+      %8 = %6 + %7
+      return %8
+
+  }
+
+}

@@ -712,6 +712,11 @@ impl ScalarReplacementOfAggregates {
                     callback(*id);
                 }
             }
+            InstructionKind::HeapAllocCells { cells, .. } => {
+                if let Value::Operand(id) = cells {
+                    callback(*id);
+                }
+            }
         }
     }
 

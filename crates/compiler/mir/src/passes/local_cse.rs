@@ -168,6 +168,7 @@ impl PureExpressionKey {
             | InstructionKind::Store { .. }
             | InstructionKind::Phi { .. }
             | InstructionKind::Nop
+            | InstructionKind::HeapAllocCells { .. }
             | InstructionKind::AssertEq { .. } => None,
 
             // Aggregate modification operations - skip for conservatism

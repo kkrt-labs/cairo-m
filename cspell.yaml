@@ -53,6 +53,7 @@ words:
   - funcs
   - getelementptr
   - horizen
+  - heapalloccells
   - ilog
   - imma
   - immediates

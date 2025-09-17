@@ -44,10 +44,10 @@ fn test_with_type_annotation() {
 }
 
 --- Diagnostics ---
-[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '[', '(', or '}'
+[02] Error: found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, 'new', identifier, '[', '(', or '}'
     ╭─[ tests/test_cases/tuple_destructuring.cm:11:5 ]
     │
  11 │     fn get_pair() -> (felt, felt) {
     │     ─┬  
-    │      ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, identifier, '[', '(', or '}'
+    │      ╰── found 'fn' expected '{', 'if', 'loop', 'while', 'for', 'break', 'continue', 'let', 'const', 'return', '!', '-', something else, 'new', identifier, '[', '(', or '}'
 ────╯

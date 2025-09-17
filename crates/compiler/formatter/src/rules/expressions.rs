@@ -102,6 +102,13 @@ impl Format for Expression {
                 Doc::text(" as "),
                 target_type.value().format(ctx),
             ]),
+            Self::New { elem_type, count } => Doc::concat(vec![
+                Doc::text("new "),
+                elem_type.value().format(ctx),
+                Doc::text("["),
+                count.value().format(ctx),
+                Doc::text("]"),
+            ]),
             Self::Parenthesized(inner) => parens(inner.value().format(ctx)),
         }
     }

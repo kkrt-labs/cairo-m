@@ -71,7 +71,10 @@ pub fn resolve_ast_type<'db>(
                 }
             }
         }
-        AstTypeExpr::Pointer(_) => TypeId::new(db, TypeData::Error),
+        AstTypeExpr::Pointer(inner) => {
+            let elem = resolve_ast_type(db, crate_id, file, (**inner).clone(), context_scope_id);
+            TypeId::new(db, TypeData::Pointer { element_type: elem })
+        }
         AstTypeExpr::Tuple(inner_ast_exprs) => {
             let collected_type_ids: Vec<TypeId> = inner_ast_exprs
                 .iter()
@@ -501,6 +504,28 @@ pub fn expression_semantic_type<'db>(
                 }
             }
         }
+        Expression::New { elem_type, count } => {
+            // Hint: count should be numeric (felt) for now
+            if let Some(count_id) = semantic_index.expression_id_by_span(count.span()) {
+                let _ = expression_semantic_type(
+                    db,
+                    crate_id,
+                    file,
+                    count_id,
+                    Some(TypeId::new(db, TypeData::Felt)),
+                );
+            }
+
+            // Resolve element type from the AST type
+            let elem_ty =
+                resolve_ast_type(db, crate_id, file, elem_type.clone(), expr_info.scope_id);
+            TypeId::new(
+                db,
+                TypeData::Pointer {
+                    element_type: elem_ty,
+                },
+            )
+        }
         Expression::UnaryOp { expr, op } => {
             let expr_id = semantic_index.expression_id_by_span(expr.span()).unwrap();
             // Propagate the context_expected to the operand
@@ -683,8 +708,10 @@ pub fn expression_semantic_type<'db>(
                 match array_type.data(db) {
                     // For fixed-size arrays, return the element type
                     TypeData::FixedArray { element_type, .. } => element_type,
+                    // For typed pointers, also return the element type
+                    TypeData::Pointer { element_type } => element_type,
                     // TODO: For tuple types, we could return the element type if all elements are the same
-                    // For now, return error for index access on non-pointer types
+                    // For now, return error for unsupported types
                     _ => TypeId::new(db, TypeData::Error),
                 }
             } else {
@@ -991,6 +1018,11 @@ pub fn are_types_compatible<'db>(
                 size: expected_size,
             },
         ) => actual_size == expected_size && are_types_compatible(db, actual_elem, expected_elem),
+
+        // Pointer compatibility: element types must be compatible
+        (TypeData::Pointer { element_type: a }, TypeData::Pointer { element_type: e }) => {
+            are_types_compatible(db, a, e)
+        }
 
         // Bool is only compatible with Bool (not with Felt or U32)
         (TypeData::Bool, TypeData::Bool) => true,

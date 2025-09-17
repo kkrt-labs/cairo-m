@@ -213,6 +213,10 @@ impl MirType {
 
                 Self::struct_type(struct_name, fields)
             }
+            TypeData::Pointer { element_type } => {
+                let element_mir_type = Self::from_semantic_type(db, element_type);
+                Self::pointer(element_mir_type)
+            }
             TypeData::FixedArray { element_type, size } => {
                 let element_mir_type = Self::from_semantic_type(db, element_type);
                 Self::FixedArray {
