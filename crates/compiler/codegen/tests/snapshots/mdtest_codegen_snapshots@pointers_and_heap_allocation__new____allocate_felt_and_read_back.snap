@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 60
 description: "Codegen snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate felt and read back"
 input_file: mdtest/03-types/03-pointers-and-heap.md
 ---
@@ -42,3 +43,6 @@ alloc_felt_0:
   22: 8 0 2 7              // [fp + 7] = [[fp + 0] + 2] (load slot 0)
   23: 0 6 7 2147483644     // [fp + -3] = [fp + 6] op [fp + 7]
   24: 11 _ _ _             // return
+---- data (base 25) ----
+; blob 0 (1 words)
+  25: 0 0 0 0

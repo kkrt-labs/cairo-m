@@ -1769,21 +1769,42 @@ impl CodeGenerator {
             result.push_str(&format!("{:4}: {}\n", pc, instruction));
         }
 
-        // Append rodata view (if any) after instructions
-        if !self.rodata_blobs.is_empty() {
-            // Compute code length in QM31 units for absolute base
-            let mut code_len_qm31: u32 = 0;
-            for ib in &self.instructions {
-                if let Some(sz) = cairo_m_common::Instruction::size_in_qm31s_for_opcode(
-                    ib.inner_instr().opcode_value(),
-                ) {
-                    code_len_qm31 += sz;
-                }
+        // Append rodata/data views (if any) after instructions
+        // Compute code length in QM31 units for absolute base
+        let mut code_len_qm31: u32 = 0;
+        for ib in &self.instructions {
+            if let Some(sz) = cairo_m_common::Instruction::size_in_qm31s_for_opcode(
+                ib.inner_instr().opcode_value(),
+            ) {
+                code_len_qm31 += sz;
             }
+        }
 
+        // rodata section (immutable)
+        if !self.rodata_blobs.is_empty() {
             result.push_str(&format!("---- rodata (base {}) ----\n", code_len_qm31));
             let mut addr = code_len_qm31 as usize;
             for (blob_idx, blob) in self.rodata_blobs.iter().enumerate() {
+                result.push_str(&format!("; blob {} ({} words)\n", blob_idx, blob.len()));
+                for q in blob {
+                    let arr = q.to_m31_array();
+                    let parts = [arr[0].0, arr[1].0, arr[2].0, arr[3].0];
+                    result.push_str(&format!(
+                        "{:4}: {} {} {} {}\n",
+                        addr, parts[0], parts[1], parts[2], parts[3]
+                    ));
+                    addr += 1;
+                }
+            }
+        }
+
+        // data section (mutable), appended after rodata
+        if !self.data_blobs.is_empty() {
+            let rodata_len: u32 = self.rodata_blobs.iter().map(|b| b.len() as u32).sum();
+            let data_base = code_len_qm31 + rodata_len;
+            result.push_str(&format!("---- data (base {}) ----\n", data_base));
+            let mut addr = data_base as usize;
+            for (blob_idx, blob) in self.data_blobs.iter().enumerate() {
                 result.push_str(&format!("; blob {} ({} words)\n", blob_idx, blob.len()));
                 for q in blob {
                     let arr = q.to_m31_array();

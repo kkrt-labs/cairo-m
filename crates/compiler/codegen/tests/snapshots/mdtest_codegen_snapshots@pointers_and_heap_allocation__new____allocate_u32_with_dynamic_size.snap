@@ -1,5 +1,6 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
+assertion_line: 60
 description: "Codegen snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate u32 with dynamic size"
 input_file: mdtest/03-types/03-pointers-and-heap.md
 ---
@@ -35,3 +36,6 @@ alloc_u32_0:
   17: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
   18: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
   19: 11 _ _ _             // return
+---- data (base 20) ----
+; blob 0 (1 words)
+  20: 0 0 0 0
