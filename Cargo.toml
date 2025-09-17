@@ -11,6 +11,7 @@ members = [
   "crates/compiler/cairo-m-project",
   "crates/runner",
   "crates/prover",
+  "crates/verifier",
   "crates/cairo-m-ls",
   "crates/wasm",
   "crates/test_utils",
@@ -22,7 +23,9 @@ exclude = ["examples/sha256-cairo-m"]
 [workspace.package]
 version = "0.1.1"
 edition = "2021"
+authors = ["Cairo-M Team"]
 license = "MIT OR Apache-2.0"
+rust-version = "1.80"
 
 [workspace.dependencies]
 # Local dependencies
@@ -36,6 +39,7 @@ cairo-m-project = { path = "crates/compiler/cairo-m-project" }
 cairo-m-compiler = { path = "crates/compiler" }
 cairo-m-runner = { path = "crates/runner" }
 cairo-m-prover = { path = "crates/prover" }
+cairo-m-verifier = { path = "crates/verifier" }
 cairo-m-formatter = { path = "crates/compiler/formatter" }
 cairo-m-wasm = { path = "crates/wasm" }
 cairo-m-test-utils = { path = "crates/test_utils" }
@@ -68,6 +72,7 @@ tempfile = "3.20"
 thiserror = "2.0.12"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
+test-log = "0.2.14"
 criterion = { version = "0.5", features = ["html_reports"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
