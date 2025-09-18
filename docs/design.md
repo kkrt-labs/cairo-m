@@ -22,14 +22,15 @@ general-purpose computation.
 
 The original Cairo architecture, as described in the seminal paper
 [Cairo – a Turing-complete STARK-friendly CPU architecture](https://eprint.iacr.org/2021/1063.pdf)
-defines a general framework for building a ZK-friendly CPU, known as a
-zero-knowledge Virtual Machine (zkVM) nowadays. This framework is general both
-in terms of underlying proving scheme and base operating prime field. However,
-some design decisions (like the instruction encoding) require a prime field
-larger that 2^64, while modern STARK provers favor smaller prime fields like
-Babybear (2^31 - 2^27 + 1) or Mersenne31 (2^31 - 1). Consequently, even the
-recent [stwo-cairo](https://github.com/starkware-libs/stwo-cairo) prover
-emulates the original prime number chosen 5 years ago:
+defines a general framework for building a ZK-friendly CPU, denominated as a
+"CPU AIR" and known as a zero-knowledge Virtual Machine (zkVM) nowadays. This
+framework is general both in terms of underlying proving scheme and base
+operating prime field. However, some design decisions (like the instruction
+encoding) require a prime field larger that 2^64, while modern STARK provers
+favor smaller prime fields like Babybear (2^31 - 2^27 + 1) or Mersenne31 (2^31 -
+1). Consequently, even the recent
+[stwo-cairo](https://github.com/starkware-libs/stwo-cairo) prover emulates the
+original prime number chosen 5 years ago:
 [$2^251 + 17 * 2^192 + 1$](https://docs.starknet.io/learn/protocol/cryptography).
 This emulation makes the prover up to 28x less efficient as each native field
 element from the original Cairo VM is now up to 28 M31s, depending on the actual
@@ -126,7 +127,10 @@ read operation:
 - `+Memory(address, prev_clock + RC_LIMIT, prev_value)`
 
 It eventually adds as many clock updates as needed to cover the clock
-difference.
+difference. Let us denote by `RC_LIMIT` the capacity of the `RangeCheck`
+component and `delta` the required clock difference. The number of clock updates
+required is `delta // RC_LIMIT`. If `delta` is not a multiple of `RC_LIMIT`, one
+needs to add one more clock update.
 
 ### Column Cost Analysis
 
@@ -150,7 +154,8 @@ M31s), each lookup column is actually 4 trace columns.
 
 - Overhead per access: `(5T + 3L) - (2T + 1L) = 3T + 2L = 3 + 8 = 11` base
   columns
-- STORE operation example (`dst = op0 + op1`): up to 31 additional columns
+- STORE operation example (`dst = op0 + op1`): up to 31 additional columns (2
+  reads and 1 write)
 
 This overhead can be mitigated using opcodes that write in place (e.g.,
 `x += y`). It can also be limited by grouping the logup columns by two,
@@ -167,14 +172,13 @@ when developing software, this overhead is deemed worthwhile.
 
 On the other hand, not all parts of the memory need to be writable. In
 particular, the program with its embedded constant values can remain read-only.
-Generally speaking, the easiest way to make a memory segment read-only is to:
 
-- emit all the values with `clock = 0` and the required multiplicity from the
-  commitment or the public memory;
-- in the `STORE` opcodes, add a range-check to the write addresses to make sure
-  that it doesn't write in these segments;
-- add opcodes that perform arithmetic operations on the read-only memory, as
-  long as the result is written back to the read-write memory.
+The most direct way to make sure that an address space is read-only is to
+range-check (or lookup) the write address in all the `STORE` opcodes. This would
+however not save any columns, just enforce that some regions are unchanged. To
+save on columns, one should instead add dedicated opcodes that would only
+"consume" the memory value with a constant clock set to 0. These values would be
+added from the commitment or the public memory with the required multiplicity.
 
 However, range-checking the write address can become inefficient when the
 address range is large. In fact, the Cairo M design embeds a `RangeCheck20`
@@ -218,19 +222,19 @@ Furthermore, the Merkle tree omits leaf hashing to minimize computational
 overhead. Although leaf hashing prevents sibling value disclosure in inclusion
 proofs, it provides no benefit for state root commitment and is therefore
 omitted. This approach requires all memory cells to contain values, resulting in
-implicit zero-initialization of the entire memory segment. The default zero
+implicit zero-initialization of the entire memory segment. This default zero
 value has no practical impact since the VM overwrites cells with actual values
 during the execution.
 
-The Merkle commitment component is responsible for proving the leaves from the
-public (initial or final) root. It does this by iteratively consuming a root and
-emitting the two leaves with given multiplicity in the logup sum. The partial
-underlying Merkle tree is built during witness generation. The component only
-enforces via the lookup arguments that the nodes and leaves actually derive from
-the root, using the `Merkle` relation. It also uses the `Poseidon2` relation to
-prove the Poseidon2 hash computation. Eventually, the multiplicity at any given
-node can be set to 0 if the branch is actually not used, in which case the node
-is pruned from the tree.
+The Merkle commitment component is responsible for proving the 2^30 leaves from
+the public (initial or final) root. It does this by iteratively consuming a root
+and emitting the two leaves with given multiplicity in the logup sum. The
+partial underlying Merkle tree is built during witness generation. The component
+only enforces via the lookup argument that the nodes and leaves actually derive
+from the root, using the `Merkle` relation. It also uses the `Poseidon2`
+relation to prove the Poseidon2 hash computation. Eventually, the multiplicity
+at any given node can be set to 0 if the branch is actually not used, in which
+case the node is pruned from the tree.
 
 All the emitted leaves are eventually consumed by the `Memory` component to make
 them available for the opcodes.
@@ -251,7 +255,7 @@ However, there is no requirement to use such a fixed-size memory word. Given
 that memory consistency is enforced only with lookup arguments, each address can
 "consume" any number of field elements that are ultimately all summed together
 with the relation's challenge coefficients. The only requirement is that
-consecutive read or write of an address consumes and writes the same number of
+consecutive reads or writes of an address consume and write the same number of
 field elements. One can think of this as accessing a slice of an array at a
 given index, with the slice length depending on the index, instead of just a
 single value:
@@ -279,7 +283,8 @@ address `a` and add one term for each of the `len` limbs at addresses
 
 The opposite operation is called `JOIN` and would allow the machine to gather a
 list of contiguous limbs into a single memory address, consuming each of the
-`(a + i; v_i)` lookup terms and adding a single `(a, [v_0, ..., v_{len - 1}])`:
+`(a + i, v_i)` lookup terms and adding a single `(a, [v_0, ..., v_{len - 1}])`
+lookup term:
 
 - `-Memory(a, prev_clock, v_0)`
 - ...
@@ -304,7 +309,7 @@ derived sign is just `sign(opcode_id) = 2 * (opcode_id - ID) - 1`.
 
 This variable-sized memory word pattern enables variable-sized instructions and
 native handling of multi-limb types like `u32`. This will be further discussed
-in the [Native types](#native-types) section.
+in the [Uint types](#uint-types) section.
 
 ## Registers
 
@@ -410,15 +415,27 @@ program is still running (so-called
 [_continuation_](https://risczero.com/blog/continuations)) and aggregated later
 on with recursions. This effectively boils down to splitting the dataframe into
 chunks with less rows. This reduces either the proving time or the memory usage
-of the host, which is directly proportional to the area of the AIR, (i.e. width
-times height).
+of the host, which is
+[directly proportional to the area of the AIR](https://x.com/ClementWalter/status/1964997331612488085),
+(i.e. width times height).
 
 Consequently, when designing an AIR, one tries to limit the number of columns as
 much as possible. This can be done by both limiting the number of opcodes in the
 instruction set, and by factorizing as much as possible several opcodes into the
 same component.
 
+The required degree of the constraints can also influences the number of
+columns. Actually, the max degree of the constraints influences the size of the
+evaluation domain, and adding constraints with a higher degree will double its
+size. Hence it is always better to just add intermediate columns to reduce the
+degree of the constraints.
+
+Overall, the goal is to use as few columns as possible, and to keep the degree
+of the constraints as low as possible, which can in turn require more columns.
+
 ### Minimal instruction set
+
+We now present in this section a minimal instruction set.
 
 **Control Flow**:
 
@@ -431,6 +448,7 @@ same component.
 
 **Memory Operations**:
 
+- `StoreImm`: Store immediate (bytecode) value into memory
 - `StoreDoubleDeref`: Store dereferenced value
 - `StoreToDoubleDeref`: Store at dereferenced address
 
@@ -439,7 +457,68 @@ This proposed instruction set fits in a total of XXX columns. See the
 
 ### Extensions
 
-#### Native types
+If the proposed instruction set is enough to perform any kind of computation,
+one may want to extend it with more opcodes. The purpose of extensions is to
+make some complex operations native to the prover, i.e. to give them directly a
+circuit representation. Whether extensions actually make the whole proving steps
+faster depends on the context and the actual optimization they allow.
+
+Among the most common extensions, we describe below the case of adding different
+"native" types to the instruction set and built-in hash functions.
+
+#### `Uint` types
+
+At the prover level, the only native type is the field element. However, at the
+software level, the most common native types are `u32` or `u64`. While it is
+possible
+[to emulate for example a `u256` at the software level](https://github.com/starkware-libs/cairo-lang/blob/v0.14.0.1/src/starkware/cairo/common/uint256.cairo),
+it may be more efficient to instead manage it at the AIR level. For example,
+creating a `u32` with a struct holding two field elements would require two
+memory accesses per variable use instead of one.
+
+At the software level, the main difference between a `uint` of a given size and
+a `felt` lies mainly in the division operation. In fact, at least in release
+mode, `uint`s silently overflow and wrap around, actually behaving like a field
+element over `2^n`. On the other hand, the division for field elements is always
+exact (every field element has an inverse), while the division for `uint`s is
+the euclidean division. At the AIR level, emulating a `uint` mainly requires to
+emulate operations over the `uint` size, i.e. properly handling the carry,
+borrow, and range-checking the values used.
+
+Given the fact that the current prime is `2^31 - 1`, any `uint` using less than
+31 bits can easily be represented as a single field element. However, as said
+previously, every single value needs to be range-checked to make sure that it
+stays within the correct boundaries. Consequently, the biggest simple native
+`uint` type that can be represented without any limb decomposition depends on
+the size of the greatest `RangeCheck` component added to the prover. Since a
+`RangeCheck` component is actually just a plain enumeration of all the allowed
+numbers (e.g. `0..2^20` for a `RangeCheck20` component), this is directly
+related to the size of the trace itself and so to the host memory usage and
+overall performance of the prover. As a matter of fact, given some
+[initial benchmarks with Stwo](https://x.com/ClementWalter/status/1927617083967234483),
+we decided to keep `RangeCheck20` as the greatest single `RangeCheck` component,
+consequently making `u20` the biggest simple native `uint` type that could be
+represented without any limb decomposition.
+
+In any case, keeping the same memory segment for both `felt` and `uint` creates
+a significant range-check overhead, as every read needs to be range-checked, and
+not only writes. For this reason, it is better to use a dedicated memory segment
+for every such "simple" `uint` type, where only the write operation needs to be
+range-checked.
+
+On the other hand, given this maximum limb size, it is straightforward to derive
+any `uint` type with limb decomposition over this base limb size with no
+significant extra cost. Remember from the [Word size](#word-size) section that a
+memory read is actually a memory slice read, one can read several limbs at once.
+
+Eventually, since `u20` is not a regular base type in any software and this `20`
+is strongly dependent on some internal prover configuration (the biggest
+available range check component), it makes more sense to use `u16` or `u8`
+instead. The question of the most optimal base between the two depends on the
+context. Using `u8` would create more trace cells for `ADD` and `SUB` operations
+where 16-bits limbs are fine, but would save on `MUL` and `DIV` operations where
+numbers actually need to be written with 8-bits limbs since
+`u16 * u16 -> u32 > 2^31 - 1`.
 
 #### Built-in functions
 
