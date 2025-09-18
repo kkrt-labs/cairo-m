@@ -1,7 +1,5 @@
 version: "0.2"
-# Suggestions can sometimes take longer on CI machines,
-# leading to inconsistent results.
-suggestionsTimeout: 5000 # ms
+suggestionsTimeout: 5000
 words:
   - allman
   - alloca
@@ -9,9 +7,10 @@ words:
   - architecting
   - arrayindex
   - arrayinsert
+  - Babybear
   - binop
-  - bswap
   - branchcmp
+  - bswap
   - bytemuck
   - cairols
   - cairom
@@ -31,6 +30,8 @@ words:
   - ctrlflow
   - dashmap
   - dataclass
+  - dataframe
+  - dataframes
   - deque
   - dests
   - dhat
@@ -79,6 +80,7 @@ words:
   - mathrm
   - mdtest
   - merkle
+  - Mersenne
   - mpsc
   - mult
   - mults
@@ -89,13 +91,10 @@ words:
   - peekable
   - pointee
   - preds
-  # TODO: remove when stwo is updated
   - preproccessed
   - println
   - proptest
   - ranlib
-  - rodata
-  - roff
   - repr
   - readback
   - resx
@@ -103,6 +102,8 @@ words:
   - rfind
   - rlib
   - rngs
+  - rodata
+  - roff
   - rotr
   - rposition
   - rustc
@@ -126,6 +127,7 @@ words:
   - sreedhar
   - sroa
   - stackalloc
+  - starknet
   - starkware
   - stdext
   - storeback
@@ -143,10 +145,11 @@ words:
   - torczon
   - treee
   - typechecks
-  - upcasting
-  - usize
   - unioning
   - unsuffixed
+  - upcasting
+  - usize
+  - Valida
   - vulns
   - walkdir
   - wasmparser
