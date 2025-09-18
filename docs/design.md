@@ -29,22 +29,23 @@ operating prime field. However, some design decisions (like the instruction
 encoding) require a prime field larger than $2^{64}$, while modern STARK provers
 favor smaller prime fields like Babybear ($2^{31} - 2^{27} + 1$) or Mersenne31
 ($2^{31} - 1$). Consequently, even the recent
-[stwo-cairo](https://github.com/starkware-libs/stwo-cairo) prover emulates the
+[stwo-cairo prover](https://github.com/starkware-libs/stwo-cairo) emulates the
 original prime number chosen 5 years ago:
 [$2^{251} + 17 \cdot 2^{192} + 1$](https://docs.starknet.io/learn/protocol/cryptography).
 This emulation makes the prover up to 28x less efficient as each native field
-element from the original Cairo VM is now up to 28 M31s, depending on the actual
-values used in the program and some optimizations.
+element from the original Cairo VM is now
+[up to 28 M31s](https://github.com/starkware-libs/stwo-cairo/blob/main/stwo_cairo_prover/crates/common/src/memory.rs#L1),
+depending on the actual values used in the program and some optimizations.
 
 Furthermore, the Cairo VM features a non-deterministic read-only memory model
 with relocation, which creates two severe limitations:
 
 1. a program can only make a limited number of writes to memory, so the VM
    cannot run arbitrary long (meaningful) programs;
-2. the final relocation step prevents from streaming the generated trace for
-   parallel proving (a technique called
-   [_continuation_](https://risczero.com/blog/continuations)) as final memory
-   addresses are only known after the program has exited.
+2. the final relocation step prevents from streaming the generated trace to
+   start proving chunks in parallel while the program is still running (a
+   technique called [_continuation_](https://risczero.com/blog/continuations))
+   as final memory addresses are only known after the program has exited.
 
 Cairo M has been designed to overcome these limitations:
 
@@ -59,20 +60,29 @@ The following sections of this document assume Mersenne31 (M31: $2^{31} - 1$) as
 the prime number. The design can be adapted for other primes with minor
 modifications.
 
-This document focuses on the design decisions for the v0 implementation and
-potential improvements, rather than describing the current implementation state.
+This document doesn't describe the current state of the
+[Cairo M](https://github.com/kkrt-labs/cairo-m) nor the
+[v0.1 release](https://github.com/kkrt-labs/cairo-m/releases/tag/v0.1.0) but
+focuses on the decision framework and trade-offs considered when building this
+first version, and potential improvements.
 
-The design of a virtual machine mainly encompasses the memory model, the
-registers, the opcodes and the addressing scheme. The remaining of this document
-addresses each of these questions in turn. An Appendix section provides general
-knowledge about some part of STARK provers and especially the
-[Stwo framework](https://github.com/starkware-libs/stwo), used in our first
-implementation.
+The design of a virtual machine mainly encompasses four decisions: the memory
+model, the number of registers, the opcodes and the addressing scheme. The
+remaining of this document addresses each of these questions in turn. An
+Appendix section provides a succinct background about some part of STARK provers
+and especially the [Stwo framework](https://github.com/starkware-libs/stwo) used
+in our implementation.
 
 ## Memory \label{sec:memory} {#memory}
 
-Memory segments are implemented as 1D-addressable arrays indexed by field
-elements. Their maximum length is determined by the prover's prime field.
+In the context of a Virtual Machine, the memory is the main data structure that
+stores the program and the data. It is typically organized as a linear array of
+addressable units (bytes, words, or field elements), where each location has a
+unique address. The VM's processor reads instructions from memory, loads/stores
+data values, and manages the execution state through memory operations.
+
+Since memory segments are 1D-addressable arrays indexed by field elements, their
+maximum length is determined by the prover's prime field.
 
 ### Read/Write operations \label{sec:read-write-operations} {#read-write-operations}
 
