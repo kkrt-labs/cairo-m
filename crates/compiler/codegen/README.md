@@ -6,15 +6,6 @@ The `codegen` crate translates MIR (Mid-level Intermediate Representation) into
 CASM (Cairo Assembly). It is the final stage of the Cairo‑M compiler pipeline
 and produces instructions executable by the Cairo VM.
 
-This crate follows a “Normalize → Select → Emit” architecture:
-
-- Normalize: Canonicalize shapes (swap/complement/bias rules) into a small set
-  of normalized operations.
-- Select: Choose opcodes from a single source of truth (opcodes table) for the
-  normalized shape.
-- Emit: Push instructions, labels, and track frame writes through a single
-  emission seam.
-
 ## Architecture
 
 ### Core Components
@@ -29,10 +20,6 @@ This crate follows a “Normalize → Select → Emit” architecture:
     touch tracking). All pushes and label creation go through here.
   - `builder/copy.rs`: Felt/u32/aggregate copy utilities (`copy_slots`,
     `store_copy_u32`). Eliminates ad‑hoc loops.
-  - `builder/normalize.rs`: Pure normalization rules (swap/complement/bias). No
-    side effects, easy to test.
-  - `builder/opcodes.rs`: Opcode selection table for normalized ops (single
-    source of truth).
   - `builder/felt.rs`: Felt operations (assign/arith/boolean) using normalize +
     opcode selection + emit.
   - `builder/u32_ops.rs`: U32 arithmetic/comparison/bitwise ops; handles two’s
@@ -76,24 +63,6 @@ Run all tests:
 - Review snapshots (when needed):
   `cargo insta review -p cairo-m-compiler-codegen`
 
-## Key Features
-
-- Felt arithmetic and boolean operations
-- U32 arithmetic, comparisons, and bitwise operations
-- Short‑circuit boolean lowering (AND/OR/NOT) in one place
-- Function calls with argument‑in‑place optimization and return handling
-- Label resolution for jumps and calls
-- Stack frame layout and frame usage tracking
-
-## Design Principles
-
-- Single‑purpose modules: Each concern (normalize, selection, emission,
-  ctrlflow, calls) has its own module and tests.
-- Deterministic emission: All pushes/labels/touch go through `emit.rs` to ensure
-  uniform behavior and easier auditing.
-- Testable by construction: Pure rules and small templates make it
-  straightforward to reason about and unit test codegen decisions.
-
 ## Contributing
 
 When adding or changing codegen:
@@ -104,17 +73,3 @@ When adding or changing codegen:
   opcodes and operands.
 - If a change affects integration snapshots, run `cargo test` and update via
   `cargo insta review`.
-
-Guidelines:
-
-- Keep functions focused and small; avoid monolithic match arms.
-- Prefer data‑driven normalization and selection to ad‑hoc rewrites.
-- Treat comments as part of the contract — they are visible in snapshots and
-  help users understand the output.
-
-## Future Improvements
-
-- Expand normalization coverage (more derived ops, fewer explicit opcodes).
-- Broaden unit test coverage (bitwise and comparisons) where useful.
-- Explore additional short‑circuit patterns (e.g., chained logical operators) if
-  MIR needs it.

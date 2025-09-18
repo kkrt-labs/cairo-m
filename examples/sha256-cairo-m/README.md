@@ -60,15 +60,6 @@ This implementation follows the NIST FIPS 180-4 specification for SHA-256:
 - **Pre-padded input required**: Unlike standard SHA-256 implementations, this
   version expects the input to be already padded according to SHA-256
   specifications
-- **Fixed buffer size**: The implementation uses a fixed buffer of 32 u32 words
-  (128 bytes), limiting it to 2 chunks maximum
-- **Actual message size limits**:
-  - Up to 55 bytes → fits in 1 chunk after padding
-  - 56-119 bytes → requires 2 chunks after padding
-  - 120+ bytes → exceeds current implementation limit
-
-These limitations exist because Cairo-M requires fixed-size arrays at compile
-time, preventing dynamic memory allocation.
 
 ### Testing Approach
 

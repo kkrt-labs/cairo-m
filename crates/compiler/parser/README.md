@@ -1,7 +1,4 @@
-# Cairo M Compiler
-
-The Cairo M Compiler is responsible for parsing and compiling Cairo code into
-Cairo Assembly for execution in the Cairo M virtual machine.
+# Cairo M Compiler Parser
 
 ## Overview
 
@@ -65,14 +62,7 @@ cargo insta review -p cairo-m-compiler-parser
 
 To add a new parser test with snapshot testing:
 
-1. Add a test function in `parser/src/parser.rs`:
-
-```rust
-#[test]
-fn test_my_new_feature() {
-    assert_parse_snapshot!("let x = 42;", "my_new_feature");
-}
-```
+1. Add a test function in `parser/tests/parser`:
 
 2. Run the test - it will fail initially because no snapshot exists:
 
@@ -85,85 +75,3 @@ cargo test test_my_new_feature
 ```bash
 cargo insta review
 ```
-
-### Test Macro: `assert_parse_snapshot!`
-
-The parser tests use a custom macro `assert_parse_snapshot!` that:
-
-1. Parses the input string using the parser
-2. Creates snapshots for both successful parse results and parsing errors
-3. Handles error formatting with nice diagnostic messages using `ariadne`
-
-Usage patterns:
-
-```rust
-// Simple usage - snapshot name will be the input string
-assert_parse_snapshot!("let x = 3;");
-
-// Custom snapshot name
-assert_parse_snapshot!("let x = 3;", "simple_let_declaration");
-```
-
-### Snapshot Files
-
-Snapshots are stored in `parser/src/snapshots/` with names following the
-pattern:
-
-```text
-{crate_name}__{module}__{test_name}.snap
-```
-
-For example:
-
-- `cairo_m_compiler_parser__parser__tests__simple_let_error.snap`
-
-### Error Snapshots
-
-When parsing fails, the macro creates formatted error messages using `ariadne`
-for beautiful error reporting. These error snapshots help ensure that:
-
-1. Error messages are helpful and consistent
-2. Error reporting doesn't regress over time
-3. Error positions are accurate
-
-### Best Practices
-
-1. **Descriptive Test Names**: Use clear, descriptive names for your tests and
-   snapshots
-2. **Small, Focused Tests**: Each test should focus on a specific parsing
-   scenario
-3. **Review Changes Carefully**: Always review snapshot changes to ensure
-   they're intentional
-4. **Version Control**: Commit snapshot files alongside your code changes
-
-### Example Test Structure
-
-```rust
-#[test]
-fn test_function_declaration() {
-    assert_parse_snapshot!(
-        "fn add(x: felt, y: felt) -> felt { return x + y; }",
-        "function_declaration"
-    );
-}
-
-#[test]
-fn test_invalid_syntax() {
-    // This will capture the error message in a snapshot
-    assert_parse_snapshot!(
-        "let x = ;", // Missing value
-        "missing_value_error"
-    );
-}
-```
-
-## Development Workflow
-
-1. Write your test with `assert_parse_snapshot!`
-2. Run the test (it will fail initially)
-3. Use `cargo insta review` to examine the generated snapshot
-4. Accept the snapshot if it looks correct
-5. Commit both your code and the snapshot file
-
-This workflow ensures that any changes to parser behavior are intentional and
-properly reviewed.

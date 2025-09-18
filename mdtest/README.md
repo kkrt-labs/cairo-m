@@ -319,29 +319,12 @@ The mdtest infrastructure is implemented across several components:
 
 - **Build Scripts**:
   - `crates/runner/build.rs`: Generates differential test functions
-  - `crates/compiler/mir/build.rs`: Generates MIR snapshot tests
-  - `crates/compiler/codegen/build.rs`: Generates Codegen snapshot tests
 
 - **Test Utilities** (`crates/runner/tests/common/mod.rs`):
   - Differential testing logic
   - Cairo-M compilation and execution
   - Rust code compilation and execution
   - Output comparison and formatting
-
-### Test Caching
-
-Tests are cached in a static `HashMap` for efficient lookup:
-
-```rust
-static ALL_TESTS: Lazy<HashMap<String, MdTest>> = Lazy::new(|| {
-    mdtest::extract_all_tests()
-        .expect("Failed to extract tests")
-        .into_iter()
-        .flat_map(|(_path, tests)| tests)
-        .map(|test| (test.name.clone(), test))
-        .collect()
-});
-```
 
 ### Special Handling
 
@@ -361,7 +344,7 @@ static ALL_TESTS: Lazy<HashMap<String, MdTest>> = Lazy::new(|| {
 3. **Document edge cases**: Add comments explaining non-obvious behavior
 4. **Group related tests**: Use sections to organize related test cases
 5. **Prefer differential testing**: Include Rust code when possible for
-   validation
+   validation, or ensure that the cairo code can be "converted" to rust easily.
 6. **Use annotations**: Mark incomplete tests with `//! ignore:` rather than
    commenting out
 7. **Test both success and failure**: Include tests for error conditions
