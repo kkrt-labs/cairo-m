@@ -13,10 +13,11 @@ cairo-m-common.workspace = true
 stwo-prover.workspace = true
 ## Needed at runtime to execute compiled programs from the CLI
 cairo-m-runner.workspace = true
-ouroboros = "0.18"
 wasmparser = "0.235.0"
 clap = { version = "4.0", features = ["derive"] }
 sonic-rs = "0.3"
+tracing.workspace = true
+tracing-subscriber.workspace = true
 
 [dev-dependencies]
 insta = "1.43.1"

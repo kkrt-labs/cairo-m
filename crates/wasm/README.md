@@ -132,28 +132,27 @@ cargo run -- <path-to-wasm-file> -f <function-name> -a <arg1> -a <arg2>
 use cairo_m_wasm::loader::BlocklessDagModule;
 
 // Load WASM file into WOMIR representation
-let module = BlocklessDagModule::from_file("path/to/file.wasm")?;
+let wasm_file = std::fs::read("path/to/file.wasm").unwrap();
+let module = BlocklessDagModule::from_bytes(&wasm_file)?;
 
 // Display the parsed WASM structure
 println!("{}", module);
 
 // Access function count and details
-let function_count = module.with_program(|program| program.functions.len());
+let function_count = module.0.functions.len();
 println!("Functions: {}", function_count);
 ```
 
 ### Library - WASM to MIR Conversion
 
 ```rust
-use cairo_m_wasm::{
-    loader::BlocklessDagModule,
-    flattening::WasmModuleToMir,
-};
-use cairo_m_compiler_mir::PrettyPrint;
+use cairo_m_wasm::{ loader::BlocklessDagModule, lowering::lower_program_to_mir };
+use cairo_m_compiler_mir::{PrettyPrint, PassManager};
 
 // Load WASM and convert to MIR
-let module = BlocklessDagModule::from_file("path/to/file.wasm")?;
-let mir_module = WasmModuleToMir::new(module).to_mir()?;
+let wasm_file = std::fs::read("path/to/file.wasm").unwrap();
+let module = BlocklessDagModule::from_bytes(&wasm_file)?;
+let mir_module = lower_program_to_mir(&module, PassManager::new())?;
 
 // Pretty print the MIR
 println!("{}", mir_module.pretty_print(0));

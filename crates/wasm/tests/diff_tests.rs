@@ -3,8 +3,8 @@ use cairo_m_common::abi_codec::{CairoMValue, InputValue};
 use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_mir::PassManager;
 use cairo_m_runner::run_cairo_program;
-use cairo_m_wasm::flattening::DagToMir;
 use cairo_m_wasm::loader::BlocklessDagModule;
+use cairo_m_wasm::lowering::lower_program_to_mir;
 
 use womir::generic_ir::GenericIrSetting;
 use womir::interpreter::ExternalFunctions;
@@ -63,10 +63,8 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
         .process_all_functions()
         .unwrap();
 
-    let dag_module = BlocklessDagModule::from_file(path).unwrap();
-    let mir_module = DagToMir::new(dag_module)
-        .to_mir(PassManager::standard_pipeline())
-        .unwrap();
+    let dag_module = BlocklessDagModule::from_bytes(&wasm_file).unwrap();
+    let mir_module = lower_program_to_mir(&dag_module, PassManager::standard_pipeline()).unwrap();
 
     let compiled_module = compile_module(&mir_module).unwrap();
 
