@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758118986055,
+  "lastUpdate": 1758187062141,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2443,6 +2443,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 291383343,
             "range": "± 2688087",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60658558+enitrat@users.noreply.github.com",
+            "name": "Mathieu",
+            "username": "enitrat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4be219f050de7ec39b819208aa05176ebed27748",
+          "message": "feat(vm): support serialising entrypoint pointers (#326)\n\n* ABI + runner: add typed Pointer support (with optional len) and refactor SHA-256 tests to use dynamic pointer inputs\n\n- Add AbiType::Pointer { element, len } with serde (kind: Pointer, pointee, len?)\n- Map MIR Pointer to ABI Pointer in codegen metadata\n- Common ABI codec:\n  - Encode: accept numeric pointer; list materialization is runner-only\n  - Decode: Pointer -> CairoMValue::Pointer\n- Runner encode/decode:\n  - Encode pointer args from InputValue::List: materialize elements, pass base pointer\n  - Pre-size materialization region using value-aware sizing (Pointer len or value length)\n  - Decode pointer returns: not supported yet\n- SHA-256 tests:\n  - Remove fixed buffer-size assumptions and 1KB-only helper\n  - prepare_sha256_input now pads and returns variable-length u32 list\n  - Property tests allow variable sizes (capped at 2^16 bytes)\n\nThis enables passing Vec-backed pointer arguments (e.g., u32*) and decoding pointer outputs per the (Pointer, len) convention while keeping array semantics for FixedSizeArray.\n\n* fix import",
+          "timestamp": "2025-09-18T11:10:00+02:00",
+          "tree_id": "e0f475a01d2f3c3be527a475254eae13392f82e4",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/4be219f050de7ec39b819208aa05176ebed27748"
+        },
+        "date": 1758187061062,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 286377007,
+            "range": "± 3052103",
             "unit": "ns/iter"
           }
         ]
