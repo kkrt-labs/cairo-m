@@ -18,7 +18,7 @@ The main design choices are
 - each frame is of constant deterministic size
 - read-write memory
 - variable-size instruction encoding (x86 style)
-- support of native types (u8, u32, etc.) thanks to an heavy use of Stwo's
+- support of native types (felt, u32, etc.) thanks to an heavy use of Stwo's
   component system
 
 ## Crates
