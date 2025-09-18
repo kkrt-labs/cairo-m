@@ -1,5 +1,7 @@
 version: "0.2"
 suggestionsTimeout: 5000
+ignorePaths:
+  - docs/filters/links-to-references.lua
 words:
   - allman
   - alloca
@@ -14,6 +16,7 @@ words:
   - bytemuck
   - cairols
   - cairom
+  - callabsimm
   - callees
   - callsite
   - casm
@@ -63,6 +66,8 @@ words:
   - instrs
   - insts
   - itertools
+  - jmprelimm
+  - jnzfpimm
   - kats
   - kiro
   - kkrt
@@ -71,6 +76,7 @@ words:
   - loff
   - logup
   - logups
+  - lualatex
   - lvalue
   - makefixedarray
   - makestruct
@@ -86,6 +92,7 @@ words:
   - nops
   - oneshot
   - operandless
+  - pandoc
   - peekable
   - pointee
   - preds
@@ -93,6 +100,7 @@ words:
   - println
   - proptest
   - ranlib
+  - readwrite
   - repr
   - resx
   - rfib
@@ -127,6 +135,14 @@ words:
   - starknet
   - starkware
   - stdext
+  - storeadd
+  - storediv
+  - storedoubledereffp
+  - storedoubledereffpfp
+  - storeframepointer
+  - storeimm
+  - storemul
+  - storesub
   - stwo
   - subexpression
   - subspan
@@ -134,6 +150,9 @@ words:
   - succs
   - swatinem
   - tempvar
+  - texcache
+  - texmfcache
+  - texmfvar
   - thiserror
   - tlsv
   - toplevel

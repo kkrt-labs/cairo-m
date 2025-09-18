@@ -1,6 +1,6 @@
 # Cairo M Design Document
 
-## Introduction
+## Introduction \label{sec:introduction} {#introduction}
 
 The motivation behind building a new _Zero-Knowledge Virtual Machine (zkVM)_ is
 strongly influenced by our experience of building a
@@ -69,12 +69,12 @@ knowledge about some part of STARK provers and especially the
 [Stwo framework](https://github.com/starkware-libs/stwo), used in our first
 implementation.
 
-## Memory
+## Memory \label{sec:memory} {#memory}
 
 Memory segments are implemented as 1D-addressable arrays indexed by field
 elements. Their maximum length is determined by the prover's prime field.
 
-### Read/Write operations
+### Read/Write operations \label{sec:read-write-operations} {#read-write-operations}
 
 To support arbitrarily long programs within a fixed-size memory segment, the
 design employs a read-write memory model for the RAM (Random Access Memory).
@@ -95,11 +95,11 @@ Altogether, using the notation defined in the [lookups](#lookups) section, a
 memory read or write operation is implemented as follows:
 
 $$
-\begin{align}
+\begin{aligned}
 &-\text{Memory}(\text{address}, \text{prev\_clock}, \text{prev\_value}) \\
 &+\text{Memory}(\text{address}, \text{clock}, \text{value}) \\
 &+\text{RangeCheck20}(\text{clock} - \text{prev\_clock} - 1)
-\end{align}
+\end{aligned}
 $$
 
 with $\text{address}$, $\text{prev\_clock}$, $\text{prev\_value}$,
@@ -108,11 +108,11 @@ that when the memory is only read, one has $\text{prev\_value} = \text{value}$
 and this simplifies to:
 
 $$
-\begin{align}
+\begin{aligned}
 &-\text{Memory}(\text{address}, \text{prev\_clock}, \text{value}) \\
 &+\text{Memory}(\text{address}, \text{clock}, \text{value}) \\
 &+\text{RangeCheck20}(\text{clock} - \text{prev\_clock} - 1)
-\end{align}
+\end{aligned}
 $$
 
 The key point of this design based on lookup arguments is that one needs to
@@ -124,7 +124,7 @@ during the execution. The boundary conditions (initial and final memory) are
 handled by the [memory commitment](#commitment) and the public memory of the
 proof.
 
-### Clock Update Component
+### Clock Update Component \label{sec:clock-update-component} {#clock-update-component}
 
 The clock update component is responsible for updating the clock value when the
 clock difference exceeds the capacity of the `RangeCheck` component. It is not
@@ -135,19 +135,19 @@ component, it performs a clock update, which essentially consists in mimicking a
 read operation:
 
 $$
-\begin{align}
+\begin{aligned}
 &-\text{Memory}(\text{address}, \text{prev\_clock}, \text{prev\_value}) \\
 &+\text{Memory}(\text{address}, \text{prev\_clock} + \text{RC\_LIMIT}, \text{prev\_value})
-\end{align}
+\end{aligned}
 $$
 
 It then adds as many clock updates as needed to cover the clock difference. Let
 us denote by $\text{RC\_LIMIT}$ the capacity of the RangeCheck component and
 $\delta$ the required clock difference. The number of clock updates required is
-$\lfloor \delta / \text{RC\_LIMIT} \rfloor$. If $\delta$ is not a multiple of
+$\lceil \delta / \text{RC\_LIMIT} \rceil$. If $\delta$ is not a multiple of
 $\text{RC\_LIMIT}$, one needs to add one more clock update.
 
-### Column Cost Analysis
+### Column Cost Analysis \label{sec:column-cost-analysis} {#column-cost-analysis}
 
 Let us denote by $T$ a regular trace column and by $L$ a lookup operation.
 
@@ -198,7 +198,7 @@ However, range-checking the write address can become inefficient when the
 address range is large. In fact, the Cairo M design embeds a RangeCheck20 (i.e.,
 20-bit range-check) as the largest single range-check component (i.e., with no
 limb splitting). This means that any value greater than $2^{20}$ would require
-splitting (see also [the clock update section](#readwrite-operations)). As a
+splitting (see also [the clock update section](#read-write-operations)). As a
 consequence, this approach becomes inefficient when the address range is large.
 
 Another solution is to use a dedicated read-only memory segment with its own
@@ -208,7 +208,7 @@ the read-only memory is used only for the program, its commitment effectively
 becomes the program hash that can be used to identify the program in the proof,
 without requiring the read-write memory to be initialized with zeros.
 
-### Commitment
+### Commitment \label{sec:commitment} {#commitment}
 
 Memory segments require efficient commitment for continuation, ensuring the
 final memory state of stage `n` matches the initial state of stage `n + 1`.
@@ -253,7 +253,7 @@ case the node is pruned from the tree.
 All the emitted leaves are eventually consumed by the `Memory` component to make
 them available for the opcodes.
 
-### Word size
+### Word size \label{sec:word-size} {#word-size}
 
 If the Merkle root allows committing to up to $2^{30}$ field elements, the VM
 doesn't need to use a single field element as the base word size. As mentioned
@@ -290,13 +290,13 @@ adds one term for each of the $\text{len}$ limbs at addresses
 $a + i, i \in [0, \text{len})$:
 
 $$
-\begin{align}
+\begin{aligned}
 &-\text{Memory}(a, \text{prev\_clock}, v_0, \ldots, v_{\text{len} - 1}) \\
 &+\text{Memory}(a, \text{clock}, v_0) \\
 &+\text{Memory}(a + 1, \text{clock}, v_1) \\
 &\vdots \\
 &+\text{Memory}(a + \text{len} - 1, \text{clock}, v_{\text{len} - 1})
-\end{align}
+\end{aligned}
 $$
 
 The opposite operation is called `JOIN` and allows the machine to gather a list
@@ -305,12 +305,12 @@ $(a + i, v_i)$ lookup terms and adding a single
 $(a, [v_0, \ldots, v_{\text{len} - 1}])$ lookup term:
 
 $$
-\begin{align}
+\begin{aligned}
 &-\text{Memory}(a, \text{prev\_clock}, v_0) \\
 &\vdots \\
 &-\text{Memory}(a + \text{len} - 1, \text{prev\_clock}, v_{\text{len} - 1}) \\
 &+\text{Memory}(a, \text{clock}, v_0, \ldots, v_{\text{len} - 1})
-\end{align}
+\end{aligned}
 $$
 
 These opcodes don't necessarily need to be added at the VM level, similar to
@@ -331,7 +331,7 @@ This variable-sized memory word pattern enables variable-sized instructions and
 native handling of multi-limb types like `u32`. This will be further discussed
 in the [Uint types](#uint-types) section.
 
-## Registers
+## Registers \label{sec:registers} {#registers}
 
 The original Cairo VM uses 3 registers:
 
@@ -378,13 +378,13 @@ beneficial to leverage a secondary register stack with 2 values when several
 arithmetic operations are performed consecutively, or to easily factorize
 arithmetic operations over read-write and read-only memory.
 
-## Opcodes
+## Opcodes \label{sec:opcodes} {#opcodes}
 
 The initial Cairo M design was heavily inspired by the Cairo VM. The currently
 implemented opcodes reflect this origin but would not be kept as-is if the
 project were started today.
 
-### AIR basics
+### AIR basics \label{sec:air-basics} {#air-basics}
 
 An AIR (Algebraic Intermediate Representation) represents a computation as a
 collection of algebraic relationships that must be satisfied for the computation
@@ -412,7 +412,7 @@ virtual machine in several smaller such dataframes, called
 (other frameworks may call them _chips_). Eventually, they are all concatenated
 by the column axis to form the whole AIR.
 
-### Design principles
+### Design principles \label{sec:design-principles} {#design-principles}
 
 Generally speaking, a reduced instruction set will generate more cycles, i.e.,
 more rows, for a given operation than a complex instruction set (see also
@@ -453,7 +453,7 @@ degree of the constraints.
 Overall, the goal is to use as few columns as possible, and to keep the degree
 of the constraints as low as possible, which can in turn require more columns.
 
-### Minimal instruction set
+### Minimal instruction set \label{sec:minimal-instruction-set} {#minimal-instruction-set}
 
 We now present in this section a minimal instruction set.
 
@@ -475,7 +475,7 @@ We now present in this section a minimal instruction set.
 This proposed instruction set fits in a total of XXX columns. See the
 [Opcodes columns](#opcodes-columns) section for more details.
 
-### Extensions
+### Extensions \label{sec:extensions} {#extensions}
 
 If the proposed instruction set is enough to perform any kind of computation,
 one may want to extend it with more opcodes. The purpose of extensions is to
@@ -486,7 +486,7 @@ faster depends on the context and the actual optimization they allow.
 Among the most common extensions, we describe below the case of adding different
 "native" types to the instruction set and built-in hash functions.
 
-#### Uint Types
+#### Uint Types \label{sec:uint-types} {#uint-types}
 
 At the prover level, the only native type is the field element. However, at the
 software level, the most common native types are `u32` or `u64`. While it is
@@ -540,13 +540,13 @@ where 16-bit limbs are fine, but would save on `MUL` and `DIV` operations where
 numbers actually need to be written with 8-bit limbs since
 $\text{u16} \times \text{u16} \to \text{u32} > 2^{31} - 1$.
 
-#### Built-in functions
+#### Built-in functions \label{sec:built-in-functions} {#built-in-functions}
 
-## Conclusion
+## Conclusion \label{sec:conclusion} {#conclusion}
 
-## Appendix
+## Appendix \label{sec:appendix} {#appendix}
 
-### Opcodes columns
+### Opcodes columns \label{sec:opcodes-columns} {#opcodes-columns}
 
 This section describes the detailed list of columns for each component. Not
 mentioned is the possible need for an enabler column, which distinguishes
@@ -573,7 +573,7 @@ from the columns. They don't incur any cost.
 Constraints are described as arithmetic formulas that should equal 0. The `= 0`
 is omitted for simplicity.
 
-#### CallAbsImm, Ret
+#### CallAbsImm, Ret \label{sec:callabsimm-ret} {#callabsimm-ret}
 
 Columns:
 
@@ -623,14 +623,14 @@ Total: $11T + 9L$. Considering a maximum degree of 3, one can pre-sum the logup
 terms using plain columns:
 
 $$
-\begin{align}
+\begin{aligned}
 &= 11 + 6L + 3L \\
 &= 11 + 6 \cdot 2 + 3 \cdot 4 \\
 &= 35
-\end{align}
+\end{aligned}
 $$
 
-#### JmpRelImm, JnzFpImm
+#### JmpRelImm, JnzFpImm \label{sec:jmprelimm-jnzfpimm} {#jmprelimm-jnzfpimm}
 
 Columns:
 
@@ -673,7 +673,7 @@ Lookups:
   - `-Registers(pc, fp)`
   - `+Registers(pc_next, fp_next)`
 
-#### StoreAdd, StoreSub, StoreMul, StoreDiv
+#### StoreAdd, StoreSub, StoreMul, StoreDiv \label{sec:storeadd-storesub-storemul-storediv} {#storeadd-storesub-storemul-storediv}
 
 - registers: pc | fp
 - global: clock
@@ -681,7 +681,7 @@ Lookups:
 - operands: memory[fp + off0]: prev_clock | prev_val
 - memory[fp + off0 + 1]: prev_clock | prev_val
 
-#### StoreDoubleDerefFpFp
+#### StoreDoubleDerefFpFp \label{sec:storedoubledereffpfp} {#storedoubledereffpfp}
 
 - registers: pc | fp
 - global: clock
@@ -689,7 +689,7 @@ Lookups:
 - operands: memory[fp + off0]: prev_clock | prev_val
 - memory[fp + off0 + 1]: prev_clock | prev_val
 
-#### StoreDoubleDerefFp
+#### StoreDoubleDerefFp \label{sec:storedoubledereffp} {#storedoubledereffp}
 
 - registers: pc | fp
 - global: clock
@@ -697,7 +697,7 @@ Lookups:
 - operands: memory[fp + off0]: prev_clock | prev_val
 - memory[fp + off0 + 1]: prev_clock | prev_val
 
-#### StoreFramePointer
+#### StoreFramePointer \label{sec:storeframepointer} {#storeframepointer}
 
 - registers: pc | fp
 - global: clock
@@ -705,7 +705,7 @@ Lookups:
 - operands: memory[fp + off0]: prev_clock | prev_val
 - memory[fp + off0 + 1]: prev_clock | prev_val
 
-#### StoreImm
+#### StoreImm \label{sec:storeimm} {#storeimm}
 
 - registers: pc | fp
 - global: clock
@@ -713,7 +713,7 @@ Lookups:
 - operands: memory[fp + off0]: prev_clock | prev_val
 - memory[fp + off0 + 1]: prev_clock | prev_val
 
-### Lookups
+### Lookups \label{sec:lookups} {#lookups}
 
 A lookup argument in zero-knowledge proofs is a cryptographic primitive that
 allows a prover to demonstrate that certain values in a computation trace exist
@@ -728,7 +728,7 @@ uses [LogUp lookup arguments](https://eprint.iacr.org/2022/1530.pdf); see the
 module for more details. Lookup and logup terms are used interchangeably in this
 document to denote a relation between two components.
 
-#### Core Concept
+#### Core Concept \label{sec:core-concept} {#core-concept}
 
 LogUp lookup arguments form a global sum of fractions that must equal zero. Each
 component contributes fraction terms with three elements:
@@ -737,13 +737,13 @@ component contributes fraction terms with three elements:
 2. **Denominator**: Aggregated tuple value in secure field
 3. **Numerator (multiplicity)**: Usage count of the tuple
 
-#### Storage and Cost
+#### Storage and Cost \label{sec:storage-and-cost} {#storage-and-cost}
 
 - Terms stored in interaction trace columns
 - QM31 secure field requires 4 base columns per lookup column
 - Each lookup adds 4 columns to the AIR
 
-#### Optimization Strategy
+#### Optimization Strategy \label{sec:optimization-strategy} {#optimization-strategy}
 
 Columns can be grouped to store pre-summed terms rather than individual terms.
 Pre-summing capacity depends on:
@@ -751,13 +751,13 @@ Pre-summing capacity depends on:
 - Maximum constraint degree bound
 - Variables in looked-up tuples
 
-#### Cumulative Sum Structure
+#### Cumulative Sum Structure \label{sec:cumulative-sum-structure} {#cumulative-sum-structure}
 
 - Each row: cumulative sum of terms
 - Last column: cumulative sum of all rows
 - Bottom-right cell: total claimed sum (committed in proof)
 
-#### Constraint Formula
+#### Constraint Formula \label{sec:constraint-formula} {#constraint-formula}
 
 $$\text{committed\_value} \cdot \text{current\_denominator} - \text{current\_numerator} = 0$$
 
