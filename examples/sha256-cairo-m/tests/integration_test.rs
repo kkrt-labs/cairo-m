@@ -67,16 +67,10 @@ macro_rules! assert_cairo_u32_result {
 // - Standard test vectors (empty, "abc", known strings)
 // - Edge cases (all zeros, all ones, special chars)
 // - Boundary lengths (55/56/64 bytes for padding behavior)
-// - Multi-chunk messages (up to MAX_CHUNKS)
+// - Multi-chunk messages of arbitrary size (capped in tests)
 // - Property-based tests for random inputs
 //
 // ==================================================================================
-
-/// Maximum number of 512-bit chunks supported by the Cairo implementation
-const MAX_CHUNKS: usize = 2;
-
-/// Fixed buffer size in u32 words: (2 chunks * 64 bytes/chunk) / 4 bytes/word = 32 words
-const PADDED_BUFFER_U32_SIZE: usize = (MAX_CHUNKS * 64) / 4;
 
 /// Helper function to run a SHA-256 test with the given message
 fn test_sha256(msg: &[u8]) {
@@ -107,7 +101,7 @@ fn sha256_hash(msg: &[u8]) -> [u32; 8] {
 }
 
 /// Prepares a message for the Cairo-M SHA256 function by padding it and
-/// converting it to a fixed-size buffer of u32 words.
+/// converting it to a buffer of u32 words.
 fn prepare_sha256_input(msg: &[u8]) -> (Vec<InputValue>, usize) {
     // Perform standard SHA-256 padding
     let mut padded_bytes = msg.to_vec();
@@ -123,23 +117,14 @@ fn prepare_sha256_input(msg: &[u8]) -> (Vec<InputValue>, usize) {
     padded_bytes.extend_from_slice(&bit_len.to_be_bytes());
 
     let num_chunks = padded_bytes.len() / 64;
-    assert!(
-        num_chunks <= MAX_CHUNKS,
-        "Message requires {} chunks but only {} are supported",
-        num_chunks,
-        MAX_CHUNKS
-    );
 
     // Convert bytes to u32 words (big-endian)
-    let mut padded_words: Vec<u32> = padded_bytes
+    let padded_words: Vec<u32> = padded_bytes
         .chunks_exact(4)
         .map(|chunk| u32::from_be_bytes(chunk.try_into().expect("Chunk size mismatch")))
         .collect();
 
-    // Pad to fixed buffer size
-    padded_words.resize(PADDED_BUFFER_U32_SIZE, 0);
-
-    // Convert to InputValue format
+    // Convert to InputValue format (list for `u32*` pointer materialization)
     let input_values = padded_words
         .into_iter()
         .map(|word| InputValue::Number(i64::from(word)))
@@ -147,42 +132,6 @@ fn prepare_sha256_input(msg: &[u8]) -> (Vec<InputValue>, usize) {
 
     (input_values, num_chunks)
 }
-
-/// Prepares a fixed 1KB message for the `sha256_hash_1024` entrypoint.
-fn prepare_sha256_input_1kb(msg: &[u8]) -> (Vec<InputValue>, usize) {
-    let mut padded_bytes = msg.to_vec();
-    padded_bytes.push(0x80);
-    while padded_bytes.len() % 64 != 56 {
-        padded_bytes.push(0x00);
-    }
-    let bit_len = (msg.len() as u64) * 8;
-    padded_bytes.extend_from_slice(&bit_len.to_be_bytes());
-
-    let num_chunks = padded_bytes.len() / 64;
-    assert_eq!(num_chunks, 17, "Expected 17 chunks for 1KB message");
-
-    let mut padded_words: Vec<u32> = padded_bytes
-        .chunks_exact(4)
-        .map(|chunk| u32::from_be_bytes(chunk.try_into().expect("Chunk size mismatch")))
-        .collect();
-    padded_words.resize(272, 0);
-
-    let input_values = padded_words
-        .into_iter()
-        .map(|word| InputValue::Number(i64::from(word)))
-        .collect();
-
-    (input_values, num_chunks)
-}
-
-// Note: Each SHA-256 test case is kept as a separate test function rather than
-// combining them into a single test. This provides:
-// - Better test reporting: failures are isolated to specific test cases
-// - Parallel execution: tests can run concurrently for faster execution
-// - Selective running: individual tests can be run with `cargo test <test_name>`
-// - Test isolation: prevents cascading failures between test cases
-
-// === Standard test vectors ===
 
 #[test]
 fn test_sha256_empty_string() {
@@ -228,13 +177,13 @@ fn test_sha256_quick_brown_fox() {
 #[test]
 fn test_sha256_1kb_message() {
     let msg: Vec<u8> = (0..1024).map(|i| (i & 0xFF) as u8).collect();
-    let (padded_buffer, num_chunks) = prepare_sha256_input_1kb(&msg);
+    let (padded_buffer, num_chunks) = prepare_sha256_input(&msg);
     let args = vec![
         InputValue::List(padded_buffer),
         InputValue::Number(num_chunks as i64),
     ];
     let expected = sha256_hash(&msg);
-    assert_cairo_array_result!(&COMPILED_PROGRAM, "sha256_hash_1024", args, expected);
+    assert_cairo_array_result!(&COMPILED_PROGRAM, "sha256_hash", args, expected);
 }
 
 // === Edge cases and patterns ===
@@ -293,42 +242,21 @@ fn test_sha256_unicode_utf8() {
 // Property-based testing for SHA-256
 proptest! {
     #[test]
-    fn test_sha256_random_inputs(input in prop::collection::vec(any::<u8>(), 0..MAX_CHUNKS*64)) {
-        // SHA-256 padding adds at least 1 byte (0x80) and 8 bytes (64-bit length).
-        // If the message length % 64 > 55, padding extends to the next block.
-        // For MAX_CHUNKS=2:
-        // - Messages up to 55 bytes -> 1 chunk after padding
-        // - Messages 56-119 bytes -> 2 chunks after padding
-        // - Messages 120+ bytes -> 3+ chunks (exceeds our limit)
-        if input.len() <= (MAX_CHUNKS - 1) * 64 + 55 {
-            test_sha256(&input);
-        }
+    fn test_sha256_random_inputs(input in prop::collection::vec(any::<u8>(), 0..=2048)) {
+        test_sha256(&input);
     }
 
     #[test]
     fn test_sha256_random_boundary_inputs(len in 50..70usize) {
         // Test around the 55/56 byte boundary where padding behavior changes
         let input: Vec<u8> = (0..len).map(|i| (i & 0xFF) as u8).collect();
-        if input.len() <= (MAX_CHUNKS - 1) * 64 + 55 {
-            test_sha256(&input);
-        }
+        test_sha256(&input);
     }
 
     #[test]
     fn test_sha256_repeated_byte_patterns(byte in any::<u8>(), count in 1..100usize) {
         // Test repeated byte patterns
         let input = vec![byte; count];
-        if input.len() <= (MAX_CHUNKS - 1) * 64 + 55 {
-            test_sha256(&input);
-        }
-    }
-
-    #[test]
-    #[should_panic(expected = "Message requires")]
-    fn test_sha256_exceeds_chunk_limit(len in 120..=500usize) {
-        // Test messages that exceed MAX_CHUNKS limit
-        // 120+ bytes require 3+ chunks after padding (exceeds our MAX_CHUNKS=2)
-        let input: Vec<u8> = (0..len).map(|i| (i & 0xFF) as u8).collect();
         test_sha256(&input);
     }
 }
