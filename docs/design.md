@@ -11,14 +11,14 @@ a zkDSL eventually not be provable? Not because there are any logic issues, no,
 but just because of scaling issues! The Cairo VM has just not been designed to
 prove billions-long traces, nor to leverage parallel proving with recursion.
 
-Facing this hard truth made us re-evaluate the design of the Cairo VM in the
-light of the real needs of the current ZK ecosystem. Actually, some decision may
-be relevant when considering a given order of magnitude of execution length
-(around 10^5 steps at most), but become irrelevant when considering a much
-larger execution length (10^8 steps at least). Furthermore, though being
-supposedly a general-purpose VM, it has been designed mainly with Starknet in
-mind, i.e., with a focus on (small) transaction processing, rather than
-general-purpose computation.
+Facing this hard truth made us re-evaluate the design of the Cairo VM in light
+of the real needs of the current ZK ecosystem. Actually, some decisions may be
+relevant when considering a given order of magnitude of execution length (around
+$10^5$ steps at most), but become irrelevant when considering a much larger
+execution length ($10^8$ steps at least). Furthermore, though being supposedly a
+general-purpose VM, it has been designed mainly with Starknet in mind, i.e.,
+with a focus on (small) transaction processing, rather than general-purpose
+computation.
 
 The original Cairo architecture, as described in the seminal paper
 [Cairo – a Turing-complete STARK-friendly CPU architecture](https://eprint.iacr.org/2021/1063.pdf)
@@ -26,12 +26,12 @@ defines a general framework for building a ZK-friendly CPU, denominated as a
 "CPU AIR" and known as a zero-knowledge Virtual Machine (zkVM) nowadays. This
 framework is general both in terms of underlying proving scheme and base
 operating prime field. However, some design decisions (like the instruction
-encoding) require a prime field larger that 2^64, while modern STARK provers
-favor smaller prime fields like Babybear (2^31 - 2^27 + 1) or Mersenne31 (2^31 -
-1). Consequently, even the recent
+encoding) require a prime field larger than $2^{64}$, while modern STARK provers
+favor smaller prime fields like Babybear ($2^{31} - 2^{27} + 1$) or Mersenne31
+($2^{31} - 1$). Consequently, even the recent
 [stwo-cairo](https://github.com/starkware-libs/stwo-cairo) prover emulates the
 original prime number chosen 5 years ago:
-[$2^251 + 17 * 2^192 + 1$](https://docs.starknet.io/learn/protocol/cryptography).
+[$2^{251} + 17 \cdot 2^{192} + 1$](https://docs.starknet.io/learn/protocol/cryptography).
 This emulation makes the prover up to 28x less efficient as each native field
 element from the original Cairo VM is now up to 28 M31s, depending on the actual
 values used in the program and some optimizations.
@@ -55,8 +55,8 @@ Cairo M has been designed to overcome these limitations:
   the need for high-level language verifiers;
 - Low host memory usage: Efficient memory consumption on consumer devices.
 
-This following of this document assumes Mersenne31 (M31: `2^31 - 1`) as the
-prime field. The design can be adapted for other primes with minor
+The following sections of this document assume Mersenne31 (M31: $2^{31} - 1$) as
+the prime number. The design can be adapted for other primes with minor
 modifications.
 
 This document focuses on the design decisions for the v0 implementation and
@@ -79,92 +79,106 @@ elements. Their maximum length is determined by the prover's prime field.
 To support arbitrarily long programs within a fixed-size memory segment, the
 design employs a read-write memory model for the RAM (Random Access Memory).
 
-Read and write operations are actually implemented through
-[lookup arguments](#lookups): each memory access is actually a lookup of a tuple
-`(address, clock, value)`. `clock` is a monotonic counter from 0, determined
-during witness generation. It timestamps when `address` contained `value`.
+Read and write operations are implemented through [lookup arguments](#lookups):
+each memory access is a lookup of a tuple
+$(\text{address}, \text{clock}, \text{value})$. The $\text{clock}$ is a
+monotonic counter from 0, determined during witness generation. It timestamps
+when $\text{address}$ contained $\text{value}$.
 
-To access a memory cell, one actually adds to the logup sum a term cancelling
-the previous access, and a new term for registering the new access. As there is
-no ordering in a global logup sum, the notion of "previous access" is enforced
-with a range-check argument on the clock difference: `clock - prev_clock > 0`.
+To access a memory cell, one adds to the logup sum a term cancelling the
+previous access, and a new term for registering the new access. As there is no
+ordering in a global logup sum, the notion of "previous access" is enforced with
+a range-check argument on the clock difference:
+$\text{clock} - \text{prev\_clock} > 0$.
 
-All together, using the notation defined in the [lookups](#lookups) section, a
+Altogether, using the notation defined in the [lookups](#lookups) section, a
 memory read or write operation is implemented as follows:
 
-- `-Memory(address, prev_clock, prev_value)`
-- `+Memory(address, clock, value)`
-- `+RangeCheck20(clock - prev_clock - 1)`
+$$
+\begin{align}
+&-\text{Memory}(\text{address}, \text{prev\_clock}, \text{prev\_value}) \\
+&+\text{Memory}(\text{address}, \text{clock}, \text{value}) \\
+&+\text{RangeCheck20}(\text{clock} - \text{prev\_clock} - 1)
+\end{align}
+$$
 
-with `address`, `prev_clock`, `prev_value`, `clock` and `value` being part of
-the main execution trace. Note that when the memory is only read, one has
-`prev_value = value` and this simplifies to:
+with $\text{address}$, $\text{prev\_clock}$, $\text{prev\_value}$,
+$\text{clock}$ and $\text{value}$ being part of the main execution trace. Note
+that when the memory is only read, one has $\text{prev\_value} = \text{value}$
+and this simplifies to:
 
-- `-Memory(address, prev_clock, value)`
-- `+Memory(address, clock, value)`
-- `+RangeCheck20(clock - prev_clock - 1)`
+$$
+\begin{align}
+&-\text{Memory}(\text{address}, \text{prev\_clock}, \text{value}) \\
+&+\text{Memory}(\text{address}, \text{clock}, \text{value}) \\
+&+\text{RangeCheck20}(\text{clock} - \text{prev\_clock} - 1)
+\end{align}
+$$
 
 The key point of this design based on lookup arguments is that one needs to
-actually remove from the logup sum a term added at a point of time strictly
-before the current point of time, and that one adds terms with multiplicity 1
-only. Adding terms with multiplicity greater that 1 would actually make it
-possible for the prover to "fork" the memory at some point, accessing a value
-already normally updated during the execution. The boundary conditions (initial
-and final memory) are handled by the [memory commitment](#commitment) and the
-public memory of the proof.
+remove from the logup sum a term added at a point in time strictly before the
+current point in time, and that one adds terms with multiplicity 1 only. Adding
+terms with multiplicity greater than 1 would make it possible for the prover to
+"fork" the memory at some point, accessing a value already normally updated
+during the execution. The boundary conditions (initial and final memory) are
+handled by the [memory commitment](#commitment) and the public memory of the
+proof.
 
 ### Clock Update Component
 
 The clock update component is responsible for updating the clock value when the
 clock difference exceeds the capacity of the `RangeCheck` component. It is not
 part of the VM specification but is part of the prover implementation. During
-witness generation, the prover checks what are the required clock updates. If it
-encounters a clock difference exceeding the capacity of its `RangeCheck`
+witness generation, the prover checks which clock updates are required. If it
+encounters a clock difference exceeding the capacity of its RangeCheck
 component, it performs a clock update, which essentially consists in mimicking a
 read operation:
 
-- `-Memory(address, prev_clock, prev_value)`
-- `+Memory(address, prev_clock + RC_LIMIT, prev_value)`
+$$
+\begin{align}
+&-\text{Memory}(\text{address}, \text{prev\_clock}, \text{prev\_value}) \\
+&+\text{Memory}(\text{address}, \text{prev\_clock} + \text{RC\_LIMIT}, \text{prev\_value})
+\end{align}
+$$
 
-It eventually adds as many clock updates as needed to cover the clock
-difference. Let us denote by `RC_LIMIT` the capacity of the `RangeCheck`
-component and `delta` the required clock difference. The number of clock updates
-required is `delta // RC_LIMIT`. If `delta` is not a multiple of `RC_LIMIT`, one
-needs to add one more clock update.
+It then adds as many clock updates as needed to cover the clock difference. Let
+us denote by $\text{RC\_LIMIT}$ the capacity of the RangeCheck component and
+$\delta$ the required clock difference. The number of clock updates required is
+$\lfloor \delta / \text{RC\_LIMIT} \rfloor$. If $\delta$ is not a multiple of
+$\text{RC\_LIMIT}$, one needs to add one more clock update.
 
 ### Column Cost Analysis
 
-Let us denote by `T` a regular trace column and by `L` a lookup operation.
+Let us denote by $T$ a regular trace column and by $L$ a lookup operation.
 
 **Read-write memory** (per access):
 
-- Main trace: 4 to 5 columns (`address`, `prev_clock`, `clock`, `prev_value`,
-  `value`)
+- Main trace: 4 to 5 columns (address, prev_clock, clock, prev_value, value)
 - Lookup: 3
-- Total: up to 5T + 3L
+- Total: up to $5T + 3L$
 
 **Read-only memory** (per access):
 
-- Main trace: 2 columns (`address`, `value`)
-- Lookup: 1 `-Memory(address, value)`
-- Total: 2T + 1L
+- Main trace: 2 columns (address, value)
+- Lookup: 1 $-\text{Memory}(\text{address}, \text{value})$
+- Total: $2T + 1L$
 
 Since lookup columns are defined over the secure field, which is QM31 (i.e., 4
-M31s), each lookup column is actually 4 trace columns.
+M31s), each lookup column is 4 trace columns.
 
-- Overhead per access: `(5T + 3L) - (2T + 1L) = 3T + 2L = 3 + 8 = 11` base
+- Overhead per access: $(5T + 3L) - (2T + 1L) = 3T + 2L = 3 + 8 = 11$ base
   columns
-- STORE operation example (`dst = op0 + op1`): up to 31 additional columns (2
-  reads and 1 write)
+- STORE operation example ($\text{dst} = \text{op0} + \text{op1}$): up to 31
+  additional columns (2 reads and 1 write)
 
 This overhead can be mitigated using opcodes that write in place (e.g.,
 `x += y`). It can also be limited by grouping the logup columns by two,
 precomputing the logup sums in pairs when the maximum constraint degree remains
 low (see [Cumulative Sum Structure](#cumulative-sum-structure)). If we
 consequently count only 2 columns per lookup, the memory access overhead becomes
-`3 + 2*2 = 7`. If we furthermore consider an in-place operation, then it becomes
-`(5T + 3L) + (4T + 3L) = 9 + 12 = 21` columns for the read-write memory and
-`3*(2T + 1L/2) = 6 + 8 = 14` for the read-only memory.
+`3 + 2*2 = 7`. If we further consider an in-place operation, then it becomes
+$(5T + 3L) + (4T + 3L) = 9 + 12 = 21$ columns for the read-write memory and
+$3 \times (2T + 1L/2) = 6 + 8 = 14$ for the read-only memory.
 
 Since the read-write memory allows for much easier control flow, reduces the
 need to copy memory values with new frames, and is much easier to reason about
@@ -181,12 +195,11 @@ save on columns, one should instead add dedicated opcodes that would only
 added from the commitment or the public memory with the required multiplicity.
 
 However, range-checking the write address can become inefficient when the
-address range is large. In fact, the Cairo M design embeds a `RangeCheck20`
-(i.e. 20-bit range-check) as the largest single range-check component (i.e.,
-with no limb splitting). This means that any value greater than 2^20 would
-require splitting (see also [the clock update section](#readwrite-operations)).
-As a consequence, this approach becomes inefficient when the address range is
-large.
+address range is large. In fact, the Cairo M design embeds a RangeCheck20 (i.e.,
+20-bit range-check) as the largest single range-check component (i.e., with no
+limb splitting). This means that any value greater than $2^{20}$ would require
+splitting (see also [the clock update section](#readwrite-operations)). As a
+consequence, this approach becomes inefficient when the address range is large.
 
 Another solution is to use a dedicated read-only memory segment with its own
 commitment and lookup challenges. This effectively doubles the available address
@@ -210,13 +223,14 @@ Efficient recursion requires a ZK-friendly hash function. The current
 implementation uses Poseidon2, though alternative hash functions can be
 substituted as needed.
 
-The natural memory address space spans `0..P`, but to avoid Merkle root padding
-requirements while providing sufficient capacity for substantial computations,
-we simply use the greatest power of 2 smaller than `P`, i.e., `2^30`. Extension
-to `P - 1` is possible but unnecessary for client-side proving scenarios, where
-memory requirements remain modest compared to long-trace applications. Memory
-exceeding `2^30` is only required for extremely long runs, which would demand
-RAM capacity beyond typical consumer device specifications.
+The natural memory address space spans $[0, P)$, but to avoid Merkle root
+padding requirements while providing sufficient capacity for substantial
+computations, we simply use the greatest power of 2 smaller than $P$, i.e.,
+$2^{30}$. Extension to $P - 1$ is possible but unnecessary for client-side
+proving scenarios, where memory requirements remain modest compared to
+long-trace applications. Memory exceeding $2^{30}$ is only required for
+extremely long runs, which would demand RAM capacity beyond typical consumer
+device specifications.
 
 Furthermore, the Merkle tree omits leaf hashing to minimize computational
 overhead. Although leaf hashing prevents sibling value disclosure in inclusion
@@ -226,9 +240,9 @@ implicit zero-initialization of the entire memory segment. This default zero
 value has no practical impact since the VM overwrites cells with actual values
 during the execution.
 
-The Merkle commitment component is responsible for proving the 2^30 leaves from
-the public (initial or final) root. It does this by iteratively consuming a root
-and emitting the two leaves with given multiplicity in the logup sum. The
+The Merkle commitment component is responsible for proving the $2^{30}$ leaves
+from the public (initial or final) root. It does this by iteratively consuming a
+root and emitting the two leaves with given multiplicity in the logup sum. The
 partial underlying Merkle tree is built during witness generation. The component
 only enforces via the lookup argument that the nodes and leaves actually derive
 from the root, using the `Merkle` relation. It also uses the `Poseidon2`
@@ -241,71 +255,77 @@ them available for the opcodes.
 
 ### Word size
 
-If the Merkle root allows committing to up to 2^30 field elements, the VM
-doesn't need to use a single field element as the base word size. As said in the
-previous section, the `Memory` component is responsible for turning a list of
-M31 leaves into memory values. These leaves can actually be grouped together as
-limbs of a single memory word.
+If the Merkle root allows committing to up to $2^{30}$ field elements, the VM
+doesn't need to use a single field element as the base word size. As mentioned
+in the previous section, the Memory component is responsible for turning a list
+of M31 leaves into memory values. These leaves can actually be grouped together
+as limbs of a single memory word.
 
 In our first implementation, we used a fixed-size word built from 4 M31 elements
 to easily accommodate all field-element-based instructions in a single read.
-This effectively reduces the memory size to 2^28 = 268,435,456.
+This effectively reduces the memory size to $2^{28} = 268{,}435{,}456$.
 
 However, there is no requirement to use such a fixed-size memory word. Given
 that memory consistency is enforced only with lookup arguments, each address can
-"consume" any number of field elements that are ultimately all summed together
+consume any number of field elements that are ultimately all summed together
 with the relation's challenge coefficients. The only requirement is that
 consecutive reads or writes of an address consume and write the same number of
 field elements. One can think of this as accessing a slice of an array at a
 given index, with the slice length depending on the index, instead of just a
 single value:
 
-```ignore
+```python
 memory[address: address + len(address)]
 ```
 
 instead of
 
-```ignore
+```python
 memory[address]
 ```
 
-To make limbs of a given address available, we shall introduce the `SPLIT`
-opcode. `SPLIT` would simply consume the logup term with the entire slice at
-address `a` and add one term for each of the `len` limbs at addresses
-`a + i, i = 0..len`:
+To make limbs of a given address available, we introduce the `SPLIT` opcode.
+`SPLIT` simply consumes the logup term with the entire slice at address $a$ and
+adds one term for each of the $\text{len}$ limbs at addresses
+$a + i, i \in [0, \text{len})$:
 
-- `-Memory(a, prev_clock, v_0, ..., v_{len - 1})`
-- `+Memory(a, clock, v_0`
-- `+Memory(a + 1, clock, v_1)`
-- ...
-- `+Memory(a + len - 1, clock, v_{len - 1})`
+$$
+\begin{align}
+&-\text{Memory}(a, \text{prev\_clock}, v_0, \ldots, v_{\text{len} - 1}) \\
+&+\text{Memory}(a, \text{clock}, v_0) \\
+&+\text{Memory}(a + 1, \text{clock}, v_1) \\
+&\vdots \\
+&+\text{Memory}(a + \text{len} - 1, \text{clock}, v_{\text{len} - 1})
+\end{align}
+$$
 
-The opposite operation is called `JOIN` and would allow the machine to gather a
-list of contiguous limbs into a single memory address, consuming each of the
-`(a + i, v_i)` lookup terms and adding a single `(a, [v_0, ..., v_{len - 1}])`
-lookup term:
+The opposite operation is called `JOIN` and allows the machine to gather a list
+of contiguous limbs into a single memory address, consuming each of the
+$(a + i, v_i)$ lookup terms and adding a single
+$(a, [v_0, \ldots, v_{\text{len} - 1}])$ lookup term:
 
-- `-Memory(a, prev_clock, v_0)`
-- ...
-- `-Memory(a + len - 1, prev_clock, v_{len - 1})`
-- `+Memory(a, clock, v_0, ..., v_{len - 1})`
+$$
+\begin{align}
+&-\text{Memory}(a, \text{prev\_clock}, v_0) \\
+&\vdots \\
+&-\text{Memory}(a + \text{len} - 1, \text{prev\_clock}, v_{\text{len} - 1}) \\
+&+\text{Memory}(a, \text{clock}, v_0, \ldots, v_{\text{len} - 1})
+\end{align}
+$$
 
 These opcodes don't necessarily need to be added at the VM level, similar to
-`ClockUpdate`. They can be determined during witness generation based on
-recorded memory accesses. Furthermore, one doesn't need separate JOIN and SPLIT
-opcode pairs for each target slice length. In fact, a single component can
-perform both `JOIN` and `SPLIT` for all lengths up to the component width. Given
-the columns `address`, `limb_0`, `...`, `limb_n`, one just adds to the log up
-sum
+ClockUpdate. They can be determined during witness generation based on recorded
+memory accesses. Furthermore, one doesn't need separate JOIN and SPLIT opcode
+pairs for each target slice length. In fact, a single component can perform both
+`JOIN` and `SPLIT` for all lengths up to the component width. Given the columns
+address, $\text{limb}_0, \ldots, \text{limb}_n$, one adds to the logup sum
 
-```latex
-sign(opcode_id) * \lbrace (address, [limb_0, ... limb_n]) - \sum_i * (address + i, limb_i) \rbrace
-```
+$$\text{sign}(\text{opcode\_id}) \cdot \left\{ (\text{address}, [\text{limb}_0, \ldots, \text{limb}_n]) - \sum_i (\text{address} + i, \text{limb}_i) \right\}$$
 
-where `sign(opcode_id)` would simply be `+` or `-` derived from the actual
-opcode ID: set the two opcodes with consecutive IDs, `ID` and `ID + 1`. The
-derived sign is just `sign(opcode_id) = 2 * (opcode_id - ID) - 1`.
+where $\text{sign}(\text{opcode\_id})$ is simply $+$ or $-$ derived from the
+actual opcode ID: set the two opcodes with consecutive IDs, $\text{ID}$ and
+$\text{ID} + 1$. The derived sign is just
+$\text{sign}(\text{opcode\_id}) = 2 \cdot (\text{opcode\_id} - \text{ID}) - 1$.
 
 This variable-sized memory word pattern enables variable-sized instructions and
 native handling of multi-limb types like `u32`. This will be further discussed
@@ -370,23 +390,23 @@ An AIR (Algebraic Intermediate Representation) represents a computation as a
 collection of algebraic relationships that must be satisfied for the computation
 to be considered valid.
 
-For the sake of simplicity, let use describe an AIR as a dataframe, with columns
-representing variables used in the defined constraint system (circuit) and rows
-representing circuit instantiations. All the constraints are eventually
-described as a polynomial combination of the columns. For example, given a
-dataframe `df` with columns `a`, `b`, `c`, the constraint `a + b = c` is
-described as `df[a] + df[b] - df[c] = 0` and actually applies to all of the rows
-of the dataframe.
+For simplicity, let us describe an AIR as a dataframe, with columns representing
+variables used in the defined constraint system (circuit) and rows representing
+circuit instantiations. All constraints are eventually described as a polynomial
+combination of the columns. For example, given a dataframe $\text{df}$ with
+columns $a$, $b$, $c$, the constraint $a + b = c$ is described as
+$\text{df}[a] + \text{df}[b] - \text{df}[c] = 0$ and applies to all rows of the
+dataframe.
 
 During proof generation, each column is interpreted as values of a given
-polynomial over a base set ${x^i}_{i=0}^n$. This polynomial is interpolated and
-evaluated over a bigger domain. The prover commits to each column (each
-polynomial) and then generate Merkle inclusion proofs for some evaluations of
+polynomial over a base set $\{x^i\}_{i=0}^n$. This polynomial is interpolated
+and evaluated over a larger domain. The prover commits to each column (each
+polynomial) and then generates Merkle inclusion proofs for some evaluations of
 these polynomials at random points. This means that the proof size and the
 verifier complexity are directly related to the number of columns in the AIR:
 the more columns, the more commitments and the greater the verifier complexity.
 
-The Stwo framework lets define the whole AIR of the state transition of the
+The Stwo framework allows defining the whole AIR of the state transition of the
 virtual machine in several smaller such dataframes, called
 [_components_](https://docs.starknet.io/learn/s-two/air-development/components)
 (other frameworks may call them _chips_). Eventually, they are all concatenated
@@ -394,38 +414,38 @@ by the column axis to form the whole AIR.
 
 ### Design principles
 
-Generally speaking, a reduced instruction set will generate more cycles, i.e.
+Generally speaking, a reduced instruction set will generate more cycles, i.e.,
 more rows, for a given operation than a complex instruction set (see also
 [this RISC-V versus Cairo ISA comparison](https://x.com/ClementWalter/status/1896131941109506309)).
-On the other hand, a complex instruction set will require more columns, i.e.
+On the other hand, a complex instruction set will require more columns, i.e.,
 more commitments, for a given operation than a reduced instruction set. In
 short, one can think of a reduced instruction set as a long and thin dataframe,
 as opposed to a complex instruction set as a short and wide one.
 
-Notice however that, given a component with shape (`n`, `m`) (`n` rows and `m`
-columns), one can always reshape it to (`n / k`, `m * k`), where `k` is an
-integer, actually duplicating the columns and their corresponding constraints.
-The other way around is not possible: one cannot keep only a partial circuit. In
-other words, a reduced instruction set trace can always be reshaped to "look
-like" a complex instruction set one, while the other way around is not possible.
-Hence, reduced instruction sets give more flexibility.
+Notice, however, that given a component with shape $(n, m)$ ($n$ rows and $m$
+columns), one can always reshape it to $(n / k, m \cdot k)$, where $k$ is an
+integer, duplicating the columns and their corresponding constraints. The other
+way around is not possible: one cannot keep only a partial circuit. In other
+words, a reduced instruction set trace can always be reshaped to "look like" a
+complex instruction set one, while the other way around is not possible. Hence,
+reduced instruction sets give more flexibility.
 
 Furthermore, long traces can be proven in batch, and even in parallel when the
 program is still running (so-called
-[_continuation_](https://risczero.com/blog/continuations)) and aggregated later
-on with recursions. This effectively boils down to splitting the dataframe into
+[_continuation_](https://risczero.com/blog/continuations)), and aggregated later
+with recursion. This effectively boils down to splitting the dataframe into
 chunks with less rows. This reduces either the proving time or the memory usage
 of the host, which is
 [directly proportional to the area of the AIR](https://x.com/ClementWalter/status/1964997331612488085),
-(i.e. width times height).
+(i.e., width times height).
 
 Consequently, when designing an AIR, one tries to limit the number of columns as
 much as possible. This can be done by both limiting the number of opcodes in the
 instruction set, and by factorizing as much as possible several opcodes into the
 same component.
 
-The required degree of the constraints can also influences the number of
-columns. Actually, the max degree of the constraints influences the size of the
+The required degree of the constraints can also influence the number of columns.
+Actually, the maximum degree of the constraints influences the size of the
 evaluation domain, and adding constraints with a higher degree will double its
 size. Hence it is always better to just add intermediate columns to reduce the
 degree of the constraints.
@@ -466,7 +486,7 @@ faster depends on the context and the actual optimization they allow.
 Among the most common extensions, we describe below the case of adding different
 "native" types to the instruction set and built-in hash functions.
 
-#### `Uint` types
+#### Uint Types
 
 At the prover level, the only native type is the field element. However, at the
 software level, the most common native types are `u32` or `u64`. While it is
@@ -476,49 +496,49 @@ it may be more efficient to instead manage it at the AIR level. For example,
 creating a `u32` with a struct holding two field elements would require two
 memory accesses per variable use instead of one.
 
-At the software level, the main difference between a `uint` of a given size and
-a `felt` lies mainly in the division operation. In fact, at least in release
-mode, `uint`s silently overflow and wrap around, actually behaving like a field
-element over `2^n`. On the other hand, the division for field elements is always
-exact (every field element has an inverse), while the division for `uint`s is
-the euclidean division. At the AIR level, emulating a `uint` mainly requires to
-emulate operations over the `uint` size, i.e. properly handling the carry,
-borrow, and range-checking the values used.
+At the software level, the main difference between a uint of a given size and a
+felt lies mainly in the division operation. In fact, at least in release mode,
+uints silently overflow and wrap around, behaving like a field element over
+$2^n$. On the other hand, the division for field elements is always exact (every
+field element has an inverse), while the division for uints is the Euclidean
+division. At the AIR level, emulating a uint mainly requires emulating
+operations over the uint size, i.e., properly handling the carry, borrow, and
+range-checking the values used.
 
-Given the fact that the current prime is `2^31 - 1`, any `uint` using less than
-31 bits can easily be represented as a single field element. However, as said
-previously, every single value needs to be range-checked to make sure that it
-stays within the correct boundaries. Consequently, the biggest simple native
-`uint` type that can be represented without any limb decomposition depends on
-the size of the greatest `RangeCheck` component added to the prover. Since a
-`RangeCheck` component is actually just a plain enumeration of all the allowed
-numbers (e.g. `0..2^20` for a `RangeCheck20` component), this is directly
-related to the size of the trace itself and so to the host memory usage and
-overall performance of the prover. As a matter of fact, given some
+Given that the current prime is $2^{31} - 1$, any uint using fewer than 31 bits
+can easily be represented as a single field element. However, as mentioned
+previously, every single value needs to be range-checked to ensure that it stays
+within the correct boundaries. Consequently, the largest simple native uint type
+that can be represented without any limb decomposition depends on the size of
+the largest RangeCheck component added to the prover. Since a RangeCheck
+component is just a plain enumeration of all the allowed numbers (e.g.,
+$[0, 2^{20})$ for a RangeCheck20 component), this is directly related to the
+size of the trace itself and so to the host memory usage and overall performance
+of the prover. As a matter of fact, given some
 [initial benchmarks with Stwo](https://x.com/ClementWalter/status/1927617083967234483),
-we decided to keep `RangeCheck20` as the greatest single `RangeCheck` component,
-consequently making `u20` the biggest simple native `uint` type that could be
+we decided to keep RangeCheck20 as the largest single RangeCheck component,
+consequently making `u20` the largest simple native uint type that could be
 represented without any limb decomposition.
 
-In any case, keeping the same memory segment for both `felt` and `uint` creates
-a significant range-check overhead, as every read needs to be range-checked, and
-not only writes. For this reason, it is better to use a dedicated memory segment
-for every such "simple" `uint` type, where only the write operation needs to be
+In any case, keeping the same memory segment for both felt and uint creates a
+significant range-check overhead, as every read needs to be range-checked, not
+just writes. For this reason, it is better to use a dedicated memory segment for
+every such simple uint type, where only the write operation needs to be
 range-checked.
 
 On the other hand, given this maximum limb size, it is straightforward to derive
-any `uint` type with limb decomposition over this base limb size with no
+any uint type with limb decomposition over this base limb size with no
 significant extra cost. Remember from the [Word size](#word-size) section that a
-memory read is actually a memory slice read, one can read several limbs at once.
+memory read is actually a memory slice read; one can read several limbs at once.
 
-Eventually, since `u20` is not a regular base type in any software and this `20`
-is strongly dependent on some internal prover configuration (the biggest
-available range check component), it makes more sense to use `u16` or `u8`
+Eventually, since `u20` is not a regular base type in any software and this "20"
+is strongly dependent on some internal prover configuration (the largest
+available range-check component), it makes more sense to use `u16` or `u8`
 instead. The question of the most optimal base between the two depends on the
 context. Using `u8` would create more trace cells for `ADD` and `SUB` operations
-where 16-bits limbs are fine, but would save on `MUL` and `DIV` operations where
-numbers actually need to be written with 8-bits limbs since
-`u16 * u16 -> u32 > 2^31 - 1`.
+where 16-bit limbs are fine, but would save on `MUL` and `DIV` operations where
+numbers actually need to be written with 8-bit limbs since
+$\text{u16} \times \text{u16} \to \text{u32} > 2^{31} - 1$.
 
 #### Built-in functions
 
@@ -536,21 +556,22 @@ a power of 2.
 The instruction is a variable-sized list of field elements, with the first one
 always being the opcode ID. The rest is context-dependent and usually denoted as
 `off_i` for address offsets or `imm_i` for immediate (i.e., constant) values.
-The name `op_i` is used to refer to the `i`-th operand, which is a memory access
-at address `fp + off_i`, i.e., `memory[fp + off_i]`.
+The name $\text{op}_i$ is used to refer to the $i$-th operand, which is a memory
+access at address $\text{fp} + \text{off}_i$, i.e.,
+$\text{memory}[\text{fp} + \text{off}_i]$.
 
 When several opcodes share the same set of columns, the opcode IDs are used to
-select the appropriate constraints. For the sake of simplicity, it is assumed
-that the opcode IDs are consecutive, so that the difference between the opcode
-ID and the first opcode ID directly yields a Boolean flag. This is not required,
-and one could alternatively use the constant `1 / (id_1 - id_0)` between the
-opcode ID and the first opcode ID to compute the Boolean flag.
+select the appropriate constraints. For simplicity, it is assumed that the
+opcode IDs are consecutive, so that the difference between the opcode ID and the
+first opcode ID directly yields a Boolean flag. This is not required, and one
+could alternatively use the constant `1 / (id_1 - id_0)` between the opcode ID
+and the first opcode ID to compute the Boolean flag.
 
 Intermediate values used below are not columns but simply variables computed
-from the columns. They don't cost anything.
+from the columns. They don't incur any cost.
 
 Constraints are described as arithmetic formulas that should equal 0. The `= 0`
-is omitted for the sake of simplicity.
+is omitted for simplicity.
 
 #### CallAbsImm, Ret
 
@@ -572,15 +593,15 @@ Columns:
 
 Intermediate columns:
 
-- `is_ret = opcode_id - CALL_ABS_IMM_ID`
-- `fp_next = op0_prev_val * is_ret + (fp + off0 + 2) * (1 - is_ret)`
-- `op0_plus_one_val = op0_plus_one_prev_val * is_ret + pc * (1 - is_ret)`
+- $\text{is\_ret} = \text{opcode\_id} - \text{CALL\_ABS\_IMM\_ID}$
+- $\text{fp\_next} = \text{op0\_prev\_val} \cdot \text{is\_ret} + (\text{fp} + \text{off0} + 2) \cdot (1 - \text{is\_ret})$
+- $\text{op0\_plus\_one\_val} = \text{op0\_plus\_one\_prev\_val} \cdot \text{is\_ret} + \text{pc} \cdot (1 - \text{is\_ret})$
 
 Constraints:
 
-- `is_ret * (1 - is_ret)`
-- `pc_next - op0_plus_one_prev_val * is_ret + imm * (1 - is_ret)`
-- `op0_val - op0_prev_val * is_ret + fp * (1 - is_ret)`
+- $\text{is\_ret} \cdot (1 - \text{is\_ret})$
+- $\text{pc\_next} - \text{op0\_plus\_one\_prev\_val} \cdot \text{is\_ret} + \text{imm} \cdot (1 - \text{is\_ret})$
+- $\text{op0\_val} - \text{op0\_prev\_val} \cdot \text{is\_ret} + \text{fp} \cdot (1 - \text{is\_ret})$
 
 Lookups
 
@@ -598,14 +619,16 @@ Lookups
   - `+RangeCheck20(clock - op0_prev_clock - 1)`
   - `+RangeCheck20(clock - op0_plus_one_prev_clock - 1)`
 
-Total: `11T + 9L` Considering a max degree of 3, one can pre-sum the logup terms
-using plain columns:
+Total: $11T + 9L$. Considering a maximum degree of 3, one can pre-sum the logup
+terms using plain columns:
 
-```ignore
- = 11 + 6L + 3L
- = 11 + 6*2 + 3*4
- = 35
-```
+$$
+\begin{align}
+&= 11 + 6L + 3L \\
+&= 11 + 6 \cdot 2 + 3 \cdot 4 \\
+&= 35
+\end{align}
+$$
 
 #### JmpRelImm, JnzFpImm
 
@@ -624,15 +647,15 @@ Columns:
 
 Intermediate columns:
 
-- `is_jnz = opcode_id - JNZ_FP_IMM_ID`
-- `fp_next = op0_prev_val * is_jnz + (fp + off0 + 2) * (1 - is_jnz)`
-- `pc_next = op0_plus_one_prev_val * is_jnz + imm * (1 - is_jnz)`
-- `op0_val = op0_prev_val * is_jnz + fp * (1 - is_jnz)`
-- `op0_plus_one_val = op0_plus_one_prev_val * is_jnz + pc * (1 - is_jnz)`
+- $\text{is\_jnz} = \text{opcode\_id} - \text{JNZ\_FP\_IMM\_ID}$
+- $\text{fp\_next} = \text{op0\_prev\_val} \cdot \text{is\_jnz} + (\text{fp} + \text{off0} + 2) \cdot (1 - \text{is\_jnz})$
+- $\text{pc\_next} = \text{op0\_plus\_one\_prev\_val} \cdot \text{is\_jnz} + \text{imm} \cdot (1 - \text{is\_jnz})$
+- $\text{op0\_val} = \text{op0\_prev\_val} \cdot \text{is\_jnz} + \text{fp} \cdot (1 - \text{is\_jnz})$
+- $\text{op0\_plus\_one\_val} = \text{op0\_plus\_one\_prev\_val} \cdot \text{is\_jnz} + \text{pc} \cdot (1 - \text{is\_jnz})$
 
 Constraints:
 
-- `is_jnz * (1 - is_jnz)`
+- $\text{is\_jnz} \cdot (1 - \text{is\_jnz})$
 
 Lookups:
 
@@ -699,20 +722,20 @@ prover commits to a "claimed sum" of lookup terms, and the verifier checks that
 this sum equals zero, ensuring all looked-up values are valid according to the
 specified relation constraints.
 
-This entire paper is drafted with Stwo's constraint framework in mind, which
-uses [LogUp lookup arguments](https://eprint.iacr.org/2022/1530.pdf), see the
+This entire document is drafted with Stwo's constraint framework in mind, which
+uses [LogUp lookup arguments](https://eprint.iacr.org/2022/1530.pdf); see the
 [logup.rs](https://github.com/starkware-libs/stwo/blob/dev/crates/constraint-framework/src/prover/logup.rs)
 module for more details. Lookup and logup terms are used interchangeably in this
 document to denote a relation between two components.
 
 #### Core Concept
 
-Logup lookup arguments form a global sum of fractions that must equal zero. Each
+LogUp lookup arguments form a global sum of fractions that must equal zero. Each
 component contributes fraction terms with three elements:
 
 1. **Relation**: Defines alpha coefficients and z value for tuple aggregation
 2. **Denominator**: Aggregated tuple value in secure field
-3. **Numerator** (multiplicity): Usage count of the tuple
+3. **Numerator (multiplicity)**: Usage count of the tuple
 
 #### Storage and Cost
 
@@ -732,28 +755,26 @@ Pre-summing capacity depends on:
 
 - Each row: cumulative sum of terms
 - Last column: cumulative sum of all rows
-- Bottom-right cell: total "claimed sum" (committed in proof)
+- Bottom-right cell: total claimed sum (committed in proof)
 
 #### Constraint Formula
 
-```ignore
-committed_value * current_denominator - current_numerator = 0
-```
+$$\text{committed\_value} \cdot \text{current\_denominator} - \text{current\_numerator} = 0$$
 
-Requirement: `degree(denominator) + 1 < max_constraint_degree`. Given that the
-resulting denominator of the sum of two fractions is the product of the two
-denominators:
+Requirement:
+$\text{degree}(\text{denominator}) + 1 < \text{max\_constraint\_degree}$. Given
+that the resulting denominator of the sum of two fractions is the product of the
+two denominators:
 
-```latex
-\frac{a}{b} + \frac{c}{d} = \frac{a * d + c * b}{b * d}
-```
+$$\frac{a}{b} + \frac{c}{d} = \frac{a \cdot d + c \cdot b}{b \cdot d}$$
 
 one can, for example, pre-sum the terms by two when each denominator has a
 degree of 1 and the maximum constraint degree bound is 3.
 
-Through this document, we simply write `+/-k Relation(value_0, ..., value_n)` to
-refer to the lookup of the tuple `(value_0, ..., value_n)` for the relation
-`Relation` with multiplicity `+k` or `-k`, depending on the sign of the
-numerator. We refer to "emitted," "yielded," or "added" values when the
+Throughout this document, we simply write
+$\pm k \cdot \text{Relation}(\text{value}_0, \ldots, \text{value}_n)$ to refer
+to the lookup of the tuple $(\text{value}_0, \ldots, \text{value}_n)$ for the
+relation Relation with multiplicity $+k$ or $-k$, depending on the sign of the
+numerator. We refer to "emitted", "yielded", or "added" values when the
 multiplicity is positive, and "consumed" or "subtracted" values when the
 multiplicity is negative.
