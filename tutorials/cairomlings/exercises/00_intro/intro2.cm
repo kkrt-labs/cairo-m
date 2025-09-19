@@ -1,0 +1,4 @@
+fn main() -> felt {
+    // TODO: Fix the code to return the value 5
+    return 3;
+}
