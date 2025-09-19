@@ -67,7 +67,7 @@
 //!   * `- add_carry_2 * (1 - add_carry_2)`
 //!   * `- sub_borrow_0 * (1 - sub_borrow_0)`
 //! * registers update is regular (+2 because of the two-worded instruction)
-//!   * `- [pc, fp] + [pc + 2, fp]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [pc + 2, fp, clock + 1]` in `Registers` relation
 //! * read 2 instruction words from memory
 //!   * `- [pc, inst_prev_clk, src_off, imm_lo, imm_hi] + [pc, clk, src_off, imm_lo, imm_hi]` in `Memory` relation
 //!   * `- [pc + 1, inst_prev_clk, dst_off, dst_rem_off] + [pc + 1, clk, dst_off, dst_rem_off]` in `Memory` relation
@@ -218,7 +218,7 @@ impl BitwiseProvider for InteractionClaimData {}
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
     pub range_check_16: [Vec<PackedM31>; N_RANGE_CHECK_16_LOOKUPS],
     pub range_check_8: [Vec<PackedM31>; N_RANGE_CHECK_8_LOOKUPS],
@@ -572,8 +572,8 @@ impl Claim {
                 *row[49] = r_lo;
                 *row[50] = r_hi;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one + one, input.fp];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [input.pc + one + one, input.fp, input.clock + one];
 
                 // Read first QM31 word for instruction
                 *lookup_data.memory[0] = [
@@ -1136,12 +1136,16 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             -E::EF::from(enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one.clone() + one.clone(), fp.clone()],
+            &[
+                pc.clone() + one.clone() + one.clone(),
+                fp.clone(),
+                clock.clone() + one.clone(),
+            ],
         ));
 
         // Read 1st instruction word from memory

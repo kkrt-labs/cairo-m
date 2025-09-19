@@ -250,12 +250,16 @@ fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         RelationEntry::new(
             &self.relations.registers,
             -enabler.clone(),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ),
         RelationEntry::new(
             &self.relations.registers,
             enabler.clone(),
-            &[off1.clone(), fp.clone() + off0.clone() + E::F::from(M31::from(2))],
+            &[
+                off1.clone(),
+                fp.clone() + off0.clone() + E::F::from(M31::from(2)),
+                clock.clone() + one,
+            ],
         ),
     ]);
 ```

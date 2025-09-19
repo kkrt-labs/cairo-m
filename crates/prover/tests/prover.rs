@@ -244,7 +244,6 @@ fn test_hash_continuity_fibonacci() {
 
 /// Test proof generation for sha256 program.
 #[test]
-#[ignore = "implement remaining opcodes"]
 fn test_prove_and_verify_sha256_program() {
     // Include SHA256 source at compile time
     let source = include_str!("../../../examples/sha256-cairo-m/src/sha256.cm").to_string();
