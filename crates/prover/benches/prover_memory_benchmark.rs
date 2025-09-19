@@ -78,7 +78,7 @@ fn main() {
         let (padded_buffer, num_chunks) = prepare_sha256_input_1kb(&msg);
         let sha_runner_output = run_cairo_program(
             &sha_program,
-            "sha256_hash_1024",
+            "sha256_hash",
             &[
                 InputValue::List(padded_buffer),
                 InputValue::Number(num_chunks as i64),
