@@ -1,0 +1,22 @@
+struct Point {
+    x: u32,
+    y: u32,
+}
+
+fn alloc_points() -> (Point*, Point*) {
+    let p1: Point* = new Point[2];
+    p1[0] = Point { x: 1, y: 2 };
+    p1[1] = Point { x: 3, y: 4 };
+    let p2: Point* = new Point[1];
+    p2[0] = Point { x: 5, y: 6 };
+    return (p1, p2);
+}
+
+fn main(){
+    let (p1, p2) = alloc_points();
+    assert(p1[0].x == 1);
+    assert(p1[0].y == 2);
+    assert(p2[0].x == 5);
+    assert(p2[0].y == 6);
+    return;
+}

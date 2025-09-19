@@ -2,7 +2,7 @@ format_version = 1
 
 welcome_message = """
 Is this your first time? Don't worry, CairoMlings is made for beginners!
-We are going to teach you a lot of things about Rust, but before we can
+We are going to teach you a lot of things about Cairo-M, but before we can
 get started, here are some notes about how CairoMlings operates:
 
 1. The central concept behind CairoMlings is that you solve exercises. These
@@ -45,3 +45,264 @@ test = false
 hint = """
 The compiler is informing us that we've got the name of the print macro wrong.
 It also suggests an alternative."""
+
+# VARIABLES
+
+[[exercises]]
+name = "variables1"
+dir = "01_variables"
+test = false
+hint = """
+The declaration in the `main` function is missing a keyword that is needed
+in Cairo-M to create a new variable binding."""
+
+[[exercises]]
+name = "variables2"
+dir = "01_variables"
+test = false
+hint = """
+The compiler message is saying that Cairo-M can't infer the type that the
+variable binding `x` has with what is given here.
+
+What happens if you annotate the first line in the `main` function with a type
+annotation?
+
+What if you give `x` a value?
+
+What if you do both?
+
+What type should `x` be, anyway?
+
+What if `x` is the same type as `10`? What if it's a different type?"""
+
+[[exercises]]
+name = "variables3"
+dir = "01_variables"
+test = false
+hint = """
+In this exercise, we have a variable binding that we've created in the `main`
+function, and we're trying to use it in the next line, but we haven't given it
+a value.
+
+Try giving `x` a value!
+
+This is an error that can cause bugs that's very easy to make in any
+programming language -- thankfully the Cairo-M compiler has caught this for us!"""
+
+[[exercises]]
+name = "variables4"
+dir = "01_variables"
+test = false
+hint = """
+In Cairo-M, variable bindings are mutable by default. But here, we're trying
+to assign a value to `x`, which hasn't been declared yet!."""
+
+[[exercises]]
+name = "variables5"
+dir = "01_variables"
+test = false
+hint = """
+You can only mutate a variable if the value you're assigning is of the same type as the variable.
+"""
+
+[[exercises]]
+name = "variables6"
+dir = "01_variables"
+test = false
+hint = """
+We know about variables and mutability, but there is another important type of
+variable available: constants.
+
+Constants are always immutable. They are declared with the keyword `const`
+instead of `let`.
+"""
+
+# FUNCTIONS
+
+[[exercises]]
+name = "functions1"
+dir = "02_functions"
+test = false
+hint = """
+This `main` function is calling a function that it expects to exist, but the
+function doesn't exist. It expects this function to have the name `call_me`.
+It also expects this function to not take any arguments and not return a value.
+Sounds a lot like `main`, doesn't it?"""
+
+[[exercises]]
+name = "functions2"
+dir = "02_functions"
+test = false
+hint = """
+Cairo-M requires that all parts of a function's signature have type annotations,
+but `call_me` is missing the type annotation of `num`."""
+
+[[exercises]]
+name = "functions3"
+dir = "02_functions"
+test = false
+hint = """
+This time, the function *declaration* is okay, but there's something wrong
+with the place where we are calling the function."""
+
+[[exercises]]
+name = "functions4"
+dir = "02_functions"
+test = false
+hint = """
+The error message points to the function `sale_price` and says it expects a type
+after `->`. This is where the function's return type should be.
+Take a look at the `is_even` function for an example!"""
+
+[[exercises]]
+name = "functions5"
+dir = "02_functions"
+test = false
+hint = """
+Unlike Rust, return statements must be explicit.
+"""
+
+# PRIMITIVE TYPES
+
+# IF
+
+[[exercises]]
+name = "if1"
+dir = "03_if"
+test = true
+test-cases = [
+    { inputs = ["10", "8"], outputs = ["10"] },
+    { inputs = ["32", "10"], outputs = ["32"] },
+    { inputs = ["42", "42"], outputs = ["42"] }
+]
+hint = """
+- The `if` condition does not need to be surrounded by parentheses
+- Each condition is followed by a `{}` block"""
+
+# PRIMITIVE TYPES
+
+[[exercises]]
+name = "primitive_types1"
+dir = "04_primitive_types"
+test = false
+hint = """
+In Cairo-M, a boolean can be negated using the operator `!` before it.
+Example: `!true == false`
+This also works with boolean variables."""
+
+[[exercises]]
+name = "primitive_types2"
+dir = "04_primitive_types"
+test = false
+hint = """
+Cairo-M operates over the Mersenne Prime 2^31 - 1.
+The `felt` type follows the rules of field arithmetics."""
+
+[[exercises]]
+name = "primitive_types3"
+dir = "04_primitive_types"
+test = false
+hint = """
+Cairo-M supports unsigned 32-bit integers.
+The `u32` type follows the rules of integer arithmetics, with overflows wrapping around.
+"""
+
+[[exercises]]
+name = "primitive_types4"
+dir = "04_primitive_types"
+test = true
+test-cases = [{ inputs = [], outputs = ["1"] }]
+hint = """
+There's a shorthand to initialize arrays with a certain size that doesn't
+require you to type in 100 items (but you certainly can if you want!).
+"""
+
+[[exercises]]
+name = "primitive_types5"
+dir = "04_primitive_types"
+test = false
+hint = """
+Take a look at the tuples page in the documentation, particularly the part about
+destructuring.
+
+You'll need to make a pattern to bind `x` and `y` to the appropriate parts of the
+tuple."""
+
+
+[[exercises]]
+name = "primitive_types6"
+dir = "04_primitive_types"
+test = false
+hint = """
+While you could use a destructuring `let` for the tuple here, try
+indexing into it instead.
+Now, you have another tool in your toolbox!"""
+
+# STRUCTS
+
+[[exercises]]
+name = "structs1"
+dir = "05_structs"
+test = false
+hint = """
+Cairo-M has a single type of struct. These are named collections of related data stored in
+fields.
+"""
+
+[[exercises]]
+name = "structs2"
+dir = "05_structs"
+test = false
+hint = """
+Once struct instances are created, they can be mutated by assigning new values to their fields.
+"""
+
+# POINTERS
+
+[[exercises]]
+name = "pointers1"
+dir = "06_pointers"
+test = false
+hint = """
+Allocate memory using `new` and use the pointer indexing syntax to set the values.
+"""
+
+
+[[exercises]]
+name = "pointers2"
+dir = "06_pointers"
+test = false
+hint = """
+Allocating using `new` will adapt the memory allocation to the size of the data you are storing.
+Once data is de-referenced, mutating it will mutate the data pointed to.
+"""
+
+# LOOPS
+
+[[exercises]]
+name = "loops1"
+dir = "07_loops"
+test = false
+hint = """
+`loop` runs forever unless you `break`.
+Add a `break` when the target value is reached (e.g. `i == 7`).
+You can also consider a safety condition like `i == 0`.
+"""
+
+[[exercises]]
+name = "loops2"
+dir = "07_loops"
+test = false
+hint = """
+Use a `while` loop that continues while `x != 0`.
+Remember to update both `x` and a `count` variable inside the body.
+"""
+
+[[exercises]]
+name = "loops3"
+dir = "07_loops"
+test = false
+hint = """
+Use a C-style for header: `for (let i = 0; i != N; i = i + 1)`.
+Accumulate the sum with `sum = sum + i;` and return it.
+"""

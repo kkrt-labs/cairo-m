@@ -1,0 +1,8 @@
+// TODO: Fix the compiler error.
+fn main() -> felt {
+    let x = 3;
+
+    x = 5; // Don't change this line
+
+    return x;
+}

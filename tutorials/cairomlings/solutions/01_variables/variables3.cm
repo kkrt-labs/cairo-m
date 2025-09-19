@@ -1,0 +1,6 @@
+fn main() -> u32 {
+    // TODO: Change the line below to fix the compiler error.
+    let x: u32 = 5;
+
+    return x;
+}

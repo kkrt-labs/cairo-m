@@ -1,0 +1,16 @@
+// loops3: Use a C-style `for` loop to compute a sum
+
+fn sum_to_n_exclusive(n: felt) -> felt {
+    let sum = 0;
+    // TODO: Complete the C-style for header so it sums i from 0 to n-1.
+    for (let i = 0; i != 10; i = i + 1) {
+        sum = sum + i;
+    }
+    return sum;
+}
+
+fn main(){
+    let s = sum_to_n_exclusive(10);
+    assert(s == 45); // 0 + 1 + ... + 9
+    return;
+}

@@ -1,0 +1,12 @@
+// TODO: Add the missing type of the argument `num` after the colon `:`.
+fn call_me(num: u32) -> u32 {
+    let sum: u32 = 0;
+    for (let i: u32 = 0; i < num; i = i + 1) {
+        sum = sum + i;
+    }
+    return sum;
+}
+
+fn main() -> u32 {
+    return call_me(3);
+}

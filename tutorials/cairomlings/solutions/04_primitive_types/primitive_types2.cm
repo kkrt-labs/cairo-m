@@ -1,0 +1,14 @@
+// M31 Field-element (`felt`)
+
+const MAX_FELT_VALUE: felt = 2147483646;
+
+fn main() {
+    // TODO: In field arithmetics, what happens if you go above the field modulus?
+    let result = MAX_FELT_VALUE + 1;
+    assert(result == 0);
+
+    // TODO: Divide `7` by `2`. Why is the result `1073741827`?
+    let field_division = 7 / 2;
+    assert(field_division == 1073741827);
+    return;
+}

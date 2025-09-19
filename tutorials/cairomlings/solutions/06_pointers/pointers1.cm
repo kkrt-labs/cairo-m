@@ -1,0 +1,16 @@
+fn alloc_felt(size: felt) -> felt* {
+    let p: felt* = new felt[size];
+    // TODO: set the first value to the expected one.
+    p[0] = 1;
+    p[1] = 2;
+    p[2] = 3;
+    return p;
+}
+
+fn main(){
+    let felt_ptr = alloc_felt(3);
+    assert(felt_ptr[0] == 1);
+    assert(felt_ptr[1] == 2);
+    assert(felt_ptr[2] == 3);
+    return;
+}

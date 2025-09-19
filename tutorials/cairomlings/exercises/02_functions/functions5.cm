@@ -1,0 +1,9 @@
+// TODO: Fix the function body without changing the signature.
+fn square(num: u32) -> u32 {
+    num * num
+}
+
+fn main() -> u32 {
+    let answer = square(3);
+    return answer;
+}

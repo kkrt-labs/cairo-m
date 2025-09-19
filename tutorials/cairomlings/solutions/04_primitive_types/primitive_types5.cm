@@ -1,0 +1,8 @@
+fn main() -> u32 {
+    let vector = (10u32, 20u32);
+
+    // TODO: Destructure the `vector` tuple in one statement so that the println works.
+    let (x, y) = vector;
+
+    return x * x + y * y;
+}
