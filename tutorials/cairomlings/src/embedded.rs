@@ -85,7 +85,7 @@ impl EmbeddedFiles {
             exercise_path.push_str(dir.name);
             exercise_path.push('/');
             exercise_path.push_str(&exercise_info.name);
-            exercise_path.push_str(".rs");
+            exercise_path.push_str(".cm");
 
             fs::write(&exercise_path, exercise_files.exercise)
                 .with_context(|| format!("Failed to write the exercise file {exercise_path}"))?;
@@ -115,7 +115,7 @@ impl EmbeddedFiles {
         let dir = &self.exercise_dirs[exercise_files.dir_ind];
 
         // 14 = 10 + 1 + 3
-        // solutions/ + / + .rs
+        // solutions/ + / + .cm
         let mut dir_path = String::with_capacity(14 + dir.name.len() + exercise_name.len());
         dir_path.push_str("solutions/");
         dir_path.push_str(dir.name);
@@ -124,7 +124,7 @@ impl EmbeddedFiles {
         let mut solution_path = dir_path;
         solution_path.push('/');
         solution_path.push_str(exercise_name);
-        solution_path.push_str(".rs");
+        solution_path.push_str(".cm");
 
         fs::write(&solution_path, exercise_files.solution)
             .with_context(|| format!("Failed to write the solution file {solution_path}"))?;

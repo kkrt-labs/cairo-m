@@ -20,12 +20,12 @@ get started, here are some notes about how CairoMlings operates:
    sometimes, other learners do too so you can help each other out!"""
 
 final_message = """
-We hope you enjoyed learning about the various aspects of Rust!
+We hope you enjoyed learning about the various aspects of Cairo-M!
 If you noticed any issues, don't hesitate to report them on Github.
 You can also contribute your own exercises to help the greater community!
 
 Before reporting an issue or contributing, please read our guidelines:
-https://github.com/kkrt-labs/cairomlings/blob/main/README.md"""
+https://github.com/kkrt-labs/cairo-m/blob/main/README.md"""
 
 # INTRO
 

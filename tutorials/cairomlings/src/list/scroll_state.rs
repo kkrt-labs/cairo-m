@@ -20,7 +20,7 @@ impl ScrollState {
     }
 
     #[inline]
-    pub fn offset(&self) -> usize {
+    pub const fn offset(&self) -> usize {
         self.offset
     }
 
@@ -42,7 +42,7 @@ impl ScrollState {
     }
 
     #[inline]
-    pub fn selected(&self) -> Option<usize> {
+    pub const fn selected(&self) -> Option<usize> {
         self.selected
     }
 
@@ -92,7 +92,7 @@ impl ScrollState {
     }
 
     #[inline]
-    pub fn max_n_rows_to_display(&self) -> usize {
+    pub const fn max_n_rows_to_display(&self) -> usize {
         self.max_n_rows_to_display
     }
 

@@ -32,6 +32,16 @@ pub fn solution_link_line(
     stdout.write_all(b"\n")
 }
 
+fn run_artifact(
+    artifact_output_path: &str,
+    output: Option<&mut Vec<u8>>,
+    cmd_runner: &CmdRunner,
+) -> Result<bool> {
+    let cargo_subcommand = cmd_runner.cairom_run(artifact_output_path, Some("main"), output)?;
+    let build_success = cargo_subcommand.run("cairo-m-runner …")?;
+    Ok(build_success)
+}
+
 // Run an exercise binary and append its output to the `output` buffer.
 // Compilation must be done before calling this method.
 fn run_bin(
@@ -111,9 +121,26 @@ pub trait RunnableExercise {
             output.clear();
         }
 
-        let build_success = cmd_runner
-            .cargo("build", bin_name, output.as_deref_mut())
-            .run("cargo build …")?;
+        let workspace_root = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let exercise_path = format!(
+            "{workspace_root}/exercises/{}/{}.cm",
+            self.dir().unwrap_or(""),
+            self.name()
+        );
+        let temp_dir = std::env::temp_dir();
+        let artifact_dir = format!(
+            "{}/artifacts_{}",
+            temp_dir.display(),
+            self.dir().unwrap_or("")
+        );
+        std::fs::create_dir_all(&artifact_dir)?;
+        let artifact_output_path = format!("{}/{}.json", artifact_dir, self.name());
+        let cargo_subcommand = cmd_runner.cairom_compile(
+            &exercise_path,
+            &artifact_output_path,
+            output.as_deref_mut(),
+        )?;
+        let build_success = cargo_subcommand.run("cairo-m-compiler …")?;
         if !build_success {
             return Ok(false);
         }
@@ -141,19 +168,21 @@ pub trait RunnableExercise {
             }
         }
 
-        let mut clippy_cmd = cmd_runner.cargo("clippy", bin_name, output.as_deref_mut());
+        // let mut clippy_cmd = cmd_runner.cargo("clippy", bin_name, output.as_deref_mut());
 
-        // `--profile test` is required to also check code with `#[cfg(test)]`.
-        if FORCE_STRICT_CLIPPY || self.strict_clippy() {
-            clippy_cmd.args(["--profile", "test", "--", "-D", "warnings"]);
-        } else {
-            clippy_cmd.args(["--profile", "test"]);
-        }
+        // // `--profile test` is required to also check code with `#[cfg(test)]`.
+        // if FORCE_STRICT_CLIPPY || self.strict_clippy() {
+        //     clippy_cmd.args(["--profile", "test", "--", "-D", "warnings"]);
+        // } else {
+        //     clippy_cmd.args(["--profile", "test"]);
+        // }
 
-        let clippy_success = clippy_cmd.run("cargo clippy …")?;
-        let run_success = run_bin(bin_name, output, cmd_runner)?;
+        // let clippy_success = clippy_cmd.run("cargo clippy …")?;
+        // let run_success = run_bin(bin_name, output, cmd_runner)?;
+        // Ok(clippy_success && run_success)
 
-        Ok(clippy_success && run_success)
+        let run_success = run_artifact(&artifact_output_path, output, cmd_runner)?;
+        Ok(run_success)
     }
 
     /// Compile, check and run the exercise.
@@ -179,7 +208,7 @@ pub trait RunnableExercise {
 
         let mut path = if let Some(dir) = self.dir() {
             // 14 = 10 + 1 + 3
-            // solutions/ + / + .rs
+            // solutions/ + / + .cm
             let mut path = String::with_capacity(14 + dir.len() + name.len());
             path.push_str("solutions/");
             path.push_str(dir);
@@ -187,14 +216,14 @@ pub trait RunnableExercise {
             path
         } else {
             // 13 = 10 + 3
-            // solutions/ + .rs
+            // solutions/ + .cm
             let mut path = String::with_capacity(13 + name.len());
             path.push_str("solutions/");
             path
         };
 
         path.push_str(name);
-        path.push_str(".rs");
+        path.push_str(".cm");
 
         path
     }

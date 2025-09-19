@@ -86,6 +86,33 @@ impl CmdRunner {
         })
     }
 
+    pub fn cairom_compile<'out>(
+        &self,
+        input_path: &str,
+        artifact_output_path: &str,
+        output: Option<&'out mut Vec<u8>>,
+    ) -> Result<CargoSubcommand<'out>> {
+        let mut cmd = Command::new("cairo-m-compiler");
+        cmd.arg("--input").arg(input_path);
+        cmd.arg("--output").arg(artifact_output_path);
+
+        Ok(CargoSubcommand { cmd, output })
+    }
+
+    pub fn cairom_run<'out>(
+        &self,
+        artifact_output_path: &str,
+        entrypoint: Option<&str>,
+        output: Option<&'out mut Vec<u8>>,
+    ) -> Result<CargoSubcommand<'out>> {
+        let mut cmd = Command::new("cairo-m-runner");
+        cmd.arg(artifact_output_path);
+        if let Some(entrypoint) = entrypoint {
+            cmd.arg("--entrypoint").arg(entrypoint);
+        }
+        Ok(CargoSubcommand { cmd, output })
+    }
+
     pub fn cargo<'out>(
         &self,
         subcommand: &str,
@@ -124,7 +151,7 @@ impl CmdRunner {
 
 pub struct CargoSubcommand<'out> {
     cmd: Command,
-    output: Option<&'out mut Vec<u8>>,
+    pub output: Option<&'out mut Vec<u8>>,
 }
 
 impl CargoSubcommand<'_> {
