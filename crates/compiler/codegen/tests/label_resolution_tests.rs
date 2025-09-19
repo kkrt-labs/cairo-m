@@ -28,7 +28,7 @@ fn test_structured_label_resolution() {
     function.basic_blocks[0].terminator = Terminator::Jump { target: 1.into() };
 
     let mut module = MirModule::new();
-    module.functions.push(function);
+    module.add_function(function);
 
     // Generate code
     let mut generator = CodeGenerator::new();

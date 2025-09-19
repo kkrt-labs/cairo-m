@@ -156,7 +156,6 @@ impl DagToMirContext {
             }
 
             Op::Call { function_index } => {
-                let result_id = self.mir_function.new_typed_value_id(MirType::U32);
                 let callee_id = FunctionId::new(*function_index as usize);
 
                 // Get signature from wasm module
@@ -184,6 +183,7 @@ impl DagToMirContext {
                     return_types,
                 };
 
+                let result_id = self.mir_function.new_typed_value_id(MirType::U32);
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 self.get_current_block()?.push_instruction(instruction);
                 Ok(result_id)

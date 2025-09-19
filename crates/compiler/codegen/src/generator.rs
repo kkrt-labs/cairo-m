@@ -2411,7 +2411,7 @@ mod tests {
     fn test_simple_function_generation() {
         let function = create_simple_function();
         let mut module = MirModule::new();
-        module.functions.push(function);
+        module.add_function(function);
 
         let mut generator = CodeGenerator::new();
         generator.generate_module(&module).unwrap();
@@ -2443,7 +2443,7 @@ mod tests {
 
         function.basic_blocks.push(block);
         function.return_values.push(dest);
-        module.functions.push(function);
+        module.add_function(function);
 
         // Compile the module
         let mut generator = CodeGenerator::new();
