@@ -23,6 +23,7 @@ words:
   - cblock
   - chrono
   - chumsky
+  - clément
   - clippy
   - cmark
   - cmps
@@ -153,6 +154,7 @@ words:
   - texcache
   - texmfcache
   - texmfvar
+  - texttt
   - thiserror
   - tlsv
   - toplevel

@@ -91,37 +91,37 @@ design employs a read-write memory model for the RAM (Random Access Memory).
 
 Read and write operations are implemented through [lookup arguments](#lookups):
 each memory access is a lookup of a tuple
-$(\text{address}, \text{clock}, \text{value})$. The $\text{clock}$ is a
-monotonic counter from 0, determined during witness generation. It timestamps
-when $\text{address}$ contained $\text{value}$.
+$(\texttt{address}, \texttt{clock}, \texttt{value})$. The $\texttt{clock}$ is a
+monotonic counter from 0, determined during witness generation and updated with
+the registers. It timestamps when $\texttt{address}$ contained $\texttt{value}$.
 
 To access a memory cell, one adds to the logup sum a term cancelling the
 previous access, and a new term for registering the new access. As there is no
 ordering in a global logup sum, the notion of "previous access" is enforced with
 a range-check argument on the clock difference:
-$\text{clock} - \text{prev\_clock} > 0$.
+$\texttt{clock} - \texttt{prev\_clock} > 0$.
 
 Altogether, using the notation defined in the [lookups](#lookups) section, a
 memory read or write operation is implemented as follows:
 
 $$
 \begin{aligned}
-&-\text{Memory}(\text{address}, \text{prev\_clock}, \text{prev\_value}) \\
-&+\text{Memory}(\text{address}, \text{clock}, \text{value}) \\
-&+\text{RangeCheck20}(\text{clock} - \text{prev\_clock} - 1)
+&-\text{Memory}(\texttt{address}, \texttt{prev\_clock}, \texttt{prev\_value}) \\
+&+\text{Memory}(\texttt{address}, \texttt{clock}, \texttt{value}) \\
+&+\text{RangeCheck20}(\texttt{clock} - \texttt{prev\_clock} - 1)
 \end{aligned}
 $$
 
-with $\text{address}$, $\text{prev\_clock}$, $\text{prev\_value}$,
-$\text{clock}$ and $\text{value}$ being part of the main execution trace. Note
-that when the memory is only read, one has $\text{prev\_value} = \text{value}$
-and this simplifies to:
+with $\texttt{address}$, $\texttt{prev\_clock}$, $\texttt{prev\_value}$,
+$\texttt{clock}$ and $\texttt{value}$ being part of the main execution trace.
+Note that when the memory is only read, one has
+$\texttt{prev\_value} = \texttt{value}$ and this simplifies to:
 
 $$
 \begin{aligned}
-&-\text{Memory}(\text{address}, \text{prev\_clock}, \text{value}) \\
-&+\text{Memory}(\text{address}, \text{clock}, \text{value}) \\
-&+\text{RangeCheck20}(\text{clock} - \text{prev\_clock} - 1)
+&-\text{Memory}(\texttt{address}, \texttt{prev\_clock}, \texttt{value}) \\
+&+\text{Memory}(\texttt{address}, \texttt{clock}, \texttt{value}) \\
+&+\text{RangeCheck20}(\texttt{clock} - \texttt{prev\_clock} - 1)
 \end{aligned}
 $$
 
@@ -131,31 +131,30 @@ current point in time, and that one adds terms with multiplicity 1 only. Adding
 terms with multiplicity greater than 1 would make it possible for the prover to
 "fork" the memory at some point, accessing a value already normally updated
 during the execution. The boundary conditions (initial and final memory) are
-handled by the [memory commitment](#commitment) and the public memory of the
-proof.
+handled by the memory commitment (see [Commitment](#commitment)) and the public
+memory of the proof.
 
 ### Clock Update Component \label{sec:clock-update-component} {#clock-update-component}
 
 The clock update component is responsible for updating the clock value when the
-clock difference exceeds the capacity of the `RangeCheck` component. It is not
-part of the VM specification but is part of the prover implementation. During
-witness generation, the prover checks which clock updates are required. If it
-encounters a clock difference exceeding the capacity of its RangeCheck
-component, it performs a clock update, which essentially consists in mimicking a
-read operation:
+clock difference exceeds the capacity `RC_LIMIT` of the biggest range-check
+component. It is not part of the VM specification but of the prover
+implementation. During witness generation, the prover checks which clock updates
+are required. If it encounters a clock difference exceeding its capacity, it
+performs a clock update, which essentially consists in mimicking a read
+operation:
 
 $$
 \begin{aligned}
-&-\text{Memory}(\text{address}, \text{prev\_clock}, \text{prev\_value}) \\
-&+\text{Memory}(\text{address}, \text{prev\_clock} + \text{RC\_LIMIT}, \text{prev\_value})
+&-\text{Memory}(\texttt{address}, \texttt{prev\_clock}, \texttt{prev\_value}) \\
+&+\text{Memory}(\texttt{address}, \texttt{prev\_clock} + \texttt{RC\_LIMIT}, \texttt{prev\_value})
 \end{aligned}
 $$
 
-It then adds as many clock updates as needed to cover the clock difference. Let
-us denote by $\text{RC\_LIMIT}$ the capacity of the RangeCheck component and
+without the need to range-check the hard-coded clock update. It then adds as
+many clock updates as needed to cover the clock difference. Let us denote by
 $\delta$ the required clock difference. The number of clock updates required is
-$\lceil \delta / \text{RC\_LIMIT} \rceil$. If $\delta$ is not a multiple of
-$\text{RC\_LIMIT}$, one needs to add one more clock update.
+$\lfloor \delta / \texttt{RC\_LIMIT} \rfloor$.
 
 ### Column Cost Analysis \label{sec:column-cost-analysis} {#column-cost-analysis}
 
@@ -163,18 +162,19 @@ Let us denote by $T$ a regular trace column and by $L$ a lookup operation.
 
 **Read-write memory** (per access):
 
-- Main trace: 4 to 5 columns (address, prev_clock, clock, prev_value, value)
+- Main trace: 4 to 5 columns (`address`, `prev_clock`, `clock`, `prev_value`,
+  `value`)
 - Lookup: 3
 - Total: up to $5T + 3L$
 
 **Read-only memory** (per access):
 
-- Main trace: 2 columns (address, value)
-- Lookup: 1 $-\text{Memory}(\text{address}, \text{value})$
+- Main trace: 2 columns (`address`, `value`)
+- Lookup: 1 ($-\text{Memory}(\texttt{address}, \texttt{value})$)
 - Total: $2T + 1L$
 
 Since lookup columns are defined over the secure field, which is QM31 (i.e., 4
-M31s), each lookup column is 4 trace columns.
+M31s), each lookup column is actually 4 trace columns.
 
 - Overhead per access: $(5T + 3L) - (2T + 1L) = 3T + 2L = 3 + 8 = 11$ base
   columns
@@ -186,30 +186,32 @@ This overhead can be mitigated using opcodes that write in place (e.g.,
 precomputing the logup sums in pairs when the maximum constraint degree remains
 low (see [Cumulative Sum Structure](#cumulative-sum-structure)). If we
 consequently count only 2 columns per lookup, the memory access overhead becomes
-`3 + 2*2 = 7`. If we further consider an in-place operation, then it becomes
+$3 + 2*2 = 7$. If we further consider an in-place operation, then it becomes
 $(5T + 3L) + (4T + 3L) = 9 + 12 = 21$ columns for the read-write memory and
 $3 \times (2T + 1L/2) = 6 + 8 = 14$ for the read-only memory.
 
-Since the read-write memory allows for much easier control flow, reduces the
-need to copy memory values with new frames, and is much easier to reason about
-when developing software, this overhead is deemed worthwhile.
+Since the read-write memory model allows for much easier control flow, reduces
+the need to copy memory values with new frames, and is much easier to reason
+about when developing software, this overhead is deemed worthwhile.
 
 On the other hand, not all parts of the memory need to be writable. In
 particular, the program with its embedded constant values can remain read-only.
 
 The most direct way to make sure that an address space is read-only is to
-range-check (or lookup) the write address in all the `STORE` opcodes. This would
-however not save any columns, just enforce that some regions are unchanged. To
-save on columns, one should instead add dedicated opcodes that would only
-"consume" the memory value with a constant clock set to 0. These values would be
-added from the commitment or the public memory with the required multiplicity.
+range-check (or lookup) the write address in all the `STORE` opcodes to prevent
+from writing to it. This would however not save any columns, just enforce that
+some regions are unchanged. To save on columns, one should instead add dedicated
+opcodes that would only "consume" the memory value with a constant clock set
+to 0. These values would be added from the commitment or the public memory with
+the required multiplicity.
 
 However, range-checking the write address can become inefficient when the
-address range is large. In fact, the Cairo M design embeds a RangeCheck20 (i.e.,
-20-bit range-check) as the largest single range-check component (i.e., with no
-limb splitting). This means that any value greater than $2^{20}$ would require
-splitting (see also [the clock update section](#read-write-operations)). As a
-consequence, this approach becomes inefficient when the address range is large.
+address range is large. In fact, the Cairo M design embeds a `RangeCheck20`
+(i.e., 20-bit range-check) as the largest single range-check component (i.e.,
+with no limb splitting). This means that any value greater or equal than
+$2^{20}$ would require splitting (see also
+[the clock update section](#clock-update-component)). As a consequence, this
+approach becomes inefficient when the address range is large.
 
 Another solution is to use a dedicated read-only memory segment with its own
 commitment and lookup challenges. This effectively doubles the available address
@@ -220,35 +222,34 @@ without requiring the read-write memory to be initialized with zeros.
 
 ### Commitment \label{sec:commitment} {#commitment}
 
-Memory segments require efficient commitment for continuation, ensuring the
+Memory segments require efficient commitment for continuation, ensuring that the
 final memory state of stage `n` matches the initial state of stage `n + 1`.
 
 Merkle trees provide a good memory commitment mechanism due to their:
 
-- Challenge-independent commitment through initial and final root hashes
+- Challenge-independent commitment through initial and final root hashes;
 - Natural sparse memory handling via partial tree pruning of unused intermediate
-  nodes
+  nodes.
 
-Efficient recursion requires a ZK-friendly hash function. The current
+One shall pick a ZK-friendly hash function for these commitments. The current
 implementation uses Poseidon2, though alternative hash functions can be
 substituted as needed.
 
-The natural memory address space spans $[0, P)$, but to avoid Merkle root
-padding requirements while providing sufficient capacity for substantial
-computations, we simply use the greatest power of 2 smaller than $P$, i.e.,
-$2^{30}$. Extension to $P - 1$ is possible but unnecessary for client-side
-proving scenarios, where memory requirements remain modest compared to
-long-trace applications. Memory exceeding $2^{30}$ is only required for
-extremely long runs, which would demand RAM capacity beyond typical consumer
-device specifications.
+The natural memory address space spans $[0, P)$ (see [Memory](#memory)), but to
+avoid Merkle root padding requirements while providing sufficient capacity for
+substantial computations, we simply use the greatest power of 2 smaller than
+$P$, i.e., $2^{30}$. Extension to $P$ is possible but doesn't seem necessary,
+especially for client-side proving scenarios where memory requirements remain
+modest compared to long-trace applications. Memory exceeding $2^{30}$ is only
+required for extremely long runs, which would demand RAM capacity beyond typical
+consumer device specifications.
 
 Furthermore, the Merkle tree omits leaf hashing to minimize computational
 overhead. Although leaf hashing prevents sibling value disclosure in inclusion
 proofs, it provides no benefit for state root commitment and is therefore
 omitted. This approach requires all memory cells to contain values, resulting in
 implicit zero-initialization of the entire memory segment. This default zero
-value has no practical impact since the VM overwrites cells with actual values
-during the execution.
+value has no practical impact.
 
 The Merkle commitment component is responsible for proving the $2^{30}$ leaves
 from the public (initial or final) root. It does this by iteratively consuming a
@@ -256,33 +257,38 @@ root and emitting the two leaves with given multiplicity in the logup sum. The
 partial underlying Merkle tree is built during witness generation. The component
 only enforces via the lookup argument that the nodes and leaves actually derive
 from the root, using the `Merkle` relation. It also uses the `Poseidon2`
-relation to prove the Poseidon2 hash computation. Eventually, the multiplicity
-at any given node can be set to 0 if the branch is actually not used, in which
-case the node is pruned from the tree.
+relation to prove the
+[Poseidon2 hash computation](https://eprint.iacr.org/2023/323). Eventually, the
+multiplicity at any given node can be set to 0 if the branch is actually not
+used, in which case the node is pruned from the tree.
 
 All the emitted leaves are eventually consumed by the `Memory` component to make
 them available for the opcodes.
 
 ### Word size \label{sec:word-size} {#word-size}
 
-If the Merkle root allows committing to up to $2^{30}$ field elements, the VM
-doesn't need to use a single field element as the base word size. As mentioned
-in the previous section, the Memory component is responsible for turning a list
-of M31 leaves into memory values. These leaves can actually be grouped together
-as limbs of a single memory word.
+If the Merkle root allows for committing to up to $2^{30}$ field elements, the
+VM doesn't need to use a single field element as the base word size. The
+`Memory` component is actually responsible for turning a list of M31 leaves into
+memory values. Hence, leaves can be grouped together as limbs of a single memory
+word.
 
 In our first implementation, we used a fixed-size word built from 4 M31 elements
 to easily accommodate all field-element-based instructions in a single read.
-This effectively reduces the memory size to $2^{28} = 268{,}435{,}456$.
+This effectively reduces the memory size to
+$2^{30 - 2} = 2^{28} = 268{,}435{,}456$.
 
 However, there is no requirement to use such a fixed-size memory word. Given
 that memory consistency is enforced only with lookup arguments, each address can
-consume any number of field elements that are ultimately all summed together
-with the relation's challenge coefficients. The only requirement is that
-consecutive reads or writes of an address consume and write the same number of
-field elements. One can think of this as accessing a slice of an array at a
-given index, with the slice length depending on the index, instead of just a
-single value:
+consume any number of field elements. The only requirement is that all the
+lookup terms, from the initially emitted ones derived from the Merkle
+commitment, to the last ones matching the final memory root, eventually sum up
+to zero.
+
+Considering the raw memory as a 1D segment of $2^{30}$ field elements derived
+from the Merkle commitment, one can think of this as accessing slices at a given
+index, with the slice length depending on the index, instead of just a single
+value:
 
 ```python
 memory[address: address + len(address)]
@@ -294,52 +300,115 @@ instead of
 memory[address]
 ```
 
-To make limbs of a given address available, we introduce the `SPLIT` opcode.
+Furthermore, since a logup term is computed as the weighted sum of the challenge
+coefficients with the provided values, trailing zeros have no impact on the
+result, i.e.:
+
+$$
+\text{Memory}(a, \texttt{clock}, \texttt{value}, 0, \cdots, 0) = \text{Memory}(a, \texttt{clock}, \texttt{value})
+$$
+
+In other words, using value(s) as the last term(s) of the logup sum allows to
+have a "lazy" word size where the only thing that matters is that consecutive
+reads or writes actually matches. On the other hand, this approach prevents from
+associating individual limbs directly with their own address at `a + i` as this
+would require a case-dependent handling of these addresses, whether they are
+actually empty or not.
+
+If this feature is preferred, one just needs to define from the beginning a
+different order of the terms for the `Memory` relation, e.g.:
+
+$$
+\text{Memory}(\texttt{value}, 0, \cdots, 0, \texttt{clock}, a) \neq \text{Memory}(\texttt{value}, \texttt{clock}, a)
+$$
+
+The following [Lazy word size](#lazy-word-size) and
+[Strict word size](#strict-word-size) describe this trade-off.
+
+#### Lazy word size \label{sec:lazy-word-size} {#lazy-word-size}
+
+This variable-sized memory word pattern enables native handling and casting of
+multi-limbs types like `u32` (see also [Uint types](#uint-types)). Because any
+trailing zeros are ignored, the same address can be used in different opcodes
+with no extra cost.
+
+For example, let use consider a range-checked memory with 16-bits limbs, and
+opcodes for the `u16`, `u32`, and `u64` types. Each type needs to have its own
+component, say `U16StoreAdd`, `U32StoreAdd`, and `U64StoreAdd`. However, a value
+that was previously used and emitted as a `u16` with `+Memory(a, clock, value)`
+in `U16StoreAdd` can be read as is in a forthcoming `U32StoreAdd` with
+`-Memory(a, clock, value, 0)` since the two terms are actually equivalent.
+
+#### Strict word size \label{sec:strict-word-size} {#strict-word-size}
+
+The only requirement is that consecutive reads or writes of an address use the
+exact same number of field elements. It is possible however to update the number
+of field elements associated with a given address by using the `SPLIT` and
+`JOIN` opcodes. For the rest of this section, and for this section only, we will
+use the swapped notation for the `Memory` relation.
+
 `SPLIT` simply consumes the logup term with the entire slice at address $a$ and
-adds one term for each of the $\text{len}$ limbs at addresses
-$a + i, i \in [0, \text{len})$:
+adds one term for each of the $\texttt{len}$ limbs at addresses
+$a + i, i \in [0, \texttt{len})$:
 
 $$
 \begin{aligned}
-&-\text{Memory}(a, \text{prev\_clock}, v_0, \ldots, v_{\text{len} - 1}) \\
-&+\text{Memory}(a, \text{clock}, v_0) \\
-&+\text{Memory}(a + 1, \text{clock}, v_1) \\
+&-\text{Memory}(\texttt{v}_0, \ldots, \texttt{v}_{\text{len} - 1}, \texttt{clock}, a) \\
+&+\text{Memory}(\texttt{v}_0, \texttt{clock}, a) \\
+&+\text{Memory}(\texttt{v}_1, \texttt{clock}, a + 1) \\
 &\vdots \\
-&+\text{Memory}(a + \text{len} - 1, \text{clock}, v_{\text{len} - 1})
+&+\text{Memory}(\texttt{v}_{\text{len} - 1}, \texttt{clock}, a + \text{len} - 1)
 \end{aligned}
 $$
 
-The opposite operation is called `JOIN` and allows the machine to gather a list
-of contiguous limbs into a single memory address, consuming each of the
-$(a + i, v_i)$ lookup terms and adding a single
-$(a, [v_0, \ldots, v_{\text{len} - 1}])$ lookup term:
+On the other hand, `JOIN` consumes each of the $(\texttt{v}_i, a + i)$ lookup
+terms and adds a single
+$([\texttt{v}_0, \ldots, \texttt{v}_{\texttt{len} - 1}], a)$ lookup term. `JOIN`
+also needs an extra care for the clocks since each individual limb has its own
+clock that may have been updated — actually at least one of the limbs has most
+probably been updated since the last `SPLIT` otherwise the whole operation would
+be useless. Furthermore, it is possible to join any number of limbs, and
+especially possibly a different number of limbs than the one used at a previous
+`SPLIT` operation.
+
+Eventually, the `clock` used for the slice write needs to be the maximum of the
+clocks of the limbs. Consequently, not only the `JOIN` requires more columns
+than the `SPLIT` to store `len` clocks, but also requires to range-check them
+all against the final `clock` used for the slice.
 
 $$
 \begin{aligned}
-&-\text{Memory}(a, \text{prev\_clock}, v_0) \\
+&+\text{Memory}(\texttt{v}_0, \ldots, \texttt{v}_{\text{len} - 1}, \texttt{clock}, a) \\
+&-\text{Memory}(\texttt{v}_0, \texttt{clock}_0, a) \\
+&-\text{Memory}(\texttt{v}_1, \texttt{clock}_1, a + 1) \\
 &\vdots \\
-&-\text{Memory}(a + \text{len} - 1, \text{prev\_clock}, v_{\text{len} - 1}) \\
-&+\text{Memory}(a, \text{clock}, v_0, \ldots, v_{\text{len} - 1})
+&-\text{Memory}(\texttt{v}_{\text{len} - 1}, \texttt{clock}_{\text{len} - 1}, a + \text{len} - 1) \\
+&+\text{RangeCheck20}(\texttt{clock} - \texttt{clock}_0) \\
+&+\text{RangeCheck20}(\texttt{clock} - \texttt{clock}_1) \\
+&\vdots \\
+&+\text{RangeCheck20}(\texttt{clock} - \texttt{clock}_{\text{len} - 1}) \\
 \end{aligned}
 $$
 
-These opcodes don't necessarily need to be added at the VM level, similar to
-ClockUpdate. They can be determined during witness generation based on recorded
-memory accesses. Furthermore, one doesn't need separate JOIN and SPLIT opcode
-pairs for each target slice length. In fact, a single component can perform both
-`JOIN` and `SPLIT` for all lengths up to the component width. Given the columns
-address, $\text{limb}_0, \ldots, \text{limb}_n$, one adds to the logup sum
+These operations don't necessarily need to be added at the VM level, similar to
+the `ClockUpdate` component (see
+[Clock Update Component](#clock-update-component)). They can be determined
+during witness generation based on recorded memory accesses.
 
-$$\text{sign}(\text{opcode\_id}) \cdot \left\{ (\text{address}, [\text{limb}_0, \ldots, \text{limb}_n]) - \sum_i (\text{address} + i, \text{limb}_i) \right\}$$
-
-where $\text{sign}(\text{opcode\_id})$ is simply $+$ or $-$ derived from the
-actual opcode ID: set the two opcodes with consecutive IDs, $\text{ID}$ and
-$\text{ID} + 1$. The derived sign is just
-$\text{sign}(\text{opcode\_id}) = 2 \cdot (\text{opcode\_id} - \text{ID}) - 1$.
-
-This variable-sized memory word pattern enables variable-sized instructions and
-native handling of multi-limb types like `u32`. This will be further discussed
-in the [Uint types](#uint-types) section.
+In terms of columns, the `SPLIT` operation requires to store the address, the
+clock and the `len` limbs values, so overall it is
+$(\text{len} + 2)T + (\text{len} + 1)L$. On the other hand, the `JOIN` operation
+requires to store `len` extra clocks and to perform `len` range-check
+operations, so overall it is
+$(2 \cdot \text{len} + 2)T + (2 \cdot \text{len} + 1)L$. Eventually, it's
+$\text{len} \cdot (T + L)$ more columns for the `JOIN` than for the `SPLIT`
+operation. Because these operations will most probably come in pairs (`SPLIT`
+then `JOIN` or `JOIN` then `SPLIT`), one should think about the global cost of
+the two operations simultaneously. All together, factorizing the two operations
+in the same component would waste $\text{len} \cdot (T + L)$ cells for `SPLIT`
+but save overall $(\text{len} + 2)T + (\text{len} + 1)L$ columns. This overhead
+may be worth paying for if the total number of columns of the AIR is a critical
+factor, otherwise it may not be worth it.
 
 ## Registers \label{sec:registers} {#registers}
 
@@ -782,9 +851,9 @@ one can, for example, pre-sum the terms by two when each denominator has a
 degree of 1 and the maximum constraint degree bound is 3.
 
 Throughout this document, we simply write
-$\pm k \cdot \text{Relation}(\text{value}_0, \ldots, \text{value}_n)$ to refer
-to the lookup of the tuple $(\text{value}_0, \ldots, \text{value}_n)$ for the
-relation Relation with multiplicity $+k$ or $-k$, depending on the sign of the
-numerator. We refer to "emitted", "yielded", or "added" values when the
+$\pm k \cdot \text{Relation}(\texttt{value}_0, \ldots, \texttt{value}_n)$ to
+refer to the lookup of the tuple $(\texttt{value}_0, \ldots, \texttt{value}_n)$
+for the relation Relation with multiplicity $+k$ or $-k$, depending on the sign
+of the numerator. We refer to "emitted", "yielded", or "added" values when the
 multiplicity is positive, and "consumed" or "subtracted" values when the
 multiplicity is negative.

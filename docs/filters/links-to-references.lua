@@ -17,6 +17,14 @@ local function is_external(url)
 end
 
 function Link(el)
+  -- Internal anchors: render as "Section~\ref{sec:<id>}"
+  if el.target and el.target:sub(1,1) == '#' then
+    local id = el.target:sub(2)
+    local inls = pandoc.Inlines({ pandoc.Str('Section'), pandoc.RawInline('latex', '~\\ref{sec:' .. id .. '}') })
+    return inls
+  end
+
+  -- External links: convert to numeric references
   if not is_external(el.target) then
     return nil -- keep unchanged
   end
