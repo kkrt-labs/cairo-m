@@ -45,3 +45,90 @@ test = false
 hint = """
 The compiler is informing us that we've got the name of the print macro wrong.
 It also suggests an alternative."""
+
+# VARIABLES
+
+[[exercises]]
+name = "variables1"
+dir = "01_variables"
+test = false
+hint = """
+The declaration in the `main` function is missing a keyword that is needed
+in Cairo-M to create a new variable binding."""
+
+[[exercises]]
+name = "variables2"
+dir = "01_variables"
+test = false
+hint = """
+The compiler message is saying that Cairo-M can't infer the type that the
+variable binding `x` has with what is given here.
+
+What happens if you annotate the first line in the `main` function with a type
+annotation?
+
+What if you give `x` a value?
+
+What if you do both?
+
+What type should `x` be, anyway?
+
+What if `x` is the same type as `10`? What if it's a different type?"""
+
+[[exercises]]
+name = "variables3"
+dir = "01_variables"
+test = false
+hint = """
+In this exercise, we have a variable binding that we've created in the `main`
+function, and we're trying to use it in the next line, but we haven't given it
+a value.
+
+Try giving `x` a value!
+
+This is an error that can cause bugs that's very easy to make in any
+programming language -- thankfully the Cairo-M compiler has caught this for us!"""
+
+[[exercises]]
+name = "variables4"
+dir = "01_variables"
+test = false
+hint = """
+In Rust, variable bindings are immutable by default. But here, we're trying
+to reassign a different value to `x`! There's a keyword we can use to make
+a variable binding mutable instead."""
+
+[[exercises]]
+name = "variables5"
+dir = "01_variables"
+test = false
+hint = """
+In `variables4` we already learned how to make an immutable variable mutable
+using a special keyword. Unfortunately this doesn't help us much in this
+exercise because we want to assign a different typed value to an existing
+variable. Sometimes you may also like to reuse existing variable names because
+you are just converting values to different types like in this exercise.
+
+Fortunately Rust has a powerful solution to this problem: 'Shadowing'!
+You can read more about 'Shadowing' in the book's section 'Variables and
+Mutability':
+https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html#shadowing
+
+Try to solve this exercise afterwards using this technique."""
+
+[[exercises]]
+name = "variables6"
+dir = "01_variables"
+test = false
+hint = """
+We know about variables and mutability, but there is another important type of
+variable available: constants.
+
+Constants are always immutable. They are declared with the keyword `const`
+instead of `let`.
+
+The type of Constants must always be annotated.
+
+Read more about constants and the differences between variables and constants
+under 'Constants' in the book's section 'Variables and Mutability':
+https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html#constants"""

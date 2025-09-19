@@ -1,0 +1,6 @@
+fn main() -> felt {
+    let number: felt = 3;
+    // TODO: Fix the compiler error by changing the line below without renaming the variable.
+    let number: felt = 5;
+    return number;
+}

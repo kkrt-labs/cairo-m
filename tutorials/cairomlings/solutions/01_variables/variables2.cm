@@ -1,0 +1,10 @@
+fn main() -> bool {
+    // TODO: Change the line below to fix the compiler error.
+    let x = 10;
+
+    if x == 10 {
+        return true;
+    } else {
+        return false;
+    }
+}
