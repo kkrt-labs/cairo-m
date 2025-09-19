@@ -99,32 +99,24 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 
 ```bash
 # Convert WASM to compiled program and print to stdout
-cargo run -- <path-to-wasm-file>
+cargo run -p cairo-m-wasm -- <path-to-wasm-file>
 
 # Convert WASM to compiled program and save to file
-cargo run -- <path-to-wasm-file> --output <output-file>
+cargo run -p cairo-m-wasm -- <path-to-wasm-file> --output <output-file>
 
-# Show only MIR without compiling to final program
-cargo run -- <path-to-wasm-file> --mir-only
+# Show MIR during compilation
+DEBUG_MIR=1 cargo run -p cairo-m-wasm -- <path-to-wasm-file> --verbose
 
-# Enable verbose output (shows loading and conversion progress)
-cargo run -- <path-to-wasm-file> --verbose
+# Enable verbose output
+cargo run -p cairo-m-wasm -- <path-to-wasm-file> --verbose
 
-# Run a specific function with arguments
-cargo run -- <path-to-wasm-file> -f <function-name> -a <arg1> -a <arg2>
 ```
 
 #### Command Line Options
 
 - `<WASM_FILE>`: Input WASM file to compile (required)
-- `-o, --output <FILE>`: Output file to write the compiled program to
-- `-v, --verbose`: Enable verbose output (shows MIR and progress information)
-- `--mir-only`: Show only MIR without compiling to final program
-- `-f, --function <NAME>`: Function name to run after compilation (entrypoint)
-- `-a, --arg <VALUE>`: Arguments to pass to the entrypoint (repeat -a for
-  multiple args)
-- `-h, --help`: Show help information
-- `-V, --version`: Show version information
+- `-o, --output <FILE>`: Output file to write the compiled program JSON to
+- `-v, --verbose`: Enable verbose output (shows MIR/progress information)
 
 ### Library - WASM Loading
 
@@ -132,28 +124,30 @@ cargo run -- <path-to-wasm-file> -f <function-name> -a <arg1> -a <arg2>
 use cairo_m_wasm::loader::BlocklessDagModule;
 
 // Load WASM file into WOMIR representation
-let module = BlocklessDagModule::from_file("path/to/file.wasm")?;
+let wasm_file = std::fs::read("path/to/file.wasm").unwrap();
+let module = BlocklessDagModule::from_bytes(&wasm_file)?;
 
 // Display the parsed WASM structure
 println!("{}", module);
 
 // Access function count and details
-let function_count = module.with_program(|program| program.functions.len());
+let function_count = module.0.functions.len();
 println!("Functions: {}", function_count);
 ```
+
+Note: This CLI compiles to a program JSON but does not execute it. To run a
+compiled program, use `cairo-m-runner` with the produced JSON.
 
 ### Library - WASM to MIR Conversion
 
 ```rust
-use cairo_m_wasm::{
-    loader::BlocklessDagModule,
-    flattening::WasmModuleToMir,
-};
-use cairo_m_compiler_mir::PrettyPrint;
+use cairo_m_wasm::{ loader::BlocklessDagModule, lowering::lower_program_to_mir };
+use cairo_m_compiler_mir::{PrettyPrint, PassManager};
 
 // Load WASM and convert to MIR
-let module = BlocklessDagModule::from_file("path/to/file.wasm")?;
-let mir_module = WasmModuleToMir::new(module).to_mir()?;
+let wasm_file = std::fs::read("path/to/file.wasm").unwrap();
+let module = BlocklessDagModule::from_bytes(&wasm_file)?;
+let mir_module = lower_program_to_mir(&module, PassManager::standard_pipeline())?;
 
 // Pretty print the MIR
 println!("{}", mir_module.pretty_print(0));

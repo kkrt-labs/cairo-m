@@ -19,7 +19,7 @@ use cairo_m_compiler_parser::parser::UnaryOp;
 
 /// Apply legalization to a whole module (in place).
 pub fn legalize_module_for_vm(module: &mut MirModule) {
-    for func in module.functions.iter_mut() {
+    for func in module.functions_mut() {
         legalize_function_for_vm(func);
     }
 }
