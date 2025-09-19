@@ -23,7 +23,7 @@ macro_rules! wasm_test {
             let wasm_file = std::fs::read(&file_path).unwrap();
             let module = BlocklessDagModule::from_bytes(&wasm_file).unwrap();
             // Lower to MIR without any optimizations
-            let mir_module = lower_program_to_mir(&module, PassManager::new()).unwrap();
+            let mir_module = lower_program_to_mir(&module, PassManager::no_opt_pipeline()).unwrap();
 
             // Create snapshot content
             let snapshot_content = {

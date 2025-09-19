@@ -1,4 +1,5 @@
 use cairo_m_common::abi_codec::{CairoMValue, InputValue};
+use cairo_m_common::program::AbiType;
 /// These tests compare the output of the compiled cairo-m with result from the womir interpreter
 use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_mir::PassManager;
@@ -44,15 +45,38 @@ impl ExternalFunctions for DataInput {
     }
 }
 
-/// Convert a vector of CairoMValue to a vector of u32, assuming each CairoMValue is a u32
-fn collect_u32s(values: Vec<CairoMValue>) -> Vec<u32> {
+/// Convert CairoM return values to u32 following the ABI, mirroring runner tests behavior.
+fn collect_u32s_by_abi(
+    values: &[CairoMValue],
+    abi_returns: &[cairo_m_common::program::AbiSlot],
+) -> Vec<u32> {
+    assert_eq!(
+        values.len(),
+        abi_returns.len(),
+        "Return value count mismatch: got {} but ABI declares {}",
+        values.len(),
+        abi_returns.len()
+    );
     values
         .iter()
-        .map(|v| match v {
-            CairoMValue::U32(n) => *n,
-            _ => panic!("Expected u32, got {:?}", v),
+        .zip(abi_returns.iter())
+        .map(|(v, slot)| match (&slot.ty, v) {
+            (AbiType::U32, CairoMValue::U32(n)) => *n,
+            (AbiType::Bool, CairoMValue::Bool(b)) => {
+                if *b {
+                    1
+                } else {
+                    0
+                }
+            }
+            // For felt returns, WOMIR currently models i32 as u32; not expected in current WASM tests.
+            (AbiType::Felt, CairoMValue::Felt(f)) => f.0,
+            _ => panic!(
+                "Type/value mismatch in return: ABI {:?}, value {:?}",
+                slot.ty, v
+            ),
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 
 fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
@@ -85,10 +109,11 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
         Default::default(),
     )
     .unwrap();
-    assert_eq!(
-        result_womir_interpreter,
-        collect_u32s(result_cairo_m_interpreter.return_values)
-    );
+    let entry = compiled_module
+        .get_entrypoint(func_name)
+        .expect("Entrypoint not found in compiled program");
+    let cairo_u32s = collect_u32s_by_abi(&result_cairo_m_interpreter.return_values, &entry.returns);
+    assert_eq!(result_womir_interpreter, cairo_u32s);
 }
 
 fn build_wasm(path: &PathBuf) {
