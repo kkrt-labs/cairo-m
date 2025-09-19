@@ -36,7 +36,7 @@
 //!   * `enabler * (1 - enabler)`
 //! * define `bitwise_op = opcode_constant - 36`
 //! * registers update is regular (+2 because of the two-worded instruction)
-//!   * `- [pc, fp] + [pc + 2, fp]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [pc + 2, fp, clock + 1]` in `Registers` relation
 //! * read instruction
 //!   * `- [pc, inst_prev_clk, opcode_constant, src_off, imm_0 + imm_1 * 2 ** 8, imm_2 + imm_3 * 2 ** 8] + [pc, clk, opcode_constant, src_off, imm_0 + imm_1 * 2 ** 8, imm_2 + imm_3 * 2 ** 8]` in `Memory` relation
 //!   * `- [pc + 1, inst_prev_clk, dst_off] + [pc + 1, clk, dst_off]` in `Memory` relation
@@ -120,7 +120,7 @@ impl BitwiseProvider for InteractionClaimData {
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
     pub bitwise: [Vec<[PackedM31; 4]>; N_BITWISE_LOOKUPS],
 }
@@ -260,8 +260,8 @@ impl Claim {
                 *row[25] = dst_prev_clock_hi;
 
                 // Register lookups
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one + one, input.fp];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [input.pc + one + one, input.fp, input.clock + one];
 
                 let imm_lo = imm_0 + imm_1 * two_pow_8;
                 let imm_hi = imm_2 + imm_3 * two_pow_8;
@@ -545,12 +545,16 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(-enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one.clone() + one.clone(), fp.clone()],
+            &[
+                pc.clone() + one.clone() + one.clone(),
+                fp.clone(),
+                clock.clone() + one.clone(),
+            ],
         ));
 
         // Read first instruction word

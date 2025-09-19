@@ -18,7 +18,7 @@
 //! * is_rel is a bool
 //!   * `is_rel * (1 - is_rel)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [off0 + pc * is_rel, fp]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [off0 + pc * is_rel, fp, clock + 1]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0] + [pc, clk, opcode_constant, off0]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -81,7 +81,7 @@ impl BitwiseProvider for InteractionClaimData {}
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
@@ -138,6 +138,7 @@ impl Claim {
         inputs.shrink_to_fit();
 
         let zero = PackedM31::from(M31::zero());
+        let one = PackedM31::from(M31::one());
         let enabler_col = Enabler::new(non_padded_length);
         (
             trace.par_iter_mut(),
@@ -170,8 +171,8 @@ impl Claim {
 
                 *lookup_data.range_check_20[0] = clock - inst_prev_clock - enabler;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [off0 + pc * is_rel, input.fp];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [off0 + pc * is_rel, input.fp, input.clock + one];
             });
 
         (
@@ -298,7 +299,7 @@ impl FrameworkEval for Eval {
         eval.add_constraint(enabler.clone() * (one.clone() - enabler.clone()));
 
         // is_rel is 1 or 0
-        eval.add_constraint(is_rel.clone() * (one - is_rel.clone()));
+        eval.add_constraint(is_rel.clone() * (one.clone() - is_rel.clone()));
 
         // Read instruction from memory
         eval.add_to_relation(RelationEntry::new(
@@ -321,19 +322,19 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.range_check_20,
             -E::EF::one(),
-            &[clock - inst_prev_clock - enabler.clone()],
+            &[clock.clone() - inst_prev_clock - enabler.clone()],
         ));
 
         // Registers update
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             -E::EF::from(enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler),
-            &[off0 + pc * is_rel, fp],
+            &[off0 + pc * is_rel, fp, clock + one],
         ));
 
         eval.finalize_logup_in_pairs();

@@ -23,8 +23,8 @@ relation!(Memory, 6);
 
 // VM register state relation for PC and FP tracking.
 // Maintains consistency of program counter and frame pointer updates.
-// Structure: pc (program counter), fp (frame pointer)
-relation!(Registers, 2);
+// Structure: pc (program counter), fp (frame pointer), clock (monotonic counter)
+relation!(Registers, 3);
 
 // Merkle tree node relation for memory commitments.
 // Ensures correct Merkle tree construction and hash computations.

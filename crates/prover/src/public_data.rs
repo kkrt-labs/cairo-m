@@ -149,6 +149,8 @@ pub struct PublicData {
     pub initial_registers: VmRegisters,
     /// VM register state at end of execution (PC, FP)
     pub final_registers: VmRegisters,
+    /// Clock at end of execution
+    pub clock: M31,
     /// Merkle root hash of initial memory state
     pub initial_root: M31,
     /// Merkle root hash of final memory state
@@ -177,6 +179,13 @@ impl PublicData {
         Self {
             initial_registers: input.instructions.initial_registers,
             final_registers: input.instructions.final_registers,
+            clock: input
+                .instructions
+                .states_by_opcodes
+                .values()
+                .map(|bundles| bundles.len())
+                .sum::<usize>()
+                .into(),
             initial_root: input
                 .merkle_trees
                 .initial_root
@@ -214,12 +223,20 @@ impl PublicData {
             // Emit initial registers
             <relations::Registers as Relation<M31, QM31>>::combine(
                 &relations.registers,
-                &[self.initial_registers.pc, self.initial_registers.fp],
+                &[
+                    self.initial_registers.pc,
+                    self.initial_registers.fp,
+                    M31::one(),
+                ],
             ),
             // Consume final registers
             -<relations::Registers as Relation<M31, QM31>>::combine(
                 &relations.registers,
-                &[self.final_registers.pc, self.final_registers.fp],
+                &[
+                    self.final_registers.pc,
+                    self.final_registers.fp,
+                    self.clock + M31::one(),
+                ],
             ),
             // Consume initial memory root
             <relations::Merkle as Relation<M31, QM31>>::combine(

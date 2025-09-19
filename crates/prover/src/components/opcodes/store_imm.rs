@@ -18,7 +18,7 @@
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [pc + 1, fp, clock + 1]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0, off2] + [pc, clk, opcode_constant, off0, off2]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -85,7 +85,7 @@ impl BitwiseProvider for InteractionClaimData {}
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
@@ -174,8 +174,8 @@ impl Claim {
                 *row[7] = dst_prev_clock;
                 *row[8] = dst_prev_val;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [input.pc + one, input.fp, input.clock + one];
 
                 *lookup_data.memory[0] =
                     [input.pc, inst_prev_clock, opcode_constant, off0, off2, zero];
@@ -344,12 +344,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             -E::EF::from(enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one, fp.clone()],
+            &[pc.clone() + one.clone(), fp.clone(), clock.clone() + one],
         ));
 
         // Read instruction from memory

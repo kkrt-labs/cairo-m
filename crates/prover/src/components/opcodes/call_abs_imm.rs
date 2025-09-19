@@ -20,7 +20,7 @@
 //! * enabler is a bool
 //!   * `enabler * (1 - enabler)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [off1, fp + off0 + 2]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [off1, fp + off0 + 2, clock + 1]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, off0, off1] + [pc, clk, opcode_constant, off0, off1]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -90,7 +90,7 @@ impl BitwiseProvider for InteractionClaimData {}
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
 }
 
@@ -183,8 +183,8 @@ impl Claim {
                 *row[9] = op0_plus_one_prev_clock;
                 *row[10] = op0_plus_one_prev_val;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [off1, input.fp + off0 + one + one];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [off1, input.fp + off0 + one + one, input.clock + one];
 
                 *lookup_data.memory[0] =
                     [input.pc, inst_prev_clock, opcode_constant, off0, off1, zero];
@@ -401,7 +401,7 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             -E::EF::from(enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
@@ -409,6 +409,7 @@ impl FrameworkEval for Eval {
             &[
                 off1.clone(),
                 fp.clone() + off0.clone() + one.clone() + one.clone(),
+                clock.clone() + one.clone(),
             ],
         ));
 
