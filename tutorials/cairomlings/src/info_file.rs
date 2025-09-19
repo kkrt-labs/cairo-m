@@ -33,7 +33,7 @@ impl ExerciseInfo {
     pub fn path(&self) -> String {
         let mut path = if let Some(dir) = &self.dir {
             // 14 = 10 + 1 + 3
-            // exercises/ + / + .rs
+            // exercises/ + / + .cm
             let mut path = String::with_capacity(14 + dir.len() + self.name.len());
             path.push_str("exercises/");
             path.push_str(dir);
@@ -41,14 +41,14 @@ impl ExerciseInfo {
             path
         } else {
             // 13 = 10 + 3
-            // exercises/ + .rs
+            // exercises/ + .cm
             let mut path = String::with_capacity(13 + self.name.len());
             path.push_str("exercises/");
             path
         };
 
         path.push_str(&self.name);
-        path.push_str(".rs");
+        path.push_str(".cm");
 
         path
     }

@@ -305,7 +305,7 @@ impl<'a> ListState<'a> {
     }
 
     #[inline]
-    pub fn filter(&self) -> Filter {
+    pub const fn filter(&self) -> Filter {
         self.filter
     }
 

@@ -107,8 +107,8 @@ final_message = """We hope that you found the exercises helpful :D"""
 name = "???"
 
 # Optional directory name to be provided if you want to organize exercises in directories.
-# If `dir` is specified, the exercise path is `exercises/DIR/NAME.rs`
-# Otherwise, the path is `exercises/NAME.rs`
+# If `dir` is specified, the exercise path is `exercises/DIR/NAME.cm`
+# Otherwise, the path is `exercises/NAME.cm`
 # dir = "???"
 
 # CairoMlings expects the exercise to contain tests and run them.
