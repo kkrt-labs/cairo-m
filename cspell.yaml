@@ -10,11 +10,12 @@ words:
   - arrayindex
   - arrayinsert
   - binop
-  - bswap
   - branchcmp
+  - bswap
   - bytemuck
   - cairols
   - cairom
+  - cairomlings
   - callees
   - callsite
   - casm
@@ -26,6 +27,7 @@ words:
   - cmps
   - codegen
   - combinators
+  - crossterm
   - csed
   - cstark
   - ctrlflow
@@ -52,8 +54,9 @@ words:
   - framealloc
   - funcs
   - getelementptr
-  - horizen
   - heapalloccells
+  - horizen
+  - ICANON
   - ilog
   - imma
   - immediates
@@ -79,6 +82,7 @@ words:
   - mathrm
   - mdtest
   - merkle
+  - Mlings
   - mpsc
   - mult
   - mults
@@ -89,24 +93,26 @@ words:
   - peekable
   - pointee
   - preds
-  # TODO: remove when stwo is updated
   - preproccessed
   - println
   - proptest
+  - Queueable
   - ranlib
-  - rodata
-  - roff
-  - repr
   - readback
+  - recompiles
+  - repr
   - resx
   - rfib
   - rfind
   - rlib
   - rngs
+  - rodata
+  - roff
   - rotr
   - rposition
   - rustc
   - rustflags
+  - rustix
   - rustsec
   - rustup
   - samply
@@ -135,7 +141,9 @@ words:
   - succ
   - succs
   - swatinem
+  - tcsetattr
   - tempvar
+  - termios
   - thiserror
   - tlsv
   - toplevel
@@ -143,18 +151,18 @@ words:
   - torczon
   - treee
   - typechecks
-  - upcasting
-  - usize
   - unioning
   - unsuffixed
+  - upcasting
+  - usize
   - vulns
   - walkdir
   - wasmparser
   - womir
   - worklist
   - worktree
-  - writeback
   - worktrees
+  - writeback
   - yarnrc
   - ybool
   - zalsa
