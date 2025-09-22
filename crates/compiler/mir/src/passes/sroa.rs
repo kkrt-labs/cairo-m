@@ -1145,15 +1145,37 @@ impl MirPass for ScalarReplacementOfAggregates {
                         }
                     }
 
-                    // Treat Store into aggregates: forward if we can resolve entire projection chain, else keep
-                    InstructionKind::Store { place, value, .. } if self.config.enable_tuples => {
+                    // Treat Store into aggregates: forward if we can resolve entire projection chain.
+                    // If forwarding is not possible but the stored `value` is a tracked aggregate,
+                    // we must materialize it right before the Store to avoid leaving a dangling use.
+                    InstructionKind::Store { place, value, ty } if self.config.enable_tuples => {
                         if try_forward_store_chain(function, &mut agg_states, place, *value) {
                             self.stats.inserts_forwarded += 1;
                             block_modified = true;
                             // Store forwarded into state; drop instruction
                             continue;
                         }
-                        // Fallback: keep original store
+
+                        // Forwarding failed. If `value` references a tracked aggregate state,
+                        // materialize the aggregate and rewrite the Store to use the new value.
+                        if let Value::Operand(agg_id) = value
+                            && matches!(ty, MirType::Tuple(_) | MirType::Struct { .. } | MirType::FixedArray { .. })
+                        {
+                            if let Some(state) = agg_states.get(agg_id) {
+                                // Create aggregate value from state using the expected store type
+                                let mat_id = materialize(function, &mut new_instrs, state, ty);
+                                // Rewrite Store to use the freshly materialized aggregate
+                                let mut rewritten = inst.clone();
+                                if let InstructionKind::Store { ref mut value, .. } = rewritten.kind {
+                                    *value = Value::operand(mat_id);
+                                }
+                                new_instrs.push(rewritten);
+                                block_modified = true;
+                                continue;
+                            }
+                        }
+
+                        // Fallback: keep original store as-is
                         new_instrs.push(inst)
                     }
 

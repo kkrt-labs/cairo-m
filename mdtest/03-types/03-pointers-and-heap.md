@@ -48,26 +48,39 @@ fn alloc_u32() -> i32 {
 ## Allocate struct pointer and access fields
 
 ```cairo-m
-struct Point { x: felt, y: felt }
+struct Point {
+    x: u32,
+    y: u32,
+}
 
-fn alloc_struct() -> felt {
-    let ps: Point* = new Point[2];
-    // Write fields via pointer indexing then field
-    (ps[0]).x = 3;
-    (ps[0]).y = 4;
-    (ps[1]).x = 5;
-    (ps[1]).y = 6;
-    return ps[0].x + ps[1].y;
+fn alloc_points() -> (Point*, Point*) {
+    let p1: Point* = new Point[2];
+    p1[0] = Point { x: 1, y: 2 };
+    p1[1] = Point { x: 3, y: 4 };
+    let p2: Point* = new Point[1];
+    p2[0] = Point { x: 5, y: 6 };
+    return (p1, p2);
+}
+
+fn test_main() -> u32 {
+    let (p1, p2) = alloc_points();
+    return p1[0].x + p1[1].y + p2[0].x + p2[0].y;
 }
 ```
 
 ```rust
 struct Point { x: i32, y: i32 }
 
-fn alloc_struct() -> i32 {
-    let mut ps: Vec<Point> = Vec::with_capacity(2);
+fn alloc_points() -> Vec<Point> {
+    let mut ps: Vec<Point> = Vec::with_capacity(3);
+    ps.push(Point { x: 1, y: 2 });
     ps.push(Point { x: 3, y: 4 });
     ps.push(Point { x: 5, y: 6 });
-    return ps[0].x + ps[1].y;
+    return ps;
+}
+
+fn test_main() -> i32 {
+    let ps = alloc_points();
+    return ps[0].x + ps[1].y + ps[2].x + ps[2].y;
 }
 ```

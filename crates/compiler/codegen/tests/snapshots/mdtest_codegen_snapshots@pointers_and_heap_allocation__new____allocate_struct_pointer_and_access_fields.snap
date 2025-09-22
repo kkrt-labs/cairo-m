@@ -1,60 +1,123 @@
 ---
 source: crates/compiler/codegen/tests/mdtest_snapshots.rs
-assertion_line: 60
 description: "Codegen snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate struct pointer and access fields"
 input_file: mdtest/03-types/03-pointers-and-heap.md
 ---
 Source:
-struct Point { x: felt, y: felt }
+struct Point {
+    x: u32,
+    y: u32,
+}
 
-fn alloc_struct() -> felt {
-    let ps: Point* = new Point[2];
-    // Write fields via pointer indexing then field
-    (ps[0]).x = 3;
-    (ps[0]).y = 4;
-    (ps[1]).x = 5;
-    (ps[1]).y = 6;
-    return ps[0].x + ps[1].y;
+fn alloc_points() -> (Point*, Point*) {
+    let p1: Point* = new Point[2];
+    p1[0] = Point { x: 1, y: 2 };
+    p1[1] = Point { x: 3, y: 4 };
+    let p2: Point* = new Point[1];
+    p2[0] = Point { x: 5, y: 6 };
+    return (p1, p2);
+}
+
+fn test_main() -> u32 {
+    let (p1, p2) = alloc_points();
+    return p1[0].x + p1[1].y + p2[0].x + p2[0].y;
 }
 ============================================================
 Generated CASM:
-alloc_struct:
-alloc_struct:
-alloc_struct_0:
-   0: 9 4 0 _              // [fp + 0] = 4
-   1: 9 34 17 _            // [fp + 17] = <HEAP_CURSOR>
-   2: 8 17 0 18            // [fp + 18] = [[fp + 17] + 0] (load heap cursor)
-   3: 0 18 0 19            // [fp + 19] = [fp + 18] + [fp + 0] (cur+size)
-   4: 4 19 2147483646 19   // [fp + 19] = [fp + 19] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
-   5: 9 268435455 20 _     // [fp + 20] = MAX_ADDRESS (268435455)
-   6: 1 20 19 21           // [fp + 21] = [fp + 20] - [fp + 19] (base)
-   7: 0 18 0 22            // [fp + 22] = [fp + 18] + [fp + 0] (advance cursor)
-   8: 44 17 0 22           // [[fp + 17] + 0] = [fp + 22] (store heap cursor)
-   9: 4 21 0 1             // [fp + 1] = [fp + 21] (heap ptr)
-  10: 8 1 0 2              // [fp + 2] = [[fp + 1] + 0] (load slot 0)
-  11: 8 1 1 3              // [fp + 3] = [[fp + 1] + 1] (load slot 1)
-  12: 9 3 23 _             // [fp + 23] = 3
-  13: 44 1 0 23            // [[fp + 1] + 0] = [fp + 23]
-  14: 8 1 0 4              // [fp + 4] = [[fp + 1] + 0] (load slot 0)
-  15: 8 1 1 5              // [fp + 5] = [[fp + 1] + 1] (load slot 1)
-  16: 9 4 24 _             // [fp + 24] = 4
-  17: 44 1 1 24            // [[fp + 1] + 1] = [fp + 24]
-  18: 8 1 2 6              // [fp + 6] = [[fp + 1] + 2] (load slot 0)
-  19: 8 1 3 7              // [fp + 7] = [[fp + 1] + 3] (load slot 1)
-  20: 9 5 25 _             // [fp + 25] = 5
-  21: 44 1 2 25            // [[fp + 1] + 2] = [fp + 25]
-  22: 8 1 2 8              // [fp + 8] = [[fp + 1] + 2] (load slot 0)
-  23: 8 1 3 9              // [fp + 9] = [[fp + 1] + 3] (load slot 1)
-  24: 9 6 26 _             // [fp + 26] = 6
-  25: 44 1 3 26            // [[fp + 1] + 3] = [fp + 26]
-  26: 8 1 0 10             // [fp + 10] = [[fp + 1] + 0] (load slot 0)
-  27: 8 1 1 11             // [fp + 11] = [[fp + 1] + 1] (load slot 1)
-  28: 8 1 0 12             // [fp + 12] = [[fp + 1] + 0] (load slot 0)
-  29: 8 1 2 13             // [fp + 13] = [[fp + 1] + 2] (load slot 0)
-  30: 8 1 3 14             // [fp + 14] = [[fp + 1] + 3] (load slot 1)
-  31: 8 1 3 15             // [fp + 15] = [[fp + 1] + 3] (load slot 0)
-  32: 0 12 15 2147483644   // [fp + -3] = [fp + 12] op [fp + 15]
-  33: 11 _ _ _             // return
----- data (base 34) ----
+alloc_points:
+alloc_points:
+alloc_points_0:
+   0: 9 8 0 _              // [fp + 0] = 8
+   1: 9 88 32 _            // [fp + 32] = <HEAP_CURSOR>
+   2: 8 32 0 33            // [fp + 33] = [[fp + 32] + 0] (load heap cursor)
+   3: 0 33 0 34            // [fp + 34] = [fp + 33] + [fp + 0] (cur+size)
+   4: 4 34 2147483646 34   // [fp + 34] = [fp + 34] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+   5: 9 268435455 35 _     // [fp + 35] = MAX_ADDRESS (268435455)
+   6: 1 35 34 36           // [fp + 36] = [fp + 35] - [fp + 34] (base)
+   7: 0 33 0 37            // [fp + 37] = [fp + 33] + [fp + 0] (advance cursor)
+   8: 44 32 0 37           // [[fp + 32] + 0] = [fp + 37] (store heap cursor)
+   9: 4 36 0 1             // [fp + 1] = [fp + 36] (heap ptr)
+  10: 23 1 0 2             // [fp + 2], [fp + 3] = u32(1)
+  11: 23 2 0 4             // [fp + 4], [fp + 5] = u32(2)
+  12: 8 1 0 6              // [fp + 6] = [[fp + 1] + 0] (load slot 0)
+  13: 8 1 1 7              // [fp + 7] = [[fp + 1] + 1] (load slot 1)
+  14: 8 1 2 8              // [fp + 8] = [[fp + 1] + 2] (load slot 2)
+  15: 8 1 3 9              // [fp + 9] = [[fp + 1] + 3] (load slot 3)
+  16: 44 1 0 2             // [[fp + 1] + 0] = [fp + 2] (slot 0)
+  17: 44 1 1 3             // [[fp + 1] + 1] = [fp + 3] (slot 1)
+  18: 44 1 2 4             // [[fp + 1] + 2] = [fp + 4] (slot 2)
+  19: 44 1 3 5             // [[fp + 1] + 3] = [fp + 5] (slot 3)
+  20: 23 3 0 10            // [fp + 10], [fp + 11] = u32(3)
+  21: 23 4 0 12            // [fp + 12], [fp + 13] = u32(4)
+  22: 8 1 4 14             // [fp + 14] = [[fp + 1] + 4] (load slot 0)
+  23: 8 1 5 15             // [fp + 15] = [[fp + 1] + 5] (load slot 1)
+  24: 8 1 6 16             // [fp + 16] = [[fp + 1] + 6] (load slot 2)
+  25: 8 1 7 17             // [fp + 17] = [[fp + 1] + 7] (load slot 3)
+  26: 44 1 4 10            // [[fp + 1] + 4] = [fp + 10] (slot 0)
+  27: 44 1 5 11            // [[fp + 1] + 5] = [fp + 11] (slot 1)
+  28: 44 1 6 12            // [[fp + 1] + 6] = [fp + 12] (slot 2)
+  29: 44 1 7 13            // [[fp + 1] + 7] = [fp + 13] (slot 3)
+  30: 9 4 18 _             // [fp + 18] = 4
+  31: 9 88 38 _            // [fp + 38] = <HEAP_CURSOR>
+  32: 8 38 0 39            // [fp + 39] = [[fp + 38] + 0] (load heap cursor)
+  33: 0 39 18 40           // [fp + 40] = [fp + 39] + [fp + 18] (cur+size)
+  34: 4 40 2147483646 40   // [fp + 40] = [fp + 40] + (-1) (-1 as M31 -> 2147483646 (=-1 mod M31))
+  35: 9 268435455 41 _     // [fp + 41] = MAX_ADDRESS (268435455)
+  36: 1 41 40 42           // [fp + 42] = [fp + 41] - [fp + 40] (base)
+  37: 0 39 18 43           // [fp + 43] = [fp + 39] + [fp + 18] (advance cursor)
+  38: 44 38 0 43           // [[fp + 38] + 0] = [fp + 43] (store heap cursor)
+  39: 4 42 0 19            // [fp + 19] = [fp + 42] (heap ptr)
+  40: 23 5 0 20            // [fp + 20], [fp + 21] = u32(5)
+  41: 23 6 0 22            // [fp + 22], [fp + 23] = u32(6)
+  42: 8 19 0 24            // [fp + 24] = [[fp + 19] + 0] (load slot 0)
+  43: 8 19 1 25            // [fp + 25] = [[fp + 19] + 1] (load slot 1)
+  44: 8 19 2 26            // [fp + 26] = [[fp + 19] + 2] (load slot 2)
+  45: 8 19 3 27            // [fp + 27] = [[fp + 19] + 3] (load slot 3)
+  46: 44 19 0 20           // [[fp + 19] + 0] = [fp + 20] (slot 0)
+  47: 44 19 1 21           // [[fp + 19] + 1] = [fp + 21] (slot 1)
+  48: 44 19 2 22           // [[fp + 19] + 2] = [fp + 22] (slot 2)
+  49: 44 19 3 23           // [[fp + 19] + 3] = [fp + 23] (slot 3)
+  50: 4 1 0 28             // [fp + 28] = [fp + 1] + 0
+  51: 4 19 0 29            // [fp + 29] = [fp + 19] + 0
+  52: 4 28 0 2147483643    // Return value 0: [fp -4] = [fp + 28] + 0
+  53: 4 29 0 2147483644    // Return value 1: [fp -3] = [fp + 29] + 0
+  54: 11 _ _ _             // return
+test_main:
+test_main:
+test_main_0:
+  55: 10 38 0 _            // call alloc_points
+  56: 4 36 0 2             // [fp + 2] = [fp + 36] + 0
+  57: 4 37 0 3             // [fp + 3] = [fp + 37] + 0
+  58: 8 2 0 6              // [fp + 6] = [[fp + 2] + 0] (load slot 0)
+  59: 8 2 1 7              // [fp + 7] = [[fp + 2] + 1] (load slot 1)
+  60: 8 2 2 8              // [fp + 8] = [[fp + 2] + 2] (load slot 2)
+  61: 8 2 3 9              // [fp + 9] = [[fp + 2] + 3] (load slot 3)
+  62: 8 2 0 10             // [fp + 10] = [[fp + 2] + 0] (load slot 0)
+  63: 8 2 1 11             // [fp + 11] = [[fp + 2] + 1] (load slot 1)
+  64: 8 2 4 12             // [fp + 12] = [[fp + 2] + 4] (load slot 0)
+  65: 8 2 5 13             // [fp + 13] = [[fp + 2] + 5] (load slot 1)
+  66: 8 2 6 14             // [fp + 14] = [[fp + 2] + 6] (load slot 2)
+  67: 8 2 7 15             // [fp + 15] = [[fp + 2] + 7] (load slot 3)
+  68: 8 2 6 16             // [fp + 16] = [[fp + 2] + 6] (load slot 0)
+  69: 8 2 7 17             // [fp + 17] = [[fp + 2] + 7] (load slot 1)
+  70: 15 10 16 18          // u32([fp + 18], [fp + 19]) = u32([fp + 10], [fp + 11]) U32Add u32([fp + 16], [fp + 17])
+  71: 8 3 0 20             // [fp + 20] = [[fp + 3] + 0] (load slot 0)
+  72: 8 3 1 21             // [fp + 21] = [[fp + 3] + 1] (load slot 1)
+  73: 8 3 2 22             // [fp + 22] = [[fp + 3] + 2] (load slot 2)
+  74: 8 3 3 23             // [fp + 23] = [[fp + 3] + 3] (load slot 3)
+  75: 8 3 0 24             // [fp + 24] = [[fp + 3] + 0] (load slot 0)
+  76: 8 3 1 25             // [fp + 25] = [[fp + 3] + 1] (load slot 1)
+  77: 15 18 24 26          // u32([fp + 26], [fp + 27]) = u32([fp + 18], [fp + 19]) U32Add u32([fp + 24], [fp + 25])
+  78: 8 3 0 28             // [fp + 28] = [[fp + 3] + 0] (load slot 0)
+  79: 8 3 1 29             // [fp + 29] = [[fp + 3] + 1] (load slot 1)
+  80: 8 3 2 30             // [fp + 30] = [[fp + 3] + 2] (load slot 2)
+  81: 8 3 3 31             // [fp + 31] = [[fp + 3] + 3] (load slot 3)
+  82: 8 3 2 32             // [fp + 32] = [[fp + 3] + 2] (load slot 0)
+  83: 8 3 3 33             // [fp + 33] = [[fp + 3] + 3] (load slot 1)
+  84: 15 26 32 34          // u32([fp + 34], [fp + 35]) = u32([fp + 26], [fp + 27]) U32Add u32([fp + 32], [fp + 33])
+  85: 4 34 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 34] + 0
+  86: 4 35 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 35] + 0
+  87: 11 _ _ _             // return
+---- data (base 88) ----
 ; blob 0 (1 words)
-  34: 0 0 0 0
+  88: 0 0 0 0

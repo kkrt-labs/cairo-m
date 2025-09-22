@@ -1,45 +1,76 @@
 ---
 source: crates/compiler/mir/tests/mdtest_snapshots.rs
-assertion_line: 52
 description: "MIR snapshot for mdtest: Pointers and Heap Allocation (new) - Allocate struct pointer and access fields"
 input_file: mdtest/03-types/03-pointers-and-heap.md
 ---
 Source:
-struct Point { x: felt, y: felt }
+struct Point {
+    x: u32,
+    y: u32,
+}
 
-fn alloc_struct() -> felt {
-    let ps: Point* = new Point[2];
-    // Write fields via pointer indexing then field
-    (ps[0]).x = 3;
-    (ps[0]).y = 4;
-    (ps[1]).x = 5;
-    (ps[1]).y = 6;
-    return ps[0].x + ps[1].y;
+fn alloc_points() -> (Point*, Point*) {
+    let p1: Point* = new Point[2];
+    p1[0] = Point { x: 1, y: 2 };
+    p1[1] = Point { x: 3, y: 4 };
+    let p2: Point* = new Point[1];
+    p2[0] = Point { x: 5, y: 6 };
+    return (p1, p2);
+}
+
+fn test_main() -> u32 {
+    let (p1, p2) = alloc_points();
+    return p1[0].x + p1[1].y + p2[0].x + p2[0].y;
 }
 ============================================================
 Generated MIR:
 module {
   // Function 0
-  fn alloc_struct {
+  fn alloc_points {
     entry: 0
 
     0:
-      %0 = 2 * 2
+      %0 = 2 * 4
       %1 = heapalloccells %0
-      %2 = load %1[0]
-      store 3 -> %1[0].x
+      %2 = makestruct { x: 1, y: 2 }
       %3 = load %1[0]
-      store 4 -> %1[0].y
-      %4 = load %1[1]
-      store 5 -> %1[1].x
+      store %2 -> %1[0]
+      %4 = makestruct { x: 3, y: 4 }
       %5 = load %1[1]
-      store 6 -> %1[1].y
-      %6 = load %1[0]
-      %7 = load %1[0].x
-      %8 = load %1[1]
-      %9 = load %1[1].y
-      %10 = %7 + %9
-      return %10
+      store %4 -> %1[1]
+      %6 = 1 * 4
+      %7 = heapalloccells %6
+      %8 = makestruct { x: 5, y: 6 }
+      %9 = load %7[0]
+      store %8 -> %7[0]
+      %10 = maketuple %1, %7
+      %11 = extracttuple %10, 0
+      %12 = extracttuple %10, 1
+      return (%11, %12)
+
+  }
+
+  // Function 1
+  fn test_main {
+    entry: 0
+
+    0:
+      %0, %1 = call 0()
+      %2 = maketuple %0, %1
+      %3 = extracttuple %2, 0
+      %4 = extracttuple %2, 1
+      %5 = load %3[0]
+      %6 = load %3[0].x
+      %7 = load %3[1]
+      %8 = load %3[1].y
+      %9 = %6 U32Add %8
+      %10 = load %4[0]
+      %11 = load %4[0].x
+      %12 = %9 U32Add %11
+      %13 = load %4[0]
+      %14 = load %4[0].y
+      %15 = %12 U32Add %14
+      return %15
 
   }
 

@@ -1074,3 +1074,317 @@ fn test_array_in_tuple_not_scalarized() {
         "MakeFixedArray should NOT be eliminated when array is used in tuple"
     );
 }
+
+#[test]
+fn test_store_materializes_tracked_struct_for_pointer_base() {
+    // Scenario: We build a struct value, SROA tracks it and removes the MakeStruct.
+    // Then we store that value into a pointer base with index projection (heap memory).
+    // Forwarding is not possible (base not tracked), so SROA must materialize the
+    // aggregate right before the Store and rewrite the Store to use it.
+
+    // Define struct type: Point { x: felt, y: felt }
+    let point_ty = MirType::Struct {
+        name: "Point".to_string(),
+        fields: vec![
+            ("x".to_string(), MirType::Felt),
+            ("y".to_string(), MirType::Felt),
+        ],
+    };
+
+    // Pointer to Point (heap-allocated)
+    let ptr_to_point = MirType::Pointer {
+        element: Box::new(point_ty.clone()),
+    };
+
+    let mut f = MirFunction::new("store_materialization".to_string());
+    let b = f.entry_block;
+
+    // Allocate some heap cells and get a pointer (typed as *Point)
+    let heap_ptr = f.new_typed_value_id(ptr_to_point);
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::heap_alloc_cells(
+            heap_ptr,
+            Value::Literal(Literal::Integer(4)),
+        ));
+
+    // Build two Point values
+    let p0 = f.new_typed_value_id(point_ty.clone());
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::make_struct(
+            p0,
+            vec![
+                ("x".to_string(), Value::Literal(Literal::Integer(1))),
+                ("y".to_string(), Value::Literal(Literal::Integer(2))),
+            ],
+            point_ty.clone(),
+        ));
+
+    let p1 = f.new_typed_value_id(point_ty.clone());
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::make_struct(
+            p1,
+            vec![
+                ("x".to_string(), Value::Literal(Literal::Integer(3))),
+                ("y".to_string(), Value::Literal(Literal::Integer(4))),
+            ],
+            point_ty.clone(),
+        ));
+
+    // Store the points into heap_ptr[0] and heap_ptr[1]
+    let place0 = Place::new(heap_ptr).with_index(Value::Literal(Literal::Integer(0)));
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::store(
+            place0,
+            Value::operand(p0),
+            point_ty.clone(),
+        ));
+
+    let place1 = Place::new(heap_ptr).with_index(Value::Literal(Literal::Integer(1)));
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::store(place1, Value::operand(p1), point_ty));
+
+    // No return value needed for this pass-level test
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .set_terminator(Terminator::Return { values: vec![] });
+
+    // Run SROA
+    let mut sroa = ScalarReplacementOfAggregates::new();
+    let modified = sroa.run(&mut f);
+    assert!(modified, "SROA should modify the function");
+
+    let block = f.get_basic_block(b).unwrap();
+
+    // Collect MakeStructs and Stores
+    let make_struct_ids: Vec<_> = block
+        .instructions
+        .iter()
+        .filter_map(|inst| match &inst.kind {
+            InstructionKind::MakeStruct { dest, .. } => Some(*dest),
+            _ => None,
+        })
+        .collect();
+
+    let store_infos: Vec<(usize, crate::ValueId)> = block
+        .instructions
+        .iter()
+        .enumerate()
+        .filter_map(|(i, inst)| match &inst.kind {
+            InstructionKind::Store { value, .. } => value.as_operand().map(|id| (i, id)),
+            _ => None,
+        })
+        .collect();
+
+    // We expect two Stores and two preceding MakeStruct materializations
+    assert_eq!(store_infos.len(), 2, "Should have exactly two stores");
+    assert_eq!(
+        make_struct_ids.len(),
+        2,
+        "Should materialize exactly two structs before stores"
+    );
+
+    // Each store should use one of the materialized ids, and that id must be defined earlier
+    for (store_idx, used_id) in &store_infos {
+        assert!(
+            make_struct_ids.contains(used_id),
+            "Store should use a freshly materialized struct value"
+        );
+
+        // Find the defining MakeStruct and ensure it appears before the Store
+        let def_idx = block
+            .instructions
+            .iter()
+            .position(|inst| matches!(inst.kind, InstructionKind::MakeStruct { dest, .. } if dest == *used_id))
+            .expect("Materialized struct must be defined in the block");
+        assert!(def_idx < *store_idx, "Materialization must precede Store");
+    }
+
+    // Ensure original aggregate ids (p0, p1) are no longer used after SROA
+    for inst in &block.instructions {
+        let used = inst.used_values();
+        assert!(
+            !used.contains(&p0) && !used.contains(&p1),
+            "Original aggregate ids should not be used after SROA"
+        );
+    }
+}
+
+#[test]
+fn test_store_materializes_tracked_tuple_for_pointer_base() {
+    // Tuple type (felt, felt)
+    let tuple_ty = MirType::tuple(vec![MirType::Felt, MirType::Felt]);
+    let ptr_to_tuple = MirType::Pointer {
+        element: Box::new(tuple_ty.clone()),
+    };
+
+    let mut f = MirFunction::new("store_tuple_mat".to_string());
+    let b = f.entry_block;
+
+    // pointer to tuple
+    let heap_ptr = f.new_typed_value_id(ptr_to_tuple);
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::heap_alloc_cells(
+            heap_ptr,
+            Value::Literal(Literal::Integer(4)),
+        ));
+
+    // tracked tuple values
+    let t0 = f.new_typed_value_id(tuple_ty.clone());
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::make_tuple(
+            t0,
+            vec![
+                Value::Literal(Literal::Integer(1)),
+                Value::Literal(Literal::Integer(2)),
+            ],
+        ));
+    let t1 = f.new_typed_value_id(tuple_ty.clone());
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::make_tuple(
+            t1,
+            vec![
+                Value::Literal(Literal::Integer(3)),
+                Value::Literal(Literal::Integer(4)),
+            ],
+        ));
+
+    // store tuples into memory
+    let p0 = Place::new(heap_ptr).with_index(Value::Literal(Literal::Integer(0)));
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::store(p0, Value::operand(t0), tuple_ty.clone()));
+    let p1 = Place::new(heap_ptr).with_index(Value::Literal(Literal::Integer(1)));
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::store(p1, Value::operand(t1), tuple_ty));
+
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .set_terminator(Terminator::Return { values: vec![] });
+
+    let mut sroa = ScalarReplacementOfAggregates::new();
+    let modified = sroa.run(&mut f);
+    assert!(modified);
+
+    let block = f.get_basic_block(b).unwrap();
+    let make_tuple_ids: Vec<_> = block
+        .instructions
+        .iter()
+        .filter_map(|inst| match &inst.kind {
+            InstructionKind::MakeTuple { dest, .. } => Some(*dest),
+            _ => None,
+        })
+        .collect();
+    let store_vals: Vec<_> = block
+        .instructions
+        .iter()
+        .filter_map(|inst| match &inst.kind {
+            InstructionKind::Store { value, .. } => value.as_operand(),
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(store_vals.len(), 2);
+    assert_eq!(make_tuple_ids.len(), 2);
+    for used in store_vals {
+        assert!(make_tuple_ids.contains(&used));
+    }
+}
+
+#[test]
+fn test_store_materializes_tracked_array_for_pointer_base() {
+    // Fixed array type [felt; 2]
+    let array_ty = MirType::FixedArray {
+        element_type: Box::new(MirType::Felt),
+        size: 2,
+    };
+    let ptr_to_array = MirType::Pointer {
+        element: Box::new(array_ty.clone()),
+    };
+
+    let mut f = MirFunction::new("store_array_mat".to_string());
+    let b = f.entry_block;
+
+    // pointer to array
+    let heap_ptr = f.new_typed_value_id(ptr_to_array);
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::heap_alloc_cells(
+            heap_ptr,
+            Value::Literal(Literal::Integer(4)),
+        ));
+
+    // tracked arrays
+    let a0 = f.new_typed_value_id(array_ty.clone());
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::make_fixed_array(
+            a0,
+            vec![
+                Value::Literal(Literal::Integer(10)),
+                Value::Literal(Literal::Integer(20)),
+            ],
+            MirType::Felt,
+        ));
+    let a1 = f.new_typed_value_id(array_ty.clone());
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::make_fixed_array(
+            a1,
+            vec![
+                Value::Literal(Literal::Integer(30)),
+                Value::Literal(Literal::Integer(40)),
+            ],
+            MirType::Felt,
+        ));
+
+    // store arrays into memory
+    let p0 = Place::new(heap_ptr).with_index(Value::Literal(Literal::Integer(0)));
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::store(p0, Value::operand(a0), array_ty.clone()));
+    let p1 = Place::new(heap_ptr).with_index(Value::Literal(Literal::Integer(1)));
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .push_instruction(Instruction::store(p1, Value::operand(a1), array_ty));
+
+    f.get_basic_block_mut(b)
+        .unwrap()
+        .set_terminator(Terminator::Return { values: vec![] });
+
+    let mut sroa = ScalarReplacementOfAggregates::new();
+    let modified = sroa.run(&mut f);
+    assert!(modified);
+
+    let block = f.get_basic_block(b).unwrap();
+    let make_arr_ids: Vec<_> = block
+        .instructions
+        .iter()
+        .filter_map(|inst| match &inst.kind {
+            InstructionKind::MakeFixedArray { dest, .. } => Some(*dest),
+            _ => None,
+        })
+        .collect();
+    let store_vals: Vec<_> = block
+        .instructions
+        .iter()
+        .filter_map(|inst| match &inst.kind {
+            InstructionKind::Store { value, .. } => value.as_operand(),
+            _ => None,
+        })
+        .collect();
+
+    assert_eq!(store_vals.len(), 2);
+    assert_eq!(make_arr_ids.len(), 2);
+    for used in store_vals {
+        assert!(make_arr_ids.contains(&used));
+    }
+}
