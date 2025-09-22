@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758035268005,
+  "lastUpdate": 1758541906984,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -1977,6 +1977,40 @@ window.BENCHMARK_DATA = {
           {
             "name": "sha256_1kb_prove_peak_mem",
             "value": 2180703514,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "919a802cae562259be1ed740e13431ba83261210",
+          "message": "Enforce clock update with registers lookup (#329)\n\n* Enforce clock update with registers lookup\n\n* Fix entrypoint name for prover benchmark",
+          "timestamp": "2025-09-22T14:35:46+03:00",
+          "tree_id": "0aff862ebe859b9b7afc0e29f93fc5ecfcda1e19",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/919a802cae562259be1ed740e13431ba83261210"
+        },
+        "date": 1758541906921,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2422514079,
+            "unit": "bytes"
+          },
+          {
+            "name": "sha256_1kb_prove_peak_mem",
+            "value": 2184172030,
             "unit": "bytes"
           }
         ]
