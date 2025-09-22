@@ -22,10 +22,6 @@ struct Args {
     /// Enable verbose output (shows MIR)
     #[arg(short, long)]
     verbose: bool,
-
-    /// Function name to run after compilation (entrypoint)
-    #[arg(short = 'f', long)]
-    function: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
