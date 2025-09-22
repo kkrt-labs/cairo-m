@@ -248,7 +248,7 @@ impl CodeGenerator {
 
     /// Calculate layouts for all functions in the module
     fn calculate_all_layouts(&mut self, module: &MirModule) -> CodegenResult<()> {
-        for function in module.functions.iter() {
+        for (_, function) in module.functions() {
             let layout = FunctionLayout::new(function)?;
             self.function_layouts.insert(function.name.clone(), layout);
         }
@@ -346,7 +346,7 @@ impl CodeGenerator {
 
     /// Generate code for all functions
     fn generate_all_functions(&mut self, module: &MirModule) -> CodegenResult<()> {
-        for function in module.functions.iter() {
+        for (_, function) in module.functions() {
             self.generate_function(function, module)?;
         }
         Ok(())
@@ -735,7 +735,7 @@ impl CodeGenerator {
                 signature,
             } => {
                 // Look up the callee's actual function name from the module
-                let callee_function = module.functions.get(*callee).ok_or_else(|| {
+                let callee_function = module.get_function(*callee).ok_or_else(|| {
                     CodegenError::MissingTarget(format!("No function found for callee {callee:?}"))
                 })?;
                 builder.lower_call(&callee_function.name, args, signature, dests)?;
@@ -2411,7 +2411,7 @@ mod tests {
     fn test_simple_function_generation() {
         let function = create_simple_function();
         let mut module = MirModule::new();
-        module.functions.push(function);
+        module.add_function(function);
 
         let mut generator = CodeGenerator::new();
         generator.generate_module(&module).unwrap();
@@ -2443,7 +2443,7 @@ mod tests {
 
         function.basic_blocks.push(block);
         function.return_values.push(dest);
-        module.functions.push(function);
+        module.add_function(function);
 
         // Compile the module
         let mut generator = CodeGenerator::new();

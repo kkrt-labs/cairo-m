@@ -21,11 +21,11 @@ use crate::{indent_str, FunctionId, MirFunction, PrettyPrint};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirModule {
     /// All functions in this module, indexed by `FunctionId`
-    pub functions: IndexVec<FunctionId, MirFunction>,
+    pub(crate) functions: IndexVec<FunctionId, MirFunction>,
 
     /// Mapping from function names to their IDs for lookup
     /// This enables efficient name-based function resolution
-    pub function_names: FxHashMap<String, FunctionId>,
+    pub(crate) function_names: FxHashMap<String, FunctionId>,
 }
 
 impl MirModule {
@@ -48,11 +48,6 @@ impl MirModule {
     /// Gets a function by ID
     pub fn get_function(&self, id: FunctionId) -> Option<&MirFunction> {
         self.functions.get(id)
-    }
-
-    /// Gets a mutable reference to a function by ID
-    pub fn get_function_mut(&mut self, id: FunctionId) -> Option<&mut MirFunction> {
-        self.functions.get_mut(id)
     }
 
     /// Looks up a function by name
