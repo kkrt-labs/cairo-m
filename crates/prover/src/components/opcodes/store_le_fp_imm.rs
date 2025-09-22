@@ -18,7 +18,7 @@
 //!
 //! - P = n q_n + r_n; q_n = q_n_high * 2**16 + q_n_low;
 //! - hint (0 <= a_0 < 2**16, 0 <= a_1 < 2**16) and build:
-//! ```ignore
+//! ```text
 //!  a_0 + (q_n_high + 1) * a_1
 //!   = a_0 + a_1 + q_n_high * a_1
 //!   < q_n + 2**17 == P // n + 2**17
@@ -79,7 +79,7 @@
 //!   * `a - is_le * src_val - (1 - is_le) * imm`
 //!   * `b - is_le * imm - (1 - is_le) * src_val`
 //! * registers update is regular
-//!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [pc + 1, fp, clock + 1]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, src_off, imm, dst_off] + [pc, clk, opcode_constant, src_off, imm, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -166,7 +166,7 @@ impl BitwiseProvider for InteractionClaimData {}
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
     pub range_check_16: [Vec<PackedM31>; N_RANGE_CHECK_16_LOOKUPS],
 }
@@ -360,8 +360,8 @@ impl Claim {
                 *row[20] = arc_long_hi;
                 *row[21] = is_le;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [input.pc + one, input.fp, input.clock + one];
 
                 // Read instruction
                 *lookup_data.memory[0] = [
@@ -634,12 +634,12 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             -E::EF::from(enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one, fp.clone()],
+            &[pc.clone() + one.clone(), fp.clone(), clock.clone() + one],
         ));
 
         // Read instruction from memory

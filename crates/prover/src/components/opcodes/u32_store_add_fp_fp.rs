@@ -34,7 +34,7 @@
 //!   * `- u16_carry * (1 - u16_carry)`
 //!   * `- u32_carry * (1 - u32_carry)`
 //! * registers update is regular
-//!   * `- [pc, fp] + [pc + 1, fp]` in `Registers` relation
+//!   * `- [pc, fp, clock] + [pc + 1, fp, clock + 1]` in `Registers` relation
 //! * read instruction from memory
 //!   * `- [pc, inst_prev_clk, opcode_constant, src0_off, src1_off, dst_off] + [pc, clk, opcode_constant, src0_off, src1_off, dst_off]` in `Memory` relation
 //!   * `- [clk - inst_prev_clk - 1]` in `RangeCheck20` relation
@@ -124,7 +124,7 @@ impl BitwiseProvider for InteractionClaimData {}
 #[derive(Uninitialized, IterMut, ParIterMut)]
 pub struct LookupData {
     pub memory: [Vec<[PackedM31; 6]>; N_MEMORY_LOOKUPS],
-    pub registers: [Vec<[PackedM31; 2]>; N_REGISTERS_LOOKUPS],
+    pub registers: [Vec<[PackedM31; 3]>; N_REGISTERS_LOOKUPS],
     pub range_check_20: [Vec<PackedM31>; N_RANGE_CHECK_20_LOOKUPS],
     pub range_check_16: [Vec<PackedM31>; N_RANGE_CHECK_16_LOOKUPS],
 }
@@ -268,8 +268,8 @@ impl Claim {
                 *row[20] = u16_carry;
                 *row[21] = u32_carry;
 
-                *lookup_data.registers[0] = [input.pc, input.fp];
-                *lookup_data.registers[1] = [input.pc + one, input.fp];
+                *lookup_data.registers[0] = [input.pc, input.fp, input.clock];
+                *lookup_data.registers[1] = [input.pc + one, input.fp, input.clock + one];
 
                 // Read instruction (single word)
                 *lookup_data.memory[0] = [
@@ -582,12 +582,16 @@ impl FrameworkEval for Eval {
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             -E::EF::from(enabler.clone()),
-            &[pc.clone(), fp.clone()],
+            &[pc.clone(), fp.clone(), clock.clone()],
         ));
         eval.add_to_relation(RelationEntry::new(
             &self.relations.registers,
             E::EF::from(enabler.clone()),
-            &[pc.clone() + one.clone(), fp.clone()],
+            &[
+                pc.clone() + one.clone(),
+                fp.clone(),
+                clock.clone() + one.clone(),
+            ],
         ));
 
         // Read instruction from memory (single word)
