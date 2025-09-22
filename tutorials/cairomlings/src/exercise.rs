@@ -1,14 +1,19 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use crossterm::{
-    style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor},
     QueueableCommand,
+    style::{Attribute, Color, ResetColor, SetAttribute, SetForegroundColor},
 };
 use std::io::{self, StdoutLock, Write};
 
 use crate::{
     cmd::CmdRunner,
-    term::{self, file_path, terminal_file_link, write_ansi, CountedWrite},
+    term::{self, CountedWrite, file_path, terminal_file_link, write_ansi},
 };
+
+use crate::info_file::TestCase;
+use cairo_m_common::{CairoMValue, InputValue, Program, parse_cli_arg};
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
+use std::fs;
 
 /// The initial capacity of the output buffer.
 pub const OUTPUT_CAPACITY: usize = 1 << 14;
@@ -37,9 +42,41 @@ fn run_artifact(
     output: Option<&mut Vec<u8>>,
     cmd_runner: &CmdRunner,
 ) -> Result<bool> {
-    let cargo_subcommand = cmd_runner.cairom_run(artifact_output_path, Some("main"), output)?;
-    let build_success = cargo_subcommand.run("cairo-m-runner …")?;
-    Ok(build_success)
+    let file_content = fs::read_to_string(&artifact_output_path)
+        .with_context(|| format!("Error reading file '{}'", artifact_output_path))?;
+
+    let compiled_program: Program =
+        serde_json::from_str(&file_content).context("Failed to parse compiled program")?;
+
+    match std::panic::catch_unwind(|| {
+        run_cairo_program(&compiled_program, "main", &[], RunnerOptions::default())
+    }) {
+        Ok(Ok(_output)) => Ok(true),
+        Ok(Err(e)) => {
+            if let Some(buf) = output {
+                write_ansi(buf, SetForegroundColor(Color::Red));
+                buf.extend_from_slice(format!("Execution failed: {}\n", e).as_bytes());
+                write_ansi(buf, ResetColor);
+            }
+            Ok(false)
+        }
+        Err(panic_info) => {
+            let panic_message = if let Some(s) = panic_info.downcast_ref::<String>() {
+                s.clone()
+            } else if let Some(s) = panic_info.downcast_ref::<&str>() {
+                s.to_string()
+            } else {
+                "Unknown panic occurred".to_string()
+            };
+
+            if let Some(buf) = output {
+                write_ansi(buf, SetForegroundColor(Color::Red));
+                buf.extend_from_slice(format!("Panic occurred: {}\n", panic_message).as_bytes());
+                write_ansi(buf, ResetColor);
+            }
+            Ok(false)
+        }
+    }
 }
 
 // Run an exercise binary and append its output to the `output` buffer.
@@ -82,6 +119,7 @@ pub struct Exercise {
     pub path: &'static str,
     pub canonical_path: Option<String>,
     pub test: bool,
+    pub test_cases: Vec<TestCase>,
     pub strict_clippy: bool,
     pub hint: &'static str,
     pub done: bool,
@@ -108,6 +146,7 @@ pub trait RunnableExercise {
     fn dir(&self) -> Option<&str>;
     fn strict_clippy(&self) -> bool;
     fn test(&self) -> bool;
+    fn test_cases(&self) -> &[TestCase];
 
     // Compile, check and run the exercise or its solution (depending on `bin_name´).
     // The output is written to the `output` buffer after clearing it.
@@ -121,51 +160,162 @@ pub trait RunnableExercise {
             output.clear();
         }
 
-        let workspace_root = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let workspace_root = std::env::var("CARGO_MANIFEST_DIR")
+            .unwrap_or_else(|_| std::env::current_dir().unwrap().to_string_lossy().to_string());
         let exercise_path = format!(
             "{workspace_root}/exercises/{}/{}.cm",
             self.dir().unwrap_or(""),
             self.name()
         );
-        let temp_dir = std::env::temp_dir();
-        let artifact_dir = format!(
-            "{}/artifacts_{}",
-            temp_dir.display(),
-            self.dir().unwrap_or("")
-        );
-        std::fs::create_dir_all(&artifact_dir)?;
-        let artifact_output_path = format!("{}/{}.json", artifact_dir, self.name());
-        let cargo_subcommand = cmd_runner.cairom_compile(
-            &exercise_path,
-            &artifact_output_path,
-            output.as_deref_mut(),
-        )?;
-        let build_success = cargo_subcommand.run("cairo-m-compiler …")?;
-        if !build_success {
-            return Ok(false);
-        }
+        let program = match cmd_runner.cairom_compile(&exercise_path, output.as_deref_mut()) {
+            Ok(program) => program,
+            Err(e) => {
+                if let Some(buf) = output.as_deref_mut() {
+                    write_ansi(buf, SetForegroundColor(Color::Red));
+                    buf.extend_from_slice(format!("Compilation failed: {}\n", e).as_bytes());
+                    write_ansi(buf, ResetColor);
+                }
+                return Ok(false);
+            }
+        };
 
-        // Discard the compiler output because it will be shown again by `cargo test` or Clippy.
+        // Discard the compiler output because it will be shown again by Clippy.
         if let Some(output) = output.as_deref_mut() {
             output.clear();
         }
 
-        if self.test() {
-            let output_is_some = output.is_some();
-            let mut test_cmd = cmd_runner.cargo("test", bin_name, output.as_deref_mut());
-            if output_is_some {
-                test_cmd.args(["--", "--color", "always", "--format", "pretty"]);
-            }
-            let test_success = test_cmd.run("cargo test …")?;
-            if !test_success {
-                run_bin(bin_name, output, cmd_runner)?;
-                return Ok(false);
+        // If tests are enabled, execute configured test-cases by calling `main` with inputs
+        // and comparing returned values with expected outputs.
+        if self.test() && !self.test_cases().is_empty() {
+            // Load compiled program
+            // Helper to map CairoMValue to an InputValue-like structure for comparison
+            fn cairo_to_input_like(v: &CairoMValue) -> InputValue {
+                match v {
+                    CairoMValue::Felt(m) => InputValue::Number(m.0 as i64),
+                    CairoMValue::Bool(b) => InputValue::Bool(*b),
+                    CairoMValue::U32(u) => InputValue::Number(*u as i64),
+                    CairoMValue::Pointer(m) => InputValue::Number(m.0 as i64),
+                    CairoMValue::Tuple(elems) => {
+                        InputValue::List(elems.iter().map(cairo_to_input_like).collect())
+                    }
+                    CairoMValue::Struct(fields) => {
+                        // Compare positionally; ignore field names
+                        InputValue::Struct(
+                            fields.iter().map(|(_, v)| cairo_to_input_like(v)).collect(),
+                        )
+                    }
+                    CairoMValue::Array(elems) => {
+                        InputValue::List(elems.iter().map(cairo_to_input_like).collect())
+                    }
+                    CairoMValue::Unit => InputValue::Unit,
+                }
             }
 
-            // Discard the compiler output because it will be shown again by Clippy.
-            if let Some(output) = output.as_deref_mut() {
-                output.clear();
+            // Execute all test cases
+            let mut all_ok = true;
+            if let Some(buf) = output.as_deref_mut() {
+                write_ansi(buf, SetAttribute(Attribute::Underlined));
+                buf.extend_from_slice(b"Tests");
+                write_ansi(buf, ResetColor);
+                buf.push(b'\n');
             }
+
+            for (i, case) in self.test_cases().iter().enumerate() {
+                // Parse inputs
+                let mut args: Vec<InputValue> = Vec::with_capacity(case.inputs.len());
+                let mut parse_err: Option<String> = None;
+                for s in &case.inputs {
+                    match parse_cli_arg(s) {
+                        Ok(v) => args.push(v),
+                        Err(e) => {
+                            parse_err = Some(format!("Failed to parse input '{}': {}", s, e));
+                            break;
+                        }
+                    }
+                }
+                if let Some(err) = parse_err {
+                    all_ok = false;
+                    if let Some(buf) = output.as_deref_mut() {
+                        write_ansi(buf, SetForegroundColor(Color::Red));
+                        buf.extend_from_slice(format!("Case {}: {}\n", i + 1, err).as_bytes());
+                        write_ansi(buf, ResetColor);
+                    }
+                    continue;
+                }
+
+                let run = run_cairo_program(&program, "main", &args, RunnerOptions::default());
+                match run {
+                    Err(e) => {
+                        all_ok = false;
+                        if let Some(buf) = output.as_deref_mut() {
+                            write_ansi(buf, SetForegroundColor(Color::Red));
+                            buf.extend_from_slice(
+                                format!("Case {}: execution failed: {}\n", i + 1, e).as_bytes(),
+                            );
+                            write_ansi(buf, ResetColor);
+                        }
+                    }
+                    Ok(run_output) => {
+                        let got: Vec<InputValue> = run_output
+                            .return_values
+                            .iter()
+                            .map(cairo_to_input_like)
+                            .collect();
+
+                        // Parse expected outputs
+                        let mut expected: Vec<InputValue> = Vec::with_capacity(case.outputs.len());
+                        let mut exp_err: Option<String> = None;
+                        for s in &case.outputs {
+                            match parse_cli_arg(s) {
+                                Ok(v) => expected.push(v),
+                                Err(e) => {
+                                    exp_err = Some(format!(
+                                        "Failed to parse expected output '{}': {}",
+                                        s, e
+                                    ));
+                                    break;
+                                }
+                            }
+                        }
+                        if let Some(err) = exp_err {
+                            all_ok = false;
+                            if let Some(buf) = output.as_deref_mut() {
+                                write_ansi(buf, SetForegroundColor(Color::Red));
+                                buf.extend_from_slice(
+                                    format!("Case {}: {}\n", i + 1, err).as_bytes(),
+                                );
+                                write_ansi(buf, ResetColor);
+                            }
+                            continue;
+                        }
+
+                        let pass = got == expected;
+                        if let Some(buf) = output.as_deref_mut() {
+                            if pass {
+                                write_ansi(buf, SetForegroundColor(Color::Green));
+                                buf.extend_from_slice(format!("Case {}: ok\n", i + 1).as_bytes());
+                                write_ansi(buf, ResetColor);
+                            } else {
+                                all_ok = false;
+                                write_ansi(buf, SetForegroundColor(Color::Red));
+                                buf.extend_from_slice(
+                                    format!("Case {}: failed\n", i + 1).as_bytes(),
+                                );
+                                write_ansi(buf, ResetColor);
+                                buf.extend_from_slice(
+                                    format!(
+                                        "  inputs:   {:?}\n  expected: {:?}\n  got:      {:?}\n",
+                                        case.inputs, expected, got
+                                    )
+                                    .as_bytes(),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            return Ok(all_ok);
         }
 
         // let mut clippy_cmd = cmd_runner.cargo("clippy", bin_name, output.as_deref_mut());
@@ -181,8 +331,17 @@ pub trait RunnableExercise {
         // let run_success = run_bin(bin_name, output, cmd_runner)?;
         // Ok(clippy_success && run_success)
 
-        let run_success = run_artifact(&artifact_output_path, output, cmd_runner)?;
-        Ok(run_success)
+        match run_cairo_program(&program, "main", &[], RunnerOptions::default()) {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                if let Some(buf) = output.as_deref_mut() {
+                    write_ansi(buf, SetForegroundColor(Color::Red));
+                    buf.extend_from_slice(format!("Execution failed: {}\n", e).as_bytes());
+                    write_ansi(buf, ResetColor);
+                }
+                Ok(false)
+            }
+        }
     }
 
     /// Compile, check and run the exercise.
@@ -248,5 +407,10 @@ impl RunnableExercise for Exercise {
     #[inline]
     fn test(&self) -> bool {
         self.test
+    }
+
+    #[inline]
+    fn test_cases(&self) -> &[TestCase] {
+        &self.test_cases
     }
 }

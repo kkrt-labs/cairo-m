@@ -4,8 +4,21 @@ use std::{fs, io::ErrorKind};
 
 use crate::{embedded::EMBEDDED_FILES, exercise::RunnableExercise};
 
+/// One test case executed via calling the `main` entrypoint.
+/// Inputs and outputs are string-encoded using the same syntax accepted by
+/// `cairo-m-runner --arguments` (e.g. numbers, bools, tuples `()`, lists `[]`, structs `{}`).
+#[derive(Deserialize, Clone, Debug, Default)]
+pub struct TestCase {
+    /// List of arguments passed positionally to `main`.
+    #[serde(default)]
+    pub inputs: Vec<String>,
+    /// Expected return values from `main` (in order).
+    #[serde(default)]
+    pub outputs: Vec<String>,
+}
+
 /// Deserialized from the `info.toml` file.
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct ExerciseInfo {
     /// Exercise's unique name.
     pub name: String,
@@ -14,6 +27,11 @@ pub struct ExerciseInfo {
     /// Run `cargo test` on the exercise.
     #[serde(default = "default_true")]
     pub test: bool,
+    /// Test cases to validate this exercise when `test = true`.
+    /// Each case is executed by calling the `main` entrypoint with `inputs`
+    /// and comparing the returned values against `outputs`.
+    #[serde(default, rename = "test-cases")]
+    pub test_cases: Vec<TestCase>,
     /// Deny all Clippy warnings.
     #[serde(default)]
     pub strict_clippy: bool,
@@ -73,6 +91,11 @@ impl RunnableExercise for ExerciseInfo {
     #[inline]
     fn test(&self) -> bool {
         self.test
+    }
+
+    #[inline]
+    fn test_cases(&self) -> &[TestCase] {
+        &self.test_cases
     }
 }
 

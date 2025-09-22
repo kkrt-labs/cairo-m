@@ -155,8 +155,24 @@ pub fn init() -> Result<()> {
     //     .context("The embedded `Cargo.toml` contains only one line")?;
     // let updated_cargo_toml = updated_cargo_toml(&info_file.exercises, current_cargo_toml, b"")
     // .context("Failed to generate `Cargo.toml`")?;
-    // fs::write("Cargo.toml", updated_cargo_toml)
-    //     .context("Failed to create the file `CairoMlings/Cargo.toml`")?;
+    let updated_cargo_toml = r#"[package]
+name = "exercises"
+edition = "2024"
+# Don't publish the exercises on crates.io!
+publish = false
+
+bin = "src/lib.rs"
+"#;
+    fs::write("Cargo.toml", updated_cargo_toml)
+        .context("Failed to create the file `CairoMlings/Cargo.toml`")?;
+
+    create_dir("src").context("Failed to create the `src/` directory")?;
+    fs::write("src/lib.rs", r#"
+    fn main() {
+        println!("Hello, world!");
+    }
+    "#)
+        .context("Failed to create the file `CairoMlings/src/lib.rs`")?;
 
     fs::write("rust-analyzer.toml", RUST_ANALYZER_TOML)
         .context("Failed to create the file `CairoMlings/rust-analyzer.toml`")?;

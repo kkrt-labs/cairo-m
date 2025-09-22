@@ -118,6 +118,7 @@ impl AppState {
                     path,
                     canonical_path,
                     test: exercise_info.test,
+                    test_cases: exercise_info.test_cases,
                     strict_clippy: exercise_info.strict_clippy,
                     hint,
                     // Updated below.
@@ -615,6 +616,7 @@ mod tests {
             path: "exercises/0.cm",
             canonical_path: None,
             test: false,
+            test_cases: Vec::new(),
             strict_clippy: false,
             hint: "",
             done: false,

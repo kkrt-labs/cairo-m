@@ -1,10 +1,17 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
+use cairo_m_common::Program;
+use cairo_m_compiler::{compile_cairo, CompilerError, CompilerOptions};
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
+use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use serde::Deserialize;
+use std::fs;
 use std::{
-    io::{pipe, Read},
+    io::{Read, pipe},
     path::PathBuf,
     process::{Command, Stdio},
 };
+
+use crate::term::write_ansi;
 
 /// Run a command with a description for a possible error and append the merged stdout and stderr.
 /// The boolean in the returned `Result` is true if the command's exit status is success.
@@ -89,28 +96,32 @@ impl CmdRunner {
     pub fn cairom_compile<'out>(
         &self,
         input_path: &str,
-        artifact_output_path: &str,
         output: Option<&'out mut Vec<u8>>,
-    ) -> Result<CargoSubcommand<'out>> {
-        let mut cmd = Command::new("cairo-m-compiler");
-        cmd.arg("--input").arg(input_path);
-        cmd.arg("--output").arg(artifact_output_path);
+    ) -> Result<Program> {
+        let source_text = fs::read_to_string(input_path).context("Failed to read input file")?;
+        let compiled = match compile_cairo(
+            source_text.clone(),
+            input_path.to_string(),
+            CompilerOptions::default(),
+        ) {
+            Ok(compiled) => compiled,
+            Err(e) => {
+                match e {
+                    CompilerError::ParseErrors(errors) | CompilerError::SemanticErrors(errors) => {
+                        let mut error_str = String::new();
+                        for error in errors {
+                            error_str.push_str(&error.display_with_source(&source_text));
+                        }
+                        return Err(anyhow::anyhow!(error_str));
+                    }
+                    CompilerError::MirGenerationFailed | CompilerError::CodeGenerationFailed(_) => {
+                        return Err(anyhow::anyhow!("Compilation failed: {:?}", e));
+                    }
+                }
+            }
+        };
 
-        Ok(CargoSubcommand { cmd, output })
-    }
-
-    pub fn cairom_run<'out>(
-        &self,
-        artifact_output_path: &str,
-        entrypoint: Option<&str>,
-        output: Option<&'out mut Vec<u8>>,
-    ) -> Result<CargoSubcommand<'out>> {
-        let mut cmd = Command::new("cairo-m-runner");
-        cmd.arg(artifact_output_path);
-        if let Some(entrypoint) = entrypoint {
-            cmd.arg("--entrypoint").arg(entrypoint);
-        }
-        Ok(CargoSubcommand { cmd, output })
+        Ok(compiled.program.as_ref().clone())
     }
 
     pub fn cargo<'out>(

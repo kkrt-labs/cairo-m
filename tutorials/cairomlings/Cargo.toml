@@ -36,8 +36,8 @@ dbg_macro = "warn"
 todo = "warn"
 
 [package]
-name = "rustlings"
-description = "Small exercises to get you used to reading and writing Rust code!"
+name = "cairomlings"
+description = "Small exercises to get you used to reading and writing Cairo-M code!"
 version.workspace = true
 authors.workspace = true
 repository.workspace = true

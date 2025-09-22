@@ -177,14 +177,14 @@ pub fn watch(
 
 const QUIT_MSG: &[u8] = b"
 
-We hope you're enjoying learning Rust!
-If you want to continue working on the exercises at a later point, you can simply run `CairoMlings` again in this directory.
+We hope you're enjoying learning Cairo-M!
+If you want to continue working on the exercises at a later point, you can simply run `cairomlings` again in this directory.
 ";
 
 const NOTIFY_ERR: &str = "
 The automatic detection of exercise file changes failed :(
-Please try running `CairoMlings` again.
+Please try running `cairomlings` again.
 
-If you keep getting this error, run `CairoMlings --manual-run` to deactivate the file watcher.
+If you keep getting this error, run `cairomlings --manual-run` to deactivate the file watcher.
 You need to manually trigger running the current exercise using `r` then.
 ";

@@ -516,6 +516,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "cairomlings"
+version = "6.5.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "cairo-m-common",
+ "cairo-m-compiler",
+ "cairo-m-runner",
+ "clap",
+ "crossterm",
+ "internal-macros",
+ "notify",
+ "predicates",
+ "quote",
+ "rustix",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
+ "toml 0.8.23",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1482,9 +1505,9 @@ dependencies = [
 
 [[package]]
 name = "proptest"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fcdab19deb5195a31cf7726a210015ff1496ba1464fd42cb4f537b8b01b471f"
+checksum = "2bb0be07becd10686a0bb407298fb425360a5c44a663774406340c59a22de4ce"
 dependencies = [
  "bit-set",
  "bit-vec",
@@ -1826,29 +1849,6 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "windows-sys 0.61.0",
-]
-
-[[package]]
-name = "rustlings"
-version = "6.5.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "cairo-m-common",
- "cairo-m-compiler",
- "cairo-m-runner",
- "clap",
- "crossterm",
- "internal-macros",
- "notify",
- "predicates",
- "quote",
- "rustix",
- "serde",
- "serde_json",
- "tempfile",
- "time",
- "toml 0.8.23",
 ]
 
 [[package]]
