@@ -18,7 +18,7 @@
 //! temporary copies for one of the sources when both sources alias (or overlap
 //! for u32). Destination aliasing is not rewritten since read-then-write is OK.
 //!
-//! We also include tiny peephole canonicalizations (e.g., `* 1` -> `+ 0`,
+//! We also include tiny peephole canonicalization (e.g., `* 1` -> `+ 0`,
 //! `* 0` -> `StoreImm(0)`/`U32StoreImm(0)`) that reduce unnecessary reads while
 //! preserving semantics and the prover’s expected read/write patterns per
 //! opcode.
