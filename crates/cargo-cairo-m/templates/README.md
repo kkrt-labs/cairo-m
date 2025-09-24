@@ -56,4 +56,4 @@ Note: The required RUSTFLAGS are automatically configured in
 ## Resources
 
 - [Cairo-M Documentation](https://github.com/kkrt-labs/cairo-m)
-- [Cairo-M Language Reference](https://github.com/kkrt-labs/cairo-m/docs)
+- [Cairo-M Language Reference](https://github.com/kkrt-labs/cairo-m/tree/main/docs)
