@@ -1,0 +1,18 @@
+struct ColorRegularStruct {
+    red: u32,
+    green: u32,
+    blue: u32,
+}
+
+fn main() {
+    let green = ColorRegularStruct {
+        red: 0,
+        green: 255,
+        blue: 0,
+    };
+
+    assert(green.red == 0);
+    assert(green.green == 255);
+    assert(green.blue == 0);
+    return;
+}

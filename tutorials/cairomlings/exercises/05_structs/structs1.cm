@@ -1,0 +1,17 @@
+struct ColorRegularStruct {
+    // TODO: Add the fields that the main function  expects.
+    // What types should the fields have? What are the minimum and maximum values for RGB colors?
+}
+
+fn main() {
+    let green = ColorRegularStruct {
+        red: 0,
+        green: 255,
+        blue: 0,
+    };
+
+    assert(green.red == 0);
+    assert(green.green == 255);
+    assert(green.blue == 0);
+    return;
+}

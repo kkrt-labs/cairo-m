@@ -33,7 +33,17 @@ The main design choices are
 ## Developing with Cairo M
 
 To get started with Cairo M, read the
-[getting-started](./docs/getting-started.md)
+[getting-started](./docs/getting-started.md).
+
+To learn the language, you can run the interactive tutorial `CairoMlings`,
+inspired by Rustlings - see the
+[CairoMlings README](./tutorials/cairomlings/README.md) for more details.
+
+```bash
+cargo install --path tutorials/cairomlings
+```
+
+Then, you can initialize an exercise directory with `cairomlings init`.
 
 ### Creating a New Cairo-M Project
 

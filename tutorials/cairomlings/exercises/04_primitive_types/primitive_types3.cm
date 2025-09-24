@@ -1,0 +1,15 @@
+// Unsigned 32-bit integer (`u32`)
+
+const MAX_U32_VALUE: u32 = 4294967295;
+
+fn main() {
+    // TODO: By default, integer arithmetics are performed in modulo 2^32.
+    // What happens if you go above the maximum value?
+    // let result = MAX_U32_VALUE + ?
+    assert(result == 0);
+
+    let integer_division: u32 = 7 / 2;
+    // TODO: If you divide an un-even u32 by 2, what is the expected value?
+    // assert(integer_division == ?);
+    return;
+}

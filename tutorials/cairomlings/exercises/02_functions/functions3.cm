@@ -1,0 +1,13 @@
+fn call_me(num: u32) -> u32 {
+    let sum: u32 = 0;
+    for (let i = 0u32; i < num; i=i+1) {
+        sum = sum + i;
+    }
+    return sum;
+}
+
+fn main() {
+    // TODO: Fix the function call.
+    call_me();
+    return;
+}

@@ -1,0 +1,7 @@
+{
+  "rust-analyzer.linkedProjects": [
+    "Cargo.toml",
+    "tutorials/cairomlings/Cargo.toml",
+    "examples/sha256-cairo-m/Cargo.toml"
+  ]
+}

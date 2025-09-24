@@ -1,0 +1,11 @@
+fn bigger(a: u32, b: u32) -> u32 {
+    if a > b {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn main(a: u32, b: u32) -> u32 {
+    return bigger(a, b);
+}

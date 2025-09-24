@@ -1,0 +1,18 @@
+// loops2: Use a `while` loop with the right condition
+
+fn count_down_from(start: felt) -> felt {
+    let x = start;
+    let count = 0;
+    // TODO: Fix the condition so the loop runs until x reaches 0.
+    while x != 0 {
+        x = x - 1;
+        count = count + 1;
+    }
+    return count;
+}
+
+fn main(){
+    let steps = count_down_from(10);
+    assert(steps == 10);
+    return;
+}

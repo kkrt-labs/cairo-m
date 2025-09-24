@@ -1,0 +1,12 @@
+// Fixed-size arrays
+
+fn main() -> felt {
+    // TODO: Create a fixed-size array called `a` with at least 100 elements of value `0` in it.
+    let a = [0u32; 100];
+
+    if a[99] == 0 {
+        return 1;
+    } else {
+        return 0;
+    }
+}

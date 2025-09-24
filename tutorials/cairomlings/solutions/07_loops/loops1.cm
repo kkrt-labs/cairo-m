@@ -1,0 +1,20 @@
+// loops1: Use `loop {}` with a proper `break` condition
+
+fn loop_until_target() -> felt {
+    let i = 10;
+    loop {
+        // TODO: Break the loop when `i` reaches 7 (or 0)
+        // Replace `???` with the right condition.
+        if i == 7 {
+            break;
+        }
+        i = i - 1;
+    }
+    return i;
+}
+
+fn main(){
+    let res = loop_until_target();
+    assert(res == 7);
+    return;
+}
