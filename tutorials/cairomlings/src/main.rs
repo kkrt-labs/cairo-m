@@ -27,7 +27,7 @@ mod watch;
 
 const CURRENT_FORMAT_VERSION: u8 = 1;
 
-/// CairoMlings is a collection of small exercises to get you used to writing and reading Rust code
+/// CairoMlings is a collection of small exercises to get you used to writing and reading Cairo-M code
 #[derive(Parser)]
 #[command(version)]
 struct Args {
@@ -199,7 +199,7 @@ const OLD_METHOD_ERR: &str =
     "You are trying to run CairoMlings using the old method before version 6.
 The new method doesn't include cloning the CairoMlings' repository.
 Please follow the instructions in `README.md`:
-https://github.com/rust-lang/CairoMlings#getting-started";
+https://github.com/kkrt-labs/cairo-m";
 
 const FORMAT_VERSION_HIGHER_ERR: &str =
     "The format version specified in the `info.toml` file is higher than the last one supported.

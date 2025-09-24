@@ -183,7 +183,7 @@ impl CargoSubcommand<'_> {
 }
 
 const CARGO_METADATA_ERR: &str = "Failed to run the command `cargo metadata …`
-Did you already install Rust?
+Is Cargo installed and available on PATH?
 Try running `cargo --version` to diagnose the problem.";
 
 #[cfg(test)]

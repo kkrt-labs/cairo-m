@@ -103,7 +103,7 @@ final_message = """We hope that you found the exercises helpful :D"""
 
 # Repeat this section for every exercise.
 [[exercises]]
-# Exercise name which is the exercise file name without the `.rs` extension.
+# Exercise name which is the exercise file name without the `.cm` extension.
 name = "???"
 
 # Optional directory name to be provided if you want to organize exercises in directories.
@@ -142,7 +142,7 @@ const README: &str = "# CairoMlings 🦀
 
 Welcome to these community CairoMlings exercises 😃
 
-First, [install CairoMlings using the official instructions](https://github.com/rust-lang/CairoMlings) ✅
+First, [install CairoMlings using the official instructions](https://github.com/kkrt-labs/cairo-m) ✅
 
 Then, clone this repository, open a terminal in this directory and run `CairoMlings` to get started with the exercises 🚀
 ";

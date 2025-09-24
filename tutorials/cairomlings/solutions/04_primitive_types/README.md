@@ -1,9 +1,7 @@
 # Primitive Types
 
-Rust has a couple of basic types that are directly implemented into the
-compiler. In this section, we'll go through the most important ones.
+Cairo-M provides two core primitive types:
+- `felt` — field element type (M31)
+- `u32` — 32-bit unsigned integer
 
-## Further information
-
-- [Data Types](https://doc.rust-lang.org/book/ch03-02-data-types.html)
-- [The Slice Type](https://doc.rust-lang.org/book/ch04-03-slices.html)
+See `mdtest/01-basics/03-primitive-types.md` and `mdtest/01-basics/01-literals.md` for reference material.

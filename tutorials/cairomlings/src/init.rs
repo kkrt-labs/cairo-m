@@ -37,7 +37,7 @@ pub fn init() -> Result<()> {
         .output()
         .context(
             "Failed to run the command `cargo locate-project …`\n\
-             Did you already install Rust?\n\
+             Is Cargo installed and available on PATH?\n\
              Try running `cargo --version` to diagnose the problem.",
         )?;
 

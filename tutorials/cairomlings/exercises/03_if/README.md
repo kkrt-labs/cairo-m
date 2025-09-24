@@ -4,4 +4,4 @@
 
 ## Further information
 
-- [Control Flow - if expressions](https://doc.rust-lang.org/book/ch03-05-control-flow.html#if-expressions)
+- See `mdtest/01-basics/06-expressions.md` for Cairo-M examples using `if`, comparisons, and logical operators.
