@@ -81,6 +81,7 @@ words:
   - maketuple
   - mathrm
   - mdtest
+  - memarg
   - merkle
   - Mlings
   - mpsc
