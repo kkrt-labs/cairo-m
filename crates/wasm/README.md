@@ -76,8 +76,8 @@ Cairo-M's MIR (Mid-level Intermediate Representation) using
 | Loop-carried values       | ✅        | Phi nodes for loop variables                 |
 | Continue operations       | ✅        | Proper loop continuation handling            |
 | **Memory Operations**     |           |                                              |
-| `i32.load`                | ❌        | Not yet implemented                          |
-| `i32.store`               | ❌        | Not yet implemented                          |
+| `i32.load`                | ✅        | Maps to 4 opcodes due to address conversion  |
+| `i32.store`               | ✅        | Maps to 4 opcodes due to address conversion  |
 | `i32.load8_u`             | ❌        | Not yet implemented                          |
 | `i32.store8`              | ❌        | Not yet implemented                          |
 | **Advanced Features**     |           |                                              |

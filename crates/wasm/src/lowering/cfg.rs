@@ -52,13 +52,15 @@ impl DagToMirContext {
                 Operation::WASMOp(wasm_op) => {
                     // Convert WASM operation to MIR instruction
                     let mir_value = self.convert_wasm_op_to_mir(node_idx, wasm_op, node, module)?;
-                    self.insert_value(
-                        ValueOrigin {
-                            node: node_idx,
-                            output_idx: 0,
-                        },
-                        mir_value,
-                    );
+                    if let Some(mir_value) = mir_value {
+                        self.insert_value(
+                            ValueOrigin {
+                                node: node_idx,
+                                output_idx: 0,
+                            },
+                            mir_value,
+                        );
+                    }
                 }
 
                 Operation::Label { id } => {

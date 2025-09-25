@@ -1,0 +1,163 @@
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: snapshot_content
+---
+---
+source: crates/wasm/tests/wasm_to_mir_tests.rs
+expression: wasm_load_result
+---
+WASM File: load_store.wasm
+============================================================
+Success: true
+Functions loaded: 3
+============================================================
+Module Output:
+module {
+  // Function 0
+  fn add {
+    parameters: [0, 1]
+    entry: 0
+
+    0:
+      %2 = 0 (u32)
+      %3 = %2 U32Div 2
+      %4 = cast %3 from u32 to felt
+      %5 = 268435454 - %4
+      store %0 -> %5
+      %6 = 4 (u32)
+      %7 = %6 U32Div 2
+      %8 = cast %7 from u32 to felt
+      %9 = 268435454 - %8
+      store %1 -> %9
+      %10 = %2 U32Div 2
+      %11 = cast %10 from u32 to felt
+      %12 = 268435454 - %11
+      %13 = load %12
+      %14 = %6 U32Div 2
+      %15 = cast %14 from u32 to felt
+      %16 = 268435454 - %15
+      %17 = load %16
+      %18 = %13 U32Add %17
+      jump 1
+
+    1:
+      return %18
+
+  }
+
+  // Function 1
+  fn load_store_sum {
+    parameters: [0]
+    entry: 0
+
+    0:
+      %2 = 1 (u32)
+      %3 = 0 (u32)
+      %4 = %0 (u32)
+      %5 = %2 (u32)
+      %6 = %3 (u32)
+      jump 3
+
+    1:
+      %16 = %2 (u32)
+      %18 = %3 (u32)
+      %15 = %0 (u32)
+      %17 = %3 (u32)
+      jump 6
+
+    2:
+      jump 9
+
+    3:
+      jump 4
+
+    4:
+      %7 = %6 U32Div 2
+      %8 = cast %7 from u32 to felt
+      %9 = 268435454 - %8
+      store %5 -> %9
+      %10 = 4 (u32)
+      %11 = %6 U32Add %10
+      %12 = 1 (u32)
+      %13 = %5 U32Add %12
+      %14 = %13 U32LessEqual %4
+      %4 = %4 (u32)
+      %5 = %13 (u32)
+      %6 = %11 (u32)
+      if %14 then jump 3 else jump 5
+
+    5:
+      jump 1
+
+    6:
+      jump 7
+
+    7:
+      %19 = %18 U32Div 2
+      %20 = cast %19 from u32 to felt
+      %21 = 268435454 - %20
+      %22 = load %21
+      %23 = %17 U32Add %22
+      %24 = 4 (u32)
+      %25 = %18 U32Add %24
+      %26 = 1 (u32)
+      %27 = %16 U32Add %26
+      %28 = %27 U32LessEqual %15
+      %15 = %15 (u32)
+      %16 = %27 (u32)
+      %17 = %23 (u32)
+      %18 = %25 (u32)
+      if %28 then jump 6 else jump 8
+
+    8:
+      %1 = %23 (u32)
+      jump 2
+
+    9:
+      return %1
+
+  }
+
+  // Function 2
+  fn load_store_sum_3_with_offsets {
+    entry: 0
+
+    0:
+      %0 = 0 (u32)
+      %1 = 65000 (u32)
+      %2 = %0 U32Div 2
+      %3 = cast %2 from u32 to felt
+      %4 = 268435454 - %3
+      store %1 -> %4
+      %5 = 66000 (u32)
+      %6 = %0 U32Div 2
+      %7 = cast %6 from u32 to felt
+      %8 = 268435452 - %7
+      store %5 -> %8
+      %9 = 67000 (u32)
+      %10 = %0 U32Div 2
+      %11 = cast %10 from u32 to felt
+      %12 = 268435450 - %11
+      store %9 -> %12
+      %13 = %0 U32Div 2
+      %14 = cast %13 from u32 to felt
+      %15 = 268435454 - %14
+      %16 = load %15
+      %17 = %0 U32Div 2
+      %18 = cast %17 from u32 to felt
+      %19 = 268435452 - %18
+      %20 = load %19
+      %21 = %0 U32Div 2
+      %22 = cast %21 from u32 to felt
+      %23 = 268435450 - %22
+      %24 = load %23
+      %25 = %20 U32Add %24
+      %26 = %16 U32Add %25
+      jump 1
+
+    1:
+      return %26
+
+  }
+
+}

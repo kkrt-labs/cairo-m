@@ -2,8 +2,9 @@ use super::{wasm_type_to_mir_type, DagToMirContext, DagToMirError};
 use crate::loader::BlocklessDagModule;
 use cairo_m_compiler_mir::instruction::CalleeSignature;
 use cairo_m_compiler_mir::{
-    instruction::Instruction, BinaryOp, FunctionId, MirType, Value, ValueId,
+    instruction::Instruction, BinaryOp, FunctionId, MirType, Place, Value, ValueId,
 };
+use cairo_m_runner::memory::MAX_ADDRESS;
 use wasmparser::Operator as Op;
 use womir::loader::blockless_dag::Node;
 
@@ -45,12 +46,52 @@ impl DagToMirContext {
         left: Value,
         right: Value,
         dest_type: MirType,
-    ) -> Result<ValueId, DagToMirError> {
+    ) -> Result<Option<ValueId>, DagToMirError> {
         let result_id = self.mir_function.new_typed_value_id(dest_type);
         let mir_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx)?;
         let instruction = Instruction::binary_op(mir_op, result_id, left, right);
         self.get_current_block()?.push_instruction(instruction);
-        Ok(result_id)
+        Ok(Some(result_id))
+    }
+
+    /// Compute the Cairo-M memory address from a WASM address value.
+    /// cm_address = heap_start - (wasm_address / 2) - (wasm_offset / 2) - 1
+    /// This is done dynamically using 3 mir instructions, which is pretty inefficient.
+    fn compute_cm_address_from_wasm_address(
+        &mut self,
+        wasm_address: Value,
+        wasm_offset: u64,
+    ) -> Result<ValueId, DagToMirError> {
+        // temp1 = wasm_address / 2
+        let temp1 = self.mir_function.new_typed_value_id(MirType::U32);
+        let inst_div_by_2 =
+            Instruction::binary_op(BinaryOp::U32Div, temp1, wasm_address, Value::integer(2));
+
+        // temp2 = temp1 as felt
+        let temp2 = self.mir_function.new_typed_value_id(MirType::Felt);
+        let inst_cast =
+            Instruction::cast(temp2, Value::operand(temp1), MirType::U32, MirType::Felt);
+
+        // cm_address = heap_start + cm_offset - temp2
+        // without globals, heap starts at MAX_ADDRESS
+        let cm_address = self.mir_function.new_typed_value_id(MirType::Felt);
+        let cm_offset = self.cm_offset_from_wasm_i32_offset(wasm_offset);
+        let inst_sub = Instruction::binary_op(
+            BinaryOp::Sub,
+            cm_address,
+            Value::integer((MAX_ADDRESS as i32 + cm_offset) as u32),
+            Value::operand(temp2),
+        );
+
+        self.get_current_block()?.push_instruction(inst_div_by_2);
+        self.get_current_block()?.push_instruction(inst_cast);
+        self.get_current_block()?.push_instruction(inst_sub);
+        Ok(cm_address)
+    }
+
+    /// Convert a WASM i32 memory offset (in bytes) to Cairo-M offset (in felts)
+    const fn cm_offset_from_wasm_i32_offset(&self, wasm_offset: u64) -> i32 {
+        -((wasm_offset / 2) as i32) - 1
     }
 
     /// Convert a WASM operation to MIR instructions
@@ -60,7 +101,7 @@ impl DagToMirContext {
         wasm_op: &Op,
         node: &Node,
         module: &BlocklessDagModule,
-    ) -> Result<ValueId, DagToMirError> {
+    ) -> Result<Option<ValueId>, DagToMirError> {
         let inputs: Result<Vec<Value>, _> = node
             .inputs
             .iter()
@@ -124,7 +165,7 @@ impl DagToMirContext {
                 self.get_current_block()?.push_instruction(instruction1);
                 self.get_current_block()?.push_instruction(instruction2);
                 self.get_current_block()?.push_instruction(instruction3);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             // Zero comparison instruction, constructed by comparing the input to 0
@@ -138,7 +179,7 @@ impl DagToMirContext {
                     Value::integer(0),
                 );
                 self.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             // Assigning a constant to a variable
@@ -147,7 +188,7 @@ impl DagToMirContext {
                 let instruction =
                     Instruction::assign(result_id, Value::integer(*value as u32), MirType::U32);
                 self.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
+                Ok(Some(result_id))
             }
 
             // Local variable operations should be eliminated by WOMIR
@@ -186,7 +227,35 @@ impl DagToMirContext {
                 let result_id = self.mir_function.new_typed_value_id(MirType::U32);
                 let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
                 self.get_current_block()?.push_instruction(instruction);
-                Ok(result_id)
+                Ok(Some(result_id))
+            }
+
+            // Load I32 from memory
+            // The conversion from wasm address to MIR address is :
+            // cm_address = heap_start - (wasm_address / 2) - 1
+            // cm_offset = -(wasm_offset / 2)
+            // Where the 1/2 factor comes from the size conversion u32 = 4 bytes = 2 felts
+            Op::I32Load { memarg, .. } => {
+                let base_address = inputs[0];
+                let cm_address =
+                    self.compute_cm_address_from_wasm_address(base_address, memarg.offset)?;
+                let result_id = self.mir_function.new_typed_value_id(MirType::U32);
+                let place = Place::new(cm_address);
+                let instruction = Instruction::load(result_id, place, MirType::U32);
+                self.get_current_block()?.push_instruction(instruction);
+                Ok(Some(result_id))
+            }
+
+            // Store I32 in memory
+            // See above for address computation
+            Op::I32Store { memarg, .. } => {
+                let base_address = inputs[0];
+                let cm_address =
+                    self.compute_cm_address_from_wasm_address(base_address, memarg.offset)?;
+                let place = Place::new(cm_address);
+                let instruction = Instruction::store(place, inputs[1], MirType::U32);
+                self.get_current_block()?.push_instruction(instruction);
+                Ok(None)
             }
 
             _ => {

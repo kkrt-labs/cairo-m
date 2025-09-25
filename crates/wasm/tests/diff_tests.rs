@@ -176,6 +176,12 @@ proptest! {
     }
 
     #[test]
+    fn run_load_store_add(a: u32, b: u32) {
+        test_program("tests/test_cases/load_store.wasm", "add", vec![a, b]);
+    }
+
+
+    #[test]
     fn run_fib_from_rust(a in 0..10u32) {
         let case_dir = format!("{}/sample-programs/fib", env!("CARGO_MANIFEST_DIR"));
         build_wasm(&PathBuf::from(&case_dir));
@@ -211,4 +217,22 @@ fn run_func_call() {
 #[test]
 fn run_variables() {
     test_program("tests/test_cases/variables.wasm", "main", vec![]);
+}
+
+#[test]
+fn run_load_store_sum() {
+    test_program(
+        "tests/test_cases/load_store.wasm",
+        "load_store_sum",
+        vec![100],
+    );
+}
+
+#[test]
+fn run_load_store_sum_3_with_offsets() {
+    test_program(
+        "tests/test_cases/load_store.wasm",
+        "load_store_sum_3_with_offsets",
+        vec![],
+    );
 }
