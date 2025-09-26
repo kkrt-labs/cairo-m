@@ -10,24 +10,23 @@ use stwo_prover::core::proof_of_work::GrindOps;
 use stwo_prover::core::prover::prove;
 use tracing::{info, span, Level};
 
-use crate::adapter::ProverInput;
-use crate::components::{Claim, Components, InteractionClaim, Relations};
+use crate::adapter::SHA256HashInput;
 use crate::errors::ProvingError;
 use crate::preprocessed::PreProcessedTraceBuilder;
 use crate::prover_config::REGULAR_96_BITS;
-use crate::public_data::PublicData;
-use crate::{relations, Proof};
+use crate::relations;
+use crate::sha256::{Claim, Components, InteractionClaim, Proof, Relations};
 
-pub(crate) const PREPROCESSED_TRACE_LOG_SIZE: u32 = 20;
+const MAX_TRACE_LOG_SIZE: u32 = 24;
 
-pub fn prove_cairo_m<MC: MerkleChannel>(
-    input: &mut ProverInput,
+pub fn prove_sha256<MC: MerkleChannel>(
+    inputs: &Vec<SHA256HashInput>,
     pcs_config: Option<PcsConfig>,
 ) -> Result<Proof<MC::H>, ProvingError>
 where
     SimdBackend: BackendForChannel<MC>,
 {
-    let _span = span!(Level::INFO, "prove_cairo_m").entered();
+    let _span = span!(Level::INFO, "prove_sha256").entered();
 
     // Setup protocol.
     let channel = &mut MC::C::default();
@@ -35,22 +34,7 @@ where
     let pcs_config = pcs_config.unwrap_or(REGULAR_96_BITS);
     pcs_config.mix_into(channel);
 
-    let trace_log_size = std::cmp::max(
-        PREPROCESSED_TRACE_LOG_SIZE + 1,
-        std::cmp::max(
-            (input.merkle_trees.initial_tree.len() + input.merkle_trees.final_tree.len())
-                .next_power_of_two()
-                .ilog2(),
-            input
-                .instructions
-                .states_by_opcodes
-                .values()
-                .map(|states| states.len().next_power_of_two())
-                .max()
-                .unwrap_or(1)
-                .ilog2(),
-        ),
-    );
+    let trace_log_size = MAX_TRACE_LOG_SIZE;
 
     info!("twiddles");
     let twiddles = SimdBackend::precompute_twiddles(
@@ -62,18 +46,16 @@ where
     let mut commitment_scheme =
         CommitmentSchemeProver::<SimdBackend, MC>::new(pcs_config, &twiddles);
 
-    let public_data = PublicData::new(input);
-
     // Preprocessed traces
     info!("preprocessed trace");
-    let preprocessed_trace = PreProcessedTraceBuilder::default().build();
+    let preprocessed_trace = PreProcessedTraceBuilder::for_sha256().build();
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(preprocessed_trace.gen_trace());
     tree_builder.commit(channel);
 
     // Execution traces
     info!("execution trace");
-    let (claim, trace, lookup_data) = Claim::write_trace::<MC>(input);
+    let (claim, trace, lookup_data) = Claim::write_trace::<MC>(inputs);
     claim.mix_into(channel);
 
     let mut tree_builder = commitment_scheme.tree_builder();
@@ -113,8 +95,8 @@ where
 
     #[cfg(feature = "relation-tracker")]
     {
-        use crate::debug_tools::relation_tracker::track_and_summarize_relations;
-        let summary = track_and_summarize_relations(&commitment_scheme, &components, &public_data);
+        use crate::sha256::debug_tools::relation_tracker::track_and_summarize_relations;
+        let summary = track_and_summarize_relations(&commitment_scheme, &components);
         println!("Relations summary: {:?}", summary);
     }
     info!(
@@ -139,7 +121,6 @@ where
     Ok(Proof {
         claim,
         interaction_claim,
-        public_data,
         stark_proof,
         interaction_pow,
     })

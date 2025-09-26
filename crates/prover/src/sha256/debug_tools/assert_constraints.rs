@@ -17,21 +17,22 @@ use stwo_prover::core::poly::BitReversedOrder;
 use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 use stwo_prover::core::ColumnVec;
 
-use crate::adapter::ProverInput;
-use crate::components::{Claim, Components, InteractionClaim, Relations};
+use crate::adapter::SHA256HashInput;
+use crate::components::Relations;
 use crate::preprocessed::PreProcessedTraceBuilder;
+use crate::sha256::{Claim, Components, InteractionClaim, Proof};
 
-pub fn assert_constraints(input: &mut ProverInput) {
+pub fn assert_constraints(input: &mut Vec<SHA256HashInput>) {
     let mut commitment_scheme = MockCommitmentScheme::default();
 
     // Preprocessed trace.
-    let preprocessed_trace = PreProcessedTraceBuilder::default().build();
+    let preprocessed_trace = PreProcessedTraceBuilder::for_sha256().build();
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(preprocessed_trace.gen_trace());
     tree_builder.finalize_interaction();
 
     // Base trace.
-    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel>(input);
+    let (claim, trace, lookup_data) = Claim::write_trace::<Blake2sMerkleChannel>(&input);
     let mut tree_builder = commitment_scheme.tree_builder();
     tree_builder.extend_evals(trace);
     tree_builder.finalize_interaction();
@@ -145,10 +146,6 @@ impl<B: BackendForChannel<MC>, MC: MerkleChannel> TreeBuilder<B>
 /// When adding a component, this function should be updated.
 fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     let Components {
-        opcodes,
-        memory,
-        merkle,
-        poseidon2,
         sha256,
         ch,
         maj,
@@ -165,41 +162,8 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
         xor_big_sigma0_0,
         xor_big_sigma0_1,
         xor_big_sigma1,
-        range_check_8,
         range_check_16,
-        range_check_20,
-        clock_update,
-        bitwise,
     } = components;
-    assert_component(&opcodes.call_abs_imm, &trace);
-    assert_component(&opcodes.jmp_imm, &trace);
-    assert_component(&opcodes.jnz_fp_imm, &trace);
-    assert_component(&opcodes.ret, &trace);
-    assert_component(&opcodes.store_fp_fp, &trace);
-    assert_component(&opcodes.store_fp_imm, &trace);
-    assert_component(&opcodes.double_deref_fp_imm, &trace);
-    assert_component(&opcodes.double_deref_fp_fp, &trace);
-    assert_component(&opcodes.store_imm, &trace);
-    assert_component(&opcodes.store_frame_pointer, &trace);
-    assert_component(&opcodes.u32_store_imm, &trace);
-    assert_component(&opcodes.store_le_fp_imm, &trace);
-    assert_component(&opcodes.u32_store_add_fp_imm, &trace);
-    assert_component(&opcodes.u32_store_add_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_mul_fp_imm, &trace);
-    assert_component(&opcodes.u32_store_mul_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_div_fp_imm, &trace);
-    assert_component(&opcodes.u32_store_div_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_sub_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_eq_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_eq_fp_imm, &trace);
-    assert_component(&opcodes.u32_store_lt_fp_imm, &trace);
-    assert_component(&opcodes.u32_store_lt_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_bitwise_fp_fp, &trace);
-    assert_component(&opcodes.u32_store_bitwise_fp_imm, &trace);
-    assert_component(memory, &trace);
-    assert_component(merkle, &trace);
-    assert_component(clock_update, &trace);
-    assert_component(poseidon2, &trace);
     assert_component(sha256, &trace);
     assert_component(ch, &trace);
     assert_component(maj, &trace);
@@ -216,10 +180,7 @@ fn assert_components(trace: TreeVec<Vec<&Vec<M31>>>, components: &Components) {
     assert_component(xor_big_sigma0_0, &trace);
     assert_component(xor_big_sigma0_1, &trace);
     assert_component(xor_big_sigma1, &trace);
-    assert_component(range_check_8, &trace);
     assert_component(range_check_16, &trace);
-    assert_component(range_check_20, &trace);
-    assert_component(bitwise, &trace);
 }
 
 fn assert_component<E: FrameworkEval + Sync>(
