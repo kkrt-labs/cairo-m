@@ -1,5 +1,19 @@
 # Cairo M Design Document
 
+## Acknowledgments {-}
+
+We would like to thank Shahar Papini^[https://x.com/PapiniShahar] and Alon
+Titelman^[https://dl.acm.org/profile/99659958911] for their valuable discussions
+and insights that contributed to the development of this design. This work would
+not have been possible without Antoine Fontaine^[https://x.com/_Antoineuh] who
+significantly contributed to the implementation of the Cairo M prover and all
+the forthcoming reflections and improvements.
+
+At some point in 2025, it is also probably required to recognize the game
+changing contributions of our dear _intern_ team:
+Claude^[https://x.com/ClaudeAI], Codex^[https://openai.com/codex/],
+Gemini^[https://gemini.google.com/] and Grok^[https://x.com/Grok].
+
 ## Introduction \label{sec:introduction} {#introduction}
 
 The motivation behind building a new _Zero-Knowledge Virtual Machine (zkVM)_

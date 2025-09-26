@@ -5,6 +5,7 @@ ignorePaths:
 words:
   - allman
   - alloca
+  - Alon
   - anthropics
   - architecting
   - arrayindex
@@ -13,6 +14,7 @@ words:
   - binop
   - branchcmp
   - bswap
+  - Fontaine
   - bytemuck
   - CAIR
   - cairols
@@ -105,6 +107,7 @@ words:
   - oneshot
   - operandless
   - pandoc
+  - Papini
   - peekable
   - pointee
   - preds
@@ -140,6 +143,7 @@ words:
   - scalarizing
   - seedable
   - serde
+  - Shahar
   - simply
   - smallvec
   - smol
@@ -173,6 +177,7 @@ words:
   - texmfcache
   - texmfvar
   - texttt
+  - Titelman
   - thiserror
   - tlsv
   - toplevel
