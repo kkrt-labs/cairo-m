@@ -7,3 +7,4 @@ tmp.out
 .worktrees
 .repo_ignore
 **/proptest_regressions
+docs/.texcache
