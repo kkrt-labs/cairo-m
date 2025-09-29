@@ -5,7 +5,8 @@
 We would like to thank Shahar Papini^[https://x.com/PapiniShahar] and Alon
 Titelman^[https://dl.acm.org/profile/99659958911] for their valuable discussions
 and insights that contributed to the development of this design. This work would
-not have been possible without Antoine Fontaine^[https://x.com/_Antoineuh] who
+not have been possible without Antoine
+Fondeur^[https://www.linkedin.com/in/antoine-fondeur-517281294/] who
 significantly contributed to the implementation of the Cairo M prover and all
 the forthcoming reflections and improvements.
 
