@@ -14,10 +14,9 @@ use womir::loader::load_wasm;
 
 use proptest::prelude::*;
 use std::path::PathBuf;
-use std::process::Command;
 
 mod test_utils;
-use test_utils::build_wasm;
+use test_utils::{ensure_rust_wasm_built, ensure_wasm_file_built};
 
 struct DataInput {
     values: Vec<u32>,
@@ -83,13 +82,9 @@ fn collect_u32s_by_abi(
 }
 
 fn test_program_from_wat(path: &str, func_name: &str, inputs: Vec<u32>) {
-    let path_wasm = PathBuf::from(path).with_extension("wasm");
-
-    if !path_wasm.exists() {
-        build_wasm(&PathBuf::from(path));
-    }
-
-    test_program_from_wasm(path_wasm.to_str().unwrap(), func_name, inputs);
+    ensure_wasm_file_built(path);
+    let wasm_path = PathBuf::from(path).with_extension("wasm");
+    test_program_from_wasm(wasm_path.to_str().unwrap(), func_name, inputs);
 }
 
 fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
@@ -102,7 +97,6 @@ fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
 
     let dag_module = BlocklessDagModule::from_bytes(&wasm_file).unwrap();
     let mir_module = lower_program_to_mir(&dag_module, PassManager::standard_pipeline()).unwrap();
-
     let compiled_module = compile_module(&mir_module).unwrap();
 
     let data_input = DataInput::new(vec![]);
@@ -113,7 +107,7 @@ fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
         .map(|&v| InputValue::Number(v as i64))
         .collect::<Vec<_>>();
 
-    // Test with the provided inputs
+    // Test with the provided inputs in both the WOMIR interpreter and the Cairo-M runner.
     let result_womir_interpreter = womir_interpreter.run(func_name, &inputs);
     let result_cairo_m_interpreter = run_cairo_program(
         &compiled_module,
@@ -126,27 +120,8 @@ fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
         .get_entrypoint(func_name)
         .expect("Entrypoint not found in compiled program");
     let cairo_u32s = collect_u32s_by_abi(&result_cairo_m_interpreter.return_values, &entry.returns);
+
     assert_eq!(result_womir_interpreter, cairo_u32s);
-}
-
-fn build_wasm_from_rust(path: &PathBuf) {
-    assert!(path.exists(), "Target directory does not exist: {path:?}",);
-
-    let output = Command::new("cargo")
-        .arg("build")
-        .arg("--release")
-        .arg("--target")
-        .arg("wasm32-unknown-unknown")
-        .current_dir(path)
-        .output()
-        .expect("Failed to run cargo build");
-
-    if !output.status.success() {
-        eprintln!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));
-        eprintln!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
-    }
-
-    assert!(output.status.success(), "cargo build failed for {path:?}",);
 }
 
 proptest! {
@@ -200,7 +175,7 @@ proptest! {
     #[test]
     fn run_fib_from_rust(a in 0..10u32) {
         let case_dir = format!("{}/sample-programs/fib", env!("CARGO_MANIFEST_DIR"));
-        build_wasm_from_rust(&PathBuf::from(&case_dir));
+        ensure_rust_wasm_built(&case_dir);
         test_program_from_wasm(
             &format!("{}/target/wasm32-unknown-unknown/release/fib.wasm", case_dir),
             "fib",
@@ -211,7 +186,7 @@ proptest! {
     #[test]
     fn run_ackermann_from_rust(m in 0..3u32, n in 0..3u32) {
         let case_dir = format!("{}/sample-programs/ackermann", env!("CARGO_MANIFEST_DIR"));
-        build_wasm_from_rust(&PathBuf::from(&case_dir));
+        ensure_rust_wasm_built(&case_dir);
         test_program_from_wasm(
             &format!("{}/target/wasm32-unknown-unknown/release/ackermann.wasm", case_dir),
             "ackermann",

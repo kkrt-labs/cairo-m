@@ -9,7 +9,7 @@ use cairo_m_wasm::loader::BlocklessDagModule;
 use cairo_m_wasm::lowering::lower_program_to_mir;
 
 mod test_utils;
-use test_utils::build_wasm;
+use test_utils::ensure_wasm_file_built;
 
 /// A macro to define a WASM to MIR conversion test case
 macro_rules! wasm_test {
@@ -17,12 +17,12 @@ macro_rules! wasm_test {
         #[test]
         $(#[$attr])*
         fn $test_name() {
-            let wat_file_path = PathBuf::from(&format!("tests/test_cases/{}", $file_name));
-            let wasm_file_path = wat_file_path.with_extension("wasm");
 
-            if !wasm_file_path.exists() {
-                build_wasm(&wat_file_path);
-            }
+
+            let wat_file_path = &format!("tests/test_cases/{}", $file_name);
+            ensure_wasm_file_built(wat_file_path);
+
+            let wasm_file_path = PathBuf::from(wat_file_path).with_extension("wasm");
 
             // Load the WASM module
             let wasm_file = std::fs::read(&wasm_file_path).unwrap();
