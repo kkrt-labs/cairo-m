@@ -52,19 +52,13 @@ macro_rules! wasm_test {
 // ====== Test Cases ======
 
 // --- Basic WASM to MIR Conversion Tests ---
-wasm_test!(convert_add_wasm, "add.wat");
 wasm_test!(convert_fib_wasm, "fib.wat");
-wasm_test!(convert_arithmetic_wasm, "arithmetic.wat");
+wasm_test!(convert_i32_arithmetic_wasm, "i32_arithmetic.wat");
 wasm_test!(convert_simple_if_wasm, "simple_if.wat");
 wasm_test!(convert_if_statement_wasm, "if_statement.wat");
 wasm_test!(convert_func_call_wasm, "func_call.wat");
-wasm_test!(convert_variables_wasm, "variables.wat");
-wasm_test!(convert_bitwise_wasm, "bitwise.wat");
+wasm_test!(convert_locals_wasm, "locals.wat");
+wasm_test!(convert_i32_bitwise_wasm, "i32_bitwise.wat");
 wasm_test!(convert_simple_loop_wasm, "simple_loop.wat");
 wasm_test!(convert_nested_loop_wasm, "nested_loop.wat");
 wasm_test!(convert_load_store_wasm, "load_store.wat");
-wasm_test!(
-    #[ignore]
-    convert_sha256_wasm,
-    "sha256.wat"
-);

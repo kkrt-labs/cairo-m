@@ -1,7 +1,5 @@
 (module
- (type $i32_=>_i32 (func (param i32) (result i32)))
- (export "nested_loop" (func $0))
- (func $0 (param $0 i32) (result i32)
+ (func $nested_loop (param $0 i32) (result i32)
   (local $1 i32)
   (local $2 i32)
   (local $3 i32)
@@ -56,4 +54,5 @@
   )
   (local.get $3)
  )
+ (export "nested_loop" (func $nested_loop))
 )

@@ -6,7 +6,7 @@ expression: snapshot_content
 source: crates/wasm/tests/wasm_to_mir_tests.rs
 expression: wasm_load_result
 ---
-WASM File: add.wat
+WASM File: locals.wat
 ============================================================
 Success: true
 Functions loaded: 1
@@ -14,12 +14,13 @@ Functions loaded: 1
 Module Output:
 module {
   // Function 0
-  fn add {
-    parameters: [0, 1]
+  fn locals {
     entry: 0
 
     0:
-      %2 = %1 U32Add %0
+      %0 = 10 (u32)
+      %1 = 5 (u32)
+      %2 = %0 U32Add %1
       jump 1
 
     1:

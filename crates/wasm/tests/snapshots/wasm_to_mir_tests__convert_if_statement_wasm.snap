@@ -14,7 +14,7 @@ Functions loaded: 1
 Module Output:
 module {
   // Function 0
-  fn main {
+  fn if_statement {
     parameters: [0]
     entry: 0
 

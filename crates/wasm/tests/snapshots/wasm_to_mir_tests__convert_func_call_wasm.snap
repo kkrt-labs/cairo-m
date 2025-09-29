@@ -28,7 +28,7 @@ module {
   }
 
   // Function 1
-  fn main {
+  fn func_call {
     entry: 0
 
     0:

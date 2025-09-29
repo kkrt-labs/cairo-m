@@ -86,7 +86,7 @@ fn test_program_from_wat(path: &str, func_name: &str, inputs: Vec<u32>) {
     let path_wasm = PathBuf::from(path).with_extension("wasm");
 
     if !path_wasm.exists() {
-        build_wasm(&path_wasm);
+        build_wasm(&PathBuf::from(path));
     }
 
     test_program_from_wasm(path_wasm.to_str().unwrap(), func_name, inputs);
@@ -151,20 +151,18 @@ fn build_wasm_from_rust(path: &PathBuf) {
 
 proptest! {
     #[test]
-    fn run_add(a: u32, b: u32) {
-        test_program_from_wat("tests/test_cases/add.wat", "add", vec![a, b]);
+    fn run_i32_arithmetic(a: u32, b: u32) {
+        test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_add", vec![a, b]);
+        test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_sub", vec![a, b]);
+        test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_mul", vec![a, b]);
+        test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_div_u", vec![a, b]);
     }
 
     #[test]
-    fn run_arithmetic(a: u32, b: u32) {
-        test_program_from_wat("tests/test_cases/arithmetic.wat", "f", vec![a, b]);
-    }
-
-    #[test]
-    fn run_bitwise(a: u32, b: u32) {
-        test_program_from_wat("tests/test_cases/bitwise.wat", "and", vec![a, b]);
-        test_program_from_wat("tests/test_cases/bitwise.wat", "or", vec![a, b]);
-        test_program_from_wat("tests/test_cases/bitwise.wat", "xor", vec![a, b]);
+    fn run_i32_bitwise(a: u32, b: u32) {
+        test_program_from_wat("tests/test_cases/i32_bitwise.wat", "i32_and", vec![a, b]);
+        test_program_from_wat("tests/test_cases/i32_bitwise.wat", "i32_or", vec![a, b]);
+        test_program_from_wat("tests/test_cases/i32_bitwise.wat", "i32_xor", vec![a, b]);
     }
 
     #[test]
@@ -180,7 +178,12 @@ proptest! {
 
     #[test]
     fn run_if_statement(a: u32) {
-        test_program_from_wat("tests/test_cases/if_statement.wat", "main", vec![a]);
+        test_program_from_wat("tests/test_cases/if_statement.wat", "if_statement", vec![a]);
+    }
+
+    #[test]
+    fn run_simple_loop(a in 0..10u32) {
+        test_program_from_wat("tests/test_cases/simple_loop.wat", "simple_loop", vec![a]);
     }
 
     #[test]
@@ -218,24 +221,19 @@ proptest! {
 }
 
 #[test]
-fn run_simple_loop() {
-    test_program_from_wat("tests/test_cases/simple_loop.wat", "main", vec![]);
-}
-
-#[test]
 fn run_func_call() {
-    test_program_from_wat("tests/test_cases/func_call.wat", "main", vec![]);
+    test_program_from_wat("tests/test_cases/func_call.wat", "func_call", vec![]);
 }
 
 #[test]
-fn run_variables() {
-    test_program_from_wat("tests/test_cases/variables.wat", "main", vec![]);
+fn run_locals() {
+    test_program_from_wat("tests/test_cases/locals.wat", "locals", vec![]);
 }
 
 #[test]
 fn run_load_store_sum() {
     test_program_from_wat(
-        "tests/test_cases/load_store.wasm",
+        "tests/test_cases/load_store.wat",
         "load_store_sum",
         vec![100],
     );
@@ -244,7 +242,7 @@ fn run_load_store_sum() {
 #[test]
 fn run_load_store_sum_3_with_offsets() {
     test_program_from_wat(
-        "tests/test_cases/load_store.wasm",
+        "tests/test_cases/load_store.wat",
         "load_store_sum_3_with_offsets",
         vec![],
     );

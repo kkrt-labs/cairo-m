@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn test_loader_basic() {
         // Test basic loading functionality
-        let wat_file = PathBuf::from("tests/test_cases/add.wat");
+        let wat_file = PathBuf::from("tests/test_cases/i32_arithmetic.wat");
         let _ = Command::new("wat2wasm")
             .arg(&wat_file)
             .arg("-o")
