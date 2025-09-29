@@ -16,6 +16,9 @@ use proptest::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
 
+mod test_utils;
+use test_utils::build_wasm;
+
 struct DataInput {
     values: Vec<u32>,
 }
@@ -79,7 +82,17 @@ fn collect_u32s_by_abi(
         .collect()
 }
 
-fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
+fn test_program_from_wat(path: &str, func_name: &str, inputs: Vec<u32>) {
+    let path_wasm = PathBuf::from(path).with_extension("wasm");
+
+    if !path_wasm.exists() {
+        build_wasm(&path_wasm);
+    }
+
+    test_program_from_wasm(path_wasm.to_str().unwrap(), func_name, inputs);
+}
+
+fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
     let wasm_file = std::fs::read(path).unwrap();
 
     let womir_program = load_wasm(GenericIrSetting, &wasm_file)
@@ -116,7 +129,7 @@ fn test_program(path: &str, func_name: &str, inputs: Vec<u32>) {
     assert_eq!(result_womir_interpreter, cairo_u32s);
 }
 
-fn build_wasm(path: &PathBuf) {
+fn build_wasm_from_rust(path: &PathBuf) {
     assert!(path.exists(), "Target directory does not exist: {path:?}",);
 
     let output = Command::new("cargo")
@@ -139,53 +152,53 @@ fn build_wasm(path: &PathBuf) {
 proptest! {
     #[test]
     fn run_add(a: u32, b: u32) {
-        test_program("tests/test_cases/add.wasm", "add", vec![a, b]);
+        test_program_from_wat("tests/test_cases/add.wat", "add", vec![a, b]);
     }
 
     #[test]
     fn run_arithmetic(a: u32, b: u32) {
-        test_program("tests/test_cases/arithmetic.wasm", "f", vec![a, b]);
+        test_program_from_wat("tests/test_cases/arithmetic.wat", "f", vec![a, b]);
     }
 
     #[test]
     fn run_bitwise(a: u32, b: u32) {
-        test_program("tests/test_cases/bitwise.wasm", "and", vec![a, b]);
-        test_program("tests/test_cases/bitwise.wasm", "or", vec![a, b]);
-        test_program("tests/test_cases/bitwise.wasm", "xor", vec![a, b]);
+        test_program_from_wat("tests/test_cases/bitwise.wat", "and", vec![a, b]);
+        test_program_from_wat("tests/test_cases/bitwise.wat", "or", vec![a, b]);
+        test_program_from_wat("tests/test_cases/bitwise.wat", "xor", vec![a, b]);
     }
 
     #[test]
     fn run_fib(a in 0..10u32) {
-        test_program("tests/test_cases/fib.wasm", "fib", vec![a]);
+        test_program_from_wat("tests/test_cases/fib.wat", "fib", vec![a]);
     }
 
 
     #[test]
     fn run_simple_if(a: u32) {
-        test_program("tests/test_cases/simple_if.wasm", "simple_if", vec![a]);
+        test_program_from_wat("tests/test_cases/simple_if.wat", "simple_if", vec![a]);
     }
 
     #[test]
     fn run_if_statement(a: u32) {
-        test_program("tests/test_cases/if_statement.wasm", "main", vec![a]);
+        test_program_from_wat("tests/test_cases/if_statement.wat", "main", vec![a]);
     }
 
     #[test]
     fn run_nested_loop(a in 0..10u32) {
-        test_program("tests/test_cases/nested_loop.wasm", "nested_loop", vec![a]);
+        test_program_from_wat("tests/test_cases/nested_loop.wat", "nested_loop", vec![a]);
     }
 
     #[test]
     fn run_load_store_add(a: u32, b: u32) {
-        test_program("tests/test_cases/load_store.wasm", "add", vec![a, b]);
+        test_program_from_wat("tests/test_cases/load_store.wat", "add", vec![a, b]);
     }
 
 
     #[test]
     fn run_fib_from_rust(a in 0..10u32) {
         let case_dir = format!("{}/sample-programs/fib", env!("CARGO_MANIFEST_DIR"));
-        build_wasm(&PathBuf::from(&case_dir));
-        test_program(
+        build_wasm_from_rust(&PathBuf::from(&case_dir));
+        test_program_from_wasm(
             &format!("{}/target/wasm32-unknown-unknown/release/fib.wasm", case_dir),
             "fib",
             vec![a],
@@ -195,8 +208,8 @@ proptest! {
     #[test]
     fn run_ackermann_from_rust(m in 0..3u32, n in 0..3u32) {
         let case_dir = format!("{}/sample-programs/ackermann", env!("CARGO_MANIFEST_DIR"));
-        build_wasm(&PathBuf::from(&case_dir));
-        test_program(
+        build_wasm_from_rust(&PathBuf::from(&case_dir));
+        test_program_from_wasm(
             &format!("{}/target/wasm32-unknown-unknown/release/ackermann.wasm", case_dir),
             "ackermann",
             vec![m, n],
@@ -206,22 +219,22 @@ proptest! {
 
 #[test]
 fn run_simple_loop() {
-    test_program("tests/test_cases/simple_loop.wasm", "main", vec![]);
+    test_program_from_wat("tests/test_cases/simple_loop.wat", "main", vec![]);
 }
 
 #[test]
 fn run_func_call() {
-    test_program("tests/test_cases/func_call.wasm", "main", vec![]);
+    test_program_from_wat("tests/test_cases/func_call.wat", "main", vec![]);
 }
 
 #[test]
 fn run_variables() {
-    test_program("tests/test_cases/variables.wasm", "main", vec![]);
+    test_program_from_wat("tests/test_cases/variables.wat", "main", vec![]);
 }
 
 #[test]
 fn run_load_store_sum() {
-    test_program(
+    test_program_from_wat(
         "tests/test_cases/load_store.wasm",
         "load_store_sum",
         vec![100],
@@ -230,7 +243,7 @@ fn run_load_store_sum() {
 
 #[test]
 fn run_load_store_sum_3_with_offsets() {
-    test_program(
+    test_program_from_wat(
         "tests/test_cases/load_store.wasm",
         "load_store_sum_3_with_offsets",
         vec![],

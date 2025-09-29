@@ -108,12 +108,22 @@ impl<'a> Debug for BlocklessDagModule<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+    use std::process::Command;
 
     #[test]
     fn test_loader_basic() {
         // Test basic loading functionality
-        let wasm_file = std::fs::read("tests/test_cases/add.wasm").unwrap();
-        let result = BlocklessDagModule::from_bytes(&wasm_file);
+        let wat_file = PathBuf::from("tests/test_cases/add.wat");
+        let _ = Command::new("wat2wasm")
+            .arg(&wat_file)
+            .arg("-o")
+            .arg(wat_file.with_extension("wasm").to_str().unwrap())
+            .output()
+            .expect("Failed to run wat2wasm");
+        let wasm_file = wat_file.with_extension("wasm");
+        let content = std::fs::read(&wasm_file).unwrap();
+        let result = BlocklessDagModule::from_bytes(&content);
         assert!(result.is_ok(), "Should load add.wasm successfully");
 
         let module = result.unwrap();

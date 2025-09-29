@@ -6,7 +6,7 @@ expression: snapshot_content
 source: crates/wasm/tests/wasm_to_mir_tests.rs
 expression: wasm_load_result
 ---
-WASM File: bitwise.wasm
+WASM File: bitwise.wat
 ============================================================
 Success: true
 Functions loaded: 3

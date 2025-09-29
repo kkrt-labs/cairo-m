@@ -1,12 +1,15 @@
 //! Main test runner for WASM to MIR conversion.
 
 use insta::assert_snapshot;
-use std::path::Path;
+use std::path::PathBuf;
 
 // Use the loader from our src module
 use cairo_m_compiler_mir::{PassManager, PrettyPrint};
 use cairo_m_wasm::loader::BlocklessDagModule;
 use cairo_m_wasm::lowering::lower_program_to_mir;
+
+mod test_utils;
+use test_utils::build_wasm;
 
 /// A macro to define a WASM to MIR conversion test case
 macro_rules! wasm_test {
@@ -14,13 +17,15 @@ macro_rules! wasm_test {
         #[test]
         $(#[$attr])*
         fn $test_name() {
-            let file_path = format!("tests/test_cases/{}", $file_name);
+            let wat_file_path = PathBuf::from(&format!("tests/test_cases/{}", $file_name));
+            let wasm_file_path = wat_file_path.with_extension("wasm");
 
-            // Verify file exists
-            assert!(Path::new(&file_path).exists(), "WASM file should exist: {}", file_path);
+            if !wasm_file_path.exists() {
+                build_wasm(&wat_file_path);
+            }
 
             // Load the WASM module
-            let wasm_file = std::fs::read(&file_path).unwrap();
+            let wasm_file = std::fs::read(&wasm_file_path).unwrap();
             let module = BlocklessDagModule::from_bytes(&wasm_file).unwrap();
             // Lower to MIR without any optimizations
             let mir_module = lower_program_to_mir(&module, PassManager::no_opt_pipeline()).unwrap();
@@ -47,19 +52,19 @@ macro_rules! wasm_test {
 // ====== Test Cases ======
 
 // --- Basic WASM to MIR Conversion Tests ---
-wasm_test!(convert_add_wasm, "add.wasm");
-wasm_test!(convert_fib_wasm, "fib.wasm");
-wasm_test!(convert_arithmetic_wasm, "arithmetic.wasm");
-wasm_test!(convert_simple_if_wasm, "simple_if.wasm");
-wasm_test!(convert_if_statement_wasm, "if_statement.wasm");
-wasm_test!(convert_func_call_wasm, "func_call.wasm");
-wasm_test!(convert_variables_wasm, "variables.wasm");
-wasm_test!(convert_bitwise_wasm, "bitwise.wasm");
-wasm_test!(convert_simple_loop_wasm, "simple_loop.wasm");
-wasm_test!(convert_nested_loop_wasm, "nested_loop.wasm");
-wasm_test!(convert_load_store_wasm, "load_store.wasm");
+wasm_test!(convert_add_wasm, "add.wat");
+wasm_test!(convert_fib_wasm, "fib.wat");
+wasm_test!(convert_arithmetic_wasm, "arithmetic.wat");
+wasm_test!(convert_simple_if_wasm, "simple_if.wat");
+wasm_test!(convert_if_statement_wasm, "if_statement.wat");
+wasm_test!(convert_func_call_wasm, "func_call.wat");
+wasm_test!(convert_variables_wasm, "variables.wat");
+wasm_test!(convert_bitwise_wasm, "bitwise.wat");
+wasm_test!(convert_simple_loop_wasm, "simple_loop.wat");
+wasm_test!(convert_nested_loop_wasm, "nested_loop.wat");
+wasm_test!(convert_load_store_wasm, "load_store.wat");
 wasm_test!(
     #[ignore]
     convert_sha256_wasm,
-    "sha256.wasm"
+    "sha256.wat"
 );
