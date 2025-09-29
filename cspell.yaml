@@ -14,7 +14,6 @@ words:
   - binop
   - branchcmp
   - bswap
-  - Fontaine
   - bytemuck
   - CAIR
   - cairols
@@ -60,6 +59,7 @@ words:
   - fips
   - foldl
   - foldr
+  - Fontaine
   - framealloc
   - funcs
   - getelementptr
@@ -177,8 +177,8 @@ words:
   - texmfcache
   - texmfvar
   - texttt
-  - Titelman
   - thiserror
+  - Titelman
   - tlsv
   - toplevel
   - topo

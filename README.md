@@ -1,14 +1,12 @@
 # Welcome to Cairo M
 
-Cairo M is a brand new Cpu AIR leveraging M31 as its native prime field,
-unleashing the Maximum power of Starkware's S-TWO to enable Mobile proving.
-
-Cairo Max looks like Cairo Zero, just tastes better.
+Cairo M is a new Cpu AIR leveraging M31 as its native prime field, with a focus
+on modularity, built on Starkware's S-TWO to enable Mobile proving.
 
 ## Overview
 
 Cairo M is designed to provide efficient computation on consumer hardware,
-especially mobile phone. It includes several components that work together to
+especially mobile phones. It includes several components that work together to
 compile, run, and prove Cairo programs.
 
 The main design choices are
@@ -20,6 +18,9 @@ The main design choices are
 - variable-size instruction encoding (x86 style)
 - support of native types (felt, u32, etc.) thanks to an heavy use of Stwo's
   component system
+
+For a more detailed overview, you can read the
+[design document](./docs/design.pdf).
 
 ## Crates
 
