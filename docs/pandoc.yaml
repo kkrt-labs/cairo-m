@@ -1,0 +1,13 @@
+from: markdown+tex_math_dollars+raw_tex
+to: pdf
+pdf-engine: lualatex
+number-sections: true
+toc: true
+toc-depth: 3
+filters:
+  - filters/links-to-references.lua
+include-in-header:
+  - pandoc-header.tex
+input-files:
+  - design.md
+output-file: design.pdf

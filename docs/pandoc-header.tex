@@ -1,0 +1,15 @@
+% Custom Pandoc header overrides for code blocks
+\usepackage{mdframed}
+\definecolor{CodeBlockBg}{HTML}{F4F6FF}
+\newmdenv[
+  backgroundcolor=CodeBlockBg,
+  roundcorner=4pt,
+  linewidth=0pt,
+  innerleftmargin=10pt,
+  innerrightmargin=10pt,
+  innertopmargin=8pt,
+  innerbottommargin=8pt,
+  skipabove=12pt,
+  skipbelow=12pt
+]{CodeBlockShade}
+\renewenvironment{Shaded}{\begin{CodeBlockShade}}{\end{CodeBlockShade}}
