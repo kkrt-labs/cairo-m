@@ -192,6 +192,7 @@ words:
   - usize
   - Valida
   - vulns
+  - wabt
   - walkdir
   - wasmparser
   - womir
