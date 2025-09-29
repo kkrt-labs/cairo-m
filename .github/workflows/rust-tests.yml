@@ -46,6 +46,9 @@ jobs:
       - name: Add WASM target
         run: rustup target add wasm32-unknown-unknown
 
+      - name: Install WebAssembly binary toolkit
+        run: sudo apt install wabt
+
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
