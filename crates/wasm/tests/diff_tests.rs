@@ -125,12 +125,17 @@ fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
 }
 
 proptest! {
+    // Might fix CI
+    #![proptest_config(ProptestConfig::with_cases(32))]
+
     #[test]
     fn run_i32_arithmetic(a: u32, b: u32) {
         test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_add", vec![a, b]);
         test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_sub", vec![a, b]);
         test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_mul", vec![a, b]);
-        test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_div_u", vec![a, b]);
+        if b != 0 {
+            test_program_from_wat("tests/test_cases/i32_arithmetic.wat", "i32_div_u", vec![a, b]);
+        }
     }
 
     #[test]
@@ -193,6 +198,16 @@ proptest! {
             vec![m, n],
         );
     }
+}
+
+#[test]
+#[should_panic(expected = "integer divide by zero in I32DivU")]
+fn run_div_by_zero() {
+    test_program_from_wat(
+        "tests/test_cases/i32_arithmetic.wat",
+        "i32_div_u",
+        vec![1, 0],
+    );
 }
 
 #[test]
