@@ -44,6 +44,7 @@ words:
   - deque
   - dests
   - dhat
+  - dimensity
   - divrem
   - docstrings
   - dtolnay
@@ -55,6 +56,7 @@ words:
   - evals
   - extractfield
   - extracttuple
+  - fibrace
   - filetime
   - fips
   - foldl
@@ -75,13 +77,16 @@ words:
   - insta
   - instrs
   - insts
+  - ipynb
   - itertools
   - jmprelimm
   - jnzfpimm
+  - jupyterlab
   - kats
   - kiro
   - kkrt
   - krate
+  - kryo
   - legalizer
   - loff
   - logup
@@ -91,8 +96,10 @@ words:
   - makefixedarray
   - makestruct
   - maketuple
+  - matplotlib
   - mathrm
   - mdtest
+  - mediatek
   - memarg
   - memcpy
   - merkle
@@ -104,6 +111,7 @@ words:
   - mults
   - nocapture
   - nops
+  - numpy
   - oneshot
   - operandless
   - pandoc
@@ -119,6 +127,7 @@ words:
   - readback
   - readwrite
   - recompiles
+  - redmi
   - repr
   - resx
   - rfib
