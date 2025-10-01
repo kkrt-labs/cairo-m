@@ -8,19 +8,17 @@ The dataset is available with Git LFS:
 git lfs pull
 ```
 
-Use Python 3.10+ for the virtual environment. The commands below assume Linux or
-macOS shells; adapt `source` to `Scripts\\activate` if you are on Windows
-PowerShell.
+## Setup
+
+Install [uv](https://docs.astral.sh/uv/) if you haven't already:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Once the dependencies finish installing, launch Jupyter Lab from the repository
-root:
+Once `uv` is installed, launch Jupyter Lab from the `docs/fibrace` directory.
+`uv` will automatically manage the Python version and dependencies:
 
 ```bash
-jupyter lab performance-report.ipynb
+uv run jupyter lab performance-report.ipynb
 ```
