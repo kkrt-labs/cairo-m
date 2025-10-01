@@ -62,8 +62,7 @@ npm run package
 
 ### 1.2. Configuring the VS Code Extension
 
-If the extension doesn't find the language server automatically, set the path
-manually.
+You will need to set the path to the language server manually.
 
 1.  Open VS Code settings (Ctrl+,).
 2.  Search for "Cairo-M".
@@ -181,6 +180,9 @@ Notes:
 - Single‑element tuples require a trailing comma in type and value positions:
   `(felt,)` and `(x,)`. Without a trailing comma, `(T)`/`(expr)` are just
   parenthesized type/expressions.
+- Numeric literal suffixes: append `u32` to force a `u32` literal (e.g.,
+  `200u32`). Unsuffixed numeric literals default to `felt`, unless the context
+  allows inferring the type.
 
 ### 3.4. Operators
 
@@ -336,6 +338,16 @@ fn destructuring() {
 }
 ```
 
+Member access and assignment use positional fields (`.0`, `.1`, ...):
+
+```cairo
+fn tuple_access_and_assign() -> felt {
+    let t = (1, 2, 3);
+    t.0 = 4;
+    return t.0 + t.1 + t.2; // 4 + 2 + 3
+}
+```
+
 ### 3.10. Arrays (Fixed-Size)
 
 - Declaration: `[T; N]` for `felt` and `u32` elements.
@@ -356,6 +368,22 @@ fn array_sum_loop() -> u32{
         i = i + 1;
     }
     return sum;
+}
+```
+
+- Arrays with aggregates: arrays can contain tuples and structs, and be nested.
+
+```cairo
+struct Point { x: u32, y: u32 }
+
+fn arrays_with_aggregates() -> u32 {
+    let points: [Point; 2] = [
+        Point { x: 1, y: 2 },
+        Point { x: 3, y: 4 },
+    ];
+    // Update and access nested fields through indexing
+    points[0].x = 10;
+    return points[0].x + points[1].y; // 10 + 4
 }
 ```
 
@@ -381,14 +409,42 @@ fn felt_to_u32_error() -> u32 {  // not supported yet
 }
 ```
 
+### 3.12. Pointers and Heap Allocation
+
+Pointer types `T*` and heap allocation via `new` are supported. Indexing through
+pointers uses the same `p[i]` syntax as arrays.
+
+- Allocate felt/u32 buffers: `let p: felt* = new felt[N];`
+- Read/write via indexing: `p[i] = ...; let x = p[i];`
+- Struct pointers: `let ps: Point* = new Point[N]; ps[0] = Point { ... };`
+
+```cairo-m
+// Allocate and use a felt buffer
+fn alloc_felt_sum() -> felt {
+    let p: felt* = new felt[3];
+    p[0] = 7;
+    p[1] = 8;
+    p[2] = 9;
+    return p[0] + p[1] + p[2];
+}
+
+// Allocate an array of structs and access fields
+struct Point { x: u32, y: u32 }
+
+fn alloc_points_total() -> u32 {
+    let ps: Point* = new Point[2];
+    ps[0] = Point { x: 1, y: 2 };
+    ps[1] = Point { x: 3, y: 4 };
+    return ps[0].x + ps[1].y; // 1 + 4
+}
+```
+
 ## 4. Not Yet Implemented
 
 The following common language features are not yet implemented:
 
 - Dynamic arrays/slices: no variable‑length arrays; only `[T; N]`.
 - Type casting: only `u32 -> felt` is supported.
-- Pointers: parsed types exist but address‑of/deref and pointer ops are not
-  implemented.
 - Felt relational operators: `<`, `>`, `<=`, `>=` on `felt` are not enabled.
 
 ## 5. Other Notable Things
