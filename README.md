@@ -3,6 +3,12 @@
 Cairo M is a new Cpu AIR leveraging M31 as its native prime field, with a focus
 on modularity, built on Starkware's S-TWO to enable Mobile proving.
 
+## About
+
+> **Cairo M is a work in progress.**
+>
+> It is not recommended to use it in a production setting yet.
+
 ## Overview
 
 Cairo M is designed to provide efficient computation on consumer hardware,

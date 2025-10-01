@@ -1,6 +1,6 @@
 [package]
 name = "cairo-m-compiler-diagnostics"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
 
 [dependencies]
