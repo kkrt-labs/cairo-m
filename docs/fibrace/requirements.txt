@@ -1,0 +1,4 @@
+jupyterlab==4.4.8
+matplotlib==3.10.6
+numpy==2.3.3
+polars==1.33.1

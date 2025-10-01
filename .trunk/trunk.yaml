@@ -16,6 +16,8 @@ runtimes:
     - python@3.10.8
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
+  disabled:
+    - cspell
   definitions:
     - name: clippy
       commands:
@@ -25,7 +27,6 @@ lint:
             --no-deps -D warnings -D unused_imports
       run_timeout: 20m
   enabled:
-    - cspell@9.2.0
     - actionlint@1.7.7
     - checkov@3.2.457
     - clippy@SYSTEM # For custom parameters
