@@ -1,6 +1,6 @@
 [package]
 name = "cargo-cairo-m"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 description = "Binary for creating Cairo-M projects from a default template"
 license = "MIT OR Apache-2.0"
