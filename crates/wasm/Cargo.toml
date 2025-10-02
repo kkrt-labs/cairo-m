@@ -23,3 +23,4 @@ tracing-subscriber.workspace = true
 insta = "1.43.1"
 proptest = "1.7.0"
 cairo-m-runner.workspace = true
+wat = "1.239.0"

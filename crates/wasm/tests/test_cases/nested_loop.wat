@@ -10,22 +10,22 @@
    (i32.const 0)
   )
   (loop $label$1
+   (i32.lt_u
+    (local.get $1)
+    (local.get $0)
+   )
    (if
-    (i32.lt_u
-     (local.get $1)
-     (local.get $0)
-    )
-    (block
+    (then
      (local.set $2
       (i32.const 0)
      )
      (loop $label$3
+      (i32.lt_u
+       (local.get $2)
+       (local.get $1)
+      )
       (if
-       (i32.lt_u
-        (local.get $2)
-        (local.get $1)
-       )
-       (block
+       (then
         (local.set $3
          (i32.add
           (local.get $3)

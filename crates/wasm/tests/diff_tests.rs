@@ -13,10 +13,11 @@ use womir::interpreter::Interpreter;
 use womir::loader::load_wasm;
 
 use proptest::prelude::*;
-use std::path::PathBuf;
+
+use wat::parse_file;
 
 mod test_utils;
-use test_utils::{ensure_rust_wasm_built, ensure_wasm_file_built};
+use test_utils::ensure_rust_wasm_built;
 
 struct DataInput {
     values: Vec<u32>,
@@ -82,20 +83,22 @@ fn collect_u32s_by_abi(
 }
 
 fn test_program_from_wat(path: &str, func_name: &str, inputs: Vec<u32>) {
-    ensure_wasm_file_built(path);
-    let wasm_path = PathBuf::from(path).with_extension("wasm");
-    test_program_from_wasm(wasm_path.to_str().unwrap(), func_name, inputs);
+    let wasm = parse_file(path).unwrap();
+    test_program_from_wasm_bytes(&wasm, func_name, inputs);
 }
 
 fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
     let wasm_file = std::fs::read(path).unwrap();
+    test_program_from_wasm_bytes(&wasm_file, func_name, inputs);
+}
 
-    let womir_program = load_wasm(GenericIrSetting, &wasm_file)
+fn test_program_from_wasm_bytes(wasm_bytes: &[u8], func_name: &str, inputs: Vec<u32>) {
+    let womir_program = load_wasm(GenericIrSetting, wasm_bytes)
         .unwrap()
         .process_all_functions()
         .unwrap();
 
-    let dag_module = BlocklessDagModule::from_bytes(&wasm_file).unwrap();
+    let dag_module = BlocklessDagModule::from_bytes(wasm_bytes).unwrap();
     let mir_module = lower_program_to_mir(&dag_module, PassManager::standard_pipeline()).unwrap();
     let compiled_module = compile_module(&mir_module).unwrap();
 
@@ -163,9 +166,7 @@ proptest! {
         test_program_from_wat("tests/test_cases/simple_loop.wat", "simple_loop", vec![a]);
     }
 
-    // I think this crashes CI for some reason
     #[test]
-    #[ignore]
     fn run_nested_loop(a in 0..10u32) {
         test_program_from_wat("tests/test_cases/nested_loop.wat", "nested_loop", vec![a]);
     }
