@@ -7,46 +7,13 @@ use cairo_m_runner::run_cairo_program;
 use cairo_m_wasm::loader::BlocklessDagModule;
 use cairo_m_wasm::lowering::lower_program_to_mir;
 
-use womir::generic_ir::GenericIrSetting;
-use womir::interpreter::ExternalFunctions;
-use womir::interpreter::Interpreter;
-use womir::loader::load_wasm;
-
 use proptest::prelude::*;
 
+use wasmtime::*;
 use wat::parse_file;
 
 mod test_utils;
 use test_utils::ensure_rust_wasm_built;
-
-struct DataInput {
-    values: Vec<u32>,
-}
-
-impl DataInput {
-    const fn new(values: Vec<u32>) -> Self {
-        Self { values }
-    }
-}
-
-impl ExternalFunctions for DataInput {
-    fn call(&mut self, module: &str, function: &str, args: &[u32]) -> Vec<u32> {
-        match (module, function) {
-            ("env", "read_u32") => {
-                vec![self.values[args[0] as usize]]
-            }
-            ("env", "abort") => {
-                panic!("Abort called with args: {:?}", args);
-            }
-            _ => {
-                panic!(
-                    "External function not implemented: {module}.{function} with args: {:?}",
-                    args
-                );
-            }
-        }
-    }
-}
 
 /// Convert CairoM return values to u32 following the ABI, mirroring runner tests behavior.
 fn collect_u32s_by_abi(
@@ -93,25 +60,16 @@ fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
 }
 
 fn test_program_from_wasm_bytes(wasm_bytes: &[u8], func_name: &str, inputs: Vec<u32>) {
-    let womir_program = load_wasm(GenericIrSetting, wasm_bytes)
-        .unwrap()
-        .process_all_functions()
-        .unwrap();
-
+    // Lower to Cairo-M and run via Cairo-M runner
     let dag_module = BlocklessDagModule::from_bytes(wasm_bytes).unwrap();
     let mir_module = lower_program_to_mir(&dag_module, PassManager::standard_pipeline()).unwrap();
     let compiled_module = compile_module(&mir_module).unwrap();
-
-    let data_input = DataInput::new(vec![]);
-    let mut womir_interpreter = Interpreter::new(womir_program, data_input);
 
     let cairo_vm_inputs = inputs
         .iter()
         .map(|&v| InputValue::Number(v as i64))
         .collect::<Vec<_>>();
 
-    // Test with the provided inputs in both the WOMIR interpreter and the Cairo-M runner.
-    let result_womir_interpreter = womir_interpreter.run(func_name, &inputs);
     let result_cairo_m_interpreter = run_cairo_program(
         &compiled_module,
         func_name,
@@ -124,7 +82,55 @@ fn test_program_from_wasm_bytes(wasm_bytes: &[u8], func_name: &str, inputs: Vec<
         .expect("Entrypoint not found in compiled program");
     let cairo_u32s = collect_u32s_by_abi(&result_cairo_m_interpreter.return_values, &entry.returns);
 
-    assert_eq!(result_womir_interpreter, cairo_u32s);
+    // Run the original WASM with wasmtime
+    let engine = Engine::default();
+    let module = Module::from_binary(&engine, wasm_bytes).unwrap();
+    let mut store = Store::new(&engine, ());
+    let instance = Instance::new(&mut store, &module, &[]).unwrap();
+
+    let func = instance
+        .get_func(&mut store, func_name)
+        .unwrap_or_else(|| panic!("Function '{}' not found in WASM module", func_name));
+
+    let ty = func.ty(&store);
+    let param_tys: Vec<ValType> = ty.params().collect();
+    assert_eq!(
+        param_tys.len(),
+        inputs.len(),
+        "Parameter count mismatch: wasm expects {} params, got {}",
+        param_tys.len(),
+        inputs.len()
+    );
+
+    let mut params: Vec<Val> = Vec::with_capacity(inputs.len());
+    for (i, pty) in param_tys.iter().enumerate() {
+        match pty {
+            ValType::I32 => params.push(Val::I32(inputs[i] as i32)),
+            // Extend here if tests introduce other types
+            other => panic!("Unsupported WASM param type in tests: {:?}", other),
+        }
+    }
+
+    let result_tys: Vec<ValType> = ty.results().collect();
+    let mut results: Vec<Val> = result_tys
+        .iter()
+        .map(|rty| match rty {
+            ValType::I32 => Val::I32(0),
+            other => panic!("Unsupported WASM result type in tests: {:?}", other),
+        })
+        .collect();
+
+    func.call(&mut store, &params, &mut results).unwrap();
+
+    let wasm_u32s: Vec<u32> = results
+        .into_iter()
+        .map(|v| match v {
+            Val::I32(n) => n as u32,
+            other => panic!("Unsupported WASM result type in tests: {:?}", other),
+        })
+        .collect();
+
+    assert_eq!(wasm_u32s, cairo_u32s);
 }
 
 proptest! {
@@ -201,7 +207,7 @@ proptest! {
 }
 
 #[test]
-#[should_panic(expected = "integer divide by zero in I32DivU")]
+#[should_panic]
 fn run_div_by_zero() {
     test_program_from_wat(
         "tests/test_cases/i32_arithmetic.wat",

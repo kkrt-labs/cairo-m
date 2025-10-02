@@ -10,7 +10,6 @@ thiserror.workspace = true
 cairo-m-compiler-mir.workspace = true
 cairo-m-compiler-codegen.workspace = true
 cairo-m-common.workspace = true
-stwo-prover.workspace = true
 ## Needed at runtime to execute compiled programs from the CLI
 cairo-m-runner.workspace = true
 wasmparser = "0.235.0"
@@ -22,5 +21,5 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 insta = "1.43.1"
 proptest = "1.7.0"
-cairo-m-runner.workspace = true
 wat = "1.239.0"
+wasmtime = "37.0.1"

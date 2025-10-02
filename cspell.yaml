@@ -195,6 +195,7 @@ words:
   - wabt
   - walkdir
   - wasmparser
+  - wasmtime
   - womir
   - worklist
   - worktree
