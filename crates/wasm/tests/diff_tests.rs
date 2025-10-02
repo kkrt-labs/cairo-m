@@ -1,11 +1,7 @@
 use cairo_m_common::abi_codec::{CairoMValue, InputValue};
 use cairo_m_common::program::AbiType;
 /// These tests compare the output of the compiled cairo-m with result from the womir interpreter
-use cairo_m_compiler_codegen::compile_module;
-use cairo_m_compiler_mir::PassManager;
 use cairo_m_runner::run_cairo_program;
-use cairo_m_wasm::loader::BlocklessDagModule;
-use cairo_m_wasm::lowering::lower_program_to_mir;
 
 use proptest::prelude::*;
 
@@ -13,7 +9,10 @@ use wasmtime::*;
 use wat::parse_file;
 
 mod test_utils;
-use test_utils::ensure_rust_wasm_built;
+use test_utils::{
+    ensure_rust_wasm_built, get_or_build_cairo_program, get_or_build_wasmtime_module,
+    WASMTIME_ENGINE,
+};
 
 /// Convert CairoM return values to u32 following the ABI, mirroring runner tests behavior.
 fn collect_u32s_by_abi(
@@ -49,43 +48,41 @@ fn collect_u32s_by_abi(
         .collect()
 }
 
+/// Test a program from a .wat file, given a function name and inputs
+/// Asserts results from the Cairo-M interpreter and the WASMtime interpreter are the same
 fn test_program_from_wat(path: &str, func_name: &str, inputs: Vec<u32>) {
     let wasm = parse_file(path).unwrap();
     test_program_from_wasm_bytes(&wasm, func_name, inputs);
 }
 
+/// Test a program from a .wasm file, given a function name and inputs
+/// Asserts results from the Cairo-M interpreter and the WASMtime interpreter are the same
 fn test_program_from_wasm(path: &str, func_name: &str, inputs: Vec<u32>) {
     let wasm_file = std::fs::read(path).unwrap();
     test_program_from_wasm_bytes(&wasm_file, func_name, inputs);
 }
 
+/// Test a program from wasm bytes, given a function name and inputs
+/// Asserts results from the Cairo-M interpreter and the WASMtime interpreter are the same
 fn test_program_from_wasm_bytes(wasm_bytes: &[u8], func_name: &str, inputs: Vec<u32>) {
-    // Lower to Cairo-M and run via Cairo-M runner
-    let dag_module = BlocklessDagModule::from_bytes(wasm_bytes).unwrap();
-    let mir_module = lower_program_to_mir(&dag_module, PassManager::standard_pipeline()).unwrap();
-    let compiled_module = compile_module(&mir_module).unwrap();
+    // Build or fetch cached Cairo-M compiled program
+    let prog = get_or_build_cairo_program(wasm_bytes);
 
     let cairo_vm_inputs = inputs
         .iter()
         .map(|&v| InputValue::Number(v as i64))
         .collect::<Vec<_>>();
 
-    let result_cairo_m_interpreter = run_cairo_program(
-        &compiled_module,
-        func_name,
-        &cairo_vm_inputs,
-        Default::default(),
-    )
-    .unwrap();
-    let entry = compiled_module
+    let result_cairo_m_interpreter =
+        run_cairo_program(&prog, func_name, &cairo_vm_inputs, Default::default()).unwrap();
+    let entry = prog
         .get_entrypoint(func_name)
         .expect("Entrypoint not found in compiled program");
     let cairo_u32s = collect_u32s_by_abi(&result_cairo_m_interpreter.return_values, &entry.returns);
 
-    // Run the original WASM with wasmtime
-    let engine = Engine::default();
-    let module = Module::from_binary(&engine, wasm_bytes).unwrap();
-    let mut store = Store::new(&engine, ());
+    // Run the original WASM with wasmtime (module cached per wasm)
+    let module = get_or_build_wasmtime_module(wasm_bytes);
+    let mut store = Store::new(&WASMTIME_ENGINE, ());
     let instance = Instance::new(&mut store, &module, &[]).unwrap();
 
     let func = instance
