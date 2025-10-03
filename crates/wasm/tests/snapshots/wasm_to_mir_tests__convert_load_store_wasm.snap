@@ -1,16 +1,10 @@
 ---
 source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: snapshot_content
----
----
-source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: wasm_load_result
+description: "WASM to MIR snapshot: load_store.wat"
 ---
 WASM File: load_store.wat
-============================================================
-Success: true
 Functions loaded: 3
-============================================================
+
 Module Output:
 module {
   // Function 0

@@ -1,52 +1,18 @@
-use cairo_m_common::abi_codec::{CairoMValue, InputValue};
-use cairo_m_common::program::AbiType;
-/// These tests compare the output of the compiled cairo-m with result from the womir interpreter
+//! These tests compare the output of the compiled cairo-m with result from WASMtime runner.
+
+use cairo_m_common::abi_codec::InputValue;
 use cairo_m_runner::run_cairo_program;
 
 use proptest::prelude::*;
 
-use wasmtime::*;
+use wasmtime::{Instance, Store, Val, ValType};
 use wat::parse_file;
 
 mod test_utils;
 use test_utils::{
-    ensure_rust_wasm_built, get_or_build_cairo_program, get_or_build_wasmtime_module,
-    WASMTIME_ENGINE,
+    collect_u32s_by_abi, ensure_rust_wasm_built, get_or_build_cairo_program,
+    get_or_build_wasmtime_module, WASMTIME_ENGINE,
 };
-
-/// Convert CairoM return values to u32 following the ABI, mirroring runner tests behavior.
-fn collect_u32s_by_abi(
-    values: &[CairoMValue],
-    abi_returns: &[cairo_m_common::program::AbiSlot],
-) -> Vec<u32> {
-    assert_eq!(
-        values.len(),
-        abi_returns.len(),
-        "Return value count mismatch: got {} but ABI declares {}",
-        values.len(),
-        abi_returns.len()
-    );
-    values
-        .iter()
-        .zip(abi_returns.iter())
-        .map(|(v, slot)| match (&slot.ty, v) {
-            (AbiType::U32, CairoMValue::U32(n)) => *n,
-            (AbiType::Bool, CairoMValue::Bool(b)) => {
-                if *b {
-                    1
-                } else {
-                    0
-                }
-            }
-            // For felt returns, WOMIR currently models i32 as u32; not expected in current WASM tests.
-            (AbiType::Felt, CairoMValue::Felt(f)) => f.0,
-            _ => panic!(
-                "Type/value mismatch in return: ABI {:?}, value {:?}",
-                slot.ty, v
-            ),
-        })
-        .collect()
-}
 
 /// Test a program from a .wat file, given a function name and inputs
 /// Asserts results from the Cairo-M interpreter and the WASMtime interpreter are the same

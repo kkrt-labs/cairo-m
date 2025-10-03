@@ -15,7 +15,6 @@ macro_rules! wasm_test {
         $(#[$attr])*
         fn $test_name() {
 
-
             let wat_file_path = &format!("tests/test_cases/{}", $file_name);
 
             // Load the WASM module
@@ -27,18 +26,19 @@ macro_rules! wasm_test {
             // Create snapshot content
             let snapshot_content = {
                 let module_output = mir_module.pretty_print(0);
-
-                    format!(
-                    "---\nsource: {}\nexpression: wasm_load_result\n---\nWASM File: {}\n============================================================\nSuccess: true\nFunctions loaded: {}\n============================================================\nModule Output:\n{}",
-                    file!(),
-                    $file_name,
-                    mir_module.function_count(),
+                format!("WASM File: {}\nFunctions loaded: {}\n\nModule Output:\n{}",
+                    $file_name, mir_module.function_count(),
                     if module_output.is_empty() { "No functions found" } else { &module_output }
                 )
             };
 
-            // Snapshot the result
-            assert_snapshot!(stringify!($test_name), snapshot_content);
+            insta::with_settings!({
+                description => format!("WASM to MIR snapshot: {}", $file_name).as_str(),
+                omit_expression => true,
+                prepend_module_to_snapshot => true,
+                }, {
+                assert_snapshot!(stringify!($test_name), snapshot_content);
+            });
         }
     };
 }

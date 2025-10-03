@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::process::Command;
@@ -15,6 +13,9 @@ use cairo_m_compiler_mir::PassManager;
 use cairo_m_wasm::loader::BlocklessDagModule;
 use cairo_m_wasm::lowering::lower_program_to_mir;
 use wasmtime::{Engine, Module};
+
+use cairo_m_common::abi_codec::CairoMValue;
+use cairo_m_common::program::AbiType;
 
 fn hash_bytes(bytes: &[u8]) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -97,4 +98,38 @@ fn build_wasm_from_rust(path: &PathBuf) {
     }
 
     assert!(output.status.success(), "cargo build failed for {path:?}",);
+}
+
+/// Convert CairoM return values to u32 following the ABI, mirroring runner tests behavior.
+pub fn collect_u32s_by_abi(
+    values: &[CairoMValue],
+    abi_returns: &[cairo_m_common::program::AbiSlot],
+) -> Vec<u32> {
+    assert_eq!(
+        values.len(),
+        abi_returns.len(),
+        "Return value count mismatch: got {} but ABI declares {}",
+        values.len(),
+        abi_returns.len()
+    );
+    values
+        .iter()
+        .zip(abi_returns.iter())
+        .map(|(v, slot)| match (&slot.ty, v) {
+            (AbiType::U32, CairoMValue::U32(n)) => *n,
+            (AbiType::Bool, CairoMValue::Bool(b)) => {
+                if *b {
+                    1
+                } else {
+                    0
+                }
+            }
+            // For felt returns, WOMIR currently models i32 as u32; not expected in current WASM tests.
+            (AbiType::Felt, CairoMValue::Felt(f)) => f.0,
+            _ => panic!(
+                "Type/value mismatch in return: ABI {:?}, value {:?}",
+                slot.ty, v
+            ),
+        })
+        .collect()
 }
