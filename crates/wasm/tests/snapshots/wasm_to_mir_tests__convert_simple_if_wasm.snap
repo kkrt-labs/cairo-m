@@ -1,16 +1,10 @@
 ---
 source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: snapshot_content
+description: "WASM to MIR snapshot: simple_if.wat"
 ---
----
-source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: wasm_load_result
----
-WASM File: simple_if.wasm
-============================================================
-Success: true
+WASM File: simple_if.wat
 Functions loaded: 1
-============================================================
+
 Module Output:
 module {
   // Function 0

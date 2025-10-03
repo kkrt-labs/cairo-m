@@ -1,26 +1,22 @@
 ---
 source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: snapshot_content
+description: "WASM to MIR snapshot: simple_loop.wat"
 ---
----
-source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: wasm_load_result
----
-WASM File: simple_loop.wasm
-============================================================
-Success: true
+WASM File: simple_loop.wat
 Functions loaded: 1
-============================================================
+
 Module Output:
 module {
   // Function 0
-  fn main {
+  fn simple_loop {
+    parameters: [0]
     entry: 0
 
     0:
-      %1 = 0 (u32)
-      %2 = %1 (u32)
-      %3 = %1 (u32)
+      %2 = 0 (u32)
+      %4 = %2 (u32)
+      %5 = %2 (u32)
+      %3 = %0 (u32)
       jump 2
 
     1:
@@ -30,21 +26,21 @@ module {
       jump 3
 
     3:
-      %4 = %3 U32Add %2
-      %5 = 1 (u32)
-      %6 = %2 U32Add %5
-      %7 = 3 (u32)
-      %8 = %6 U32Neq %7
-      %2 = %6 (u32)
-      %3 = %4 (u32)
-      if %8 then jump 2 else jump 4
+      %6 = %5 U32Add %4
+      %7 = 1 (u32)
+      %8 = %4 U32Add %7
+      %9 = %8 U32Less %3
+      %3 = %3 (u32)
+      %4 = %8 (u32)
+      %5 = %6 (u32)
+      if %9 then jump 2 else jump 4
 
     4:
-      %0 = %4 (u32)
+      %1 = %6 (u32)
       jump 1
 
     5:
-      return %0
+      return %1
 
   }
 

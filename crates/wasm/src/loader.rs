@@ -108,12 +108,13 @@ impl<'a> Debug for BlocklessDagModule<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use wat::parse_file;
 
     #[test]
     fn test_loader_basic() {
         // Test basic loading functionality
-        let wasm_file = std::fs::read("tests/test_cases/add.wasm").unwrap();
-        let result = BlocklessDagModule::from_bytes(&wasm_file);
+        let wasm_bytes = parse_file("tests/test_cases/i32_arithmetic.wat").unwrap();
+        let result = BlocklessDagModule::from_bytes(&wasm_bytes);
         assert!(result.is_ok(), "Should load add.wasm successfully");
 
         let module = result.unwrap();

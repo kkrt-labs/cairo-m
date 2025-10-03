@@ -203,6 +203,7 @@ words:
   - vulns
   - walkdir
   - wasmparser
+  - wasmtime
   - womir
   - worklist
   - worktree

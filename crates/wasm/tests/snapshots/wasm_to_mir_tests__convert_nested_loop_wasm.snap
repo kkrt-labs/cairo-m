@@ -1,16 +1,10 @@
 ---
 source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: snapshot_content
+description: "WASM to MIR snapshot: nested_loop.wat"
 ---
----
-source: crates/wasm/tests/wasm_to_mir_tests.rs
-expression: wasm_load_result
----
-WASM File: nested_loop.wasm
-============================================================
-Success: true
+WASM File: nested_loop.wat
 Functions loaded: 1
-============================================================
+
 Module Output:
 module {
   // Function 0

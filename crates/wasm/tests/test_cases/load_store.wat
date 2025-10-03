@@ -1,12 +1,7 @@
 (module
-  (type (;0;) (func (param i32) (result i32)))
-  (type (;1;) (func (param i32 i32) (result i32)))
-  (type (;2;) (func (result i32)))
-
-
   ;; Simple add function with memory interaction:
   ;; stores a at address 0 and b at address 4, then loads both and returns their sum
-  (func $add (type 1) (param $a i32) (param $b i32) (result i32)
+  (func $add (param $a i32) (param $b i32) (result i32)
     ;; store a at address 0
     i32.const 0
     local.get $a
@@ -28,7 +23,7 @@
 
   ;; Store numbers 1 to n in memory and then load them and sum them
   ;; This checks that the store and load work as expected and that there are no collisions between the u32 values
-  (func $load_store_sum (type 0) (param $n i32) (result i32)
+  (func $load_store_sum (param $n i32) (result i32)
     (local $i i32)
     (local $sum i32)
     (local $address i32)
@@ -108,7 +103,7 @@
     local.get $sum
   )
 
-  (func $load_store_sum_3_with_offsets (type 2) (result i32)
+  (func $load_store_sum_3_with_offsets (result i32)
     i32.const 0
     i32.const 65000 ;; values larger than u16_max to check for any overlaps
     i32.store offset=0
