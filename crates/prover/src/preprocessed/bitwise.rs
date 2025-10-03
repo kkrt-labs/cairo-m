@@ -128,7 +128,7 @@ impl Claim {
             .collect::<Vec<_>>()
             .par_chunks(N_LANES)
             .enumerate()
-            .map(|(chunk_idx, _chunk)| {
+            .map(|(chunk_idx, _)| {
                 let base_idx = chunk_idx * N_LANES;
                 [
                     PackedM31::from_array(std::array::from_fn(|i| op_id_col[base_idx + i])),
