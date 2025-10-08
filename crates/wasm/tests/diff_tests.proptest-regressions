@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc 287547a69dd3e5dc3bdb65ceb44f7184fc416e6dbffc4aa1cab80bfd2248a7fd # shrinks to a = 0
 cc d399acef85bcbdfbfbdaa3dad18e7d3616d7fb74f31d1363d8e3b6cb18782bfa # shrinks to a = 0
+cc e70117a1a7dbc674352e3ee7424f045bde201ee3ad2da89f1a5e2bc79062b9ab # shrinks to a = 9

@@ -3,64 +3,25 @@ source: crates/wasm/tests/wasm_to_mir_tests.rs
 description: "WASM to MIR snapshot: i32_arithmetic.wat"
 ---
 WASM File: i32_arithmetic.wat
-Functions loaded: 4
 
-Module Output:
-module {
-  // Function 0
-  fn i32_add {
-    parameters: [0, 1]
-    entry: 0
-
-    0:
-      %2 = %0 U32Add %1
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-  // Function 1
-  fn i32_sub {
-    parameters: [0, 1]
-    entry: 0
-
-    0:
-      %2 = %0 U32Sub %1
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-  // Function 2
-  fn i32_mul {
-    parameters: [0, 1]
-    entry: 0
-
-    0:
-      %2 = %0 U32Mul %1
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-  // Function 3
-  fn i32_div_u {
-    parameters: [0, 1]
-    entry: 0
-
-    0:
-      %2 = %0 U32Div %1
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-}
+Program:
+i32_add:
+   0: 15 2147483639 2147483641 0 // u32([fp + 0], [fp + 1]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + -6], [fp + -5])
+   1: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+   2: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+   3: 11 _ _ _             // return
+i32_sub:
+   4: 16 2147483639 2147483641 0 // u32([fp + 0], [fp + 1]) = u32([fp + -8], [fp + -7]) U32Sub u32([fp + -6], [fp + -5])
+   5: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+   6: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+   7: 11 _ _ _             // return
+i32_mul:
+   8: 17 2147483639 2147483641 0 // u32([fp + 0], [fp + 1]) = u32([fp + -8], [fp + -7]) U32Mul u32([fp + -6], [fp + -5])
+   9: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  10: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  11: 11 _ _ _             // return
+i32_div_u:
+  12: 18 2147483639 2147483641 0 2 // u32([fp + 0], [fp + 1]); u32([fp + 2], [fp + 3]) = u32([fp + -8], [fp + -7]) / u32([fp + -6], [fp + -5])
+  13: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  14: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  15: 11 _ _ _             // return

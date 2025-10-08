@@ -41,15 +41,15 @@ pub(super) const fn split_u32_value(value: u32) -> (i32, i32) {
 #[derive(Debug)]
 pub struct CasmBuilder {
     /// Generated instructions
-    pub(super) instructions: Vec<InstructionBuilder>,
+    pub instructions: Vec<InstructionBuilder>,
     /// Labels that need to be resolved
-    pub(super) labels: Vec<Label>,
+    pub labels: Vec<Label>,
     /// Current function layout for offset lookups
-    pub(crate) layout: FunctionLayout,
+    pub layout: FunctionLayout,
     /// Counter for generating unique labels
-    pub(super) label_counter: usize,
+    pub label_counter: usize,
     /// Highest fp+ offset that has been written to (for optimization tracking)
-    pub(super) max_written_offset: i32,
+    pub max_written_offset: i32,
 }
 
 /// Represents the type of array operation to perform
@@ -96,7 +96,7 @@ impl CasmBuilder {
     /// Generate type-aware assignment instruction
     ///
     /// Handles assignments for all types including aggregates (structs, tuples)
-    pub(crate) fn assign(
+    pub fn assign(
         &mut self,
         dest: ValueId,
         source: Value,
@@ -232,7 +232,7 @@ impl CasmBuilder {
     ///
     /// If target_offset is provided, writes directly to that location.
     /// Otherwise, allocates a new local variable.
-    pub(crate) fn binary_op(
+    pub fn binary_op(
         &mut self,
         op: BinaryOp,
         dest: ValueId,

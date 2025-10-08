@@ -1,7 +1,5 @@
-use cairo_m_compiler_codegen::compile_module;
-use cairo_m_compiler_mir::PassManager;
 use cairo_m_wasm::loader::{BlocklessDagModule, WasmLoadError};
-use cairo_m_wasm::lowering::lower_program_to_mir;
+use cairo_m_wasm::lowering::lower_program_to_casm;
 use clap::Parser;
 use std::process;
 use std::{fs, path::PathBuf};
@@ -27,13 +25,23 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     if args.verbose {
-        tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+        tracing_subscriber::fmt()
+            .with_max_level(Level::DEBUG)
+            .init();
     }
 
     let wasm_file = fs::read(&args.input).map_err(|e| WasmLoadError::IoError { source: e })?;
     let module = BlocklessDagModule::from_bytes(&wasm_file)?;
-    let mir_module = lower_program_to_mir(&module, PassManager::standard_pipeline())?;
-    let program = compile_module(&mir_module)?;
+
+    // Print DAG in verbose mode
+    if args.verbose {
+        eprintln!("\n=== Loaded WASM DAG ===\n");
+        eprintln!("{}", module);
+        eprintln!("=== End DAG ===\n");
+    }
+
+    let codegen = lower_program_to_casm(&module)?;
+    let program = codegen.compile()?;
 
     let json = sonic_rs::to_string_pretty(&program).unwrap_or_else(|e| {
         eprintln!("Failed to serialize program: {}", e);

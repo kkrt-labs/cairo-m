@@ -24,7 +24,7 @@ impl super::CasmBuilder {
     }
 
     /// Load from memory: `[[fp + base_off] + imm] -> [fp + dest_off]` (slot-sized), with comment.
-    pub(crate) fn store_from_double_deref_fp_imm(
+    pub fn store_from_double_deref_fp_imm(
         &mut self,
         base_off: i32,
         imm: i32,
@@ -116,7 +116,7 @@ impl super::CasmBuilder {
         }
     }
 
-    pub(crate) fn store_to_double_deref_fp_imm(
+    pub fn store_to_double_deref_fp_imm(
         &mut self,
         src_off: i32,
         base_off: i32,

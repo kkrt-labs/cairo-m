@@ -3,23 +3,12 @@ source: crates/wasm/tests/wasm_to_mir_tests.rs
 description: "WASM to MIR snapshot: locals.wat"
 ---
 WASM File: locals.wat
-Functions loaded: 1
 
-Module Output:
-module {
-  // Function 0
-  fn locals {
-    entry: 0
-
-    0:
-      %0 = 10 (u32)
-      %1 = 5 (u32)
-      %2 = %0 U32Add %1
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-}
+Program:
+locals:
+   0: 23 10 0 0            // u32([fp + 0], [fp + 1]) = u32(10)
+   1: 23 5 0 2             // u32([fp + 2], [fp + 3]) = u32(5)
+   2: 15 0 2 4             // u32([fp + 4], [fp + 5]) = u32([fp + 0], [fp + 1]) U32Add u32([fp + 2], [fp + 3])
+   3: 4 4 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 4] + 0
+   4: 4 5 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 5] + 0
+   5: 11 _ _ _             // return

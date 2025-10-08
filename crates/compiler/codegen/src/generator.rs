@@ -25,17 +25,17 @@ const MAX_ADDRESS: i32 = (1 << 28) - 1;
 #[derive(Debug)]
 pub struct CodeGenerator {
     /// Generated instructions for all functions
-    instructions: Vec<InstructionBuilder>,
+    pub instructions: Vec<InstructionBuilder>,
     /// Labels that need resolution
-    labels: Vec<Label>,
+    pub labels: Vec<Label>,
     /// Function name to entrypoint info mapping
-    function_entrypoints: HashMap<String, EntrypointInfo>,
+    pub function_entrypoints: HashMap<String, EntrypointInfo>,
     /// Function layouts for frame size calculations
-    function_layouts: HashMap<String, FunctionLayout>,
+    pub function_layouts: HashMap<String, FunctionLayout>,
     /// Memory layout: maps logical instruction index to physical memory address
-    memory_layout: Vec<u32>,
+    pub memory_layout: Vec<u32>,
 
-    label_counter: usize,
+    pub label_counter: usize,
 
     /// Read-only data blobs to append after code
     rodata_blobs: Vec<Vec<QM31>>,
@@ -209,7 +209,7 @@ impl CodeGenerator {
     }
 
     /// Compile the generated code into a CompiledProgram.
-    pub(crate) fn compile(self) -> CodegenResult<Program> {
+    pub fn compile(self) -> CodegenResult<Program> {
         let instructions: Vec<cairo_m_common::Instruction> = self
             .instructions
             .iter()
@@ -256,7 +256,7 @@ impl CodeGenerator {
     }
 
     /// Calculate memory layout for variable-sized instructions
-    fn calculate_memory_layout(&mut self) -> CodegenResult<()> {
+    pub fn calculate_memory_layout(&mut self) -> CodegenResult<()> {
         self.memory_layout.clear();
         let mut current_mem_pc = 0u32;
 
@@ -1557,7 +1557,7 @@ impl CodeGenerator {
     }
 
     /// Resolve all label references (second pass)
-    fn resolve_labels(&mut self) -> CodegenResult<()> {
+    pub fn resolve_labels(&mut self) -> CodegenResult<()> {
         // Build a map of label names to their physical addresses
         let mut label_map = HashMap::new();
 
