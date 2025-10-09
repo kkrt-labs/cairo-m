@@ -61,9 +61,11 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
     let mut codegen = CodeGenerator::new();
     let wasm_program = &module.0;
 
+    let mut label_counter = 0;
+
     // Process each function
     for (func_idx, _) in wasm_program.functions.iter().enumerate() {
-        let builder = function_to_casm(module, func_idx)?;
+        let builder = function_to_casm(module, func_idx, label_counter)?;
 
         // Get function name for entrypoint tracking
         let func_name = wasm_program
@@ -113,6 +115,8 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
                 .collect(),
         };
 
+        label_counter += builder.label_counter();
+
         // Add function using the clean API
         let layout = builder.layout.clone();
         codegen.add_function_from_builder(builder, entrypoint_info, layout)?;
@@ -147,6 +151,7 @@ fn wasm_type_to_mir_type(
 fn function_to_casm(
     module: &BlocklessDagModule,
     func_idx: usize,
+    label_counter: usize,
 ) -> Result<CasmBuilder, DagToCasmError> {
     let program = &module.0;
     let func_name = program
@@ -185,8 +190,7 @@ fn function_to_casm(
         num_return_slots: return_types.iter().map(DataLayout::memory_size_of).sum(),
     };
 
-    // TODO : fix label counter
-    let mut context = DagToCasmContext::new(layout, 0);
+    let mut context = DagToCasmContext::new(layout, label_counter);
 
     // Allocate parameters at their proper parameter offsets
     allocate_function_parameters(&mut context, &param_types, &return_types)?;
