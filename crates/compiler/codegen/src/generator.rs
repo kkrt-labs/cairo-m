@@ -338,11 +338,11 @@ impl CodeGenerator {
     /// to the program without exposing internal fields. Used by WASM lowering.
     pub fn add_function_from_builder(
         &mut self,
-        name: String,
         mut builder: CasmBuilder,
         entrypoint_info: EntrypointInfo,
         layout: FunctionLayout,
     ) -> CodegenResult<()> {
+        let name = builder.layout.name.clone();
         // Store layout
         self.function_layouts.insert(name.clone(), layout);
 
@@ -432,7 +432,7 @@ impl CodeGenerator {
 
         // Use common logic to append function (clone layout since builder consumed it)
         let layout = builder.layout.clone();
-        self.add_function_from_builder(function.name.clone(), builder, entrypoint_info, layout)?;
+        self.add_function_from_builder(builder, entrypoint_info, layout)?;
 
         Ok(())
     }
