@@ -56,6 +56,46 @@ pub enum DagToCasmError {
     CodegenError(#[from] CodegenError),
 }
 
+fn get_function_name(module: &BlocklessDagModule, func_idx: usize) -> String {
+    let wasm_program = &module.0;
+    wasm_program
+        .m
+        .exported_functions
+        .get(&(func_idx as u32))
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("func_{}", func_idx))
+}
+
+fn get_function_parameter_types(
+    module: &BlocklessDagModule,
+    func_idx: usize,
+) -> Result<Vec<MirType>, DagToCasmError> {
+    let wasm_program = &module.0;
+    let func_type = wasm_program.m.get_func_type(func_idx as u32);
+    let func_name = get_function_name(module, func_idx);
+    func_type
+        .ty
+        .params()
+        .iter()
+        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function parameters"))
+        .collect::<Result<Vec<MirType>, DagToCasmError>>()
+}
+
+fn get_function_return_types(
+    module: &BlocklessDagModule,
+    func_idx: usize,
+) -> Result<Vec<MirType>, DagToCasmError> {
+    let wasm_program = &module.0;
+    let func_type = wasm_program.m.get_func_type(func_idx as u32);
+    let func_name = get_function_name(module, func_idx);
+    func_type
+        .ty
+        .results()
+        .iter()
+        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function return types"))
+        .collect::<Result<Vec<MirType>, DagToCasmError>>()
+}
+
 /// Lower a whole WOMIR program to CASM CodeGenerator
 pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerator, DagToCasmError> {
     let mut codegen = CodeGenerator::new();
@@ -67,32 +107,8 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
     for (func_idx, _) in wasm_program.functions.iter().enumerate() {
         let builder = function_to_casm(module, func_idx, label_counter)?;
 
-        // Get function name for entrypoint tracking
-        let func_name = wasm_program
-            .m
-            .exported_functions
-            .get(&(func_idx as u32))
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("func_{}", func_idx));
-
-        // Get function type information for parameters and return types
-        let func_type = wasm_program.m.get_func_type(func_idx as u32);
-
-        // Handle param types with proper error handling
-        let param_types: Vec<MirType> = func_type
-            .ty
-            .params()
-            .iter()
-            .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function parameters"))
-            .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
-
-        // Handle return types with proper error handling
-        let return_types: Vec<MirType> = func_type
-            .ty
-            .results()
-            .iter()
-            .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function return types"))
-            .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
+        let param_types = get_function_parameter_types(module, func_idx)?;
+        let return_types = get_function_return_types(module, func_idx)?;
 
         // Build entrypoint info
         let entrypoint_info = cairo_m_common::program::EntrypointInfo {
@@ -154,31 +170,9 @@ fn function_to_casm(
     label_counter: usize,
 ) -> Result<CasmBuilder, DagToCasmError> {
     let program = &module.0;
-    let func_name = program
-        .m
-        .exported_functions
-        .get(&(func_idx as u32))
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("func_{}", func_idx));
-
-    // Get function type information for parameters and return types
-    let func_type = program.m.get_func_type(func_idx as u32);
-
-    // Handle param types with proper error handling
-    let param_types: Vec<MirType> = func_type
-        .ty
-        .params()
-        .iter()
-        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function parameters"))
-        .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
-
-    // Handle return types with proper error handling
-    let return_types: Vec<MirType> = func_type
-        .ty
-        .results()
-        .iter()
-        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function return types"))
-        .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
+    let func_name = get_function_name(module, func_idx);
+    let param_types = get_function_parameter_types(module, func_idx)?;
+    let return_types = get_function_return_types(module, func_idx)?;
 
     // Construct layout
     let layout = FunctionLayout {
