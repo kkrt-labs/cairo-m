@@ -41,15 +41,15 @@ pub(super) const fn split_u32_value(value: u32) -> (i32, i32) {
 #[derive(Debug)]
 pub struct CasmBuilder {
     /// Generated instructions
-    pub instructions: Vec<InstructionBuilder>,
+    pub(super) instructions: Vec<InstructionBuilder>,
     /// Labels that need to be resolved
-    pub labels: Vec<Label>,
+    pub(super) labels: Vec<Label>,
     /// Current function layout for offset lookups
     pub layout: FunctionLayout,
     /// Counter for generating unique labels
-    pub label_counter: usize,
+    pub(super) label_counter: usize,
     /// Highest fp+ offset that has been written to (for optimization tracking)
-    pub max_written_offset: i32,
+    pub(super) max_written_offset: i32,
 }
 
 /// Represents the type of array operation to perform
@@ -194,7 +194,7 @@ impl CasmBuilder {
     }
 
     /// Generate unary operation instruction
-    pub(crate) fn unary_op(
+    pub fn unary_op(
         &mut self,
         op: UnaryOp,
         dest: ValueId,
@@ -330,11 +330,6 @@ impl CasmBuilder {
     /// Get a mutable view of the generated instructions (for post passes)
     pub(crate) const fn instructions_mut(&mut self) -> &mut Vec<InstructionBuilder> {
         &mut self.instructions
-    }
-
-    /// Get the labels
-    pub(crate) fn labels(&self) -> &[Label] {
-        &self.labels
     }
 
     /// Get a mutable reference to the labels (for post passes adjusting addresses)
