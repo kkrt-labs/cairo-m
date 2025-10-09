@@ -25,17 +25,17 @@ const MAX_ADDRESS: i32 = (1 << 28) - 1;
 #[derive(Debug)]
 pub struct CodeGenerator {
     /// Generated instructions for all functions
-    pub instructions: Vec<InstructionBuilder>,
+    instructions: Vec<InstructionBuilder>,
     /// Labels that need resolution
-    pub labels: Vec<Label>,
+    labels: Vec<Label>,
     /// Function name to entrypoint info mapping
-    pub function_entrypoints: HashMap<String, EntrypointInfo>,
+    function_entrypoints: HashMap<String, EntrypointInfo>,
     /// Function layouts for frame size calculations
-    pub function_layouts: HashMap<String, FunctionLayout>,
+    function_layouts: HashMap<String, FunctionLayout>,
     /// Memory layout: maps logical instruction index to physical memory address
-    pub memory_layout: Vec<u32>,
+    memory_layout: Vec<u32>,
 
-    pub label_counter: usize,
+    label_counter: usize,
 
     /// Read-only data blobs to append after code
     rodata_blobs: Vec<Vec<QM31>>,
@@ -193,9 +193,6 @@ impl CodeGenerator {
         let mut legalized = module.clone();
         legalize_module_for_vm(&mut legalized);
 
-        // Step 1: Calculate layouts for all functions (post-legalization)
-        self.calculate_all_layouts(&legalized)?;
-
         // Step 2: Generate code for all functions (first pass)
         self.generate_all_functions(&legalized)?;
 
@@ -244,15 +241,6 @@ impl CodeGenerator {
             entrypoints: self.function_entrypoints,
             data,
         })
-    }
-
-    /// Calculate layouts for all functions in the module
-    fn calculate_all_layouts(&mut self, module: &MirModule) -> CodegenResult<()> {
-        for (_, function) in module.functions() {
-            let layout = FunctionLayout::new(function)?;
-            self.function_layouts.insert(function.name.clone(), layout);
-        }
-        Ok(())
     }
 
     /// Calculate memory layout for variable-sized instructions
@@ -344,10 +332,52 @@ impl CodeGenerator {
         Ok(out)
     }
 
+    /// Add a pre-built function from a CasmBuilder to the program
+    ///
+    /// This allows external code to build functions using CasmBuilder and add them
+    /// to the program without exposing internal fields. Used by WASM lowering.
+    pub fn add_function_from_builder(
+        &mut self,
+        name: String,
+        mut builder: CasmBuilder,
+        entrypoint_info: EntrypointInfo,
+        layout: FunctionLayout,
+    ) -> CodegenResult<()> {
+        // Store layout
+        self.function_layouts.insert(name.clone(), layout);
+
+        // Update entrypoint with current instruction offset
+        let mut info = entrypoint_info;
+        info.pc = self.instructions.len();
+        self.function_entrypoints.insert(name, info);
+
+        // Update label counter to avoid collisions
+        self.label_counter = builder.label_counter;
+
+        // Run post-builder passes
+        passes::run_all(&mut builder)?;
+
+        // Fix label addresses to be relative to global instruction stream
+        let instruction_offset = self.instructions.len();
+        let mut corrected_labels = builder.labels;
+        for label in &mut corrected_labels {
+            if let Some(local_addr) = label.address {
+                label.address = Some(local_addr + instruction_offset);
+            }
+        }
+
+        // Append generated instructions and corrected labels
+        self.instructions.extend(builder.instructions);
+        self.labels.extend(corrected_labels);
+
+        Ok(())
+    }
+
     /// Generate code for all functions
     fn generate_all_functions(&mut self, module: &MirModule) -> CodegenResult<()> {
         for (_, function) in module.functions() {
-            self.generate_function(function, module)?;
+            let layout = FunctionLayout::new(function)?;
+            self.generate_function(function, module, layout)?;
         }
         Ok(())
     }
@@ -357,16 +387,8 @@ impl CodeGenerator {
         &mut self,
         function: &MirFunction,
         module: &MirModule,
+        layout: FunctionLayout,
     ) -> CodegenResult<()> {
-        // Get the layout for this function
-        let layout = self
-            .function_layouts
-            .get(&function.name)
-            .ok_or_else(|| {
-                CodegenError::LayoutError(format!("No layout found for function {}", function.name))
-            })?
-            .clone();
-
         // Create a builder for this function
         let mut builder = CasmBuilder::new(layout, self.label_counter);
 
@@ -400,35 +422,17 @@ impl CodeGenerator {
             .collect::<CodegenResult<_>>()?;
 
         let entrypoint_info = EntrypointInfo {
-            pc: self.instructions.len(),
+            pc: 0, // Will be set by add_function_from_builder
             params,
             returns,
         };
-        self.function_entrypoints
-            .insert(function.name.clone(), entrypoint_info);
 
         builder.emit_add_label(func_label);
-
         self.generate_basic_blocks(function, module, &mut builder)?;
 
-        self.label_counter += builder.label_counter();
-
-        // Run post-builder passes (deduplication, peephole opts, etc.)
-        passes::run_all(&mut builder)?;
-
-        // Fix label addresses to be relative to the global instruction stream
-        let instruction_offset = self.instructions.len();
-        let mut corrected_labels = builder.labels().to_vec();
-        for label in &mut corrected_labels {
-            if let Some(local_addr) = label.address {
-                label.address = Some(local_addr + instruction_offset);
-            }
-        }
-
-        // Append generated instructions and corrected labels
-        self.instructions
-            .extend(builder.instructions().iter().cloned());
-        self.labels.extend(corrected_labels);
+        // Use common logic to append function (clone layout since builder consumed it)
+        let layout = builder.layout.clone();
+        self.add_function_from_builder(function.name.clone(), builder, entrypoint_info, layout)?;
 
         Ok(())
     }

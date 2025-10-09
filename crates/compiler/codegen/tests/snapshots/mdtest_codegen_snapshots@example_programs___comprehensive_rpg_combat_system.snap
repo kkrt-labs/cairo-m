@@ -376,12 +376,12 @@ perform_combat_1:
  136: 4 25 0 24            // [fp + 24] = [fp + 25] + 0
 perform_combat_2:
  137: 28 22 2147483630 32  // [fp + 32] = u32([fp + 22], [fp + 23]) U32Less u32([fp + -17], [fp + -16])
- 138: 14 32 3 _            // if [fp + 32] != 0 jmp rel not_zero_8
+ 138: 14 32 3 _            // if [fp + 32] != 0 jmp rel not_zero_4
  139: 9 1 33 _             // [fp + 33] = 1
- 140: 13 2 _ _             // jump rel not_end_9
-not_zero_8:
+ 140: 13 2 _ _             // jump rel not_end_5
+not_zero_4:
  141: 9 0 33 _             // [fp + 33] = 0
-not_end_9:
+not_end_5:
  142: 14 33 2 _            // if [fp + 33] != 0 jmp rel perform_combat_3
  143: 13 5 _ _             // jump rel perform_combat_4
 perform_combat_3:

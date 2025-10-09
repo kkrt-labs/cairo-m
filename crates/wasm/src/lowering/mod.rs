@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::loader::{BlocklessDagModule, WasmLoadError};
 use cairo_m_common::program::{AbiSlot, AbiType};
-use cairo_m_compiler_codegen::{passes, CasmBuilder, CodeGenerator, CodegenError, FunctionLayout};
+use cairo_m_compiler_codegen::{CasmBuilder, CodeGenerator, CodegenError, FunctionLayout};
 use cairo_m_compiler_mir::{DataLayout, MirType};
 use thiserror::Error;
 use womir::loader::dag::ValueOrigin;
@@ -58,14 +58,12 @@ pub enum DagToCasmError {
 
 /// Lower a whole WOMIR program to CASM CodeGenerator
 pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerator, DagToCasmError> {
-    // This code is quite redundant with CodeGenerator::generate_function()
-    // TODO : refactor CodeGenerator ABI
     let mut codegen = CodeGenerator::new();
     let wasm_program = &module.0;
 
     // Process each function
     for (func_idx, _) in wasm_program.functions.iter().enumerate() {
-        let mut builder = function_to_casm(module, func_idx)?;
+        let builder = function_to_casm(module, func_idx)?;
 
         // Get function name for entrypoint tracking
         let func_name = wasm_program
@@ -94,14 +92,9 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
             .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function return types"))
             .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
 
-        // Store function layout (needed for correct execution)
-        codegen
-            .function_layouts
-            .insert(func_name.clone(), builder.layout.clone());
-
-        // TODO: Properly convert types
+        // Build entrypoint info
         let entrypoint_info = cairo_m_common::program::EntrypointInfo {
-            pc: codegen.instructions.len(),
+            pc: 0, // Will be updated by add_function_from_builder
             params: param_types
                 .iter()
                 .enumerate()
@@ -119,28 +112,10 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
                 })
                 .collect(),
         };
-        codegen
-            .function_entrypoints
-            .insert(func_name, entrypoint_info);
 
-        // Update the global label counter to avoid collisions
-        codegen.label_counter = builder.label_counter;
-
-        // Run post-builder passes (deduplication, peephole opts, etc.)
-        passes::run_all(&mut builder)?;
-
-        // Fix label addresses to be relative to the global instruction stream
-        let instruction_offset = codegen.instructions.len();
-        let mut corrected_labels = builder.labels.clone();
-        for label in &mut corrected_labels {
-            if let Some(local_addr) = label.address {
-                label.address = Some(local_addr + instruction_offset);
-            }
-        }
-
-        // Append generated instructions and corrected labels
-        codegen.instructions.extend(builder.instructions);
-        codegen.labels.extend(corrected_labels);
+        // Add function using the clean API
+        let layout = builder.layout.clone();
+        codegen.add_function_from_builder(func_name, builder, entrypoint_info, layout)?;
     }
 
     // Calculate memory layout for variable-sized instructions
