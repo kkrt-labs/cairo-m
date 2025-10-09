@@ -392,6 +392,11 @@ impl CasmBuilder {
         &mut self.instructions
     }
 
+    /// Get the labels
+    pub(crate) fn labels(&self) -> &[Label] {
+        &self.labels
+    }
+
     /// Get a mutable reference to the labels (for post passes adjusting addresses)
     pub(crate) const fn labels_mut(&mut self) -> &mut Vec<Label> {
         &mut self.labels
