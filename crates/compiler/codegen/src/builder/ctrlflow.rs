@@ -160,7 +160,7 @@ impl super::CasmBuilder {
     /// - When `value` is an operand, emits a JNZ.
     /// - When `value` is a literal and truthy, emits an unconditional JMP if `emit_jmp_if_const_true` is true.
     /// - Returns Some(true/false) when `value` is a constant; None when dynamic.
-    fn branch_if_nonzero_to(
+    pub fn branch_if_nonzero_to(
         &mut self,
         value: &Value,
         label: &str,
