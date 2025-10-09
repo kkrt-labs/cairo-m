@@ -314,29 +314,9 @@ impl DagToCasmContext {
                     self.compute_cm_address_from_wasm_address(base_address, memarg.offset)?;
                 let result_id = self.new_typed_value_id(MirType::U32);
 
-                // Load u32 from memory: read two slots from [cm_address + 0] and [cm_address + 1]
-                let base_off = self.casm_builder.layout.get_offset(cm_address)?;
-                let dest_off = self.casm_builder.layout.allocate_local(result_id, 2)?;
-
-                // Load first slot: [[fp + base_off] + 0]
-                self.casm_builder.store_from_double_deref_fp_imm(
-                    base_off,
-                    0,
-                    dest_off,
-                    format!("[fp + {}] = [[fp + {}] + 0] (u32 lo)", dest_off, base_off),
-                );
-
-                // Load second slot: [[fp + base_off] + 1]
-                self.casm_builder.store_from_double_deref_fp_imm(
-                    base_off,
-                    1,
-                    dest_off + 1,
-                    format!(
-                        "[fp + {}] = [[fp + {}] + 1] (u32 hi)",
-                        dest_off + 1,
-                        base_off
-                    ),
-                );
+                // Load u32 from memory (2 slots)
+                self.casm_builder
+                    .load_from_memory(result_id, cm_address, 2)?;
 
                 Ok(Some(result_id))
             }
@@ -349,12 +329,9 @@ impl DagToCasmContext {
                     self.compute_cm_address_from_wasm_address(base_address, memarg.offset)?;
                 let value = inputs[1];
 
-                // Store u32 to memory: write two slots to [cm_address + 0] and [cm_address + 1]
-                let base_off = self.casm_builder.layout.get_offset(cm_address)?;
-
-                // Get the value offset (it's a u32, so 2 slots)
-                let value_off = match value {
-                    Value::Operand(vid) => self.casm_builder.layout.get_offset(vid)?,
+                // Extract value_id from operand
+                let value_id = match value {
+                    Value::Operand(vid) => vid,
                     _ => {
                         return Err(DagToCasmError::UnsupportedOperation {
                             op: "I32Store with non-operand value".to_string(),
@@ -365,25 +342,8 @@ impl DagToCasmContext {
                     }
                 };
 
-                // Store first slot: [[fp + base_off] + 0] = [fp + value_off]
-                self.casm_builder.store_to_double_deref_fp_imm(
-                    value_off,
-                    base_off,
-                    0,
-                    format!("[[fp + {}] + 0] = [fp + {}] (u32 lo)", base_off, value_off),
-                );
-
-                // Store second slot: [[fp + base_off] + 1] = [fp + value_off + 1]
-                self.casm_builder.store_to_double_deref_fp_imm(
-                    value_off + 1,
-                    base_off,
-                    1,
-                    format!(
-                        "[[fp + {}] + 1] = [fp + {}] (u32 hi)",
-                        base_off,
-                        value_off + 1
-                    ),
-                );
+                // Store to memory using public API
+                self.casm_builder.store_to_memory(cm_address, value_id)?;
 
                 Ok(None)
             }

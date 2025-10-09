@@ -228,6 +228,66 @@ impl CasmBuilder {
         Ok(())
     }
 
+    /// Load a value from memory through a pointer
+    ///
+    /// Loads slots from [[ptr_base] + 0..size] into dest. Size is inferred from dest's layout.
+    pub fn load_from_memory(
+        &mut self,
+        dest: ValueId,
+        ptr_base: ValueId,
+        size: usize,
+    ) -> CodegenResult<()> {
+        let base_off = self.layout.get_offset(ptr_base)?;
+        let dest_off = self.layout.allocate_local(dest, size)?;
+
+        for slot in 0..size {
+            self.store_from_double_deref_fp_imm(
+                base_off,
+                slot as i32,
+                dest_off + slot as i32,
+                format!(
+                    "[fp + {}] = [[fp + {}] + {}] (load limb {}/{})",
+                    dest_off + slot as i32,
+                    base_off,
+                    slot,
+                    slot + 1,
+                    size
+                ),
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Store a value to memory through a pointer
+    ///
+    /// Stores slots to [[ptr_base] + 0..size] from value. Size is inferred from value's layout.
+    pub fn store_to_memory(&mut self, ptr_base: ValueId, value: ValueId) -> CodegenResult<()> {
+        let base_off = self.layout.get_offset(ptr_base)?;
+        let value_off = self.layout.get_offset(value)?;
+
+        // Get size from value's layout
+        let size = self.layout.get_value_size(value);
+
+        for slot in 0..size {
+            self.store_to_double_deref_fp_imm(
+                value_off + slot as i32,
+                base_off,
+                slot as i32,
+                format!(
+                    "[[fp + {}] + {}] = [fp + {}] (store limb {}/{})",
+                    base_off,
+                    slot,
+                    value_off + slot as i32,
+                    slot + 1,
+                    size
+                ),
+            );
+        }
+
+        Ok(())
+    }
+
     /// Generate a binary operation instruction
     ///
     /// If target_offset is provided, writes directly to that location.
