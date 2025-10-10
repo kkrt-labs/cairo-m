@@ -234,7 +234,7 @@ impl FunctionLayout {
         Ok(())
     }
 
-    /// Allocates a new local variable branching_slots(&header_mir_types); at the next available positive offset from `fp`.
+    /// Allocates a new local variable at the next available positive offset from `fp`.
     pub fn allocate_local(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
         // If this value is already allocated, return its offset.
         if let Some(layout) = self.value_layouts.get(&value_id) {

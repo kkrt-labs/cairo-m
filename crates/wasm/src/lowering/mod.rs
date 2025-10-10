@@ -134,8 +134,7 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
         label_counter += builder.label_counter();
 
         // Add function using the clean API
-        let layout = builder.layout.clone();
-        codegen.add_function_from_builder(builder, entrypoint_info, layout)?;
+        codegen.add_function_from_builder(builder, entrypoint_info)?;
     }
 
     // Calculate memory layout for variable-sized instructions

@@ -392,6 +392,7 @@ impl CasmBuilder {
         &mut self.instructions
     }
 
+    #[cfg(test)]
     /// Get the labels
     pub(crate) fn labels(&self) -> &[Label] {
         &self.labels

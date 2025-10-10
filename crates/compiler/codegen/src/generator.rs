@@ -193,6 +193,9 @@ impl CodeGenerator {
         let mut legalized = module.clone();
         legalize_module_for_vm(&mut legalized);
 
+        // Step 1: Calculate layouts for all functions
+        self.calculate_all_layouts(&legalized)?;
+
         // Step 2: Generate code for all functions (first pass)
         self.generate_all_functions(&legalized)?;
 
@@ -241,6 +244,15 @@ impl CodeGenerator {
             entrypoints: self.function_entrypoints,
             data,
         })
+    }
+
+    /// Calculate layouts for all functions in the module
+    fn calculate_all_layouts(&mut self, module: &MirModule) -> CodegenResult<()> {
+        for (_, function) in module.functions() {
+            let layout = FunctionLayout::new(function)?;
+            self.function_layouts.insert(function.name.clone(), layout);
+        }
+        Ok(())
     }
 
     /// Calculate memory layout for variable-sized instructions
@@ -340,11 +352,11 @@ impl CodeGenerator {
         &mut self,
         mut builder: CasmBuilder,
         entrypoint_info: EntrypointInfo,
-        layout: FunctionLayout,
     ) -> CodegenResult<()> {
         let name = builder.layout.name.clone();
         // Store layout
-        self.function_layouts.insert(name.clone(), layout);
+        self.function_layouts
+            .insert(name.clone(), builder.layout.clone());
 
         // Update entrypoint with current instruction offset
         let mut info = entrypoint_info;
@@ -376,8 +388,7 @@ impl CodeGenerator {
     /// Generate code for all functions
     fn generate_all_functions(&mut self, module: &MirModule) -> CodegenResult<()> {
         for (_, function) in module.functions() {
-            let layout = FunctionLayout::new(function)?;
-            self.generate_function(function, module, layout)?;
+            self.generate_function(function, module)?;
         }
         Ok(())
     }
@@ -387,8 +398,16 @@ impl CodeGenerator {
         &mut self,
         function: &MirFunction,
         module: &MirModule,
-        layout: FunctionLayout,
     ) -> CodegenResult<()> {
+        // Get the layout for this function
+        let layout = self
+            .function_layouts
+            .get(&function.name)
+            .ok_or_else(|| {
+                CodegenError::LayoutError(format!("No layout found for function {}", function.name))
+            })?
+            .clone();
+
         // Create a builder for this function
         let mut builder = CasmBuilder::new(layout, self.label_counter);
 
@@ -431,8 +450,7 @@ impl CodeGenerator {
         self.generate_basic_blocks(function, module, &mut builder)?;
 
         // Use common logic to append function (clone layout since builder consumed it)
-        let layout = builder.layout.clone();
-        self.add_function_from_builder(builder, entrypoint_info, layout)?;
+        self.add_function_from_builder(builder, entrypoint_info)?;
 
         Ok(())
     }
