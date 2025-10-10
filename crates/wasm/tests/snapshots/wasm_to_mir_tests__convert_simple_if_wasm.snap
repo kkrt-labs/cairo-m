@@ -3,36 +3,24 @@ source: crates/wasm/tests/wasm_to_mir_tests.rs
 description: "WASM to MIR snapshot: simple_if.wat"
 ---
 WASM File: simple_if.wat
-Functions loaded: 1
 
-Module Output:
-module {
-  // Function 0
-  fn simple_if {
-    parameters: [0]
-    entry: 0
-
-    0:
-      %2 = 5 (u32)
-      %3 = %0 U32Greater %2
-      if %3 then jump 1 else jump 3
-
-    1:
-      %4 = 10 (u32)
-      %5 = %0 U32Add %4
-      %1 = %5 (u32)
-      jump 2
-
-    2:
-      jump 4
-
-    3:
-      %1 = %0 (u32)
-      jump 2
-
-    4:
-      return %1
-
-  }
-
-}
+Program:
+simple_if:
+   0: 23 5 0 2             // u32([fp + 2], [fp + 3]) = u32(5)
+   1: 28 2 2147483641 4    // [fp + 4] = u32([fp + 2], [fp + 3]) U32Less u32([fp + -6], [fp + -5])
+   2: 14 4 2 _             // if [fp + 4] != 0 jmp rel .br_taken_2
+   3: 13 2 _ _             // jump rel .br_fallthrough_3
+.br_taken_2:
+   4: 13 4 _ _             // jump rel .L_0
+.br_fallthrough_3:
+   5: 19 2147483641 0 0 0  // u32([fp + 0], [fp + 1]) = u32([fp + -6], [fp + -5]) + u32(0, 0)
+   6: 13 6 _ _             // jump rel .L_1
+.L_0:
+   7: 23 10 0 6            // u32([fp + 6], [fp + 7]) = u32(10)
+   8: 15 2147483641 6 8    // u32([fp + 8], [fp + 9]) = u32([fp + -6], [fp + -5]) U32Add u32([fp + 6], [fp + 7])
+   9: 19 8 0 0 0           // u32([fp + 0], [fp + 1]) = u32([fp + 8], [fp + 9]) + u32(0, 0)
+  10: 13 1 _ _             // jump rel .L_1
+.L_1:
+  11: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  12: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  13: 11 _ _ _             // return

@@ -115,7 +115,7 @@ mod tests {
         // Test basic loading functionality
         let wasm_bytes = parse_file("tests/test_cases/i32_arithmetic.wat").unwrap();
         let result = BlocklessDagModule::from_bytes(&wasm_bytes);
-        assert!(result.is_ok(), "Should load add.wasm successfully");
+        assert!(result.is_ok(), "Should load wat file successfully");
 
         let module = result.unwrap();
         assert!(!module.0.functions.is_empty());

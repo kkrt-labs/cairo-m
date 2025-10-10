@@ -50,7 +50,7 @@ pub enum ValueLayout {
 /// Maps every ValueId in a function to its fp-relative memory offset.
 #[derive(Debug, Clone)]
 pub struct FunctionLayout {
-    name: String,
+    pub name: String,
     /// Maps ValueId to its memory layout.
     pub value_layouts: FxHashMap<ValueId, ValueLayout>,
     /// The total frame size needed for this function.
@@ -58,9 +58,9 @@ pub struct FunctionLayout {
     /// Number of parameters this function takes.
     pub num_parameters: usize,
     /// Number of values this function returns.
-    num_return_values: usize,
+    pub num_return_values: usize,
     /// Total number of slots required for return values (accounting for multi-slot types).
-    num_return_slots: usize,
+    pub num_return_slots: usize,
 }
 
 impl FunctionLayout {
@@ -235,7 +235,7 @@ impl FunctionLayout {
     }
 
     /// Allocates a new local variable at the next available positive offset from `fp`.
-    pub(crate) fn allocate_local(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
+    pub fn allocate_local(&mut self, value_id: ValueId, size: usize) -> CodegenResult<i32> {
         // If this value is already allocated, return its offset.
         if let Some(layout) = self.value_layouts.get(&value_id) {
             return match layout {
@@ -289,7 +289,7 @@ impl FunctionLayout {
     }
 
     /// Gets the fp-relative offset for a `ValueId`.
-    pub(crate) fn get_offset(&self, value_id: ValueId) -> CodegenResult<i32> {
+    pub fn get_offset(&self, value_id: ValueId) -> CodegenResult<i32> {
         match self.value_layouts.get(&value_id) {
             Some(ValueLayout::Slot { offset }) | Some(ValueLayout::MultiSlot { offset, .. }) => {
                 Ok(*offset)

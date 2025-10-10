@@ -3,45 +3,29 @@ source: crates/wasm/tests/wasm_to_mir_tests.rs
 description: "WASM to MIR snapshot: simple_loop.wat"
 ---
 WASM File: simple_loop.wat
-Functions loaded: 1
 
-Module Output:
-module {
-  // Function 0
-  fn simple_loop {
-    parameters: [0]
-    entry: 0
-
-    0:
-      %2 = 0 (u32)
-      %4 = %2 (u32)
-      %5 = %2 (u32)
-      %3 = %0 (u32)
-      jump 2
-
-    1:
-      jump 5
-
-    2:
-      jump 3
-
-    3:
-      %6 = %5 U32Add %4
-      %7 = 1 (u32)
-      %8 = %4 U32Add %7
-      %9 = %8 U32Less %3
-      %3 = %3 (u32)
-      %4 = %8 (u32)
-      %5 = %6 (u32)
-      if %9 then jump 2 else jump 4
-
-    4:
-      %1 = %6 (u32)
-      jump 1
-
-    5:
-      return %1
-
-  }
-
-}
+Program:
+simple_loop:
+   0: 23 0 0 2             // u32([fp + 2], [fp + 3]) = u32(0)
+   1: 19 2147483641 0 0 4  // u32([fp + 4], [fp + 5]) = u32([fp + -6], [fp + -5]) + u32(0, 0)
+   2: 19 2 0 0 6           // u32([fp + 6], [fp + 7]) = u32([fp + 2], [fp + 3]) + u32(0, 0)
+   3: 19 2 0 0 8           // u32([fp + 8], [fp + 9]) = u32([fp + 2], [fp + 3]) + u32(0, 0)
+.loop_header_1:
+   4: 15 8 6 10            // u32([fp + 10], [fp + 11]) = u32([fp + 8], [fp + 9]) U32Add u32([fp + 6], [fp + 7])
+   5: 23 1 0 12            // u32([fp + 12], [fp + 13]) = u32(1)
+   6: 15 6 12 14           // u32([fp + 14], [fp + 15]) = u32([fp + 6], [fp + 7]) U32Add u32([fp + 12], [fp + 13])
+   7: 28 14 4 16           // [fp + 16] = u32([fp + 14], [fp + 15]) U32Less u32([fp + 4], [fp + 5])
+   8: 14 16 2 _            // if [fp + 16] != 0 jmp rel .br_taken_2
+   9: 13 8 _ _             // jump rel .br_fallthrough_3
+.br_taken_2:
+  10: 19 4 0 0 4           // u32([fp + 4], [fp + 5]) = u32([fp + 4], [fp + 5]) + u32(0, 0)
+  11: 19 14 0 0 6          // u32([fp + 6], [fp + 7]) = u32([fp + 14], [fp + 15]) + u32(0, 0)
+  12: 19 10 0 0 8          // u32([fp + 8], [fp + 9]) = u32([fp + 10], [fp + 11]) + u32(0, 0)
+  13: 13 2147483635 _ _    // jump rel .loop_header_1
+.br_fallthrough_3:
+  14: 19 10 0 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + 10], [fp + 11]) + u32(0, 0)
+  15: 13 1 _ _             // jump rel .L_0
+.L_0:
+  16: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  17: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  18: 11 _ _ _             // return

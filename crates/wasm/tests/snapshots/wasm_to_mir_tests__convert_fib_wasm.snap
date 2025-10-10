@@ -3,61 +3,45 @@ source: crates/wasm/tests/wasm_to_mir_tests.rs
 description: "WASM to MIR snapshot: fib.wat"
 ---
 WASM File: fib.wat
-Functions loaded: 1
 
-Module Output:
-module {
-  // Function 0
-  fn fib {
-    parameters: [0]
-    entry: 0
-
-    0:
-      %2 = 1 (u32)
-      %3 = %0 U32LessEqual %2
-      if %3 then jump 3 else jump 1
-
-    1:
-      %4 = 0 (u32)
-      %5 = 2 (u32)
-      %8 = %2 (u32)
-      %10 = %5 (u32)
-      %7 = %4 (u32)
-      %9 = %4 (u32)
-      %6 = %0 (u32)
-      jump 5
-
-    2:
-      jump 8
-
-    3:
-      jump 4
-
-    4:
-      return %0
-
-    5:
-      jump 6
-
-    6:
-      %11 = %10 U32Greater %6
-      %1 = %8 (u32)
-      if %11 then jump 2 else jump 7
-
-    7:
-      %12 = %7 U32Add %8
-      %13 = 1 (u32)
-      %14 = %10 U32Add %13
-      %6 = %6 (u32)
-      %7 = %8 (u32)
-      %8 = %12 (u32)
-      %9 = %12 (u32)
-      %10 = %14 (u32)
-      jump 5
-
-    8:
-      return %1
-
-  }
-
-}
+Program:
+fib:
+   0: 23 1 0 2             // u32([fp + 2], [fp + 3]) = u32(1)
+   1: 28 2 2147483641 4    // [fp + 4] = u32([fp + 2], [fp + 3]) U32Less u32([fp + -6], [fp + -5])
+   2: 9 1 8 _              // [fp + 8] = 1
+   3: 1 8 4 6              // [fp + 6] = [fp + 8] op [fp + 4]
+   4: 14 6 2 _             // if [fp + 6] != 0 jmp rel .fallthrough_2
+   5: 13 4 _ _             // jump rel .L_0
+.fallthrough_2:
+   6: 4 2147483641 0 2147483643 // Return value 0 slot 0: [fp -4] = [fp + -6] + 0
+   7: 4 2147483642 0 2147483644 // Return value 0 slot 1: [fp -3] = [fp + -5] + 0
+   8: 11 _ _ _             // return
+.L_0:
+   9: 23 0 0 9             // u32([fp + 9], [fp + 10]) = u32(0)
+  10: 23 2 0 11            // u32([fp + 11], [fp + 12]) = u32(2)
+  11: 19 2147483641 0 0 13 // u32([fp + 13], [fp + 14]) = u32([fp + -6], [fp + -5]) + u32(0, 0)
+  12: 19 9 0 0 15          // u32([fp + 15], [fp + 16]) = u32([fp + 9], [fp + 10]) + u32(0, 0)
+  13: 19 2 0 0 17          // u32([fp + 17], [fp + 18]) = u32([fp + 2], [fp + 3]) + u32(0, 0)
+  14: 19 9 0 0 19          // u32([fp + 19], [fp + 20]) = u32([fp + 9], [fp + 10]) + u32(0, 0)
+  15: 19 11 0 0 21         // u32([fp + 21], [fp + 22]) = u32([fp + 11], [fp + 12]) + u32(0, 0)
+.loop_header_3:
+  16: 28 13 21 23          // [fp + 23] = u32([fp + 13], [fp + 14]) U32Less u32([fp + 21], [fp + 22])
+  17: 14 23 2 _            // if [fp + 23] != 0 jmp rel .br_taken_4
+  18: 13 4 _ _             // jump rel .br_fallthrough_5
+.br_taken_4:
+  19: 19 17 0 0 0          // u32([fp + 0], [fp + 1]) = u32([fp + 17], [fp + 18]) + u32(0, 0)
+  20: 13 15 _ _            // jump rel .L_1
+.br_fallthrough_5:
+  21: 15 15 17 25          // u32([fp + 25], [fp + 26]) = u32([fp + 15], [fp + 16]) U32Add u32([fp + 17], [fp + 18])
+  22: 23 1 0 27            // u32([fp + 27], [fp + 28]) = u32(1)
+  23: 15 21 27 29          // u32([fp + 29], [fp + 30]) = u32([fp + 21], [fp + 22]) U32Add u32([fp + 27], [fp + 28])
+  24: 19 13 0 0 13         // u32([fp + 13], [fp + 14]) = u32([fp + 13], [fp + 14]) + u32(0, 0)
+  25: 19 17 0 0 15         // u32([fp + 15], [fp + 16]) = u32([fp + 17], [fp + 18]) + u32(0, 0)
+  26: 19 25 0 0 17         // u32([fp + 17], [fp + 18]) = u32([fp + 25], [fp + 26]) + u32(0, 0)
+  27: 19 25 0 0 19         // u32([fp + 19], [fp + 20]) = u32([fp + 25], [fp + 26]) + u32(0, 0)
+  28: 19 29 0 0 21         // u32([fp + 21], [fp + 22]) = u32([fp + 29], [fp + 30]) + u32(0, 0)
+  29: 13 2147483628 _ _    // jump rel .loop_header_3
+.L_1:
+  30: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+  31: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+  32: 11 _ _ _             // return

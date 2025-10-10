@@ -3,9 +3,8 @@
 use insta::assert_snapshot;
 
 // Use the loader from our src module
-use cairo_m_compiler_mir::{PassManager, PrettyPrint};
 use cairo_m_wasm::loader::BlocklessDagModule;
-use cairo_m_wasm::lowering::lower_program_to_mir;
+use cairo_m_wasm::lowering::lower_program_to_casm;
 use wat::parse_file;
 
 /// A macro to define a WASM to MIR conversion test case
@@ -21,16 +20,14 @@ macro_rules! wasm_test {
             let wasm_bytes = parse_file(wat_file_path).unwrap();
             let module = BlocklessDagModule::from_bytes(&wasm_bytes).unwrap();
             // Lower to MIR without any optimizations
-            let mir_module = lower_program_to_mir(&module, PassManager::no_opt_pipeline()).unwrap();
+            let program = lower_program_to_casm(&module).unwrap();
 
             // Create snapshot content
-            let snapshot_content = {
-                let module_output = mir_module.pretty_print(0);
-                format!("WASM File: {}\nFunctions loaded: {}\n\nModule Output:\n{}",
-                    $file_name, mir_module.function_count(),
-                    if module_output.is_empty() { "No functions found" } else { &module_output }
-                )
-            };
+            let snapshot_content = format!(
+                "WASM File: {}\n\nProgram:\n{}",
+                $file_name,
+                program.debug_instructions()
+            );
 
             insta::with_settings!({
                 description => format!("WASM to MIR snapshot: {}", $file_name).as_str(),

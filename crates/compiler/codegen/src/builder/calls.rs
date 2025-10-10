@@ -9,7 +9,7 @@ use stwo_prover::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Shared lowering for all call flavors (void, single, multiple).
-    pub(crate) fn lower_call(
+    pub fn lower_call(
         &mut self,
         callee_name: &str,
         args: &[Value],

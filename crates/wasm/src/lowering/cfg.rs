@@ -1,58 +1,66 @@
-use super::{wasm_type_to_mir_type, DagToMirContext, DagToMirError};
+use super::{wasm_type_to_mir_type, DagToCasmContext, DagToCasmError};
 use crate::loader::BlocklessDagModule;
 use crate::lowering::context::ActiveLoop;
-use cairo_m_compiler_mir::{Terminator, Value, ValueId};
+use cairo_m_compiler_codegen::Label;
+use cairo_m_compiler_mir::{MirType, Value, ValueId};
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
 
-impl DagToMirContext {
-    /// Pass 1: Preallocate all the blocks associated with DAG labels and loops
-    /// Create phi nodes for label outputs that will be populated later
-    pub(super) fn allocate_blocks_and_phi_nodes(
-        &mut self,
-        func: &BlocklessDag,
-    ) -> Result<(), DagToMirError> {
-        for (node_idx, node) in func.nodes.iter().enumerate() {
-            if let Operation::Label { id } = &node.operation {
-                let block_id = self.mir_function.add_basic_block();
-                self.label_map.insert(*id, block_id);
-                let mir_types = node
-                    .output_types
-                    .iter()
-                    .map(|t| wasm_type_to_mir_type(t, "unknown", "label output"))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let phi_value_ids: Vec<ValueId> = self.create_phi_nodes(block_id, &mir_types);
+pub(super) enum SolvedBreakTarget {
+    Label(String),
+    Return(Vec<Value>),
+}
 
-                // Map the label outputs to these phi nodes
-                for (output_idx, &phi_id) in phi_value_ids.iter().enumerate() {
+impl DagToCasmContext {
+    /// Generate CASM instructions from DAG nodes
+    pub(super) fn generate_instructions_from_dag(
+        &mut self,
+        dag: &BlocklessDag,
+        module: &BlocklessDagModule,
+    ) -> Result<(), DagToCasmError> {
+        // First pass: pre-register all labels and allocate their slots
+        // This must be done separately to handle forward references where branches
+        // to a label appear before the label definition in the DAG
+        for (node_idx, node) in dag.nodes.iter().enumerate() {
+            if let Operation::Label { id } = &node.operation {
+                // Register label name
+                let label_name = self.casm_builder.emit_new_label_name(".L");
+                self.label_names.insert(*id, label_name.clone());
+
+                // Allocate slots for label outputs (values flowing through this merge point)
+                let mut slots = Vec::new();
+                for (output_idx, output_type) in node.output_types.iter().enumerate() {
+                    let slot_id = self.new_typed_value_id(wasm_type_to_mir_type(
+                        output_type,
+                        &self.casm_builder.layout.name,
+                        "label output",
+                    )?);
+                    slots.push(slot_id);
+
+                    // Register the slot as this label node's output
                     self.insert_value(
                         ValueOrigin {
                             node: node_idx,
                             output_idx: output_idx as u32,
                         },
-                        phi_id,
+                        slot_id,
                     );
                 }
-                self.label_phi_nodes.insert(*id, phi_value_ids);
+                self.label_slots.insert(*id, slots);
             }
         }
-        Ok(())
-    }
 
-    /// Pass 2: Generate MIR instructions from DAG nodes
-    pub(super) fn generate_instructions_from_dag(
-        &mut self,
-        dag: &BlocklessDag,
-        module: &BlocklessDagModule,
-    ) -> Result<(), DagToMirError> {
+        // Second pass: generate instructions and register label outputs
         for (node_idx, node) in dag.nodes.iter().enumerate() {
             match &node.operation {
                 Operation::Inputs => {}
 
                 Operation::WASMOp(wasm_op) => {
-                    // Convert WASM operation to MIR instruction
-                    let mir_value = self.convert_wasm_op_to_mir(node_idx, wasm_op, node, module)?;
-                    if let Some(mir_value) = mir_value {
+                    // Convert WASM operation to CASM instruction
+                    let casm_value =
+                        self.convert_wasm_op_to_casm(node_idx, wasm_op, node, module)?;
+
+                    if let Some(mir_value) = casm_value {
                         self.insert_value(
                             ValueOrigin {
                                 node: node_idx,
@@ -64,67 +72,139 @@ impl DagToMirContext {
                 }
 
                 Operation::Label { id } => {
-                    let block_id = self.label_map.get(id).copied().ok_or_else(|| {
-                        DagToMirError::InvalidControlFlow {
-                            function_name: self.mir_function.name.clone(),
-                            reason: format!("Label {:?} not found", id),
-                            operation_context: "resolving label".to_string(),
+                    // Emit label (outputs were already registered in first pass)
+                    let label_name = self.label_names.get(id).cloned().ok_or_else(|| {
+                        DagToCasmError::InvalidControlFlow {
+                            function_name: self.casm_builder.layout.name.clone(),
+                            reason: format!("Label {} not pre-registered", id),
+                            operation_context: "emitting label".to_string(),
                         }
                     })?;
-                    self.set_current_block(block_id);
+                    self.casm_builder.emit_add_label(Label {
+                        name: label_name,
+                        address: None,
+                    });
                 }
 
                 Operation::Br(target) => {
-                    // This is either a jump or a return
-                    let target_block = self.resolve_break_target(node_idx, node, target)?;
-                    // Edge copies
-                    self.record_edge_values(node, target)?;
+                    let branch_values = self.get_branch_values(node)?;
 
-                    let terminator = Terminator::jump(target_block);
-                    self.get_current_block()?.set_terminator(terminator);
-                    self.set_current_block(target_block);
+                    let resolved_target = self.resolve_break_target(node_idx, node, target)?;
+
+                    match resolved_target {
+                        SolvedBreakTarget::Label(label) => {
+                            self.store_to_label_slots(target, &branch_values)?;
+                            self.casm_builder.jump(label.as_str());
+                        }
+                        SolvedBreakTarget::Return(return_values) => {
+                            self.casm_builder.return_values(
+                                &return_values,
+                                &return_values
+                                    .iter()
+                                    .map(|_| MirType::U32)
+                                    .collect::<Vec<_>>(),
+                            )?;
+                        }
+                    }
                 }
 
                 Operation::BrIf(target) => {
                     // Conditional branch - in our DAG, the condition is the last input
+                    // BrIf takes the branch when condition is NON-ZERO
                     let cond_idx = node.inputs.len().checked_sub(1).ok_or_else(|| {
-                        DagToMirError::InvalidControlFlow {
-                            function_name: self.mir_function.name.clone(),
+                        DagToCasmError::InvalidControlFlow {
+                            function_name: self.casm_builder.layout.name.clone(),
                             reason: "BrIf without condition input".to_string(),
                             operation_context: "resolving BrIf condition".to_string(),
                         }
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx])?;
-                    let target_block = self.resolve_break_target(node_idx, node, target)?;
-                    let else_block = self.mir_function.add_basic_block();
 
-                    // Edge copies on the taken edge
-                    self.record_edge_values(node, target)?;
+                    let branch_values = self.get_branch_values(node)?;
 
-                    let terminator = Terminator::branch(condition_value, target_block, else_block);
-                    self.get_current_block()?.set_terminator(terminator);
-                    self.set_current_block(else_block);
+                    let resolved_target = self.resolve_break_target(node_idx, node, target)?;
+
+                    match resolved_target {
+                        SolvedBreakTarget::Label(label) => {
+                            let taken_label = self.casm_builder.emit_new_label_name(".br_taken");
+
+                            self.casm_builder
+                                .jnz(condition_value, taken_label.as_str())?;
+
+                            // Fallthrough path: continue execution
+                            let fallthrough_label =
+                                self.casm_builder.emit_new_label_name(".br_fallthrough");
+                            self.casm_builder.jump(fallthrough_label.as_str());
+
+                            // Taken path: store values and jump to target
+                            self.casm_builder.emit_add_label(Label {
+                                name: taken_label,
+                                address: None,
+                            });
+                            self.store_to_label_slots(target, &branch_values)?;
+                            self.casm_builder.jump(label.as_str());
+
+                            // Fallthrough continues here
+                            self.casm_builder.emit_add_label(Label {
+                                name: fallthrough_label,
+                                address: None,
+                            });
+                        }
+                        SolvedBreakTarget::Return(_return_values) => {
+                            // These seem to never be generated by WOMIR
+                            Err(DagToCasmError::InvalidControlFlow {
+                                function_name: self.casm_builder.layout.name.clone(),
+                                reason: "Conditional return not yet implemented".to_string(),
+                                operation_context: "resolving BrIf return".to_string(),
+                            })?;
+                        }
+                    }
                 }
 
                 Operation::BrIfZero(target) => {
                     // Inverted conditional branch - condition is the last input
+                    // BrIfZero takes the branch when condition is ZERO
                     let cond_idx = node.inputs.len().checked_sub(1).ok_or_else(|| {
-                        DagToMirError::InvalidControlFlow {
-                            function_name: self.mir_function.name.clone(),
+                        DagToCasmError::InvalidControlFlow {
+                            function_name: self.casm_builder.layout.name.clone(),
                             reason: "BrIfZero without condition input".to_string(),
                             operation_context: "resolving BrIfZero condition".to_string(),
                         }
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx])?;
-                    let else_target = self.resolve_break_target(node_idx, node, target)?;
-                    let then_target = self.mir_function.add_basic_block();
 
-                    // Edge copies on the taken edge
-                    self.record_edge_values(node, target)?;
+                    let branch_values = self.get_branch_values(node)?;
 
-                    let terminator = Terminator::branch(condition_value, then_target, else_target);
-                    self.get_current_block()?.set_terminator(terminator);
-                    self.set_current_block(then_target);
+                    let resolved_target = self.resolve_break_target(node_idx, node, target)?;
+
+                    match resolved_target {
+                        SolvedBreakTarget::Label(label) => {
+                            let fallthrough_label =
+                                self.casm_builder.emit_new_label_name(".fallthrough");
+
+                            // If condition is non-zero, skip the branch (jump to fallthrough)
+                            self.casm_builder
+                                .jnz(condition_value, fallthrough_label.as_str())?;
+
+                            // Taken path (when zero): store values and jump to target
+                            self.store_to_label_slots(target, &branch_values)?;
+                            self.casm_builder.jump(label.as_str());
+
+                            // Fallthrough path continues here
+                            self.casm_builder.emit_add_label(Label {
+                                name: fallthrough_label,
+                                address: None,
+                            });
+                        }
+                        SolvedBreakTarget::Return(_return_values) => {
+                            // These seem to never be generated by WOMIR
+                            Err(DagToCasmError::InvalidControlFlow {
+                                function_name: self.casm_builder.layout.name.clone(),
+                                reason: "Conditional return not yet implemented".to_string(),
+                                operation_context: "resolving BrIfZero return".to_string(),
+                            })?;
+                        }
+                    }
                 }
 
                 Operation::BrTable { targets: _ } => {
@@ -135,10 +215,6 @@ impl DagToMirContext {
                     sub_dag,
                     break_targets: _,
                 } => {
-                    // Build a normal loop (header/body/exit) from the sub-DAG
-                    // Create header block and allocate phi nodes for loop-carried values
-                    let header_block = self.mir_function.add_basic_block();
-
                     // Get loop input types from the sub-DAG's Inputs node
                     let sub_inputs_idx = 0;
                     let input_node = &sub_dag.nodes[sub_inputs_idx];
@@ -147,73 +223,62 @@ impl DagToMirContext {
                         "Loop sub-DAG must start with Inputs node"
                     );
 
-                    // Create phi nodes in the header for loop-carried values
+                    // Create stack slots for loop-carried values
                     let header_mir_types = input_node
                         .output_types
                         .iter()
-                        .map(|t| wasm_type_to_mir_type(t, &self.mir_function.name, "loop input"))
+                        .map(|t| {
+                            wasm_type_to_mir_type(t, &self.casm_builder.layout.name, "loop input")
+                        })
                         .collect::<Result<Vec<_>, _>>()?;
-                    let header_phi_nodes = self.create_phi_nodes(header_block, &header_mir_types);
 
-                    // Record initial phi operands from loop entry
-                    let current_block = self.current_block_id.unwrap();
-                    for (input_idx, input) in node.inputs.iter().enumerate() {
-                        if let Some(&phi_value_id) = header_phi_nodes.get(input_idx) {
-                            let source_value_id = self.get_value(input).ok_or_else(|| {
-                                let available_count =
-                                    self.value_maps.iter().map(|map| map.len()).sum::<usize>();
-                                DagToMirError::ValueMappingError {
-                                    function_name: self.mir_function.name.clone(),
-                                    node_idx: input.node,
-                                    reason: format!(
-                                        "Loop input {} (node {}, output {}) not found in value map",
-                                        input_idx, input.node, input.output_idx
-                                    ),
-                                    available_count,
-                                }
-                            })?;
-                            self.add_deferred_phi_operand(
-                                header_block,
-                                phi_value_id,
-                                current_block,
-                                Value::operand(source_value_id),
-                            );
-                        }
+                    let header_slots: Vec<ValueId> = header_mir_types
+                        .iter()
+                        .map(|t| self.new_typed_value_id(t.clone()))
+                        .collect();
+
+                    // Store initial values (from outer scope) into the loop slots
+                    let initial_values = self.get_branch_values(node)?;
+                    for (slot, value) in header_slots.iter().zip(initial_values.iter()) {
+                        let mir_type = self.value_types.get(slot).ok_or_else(|| {
+                            DagToCasmError::InvalidControlFlow {
+                                function_name: self.casm_builder.layout.name.clone(),
+                                reason: format!("Type not found for slot {:?}", slot),
+                                operation_context: "loop initialization".to_string(),
+                            }
+                        })?;
+                        self.casm_builder.assign(*slot, *value, mir_type, None)?;
                     }
 
-                    let terminator = Terminator::jump(header_block);
-                    self.get_current_block()?.set_terminator(terminator);
-                    self.set_current_block(header_block);
-
-                    // Allocate a new block for the loop body
-                    let body_block = self.mir_function.add_basic_block();
-                    let terminator = Terminator::jump(body_block);
-                    self.get_current_block()?.set_terminator(terminator);
-                    self.set_current_block(body_block);
+                    // Create header label - this is where continues jump to
+                    let header_label = self.casm_builder.emit_new_label_name(".loop_header");
+                    self.casm_builder.emit_add_label(Label {
+                        name: header_label.clone(),
+                        address: None,
+                    });
 
                     self.loop_stack.push(ActiveLoop {
-                        header_block,
-                        header_phi_nodes: header_phi_nodes.clone(),
+                        header_label: header_label.clone(),
+                        header_slots: header_slots.clone(),
                     });
 
                     // Enter a new value scope for the loop body to avoid ValueOrigin collisions
                     self.push_scope();
 
-                    // Map the sub-DAG's Inputs node (node 0) to header phi nodes
-                    for (output_idx, phi_value_id) in header_phi_nodes.iter().enumerate() {
+                    // Map the sub-DAG's Inputs node (node 0) to load from header slots
+                    for (output_idx, slot_id) in header_slots.iter().enumerate() {
                         self.insert_value(
                             ValueOrigin {
                                 node: 0,
                                 output_idx: output_idx as u32,
                             },
-                            *phi_value_id,
+                            *slot_id,
                         );
                     }
 
-                    // Pre-allocate labels inside the loop sub-DAG
-                    self.allocate_blocks_and_phi_nodes(sub_dag)?;
                     // Lower the body
                     self.generate_instructions_from_dag(sub_dag, module)?;
+
                     // Exit the loop body's value scope
                     self.pop_scope();
 
@@ -226,15 +291,75 @@ impl DagToMirContext {
         Ok(())
     }
 
-    /// Helper: record phi operands for the taken edge of a branch based on BreakTarget kind
-    pub(super) fn record_edge_values(
+    /// Store branch values to the appropriate stack slots before jumping
+    pub(super) fn store_to_label_slots(
         &mut self,
-        node: &Node,
         target: &BreakTarget,
-    ) -> Result<(), DagToMirError> {
+        branch_values: &[Value],
+    ) -> Result<(), DagToCasmError> {
+        if branch_values.is_empty() {
+            return Ok(());
+        }
+
         match &target.kind {
-            TargetType::Label(label_id) => self.record_branch_values_for_label(node, *label_id),
-            TargetType::FunctionOrLoop => self.record_branch_values_for_loop(node, target.depth),
+            TargetType::Label(label_id) => {
+                // Get slots that were pre-allocated in first pass
+                let slots = self
+                    .label_slots
+                    .get(label_id)
+                    .ok_or_else(|| DagToCasmError::InvalidControlFlow {
+                        function_name: self.casm_builder.layout.name.clone(),
+                        reason: format!(
+                            "Label {} has no allocated slots but {} values need to be stored",
+                            self.label_names
+                                .get(label_id)
+                                .map(|s| s.as_str())
+                                .unwrap_or("?"),
+                            branch_values.len()
+                        ),
+                        operation_context: "storing to label slots".to_string(),
+                    })?
+                    .clone();
+
+                // Store each value to its corresponding slot
+                for (i, (slot, value)) in slots.iter().zip(branch_values.iter()).enumerate() {
+                    let mir_type = self.value_types.get(slot).ok_or_else(|| {
+                        DagToCasmError::InvalidControlFlow {
+                            function_name: self.casm_builder.layout.name.clone(),
+                            reason: format!("Type not found for slot {:?} at index {}", slot, i),
+                            operation_context: "storing to label slots".to_string(),
+                        }
+                    })?;
+                    self.casm_builder.assign(*slot, *value, mir_type, None)?;
+                }
+                Ok(())
+            }
+            TargetType::FunctionOrLoop => {
+                // Store to loop header slots
+                let d = target.depth as usize;
+                if !self.loop_stack.is_empty() && d < self.loop_stack.len() {
+                    let idx = self.loop_stack.len() - 1 - d;
+                    let header_slots = self.loop_stack[idx].header_slots.clone();
+
+                    // Store each value to its corresponding loop slot
+                    for (i, (slot, value)) in
+                        header_slots.iter().zip(branch_values.iter()).enumerate()
+                    {
+                        let mir_type = self.value_types.get(slot).ok_or_else(|| {
+                            DagToCasmError::InvalidControlFlow {
+                                function_name: self.casm_builder.layout.name.clone(),
+                                reason: format!(
+                                    "Type not found for loop slot {:?} at index {}",
+                                    slot, i
+                                ),
+                                operation_context: "storing to loop slots".to_string(),
+                            }
+                        })?;
+                        self.casm_builder.assign(*slot, *value, mir_type, None)?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 
@@ -244,19 +369,19 @@ impl DagToMirContext {
         node_idx: usize,
         node: &Node,
         target: &BreakTarget,
-    ) -> Result<cairo_m_compiler_mir::BasicBlockId, DagToMirError> {
+    ) -> Result<SolvedBreakTarget, DagToCasmError> {
         match (&target.kind, target.depth) {
             (TargetType::Label(label_id), _depth) => {
                 // Direct jump to a label at current scope
-                self.label_map.get(label_id).map_or_else(
+                self.label_names.get(label_id).map_or_else(
                     || {
-                        Err(DagToMirError::InvalidControlFlow {
-                            function_name: self.mir_function.name.clone(),
+                        Err(DagToCasmError::InvalidControlFlow {
+                            function_name: self.casm_builder.layout.name.clone(),
                             reason: format!("Label {} not found in label_map", label_id),
                             operation_context: "resolving break target".to_string(),
                         })
                     },
-                    |block_id| Ok(*block_id),
+                    |label| Ok(SolvedBreakTarget::Label(label.clone())),
                 )
             }
 
@@ -267,34 +392,29 @@ impl DagToMirContext {
                 if !self.loop_stack.is_empty() && d < self.loop_stack.len() {
                     let idx = self.loop_stack.len() - 1 - d;
                     let loop_info = &self.loop_stack[idx];
-                    Ok(loop_info.header_block)
+                    Ok(SolvedBreakTarget::Label(loop_info.header_label.clone()))
                 } else if d >= self.loop_stack.len() && !self.loop_stack.is_empty() {
-                    return Err(DagToMirError::LoopDepthError {
-                        function_name: self.mir_function.name.clone(),
+                    return Err(DagToCasmError::LoopDepthError {
+                        function_name: self.casm_builder.layout.name.clone(),
                         node_idx,
                         requested_depth: depth,
                         available_depth: self.loop_stack.len(),
                     });
                 } else {
-                    // No active loop at this depth: treat as function return
-                    let return_block = self.mir_function.add_basic_block();
-
                     let return_values: Vec<Value> = node
                         .inputs
                         .iter()
                         .map(|input| self.get_input_value(input))
                         .collect::<Result<_, _>>()?;
 
-                    let terminator = Terminator::return_values(return_values);
-                    self.block_mut(return_block)?.set_terminator(terminator);
-                    Ok(return_block)
+                    Ok(SolvedBreakTarget::Return(return_values))
                 }
             }
         }
     }
 
     /// Extract branch values from a node, excluding conditional inputs
-    pub(super) fn get_branch_values(&self, node: &Node) -> Result<Vec<Value>, DagToMirError> {
+    pub(super) fn get_branch_values(&self, node: &Node) -> Result<Vec<Value>, DagToCasmError> {
         // Determine which inputs represent data (exclude condition for conditional branches)
         // For BrIf / BrIfZero, the last input is the condition; exclude it from data copies
         let data_inputs_start_index = 0;
@@ -307,92 +427,5 @@ impl DagToMirContext {
             .iter()
             .map(|input| self.get_input_value(input))
             .collect()
-    }
-
-    /// Record branch values as phi operands for a label when branching to it
-    pub(super) fn record_branch_values_for_label(
-        &mut self,
-        node: &Node,
-        label_id: u32,
-    ) -> Result<(), DagToMirError> {
-        let branch_values = self.get_branch_values(node)?;
-        let current_block =
-            self.current_block_id
-                .ok_or_else(|| DagToMirError::InvalidControlFlow {
-                    function_name: self.mir_function.name.clone(),
-                    reason: "No current block when recording phi operands".to_string(),
-                    operation_context: "recording branch values for label".to_string(),
-                })?;
-
-        let phi_value_ids = self
-            .label_phi_nodes
-            .get(&label_id)
-            .cloned()
-            .ok_or_else(|| DagToMirError::InvalidControlFlow {
-                function_name: self.mir_function.name.clone(),
-                reason: format!("No phi nodes allocated for label {}", label_id),
-                operation_context: "recording branch values for label".to_string(),
-            })?;
-
-        let target_block = self.label_map.get(&label_id).copied().ok_or_else(|| {
-            DagToMirError::InvalidControlFlow {
-                function_name: self.mir_function.name.clone(),
-                reason: format!("Label {} not found in label_map", label_id),
-                operation_context: "recording branch values for label".to_string(),
-            }
-        })?;
-
-        // Record phi operands for each value
-        let count = core::cmp::min(branch_values.len(), phi_value_ids.len());
-        for i in 0..count {
-            self.add_deferred_phi_operand(
-                target_block,
-                phi_value_ids[i],
-                current_block,
-                branch_values[i],
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Record branch values as phi operands for loop header when continuing to a loop
-    pub(super) fn record_branch_values_for_loop(
-        &mut self,
-        node: &Node,
-        depth: u32,
-    ) -> Result<(), DagToMirError> {
-        // Compute target loop based on depth
-        let d = depth as usize;
-        if self.loop_stack.is_empty() || d >= self.loop_stack.len() {
-            return Ok(()); // Treat as return; phi operands handled by return elsewhere
-        }
-        let idx = self.loop_stack.len() - 1 - d;
-        let loop_info = &self.loop_stack[idx];
-        let header_phi_nodes = loop_info.header_phi_nodes.clone();
-        let header_block = loop_info.header_block;
-
-        let current_block =
-            self.current_block_id
-                .ok_or_else(|| DagToMirError::InvalidControlFlow {
-                    function_name: self.mir_function.name.clone(),
-                    reason: "No current block when recording phi operands".to_string(),
-                    operation_context: "recording branch values for loop".to_string(),
-                })?;
-
-        let branch_values = self.get_branch_values(node)?;
-
-        // Record phi operands for each loop-carried value
-        let count = core::cmp::min(branch_values.len(), header_phi_nodes.len());
-        for i in 0..count {
-            self.add_deferred_phi_operand(
-                header_block,
-                header_phi_nodes[i],
-                current_block,
-                branch_values[i],
-            );
-        }
-
-        Ok(())
     }
 }
