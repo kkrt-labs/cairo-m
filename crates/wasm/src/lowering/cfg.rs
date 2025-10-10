@@ -87,20 +87,16 @@ impl DagToCasmContext {
                 }
 
                 Operation::Br(target) => {
-                    // Get branch values before resolving target
                     let branch_values = self.get_branch_values(node)?;
 
-                    // This is either a jump or a return
                     let resolved_target = self.resolve_break_target(node_idx, node, target)?;
 
                     match resolved_target {
                         SolvedBreakTarget::Label(label) => {
-                            // Store values to the label's stack slots before jumping
                             self.store_to_label_slots(target, &branch_values)?;
                             self.casm_builder.jump(label.as_str());
                         }
                         SolvedBreakTarget::Return(return_values) => {
-                            // Return from function with values
                             self.casm_builder.return_values(
                                 &return_values,
                                 &return_values
@@ -124,17 +120,14 @@ impl DagToCasmContext {
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx])?;
 
-                    // Get branch values before resolving target
                     let branch_values = self.get_branch_values(node)?;
 
                     let resolved_target = self.resolve_break_target(node_idx, node, target)?;
 
                     match resolved_target {
                         SolvedBreakTarget::Label(label) => {
-                            // Create a label for the taken path
                             let taken_label = self.casm_builder.emit_new_label_name(".br_taken");
 
-                            // If condition is non-zero, jump to taken path
                             self.casm_builder
                                 .jnz(condition_value, taken_label.as_str())?;
 
@@ -180,14 +173,12 @@ impl DagToCasmContext {
                     })?;
                     let condition_value = self.get_input_value(&node.inputs[cond_idx])?;
 
-                    // Get branch values before resolving target
                     let branch_values = self.get_branch_values(node)?;
 
                     let resolved_target = self.resolve_break_target(node_idx, node, target)?;
 
                     match resolved_target {
                         SolvedBreakTarget::Label(label) => {
-                            // Create a label for the fallthrough path
                             let fallthrough_label =
                                 self.casm_builder.emit_new_label_name(".fallthrough");
 
@@ -306,7 +297,6 @@ impl DagToCasmContext {
         target: &BreakTarget,
         branch_values: &[Value],
     ) -> Result<(), DagToCasmError> {
-        // If there are no values to store, nothing to do
         if branch_values.is_empty() {
             return Ok(());
         }

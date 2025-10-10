@@ -71,6 +71,7 @@ impl DagToCasmContext {
     pub(crate) fn push_scope(&mut self) {
         self.value_maps.push(HashMap::new());
     }
+
     pub(crate) fn pop_scope(&mut self) {
         self.value_maps.pop();
     }

@@ -1,4 +1,7 @@
-use super::{wasm_type_to_mir_type, DagToCasmContext, DagToCasmError};
+use super::{
+    get_function_name, get_function_parameter_types, get_function_return_types, DagToCasmContext,
+    DagToCasmError,
+};
 use crate::loader::BlocklessDagModule;
 use cairo_m_compiler_mir::instruction::CalleeSignature;
 use cairo_m_compiler_mir::{BinaryOp, MirType, Value, ValueId};
@@ -37,7 +40,7 @@ impl DagToCasmContext {
         }
     }
 
-    pub(super) fn convert_wasm_binop_to_mir(
+    pub(super) fn convert_wasm_binop_to_casm(
         &mut self,
         node_idx: usize,
         wasm_op: &Op,
@@ -113,7 +116,7 @@ impl DagToCasmContext {
             | Op::I32DivU
             | Op::I32And
             | Op::I32Or
-            | Op::I32Xor => self.convert_wasm_binop_to_mir(
+            | Op::I32Xor => self.convert_wasm_binop_to_casm(
                 node_idx,
                 wasm_op,
                 inputs[0],
@@ -124,7 +127,7 @@ impl DagToCasmContext {
             // For comparisons, we produce a boolean result
             // This is not WASM compliant, but works if these values are only used in conditional branches
             // TODO : cast everything correctly or sync with VM so that comparisons between u32 produce u32 booleans
-            Op::I32Eq | Op::I32LtU => self.convert_wasm_binop_to_mir(
+            Op::I32Eq | Op::I32LtU => self.convert_wasm_binop_to_casm(
                 node_idx,
                 wasm_op,
                 inputs[0],
@@ -133,7 +136,7 @@ impl DagToCasmContext {
             ),
 
             // (a > b) == (b < a)
-            Op::I32GtU => self.convert_wasm_binop_to_mir(
+            Op::I32GtU => self.convert_wasm_binop_to_casm(
                 node_idx,
                 &Op::I32LtU,
                 inputs[1],
@@ -262,25 +265,8 @@ impl DagToCasmContext {
             }
 
             Op::Call { function_index } => {
-                // Get signature from wasm module
-                let program = &module.0;
-                let func_type = program.m.get_func_type(*function_index);
-
-                // Handle param types with proper error handling
-                let param_types: Vec<MirType> = func_type
-                    .ty
-                    .params()
-                    .iter()
-                    .map(|ty| wasm_type_to_mir_type(ty, "unknown", "function call parameters"))
-                    .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
-
-                // Handle return types with proper error handling
-                let return_types: Vec<MirType> = func_type
-                    .ty
-                    .results()
-                    .iter()
-                    .map(|ty| wasm_type_to_mir_type(ty, "unknown", "function call return types"))
-                    .collect::<Result<Vec<MirType>, DagToCasmError>>()?;
+                let param_types = get_function_parameter_types(module, *function_index)?;
+                let return_types = get_function_return_types(module, *function_index)?;
 
                 let signature = CalleeSignature {
                     param_types,
@@ -289,17 +275,11 @@ impl DagToCasmContext {
 
                 let result_id = self.new_typed_value_id(MirType::U32);
 
-                // Get function name from module exports
-                let func_name = module
-                    .0
-                    .m
-                    .exported_functions
-                    .get(function_index)
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| format!("func_{}", function_index));
+                let func_name = get_function_name(module, *function_index);
 
                 self.casm_builder
                     .lower_call(&func_name, &inputs, &signature, &[result_id])?;
+
                 Ok(Some(result_id))
             }
 

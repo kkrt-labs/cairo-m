@@ -56,22 +56,22 @@ pub enum DagToCasmError {
     CodegenError(#[from] CodegenError),
 }
 
-fn get_function_name(module: &BlocklessDagModule, func_idx: usize) -> String {
+pub(crate) fn get_function_name(module: &BlocklessDagModule, func_idx: u32) -> String {
     let wasm_program = &module.0;
     wasm_program
         .m
         .exported_functions
-        .get(&(func_idx as u32))
+        .get(&(func_idx))
         .map(|s| s.to_string())
         .unwrap_or_else(|| format!("func_{}", func_idx))
 }
 
-fn get_function_parameter_types(
+pub(crate) fn get_function_parameter_types(
     module: &BlocklessDagModule,
-    func_idx: usize,
+    func_idx: u32,
 ) -> Result<Vec<MirType>, DagToCasmError> {
     let wasm_program = &module.0;
-    let func_type = wasm_program.m.get_func_type(func_idx as u32);
+    let func_type = wasm_program.m.get_func_type(func_idx);
     let func_name = get_function_name(module, func_idx);
     func_type
         .ty
@@ -81,12 +81,12 @@ fn get_function_parameter_types(
         .collect::<Result<Vec<MirType>, DagToCasmError>>()
 }
 
-fn get_function_return_types(
+pub(crate) fn get_function_return_types(
     module: &BlocklessDagModule,
-    func_idx: usize,
+    func_idx: u32,
 ) -> Result<Vec<MirType>, DagToCasmError> {
     let wasm_program = &module.0;
-    let func_type = wasm_program.m.get_func_type(func_idx as u32);
+    let func_type = wasm_program.m.get_func_type(func_idx);
     let func_name = get_function_name(module, func_idx);
     func_type
         .ty
@@ -105,10 +105,10 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
 
     // Process each function
     for (func_idx, _) in wasm_program.functions.iter().enumerate() {
-        let builder = function_to_casm(module, func_idx, label_counter)?;
+        let builder = function_to_casm(module, func_idx as u32, label_counter)?;
 
-        let param_types = get_function_parameter_types(module, func_idx)?;
-        let return_types = get_function_return_types(module, func_idx)?;
+        let param_types = get_function_parameter_types(module, func_idx as u32)?;
+        let return_types = get_function_return_types(module, func_idx as u32)?;
 
         let params = param_types
             .iter()
@@ -129,14 +129,11 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
 
         label_counter += builder.label_counter();
 
-        // Add function using the clean API
         codegen.add_function_from_builder(builder, params, returns)?;
     }
 
-    // Calculate memory layout for variable-sized instructions
     codegen.calculate_memory_layout()?;
 
-    // Resolve labels (second pass)
     codegen.resolve_labels()?;
 
     Ok(codegen)
@@ -161,7 +158,7 @@ fn wasm_type_to_mir_type(
 /// Convert a single WASM function to MIR using a two-pass algorithm
 fn function_to_casm(
     module: &BlocklessDagModule,
-    func_idx: usize,
+    func_idx: u32,
     label_counter: usize,
 ) -> Result<CasmBuilder, DagToCasmError> {
     let program = &module.0;
@@ -185,7 +182,7 @@ fn function_to_casm(
     allocate_function_parameters(&mut context, &param_types, &return_types)?;
 
     // Get the DAG for this function
-    let dag = match program.functions.get(func_idx) {
+    let dag = match program.functions.get(func_idx as usize) {
         Some(FunctionProcessingStage::BlocklessDag(dag)) => dag,
         Some(_) => {
             return Err(DagToCasmError::InvalidControlFlow {
