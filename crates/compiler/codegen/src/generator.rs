@@ -193,7 +193,7 @@ impl CodeGenerator {
         let mut legalized = module.clone();
         legalize_module_for_vm(&mut legalized);
 
-        // Step 1: Calculate layouts for all functions
+        // Step 1: Calculate layouts for all functions (post-legalization)
         self.calculate_all_layouts(&legalized)?;
 
         // Step 2: Generate code for all functions (first pass)
@@ -351,7 +351,8 @@ impl CodeGenerator {
     pub fn add_function_from_builder(
         &mut self,
         mut builder: CasmBuilder,
-        entrypoint_info: EntrypointInfo,
+        params: Vec<AbiSlot>,
+        returns: Vec<AbiSlot>,
     ) -> CodegenResult<()> {
         let name = builder.layout.name.clone();
         // Store layout
@@ -359,12 +360,15 @@ impl CodeGenerator {
             .insert(name.clone(), builder.layout.clone());
 
         // Update entrypoint with current instruction offset
-        let mut info = entrypoint_info;
-        info.pc = self.instructions.len();
+        let info = EntrypointInfo {
+            pc: self.instructions.len(),
+            params,
+            returns,
+        };
         self.function_entrypoints.insert(name, info);
 
         // Update label counter to avoid collisions
-        self.label_counter = builder.label_counter;
+        self.label_counter += builder.label_counter();
 
         // Run post-builder passes
         passes::run_all(&mut builder)?;
@@ -440,17 +444,11 @@ impl CodeGenerator {
             })
             .collect::<CodegenResult<_>>()?;
 
-        let entrypoint_info = EntrypointInfo {
-            pc: 0, // Will be set by add_function_from_builder
-            params,
-            returns,
-        };
-
         builder.emit_add_label(func_label);
         self.generate_basic_blocks(function, module, &mut builder)?;
 
-        // Use common logic to append function (clone layout since builder consumed it)
-        self.add_function_from_builder(builder, entrypoint_info)?;
+        // Use common logic to append function
+        self.add_function_from_builder(builder, params, returns)?;
 
         Ok(())
     }

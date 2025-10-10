@@ -110,31 +110,27 @@ pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerato
         let param_types = get_function_parameter_types(module, func_idx)?;
         let return_types = get_function_return_types(module, func_idx)?;
 
-        // Build entrypoint info
-        let entrypoint_info = cairo_m_common::program::EntrypointInfo {
-            pc: 0, // Will be updated by add_function_from_builder
-            params: param_types
-                .iter()
-                .enumerate()
-                .map(|(i, _)| AbiSlot {
-                    name: format!("param_{}", i),
-                    ty: AbiType::U32,
-                })
-                .collect(),
-            returns: return_types
-                .iter()
-                .enumerate()
-                .map(|(i, _)| AbiSlot {
-                    name: format!("return_{}", i),
-                    ty: AbiType::U32,
-                })
-                .collect(),
-        };
+        let params = param_types
+            .iter()
+            .enumerate()
+            .map(|(i, _)| AbiSlot {
+                name: format!("param_{}", i),
+                ty: AbiType::U32,
+            })
+            .collect();
+        let returns = return_types
+            .iter()
+            .enumerate()
+            .map(|(i, _)| AbiSlot {
+                name: format!("return_{}", i),
+                ty: AbiType::U32,
+            })
+            .collect();
 
         label_counter += builder.label_counter();
 
         // Add function using the clean API
-        codegen.add_function_from_builder(builder, entrypoint_info)?;
+        codegen.add_function_from_builder(builder, params, returns)?;
     }
 
     // Calculate memory layout for variable-sized instructions
