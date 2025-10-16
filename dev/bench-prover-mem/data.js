@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758541906984,
+  "lastUpdate": 1760611272682,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -2011,6 +2011,40 @@ window.BENCHMARK_DATA = {
           {
             "name": "sha256_1kb_prove_peak_mem",
             "value": 2184172030,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c0174020c59232133147282e518d7eb3363cdd7d",
+          "message": "Add Clone to Proof (#345)",
+          "timestamp": "2025-10-16T12:24:57+02:00",
+          "tree_id": "d20b82b7d4510106dda3404c53bfa639e66e09e0",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/c0174020c59232133147282e518d7eb3363cdd7d"
+        },
+        "date": 1760611271061,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2422514085,
+            "unit": "bytes"
+          },
+          {
+            "name": "sha256_1kb_prove_peak_mem",
+            "value": 2184172036,
             "unit": "bytes"
           }
         ]
