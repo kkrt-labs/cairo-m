@@ -25,7 +25,7 @@ use crate::preprocessed::range_check::{range_check_16, range_check_20, range_che
 use crate::public_data::PublicData;
 use crate::relations;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Claim {
     pub opcodes: opcodes::Claim,
     pub memory: memory::Claim,
@@ -62,7 +62,7 @@ pub struct InteractionClaimData {
     pub bitwise: bitwise::InteractionClaimData,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InteractionClaim {
     pub opcodes: opcodes::InteractionClaim,
     pub memory: memory::InteractionClaim,

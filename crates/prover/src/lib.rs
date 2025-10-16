@@ -58,7 +58,7 @@ use crate::public_data::PublicData;
 ///
 /// ## Type Parameters
 /// * `H` - The Merkle hasher used for tree commitments (typically Blake2s)
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Proof<H: MerkleHasher> {
     /// Claim about the execution trace (log sizes for each component)
     pub claim: Claim,
