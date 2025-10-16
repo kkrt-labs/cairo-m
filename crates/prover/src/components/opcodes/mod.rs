@@ -16,7 +16,7 @@ macro_rules! define_opcodes {
             $(pub $opcode: $opcode::InteractionClaimData,)*
         }
 
-        #[derive(Serialize, Deserialize, Debug)]
+        #[derive(Serialize, Deserialize, Clone, Debug)]
         pub struct InteractionClaim {
             $(pub $opcode: $opcode::InteractionClaim,)*
         }
