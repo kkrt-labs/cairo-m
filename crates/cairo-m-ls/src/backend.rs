@@ -993,26 +993,14 @@ impl LanguageServer for Backend {
 
             let index = module_semantic_index(db.upcast(), crate_id, module_name).ok()?;
 
-            // Find the scope at the cursor position.
-            // TODO: This is inefficient. A better approach would be to have a query
-            // or a method on SemanticIndex to find the narrowest scope at an offset.
+            // Find the scope at the cursor position using the optimized SemanticIndex method.
             let current_scope = {
-                let mut best_scope = index.root_scope();
-                let mut smallest_span_size = usize::MAX;
-
-                for (scope_id, _) in index.scopes() {
-                    for (_, def) in index.definitions_in_scope(scope_id) {
-                        if def.full_span.start <= offset && offset <= def.full_span.end {
-                            let span_size = def.full_span.end - def.full_span.start;
-                            if span_size < smallest_span_size {
-                                smallest_span_size = span_size;
-                                best_scope = Some(scope_id);
-                            }
-                        }
-                    }
-                }
-
-                best_scope.or_else(|| index.root_scope())?
+                // Create a span for the cursor position
+                let cursor_span = chumsky::span::SimpleSpan::from(offset..offset);
+                
+                // Use the efficient scope_for_span method
+                index.scope_for_span(cursor_span)
+                    .or_else(|| index.root_scope())?
             };
 
             let mut items = Vec::new();
