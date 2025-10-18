@@ -23,8 +23,6 @@ fn custom_type() {
 // Pointer Types
 // ===================
 
-// TODO: deprecated, remove.
-
 #[test]
 fn pointer_type() {
     assert_parses_ok!(&with_param("felt*"));
