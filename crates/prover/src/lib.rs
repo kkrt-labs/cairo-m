@@ -29,6 +29,7 @@ pub mod prover;
 pub mod prover_config;
 pub mod public_data;
 pub mod relations;
+pub mod sha256;
 pub mod utils;
 pub mod verifier;
 
