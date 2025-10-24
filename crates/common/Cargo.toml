@@ -17,3 +17,4 @@ stwo-prover.workspace = true
 
 [dev-dependencies]
 proptest = "1.7.0"
+bincode = { version = "2.0.1", features = ["serde"] }
