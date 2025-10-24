@@ -15,8 +15,9 @@ use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
 
 use crate::mir_passes::legalize::legalize_module_for_vm;
-use crate::passes;
-use crate::{CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
+use crate::{
+    CasmBuilder, CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label, passes,
+};
 
 // Mirror runner's memory model: MAX_ADDRESS = 2^28 - 1
 const MAX_ADDRESS: i32 = (1 << 28) - 1;
@@ -128,7 +129,7 @@ impl CodeGenerator {
             _ => {
                 return Err(CodegenError::InvalidMir(
                     "HeapAllocCells: cells must be a felt operand or literal".into(),
-                ))
+                ));
             }
         };
 
@@ -239,7 +240,6 @@ impl CodeGenerator {
                 compiler_version: Some(env!("CARGO_PKG_VERSION").to_string()),
                 compiled_at: Some(chrono::Utc::now().to_rfc3339()),
                 source_file: None,
-                extra: HashMap::new(),
             },
             entrypoints: self.function_entrypoints,
             data,
@@ -298,7 +298,7 @@ impl CodeGenerator {
                         _ => {
                             return Err(CodegenError::InvalidMir(
                                 "Non-literal element in rodata array".to_string(),
-                            ))
+                            ));
                         }
                     };
                     out.push(QM31::from_m31_array([
@@ -338,7 +338,7 @@ impl CodeGenerator {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Const arrays only supported for felt, bool, u32".to_string(),
-                ))
+                ));
             }
         }
         Ok(out)
@@ -885,7 +885,7 @@ impl CodeGenerator {
                                         _ => {
                                             return Err(CodegenError::InternalError(
                                                 "Invalid index value layout".to_string(),
-                                            ))
+                                            ));
                                         }
                                     };
                                     if let Some(idx_ty) = function.value_types.get(idx_id) {
@@ -931,7 +931,7 @@ impl CodeGenerator {
                                 _ => {
                                     return Err(CodegenError::InvalidMir(
                                         "Invalid index value for load".to_string(),
-                                    ))
+                                    ));
                                 }
                             }
                             curr_ty = elem_ty;
@@ -1071,7 +1071,7 @@ impl CodeGenerator {
                                         _ => {
                                             return Err(CodegenError::InternalError(
                                                 "Invalid index value layout".to_string(),
-                                            ))
+                                            ));
                                         }
                                     };
                                     if let Some(idx_ty) = function.value_types.get(idx_id) {
@@ -1114,7 +1114,7 @@ impl CodeGenerator {
                                 _ => {
                                     return Err(CodegenError::InvalidMir(
                                         "Invalid index value for store".to_string(),
-                                    ))
+                                    ));
                                 }
                             }
                             curr_ty = elem_ty;
@@ -1320,7 +1320,7 @@ impl CodeGenerator {
                     _ => {
                         return Err(CodegenError::InvalidMir(
                             "Invalid value for store".to_string(),
-                        ))
+                        ));
                     }
                 }
             }
@@ -1828,10 +1828,11 @@ impl CodeGenerator {
 
 #[cfg(test)]
 mod tests_asserts {
-    use super::*;
     use cairo_m_compiler_mir::{
         Instruction, InstructionKind, MirModule, MirType, Terminator, Value,
     };
+
+    use super::*;
 
     #[test]
     fn codegen_emits_assert_opcodes_for_mir_asserts() {
@@ -1903,9 +1904,9 @@ mod tests_asserts {
 
         module.add_function(func);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
-        let program = gen.compile().unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
+        let program = codegen.compile().unwrap();
 
         let mut assert_fp_imm = 0;
         for item in &program.data {
@@ -1926,9 +1927,10 @@ mod tests_asserts {
 
 #[cfg(test)]
 mod tests_heap_alloc {
-    use super::*;
     use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, MirType, Terminator, Value};
     use stwo_prover::core::fields::m31::M31;
+
+    use super::*;
 
     // Helper: compute code length in QM31 units and index of first Value
     fn program_code_len_and_first_value_idx(program: &Program) -> (u32, Option<usize>) {
@@ -1966,9 +1968,9 @@ mod tests_heap_alloc {
         module.add_function(f);
 
         // Generate CASM and compile
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
-        let program = gen.compile().unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
+        let program = codegen.compile().unwrap();
 
         // Expect at least one Value (our HEAP_CURSOR cell) appended after code
         let (code_len_qm31, first_value_idx) = program_code_len_and_first_value_idx(&program);
@@ -2032,9 +2034,9 @@ mod tests_heap_alloc {
         f.basic_blocks.push(block);
         module.add_function(f);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
-        let program = gen.compile().unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
+        let program = codegen.compile().unwrap();
 
         let mut saw_load_cursor = false;
         let mut saw_store_cursor = false;
@@ -2060,12 +2062,13 @@ mod tests_heap_alloc {
 
 #[cfg(test)]
 mod tests_rodata {
-    use super::*;
     use cairo_m_compiler_mir::{
         BasicBlock, MirFunction, MirModule, MirType, Place, Terminator, Value,
     };
     use stwo_prover::core::fields::m31::M31;
     use stwo_prover::core::fields::qm31::QM31;
+
+    use super::*;
 
     // Focused test: literal u32 array lowered to rodata and dynamic index loads from rodata base
     #[test]
@@ -2118,9 +2121,9 @@ mod tests_rodata {
         module.add_function(f);
 
         // Generate CASM and compile to Program
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
-        let program = gen.compile().unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
+        let program = codegen.compile().unwrap();
 
         // Compute rodata base by summing instruction sizes in QM31 units
         let mut code_len_qm31: u32 = 0;
@@ -2235,12 +2238,12 @@ mod tests_rodata {
         f.basic_blocks.push(block);
         module.add_function(f);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
 
         // Expect exactly one rodata blob due to deduplication
         assert_eq!(
-            gen.rodata_blobs.len(),
+            codegen.rodata_blobs.len(),
             1,
             "Expected rodata deduplication to a single blob"
         );
@@ -2319,11 +2322,11 @@ mod tests_rodata {
         caller.basic_blocks.push(b);
         module.add_function(caller);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
         // No rodata should be emitted because the only candidate array escapes via call
         assert!(
-            gen.rodata_blobs.is_empty(),
+            codegen.rodata_blobs.is_empty(),
             "Escaping arrays must not be placed in rodata"
         );
     }
@@ -2362,13 +2365,13 @@ fn abi_type_from_mir(ty: &MirType) -> CodegenResult<AbiType> {
         MirType::Function { .. } => {
             return Err(CodegenError::InvalidMir(
                 "Functions are not supported in entrypoint signatures".into(),
-            ))
+            ));
         }
         MirType::Unit => AbiType::Unit,
         MirType::Error | MirType::Unknown => {
             return Err(CodegenError::InvalidMir(
                 "Unsupported ABI type in entrypoint signature".into(),
-            ))
+            ));
         }
     };
     Ok(out)
@@ -2462,8 +2465,9 @@ mod tests {
         }
     }
 
-    fn count_opcode(gen: &CodeGenerator, opcode: u32) -> usize {
-        gen.instructions()
+    fn count_opcode(codegen: &CodeGenerator, opcode: u32) -> usize {
+        codegen
+            .instructions()
             .iter()
             .filter(|instr| instr.inner_instr().opcode_value() == opcode)
             .count()
@@ -2495,11 +2499,11 @@ mod tests {
 
         module.add_function(function);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
 
         assert!(
-            count_opcode(&gen, STORE_DOUBLE_DEREF_FP) >= 1,
+            count_opcode(&codegen, STORE_DOUBLE_DEREF_FP) >= 1,
             "expected static load to use STORE_DOUBLE_DEREF_FP"
         );
     }
@@ -2534,11 +2538,11 @@ mod tests {
 
         module.add_function(function);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
 
         assert!(
-            count_opcode(&gen, STORE_TO_DOUBLE_DEREF_FP_IMM) >= 1,
+            count_opcode(&codegen, STORE_TO_DOUBLE_DEREF_FP_IMM) >= 1,
             "expected static store to use STORE_TO_DOUBLE_DEREF_FP_IMM"
         );
     }
@@ -2571,11 +2575,11 @@ mod tests {
 
         module.add_function(function);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
 
         assert!(
-            count_opcode(&gen, STORE_DOUBLE_DEREF_FP_FP) >= 1,
+            count_opcode(&codegen, STORE_DOUBLE_DEREF_FP_FP) >= 1,
             "expected dynamic load to use STORE_DOUBLE_DEREF_FP_FP"
         );
     }
@@ -2608,15 +2612,15 @@ mod tests {
 
         module.add_function(function);
 
-        let mut gen = CodeGenerator::new();
-        gen.generate_module(&module).unwrap();
+        let mut codegen = CodeGenerator::new();
+        codegen.generate_module(&module).unwrap();
 
         assert!(
-            count_opcode(&gen, STORE_MUL_FP_IMM) >= 1,
+            count_opcode(&codegen, STORE_MUL_FP_IMM) >= 1,
             "expected u32 dynamic load to scale index"
         );
         assert!(
-            count_opcode(&gen, STORE_DOUBLE_DEREF_FP_FP) >= 2,
+            count_opcode(&codegen, STORE_DOUBLE_DEREF_FP_FP) >= 2,
             "expected u32 load to fetch two slots"
         );
     }
@@ -2653,13 +2657,13 @@ mod tests {
 
         module.add_function(function);
 
-        let mut gen = CodeGenerator::new();
-        let result = gen.generate_module(&module);
+        let mut codegen = CodeGenerator::new();
+        let result = codegen.generate_module(&module);
         assert!(result.is_ok(), "codegen failed: {:?}", result);
-        let gen = gen;
+        let codegen = codegen;
 
         assert!(
-            count_opcode(&gen, STORE_MUL_FP_IMM) >= 1,
+            count_opcode(&codegen, STORE_MUL_FP_IMM) >= 1,
             "expected u32 store with dynamic index to scale the offset"
         );
     }
@@ -2692,8 +2696,8 @@ mod tests {
 
         module.add_function(function);
 
-        let mut gen = CodeGenerator::new();
-        let err = gen.generate_module(&module).unwrap_err();
+        let mut codegen = CodeGenerator::new();
+        let err = codegen.generate_module(&module).unwrap_err();
         assert!(
             matches!(err, CodegenError::InvalidMir(ref msg) if msg.contains("Array index must be a felt")),
             "expected non-felt index to be rejected, got {:?}",

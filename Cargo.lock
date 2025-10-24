@@ -276,6 +276,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "bincode"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36eaf5d7b090263e8150820482d5d93cd964a81e4019913c972f4edcc6edb740"
+dependencies = [
+ "bincode_derive",
+ "serde",
+ "unty",
+]
+
+[[package]]
+name = "bincode_derive"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf95709a440f45e986983918d0e8a1f30a9b1df04918fc828670606804ac3c09"
+dependencies = [
+ "virtue",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -437,9 +457,10 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cairo-m-common"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
+ "bincode",
  "num-traits",
  "paste",
  "proptest",
@@ -452,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -479,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-codegen"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-diagnostics",
@@ -506,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-diagnostics"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "ariadne",
  "chumsky",
@@ -514,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-mir"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
@@ -533,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-parser"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-diagnostics",
@@ -553,7 +574,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-semantic"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -580,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-formatter"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-parser",
@@ -595,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-ls"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -626,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-project"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "ignore",
@@ -639,7 +660,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-prover"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -672,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-runner"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "cairo-m-common",
@@ -698,7 +719,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-test-utils"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "once_cell",
  "pulldown-cmark",
@@ -711,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-wasm"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-codegen",
@@ -732,7 +753,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-cairo-m"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1751,12 +1772,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hashbrown"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
-
-[[package]]
 name = "hashlink"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1970,7 +1985,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.16.0",
+ "hashbrown 0.15.5",
  "serde",
  "serde_core",
 ]
@@ -3494,7 +3509,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "stwo-air-utils"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "bytemuck",
  "itertools 0.12.1",
@@ -3515,7 +3530,7 @@ dependencies = [
 
 [[package]]
 name = "stwo-constraint-framework"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "itertools 0.12.1",
  "num-traits",
@@ -3527,7 +3542,7 @@ dependencies = [
 
 [[package]]
 name = "stwo-prover"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.1"
 dependencies = [
  "blake2",
  "blake3",
@@ -4017,6 +4032,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
+name = "unty"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d49784317cd0d1ee7ec5c716dd598ec5b4483ea832a2dced265471cc0f690ae"
+
+[[package]]
 name = "url"
 version = "2.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4061,6 +4082,12 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "virtue"
+version = "0.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "051eb1abcf10076295e815102942cc58f9d5e3b4560e46e53c21e8ff6f3af7b1"
 
 [[package]]
 name = "wait-timeout"

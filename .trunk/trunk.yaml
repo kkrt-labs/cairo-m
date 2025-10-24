@@ -33,7 +33,7 @@ lint:
     - markdownlint@0.45.0
     - osv-scanner@2.2.1
     - prettier@3.6.2
-    - rustfmt@1.65.0
+    - rustfmt@SYSTEM
     - taplo@0.10.0
     - trufflehog@3.90.5
     - yamllint@1.37.1

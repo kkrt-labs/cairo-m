@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
-use serde::de::{self, MapAccess, Visitor};
-use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
-
-use crate::Instruction;
 use stwo_prover::core::fields::qm31::QM31;
 
+use crate::Instruction;
+
 /// ABI-visible Cairo-M type description for parameters and return values
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AbiType {
     Felt,
     Bool,
@@ -139,15 +137,10 @@ pub struct ProgramMetadata {
     /// Compiler version
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compiler_version: Option<String>,
-
-    /// Additional metadata
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub extra: HashMap<String, serde_json::Value>,
 }
 
 /// Either an decoded instruction or a raw QM31 value
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value")]
 pub enum ProgramData {
     Instruction(Instruction),
     Value(QM31),
@@ -172,174 +165,6 @@ pub struct Program {
     pub entrypoints: HashMap<String, EntrypointInfo>,
     /// Program metadata
     pub metadata: ProgramMetadata,
-}
-
-// Manual serde for AbiType to preserve a stable {kind: ...} shape while avoiding serde's
-// internally-tagged enum machinery (which triggers trait-solver recursion on our toolchain).
-impl Serialize for AbiType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Self::Felt => {
-                let mut map = serializer.serialize_map(Some(1))?;
-                map.serialize_entry("kind", "Felt")?;
-                map.end()
-            }
-            Self::Bool => {
-                let mut map = serializer.serialize_map(Some(1))?;
-                map.serialize_entry("kind", "Bool")?;
-                map.end()
-            }
-            Self::U32 => {
-                let mut map = serializer.serialize_map(Some(1))?;
-                map.serialize_entry("kind", "U32")?;
-                map.end()
-            }
-            Self::Pointer { element, len } => {
-                let mut map = serializer.serialize_map(Some(3))?;
-                map.serialize_entry("kind", "Pointer")?;
-                // Use key `pointee` to distinguish from array's `element`
-                map.serialize_entry("pointee", element.as_ref())?;
-                map.serialize_entry("len", len)?;
-                map.end()
-            }
-            Self::Tuple(elements) => {
-                let mut map = serializer.serialize_map(Some(2))?;
-                map.serialize_entry("kind", "Tuple")?;
-                map.serialize_entry("elements", elements)?;
-                map.end()
-            }
-            Self::Struct { name, fields } => {
-                #[derive(Serialize)]
-                struct FieldSer<'a> {
-                    name: &'a str,
-                    #[serde(rename = "ty")]
-                    ty: &'a AbiType,
-                }
-                let fields_ser: Vec<FieldSer> = fields
-                    .iter()
-                    .map(|(n, t)| FieldSer {
-                        name: n.as_str(),
-                        ty: t,
-                    })
-                    .collect();
-
-                let mut map = serializer.serialize_map(Some(3))?;
-                map.serialize_entry("kind", "Struct")?;
-                map.serialize_entry("name", name)?;
-                map.serialize_entry("fields", &fields_ser)?;
-                map.end()
-            }
-            Self::FixedSizeArray { element, size } => {
-                let mut map = serializer.serialize_map(Some(2))?;
-                map.serialize_entry("kind", "FixedSizeArray")?;
-                map.serialize_entry("element", element.as_ref())?;
-                map.serialize_entry("size", size)?;
-                map.end()
-            }
-            Self::Unit => {
-                let mut map = serializer.serialize_map(Some(1))?;
-                map.serialize_entry("kind", "Unit")?;
-                map.end()
-            }
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for AbiType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct AbiTypeVisitor;
-
-        impl<'de> Visitor<'de> for AbiTypeVisitor {
-            type Value = AbiType;
-            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                write!(f, "ABI type object")
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut kind: Option<String> = None;
-                let mut elements: Option<Vec<AbiType>> = None;
-                let mut name: Option<String> = None;
-                let mut fields: Option<Vec<(String, AbiType)>> = None;
-                let mut element: Option<AbiType> = None;
-                let mut pointee: Option<AbiType> = None;
-                let mut len: Option<u32> = None;
-                let mut size: Option<u32> = None;
-
-                while let Some(key) = map.next_key::<String>()? {
-                    match key.as_str() {
-                        "kind" => kind = Some(map.next_value()?),
-                        "elements" => elements = Some(map.next_value()?),
-                        "name" => name = Some(map.next_value()?),
-                        "fields" => {
-                            #[derive(Deserialize)]
-                            struct FieldDe {
-                                name: String,
-                                #[serde(rename = "ty")]
-                                ty: AbiType,
-                            }
-                            let items: Vec<FieldDe> = map.next_value()?;
-                            fields = Some(items.into_iter().map(|f| (f.name, f.ty)).collect());
-                        }
-                        "element" => element = Some(map.next_value()?),
-                        "pointee" => pointee = Some(map.next_value()?),
-                        "len" => len = map.next_value()?,
-                        "size" => size = Some(map.next_value()?),
-                        _ => {
-                            return Err(de::Error::unknown_field(
-                                key.as_str(),
-                                &[
-                                    "kind", "pointee", "elements", "name", "fields", "element",
-                                    "len", "size",
-                                ],
-                            ));
-                        }
-                    }
-                }
-
-                let kind = kind.ok_or_else(|| de::Error::missing_field("kind"))?;
-                match kind.as_str() {
-                    "Felt" => Ok(AbiType::Felt),
-                    "Bool" => Ok(AbiType::Bool),
-                    "U32" => Ok(AbiType::U32),
-                    "Pointer" => Ok(AbiType::Pointer {
-                        element: Box::new(
-                            pointee.ok_or_else(|| de::Error::missing_field("pointee"))?,
-                        ),
-                        len,
-                    }),
-                    "Tuple" => Ok(AbiType::Tuple(elements.unwrap_or_default())),
-                    "Struct" => Ok(AbiType::Struct {
-                        name: name.ok_or_else(|| de::Error::missing_field("name"))?,
-                        fields: fields.unwrap_or_default(),
-                    }),
-                    "FixedSizeArray" => Ok(AbiType::FixedSizeArray {
-                        element: Box::new(
-                            element.ok_or_else(|| de::Error::missing_field("element"))?,
-                        ),
-                        size: size.ok_or_else(|| de::Error::missing_field("size"))?,
-                    }),
-                    "Unit" => Ok(AbiType::Unit),
-                    other => Err(de::Error::unknown_variant(
-                        other,
-                        &[
-                            "Felt", "Bool", "U32", "Pointer", "Tuple", "Struct", "Array", "Unit",
-                        ],
-                    )),
-                }
-            }
-        }
-
-        deserializer.deserialize_map(AbiTypeVisitor)
-    }
 }
 
 impl From<Vec<Instruction>> for Program {
@@ -383,5 +208,92 @@ impl Program {
     /// Check if the program is empty
     pub const fn is_empty(&self) -> bool {
         self.data.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_abi_type_roundtrip() {
+        let types = vec![
+            AbiType::Felt,
+            AbiType::Bool,
+            AbiType::U32,
+            AbiType::Unit,
+            AbiType::Pointer {
+                element: Box::new(AbiType::Felt),
+                len: Some(10),
+            },
+            AbiType::Tuple(vec![AbiType::Felt, AbiType::Bool]),
+            AbiType::Struct {
+                name: "Point".to_string(),
+                fields: vec![
+                    ("x".to_string(), AbiType::Felt),
+                    ("y".to_string(), AbiType::Felt),
+                ],
+            },
+            AbiType::FixedSizeArray {
+                element: Box::new(AbiType::U32),
+                size: 5,
+            },
+        ];
+
+        for ty in types {
+            let json = serde_json::to_string(&ty).unwrap();
+            let deserialized: AbiType = serde_json::from_str(&json).unwrap();
+            assert_eq!(ty, deserialized);
+
+            let bytes = bincode::serde::encode_to_vec(&ty, bincode::config::standard()).unwrap();
+            let deserialized: AbiType =
+                bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+                    .unwrap()
+                    .0;
+            assert_eq!(ty, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_program_roundtrip() {
+        let mut entrypoints = HashMap::new();
+        entrypoints.insert(
+            "main".to_string(),
+            EntrypointInfo {
+                pc: 0,
+                params: vec![AbiSlot {
+                    name: "x".to_string(),
+                    ty: AbiType::Felt,
+                }],
+                returns: vec![AbiSlot {
+                    name: "result".to_string(),
+                    ty: AbiType::Bool,
+                }],
+            },
+        );
+
+        let program = Program {
+            data: vec![
+                ProgramData::Value(QM31::from_u32_unchecked(1, 2, 3, 4)),
+                ProgramData::Instruction(Instruction::Ret {}),
+            ],
+            entrypoints,
+            metadata: ProgramMetadata {
+                source_file: Some("test.cm".to_string()),
+                compiled_at: Some("2025-01-01".to_string()),
+                compiler_version: Some("0.1.0".to_string()),
+            },
+        };
+
+        // JSON roundtrip
+        let json = serde_json::to_string(&program).unwrap();
+        let deserialized: Program = serde_json::from_str(&json).unwrap();
+        assert_eq!(program, deserialized);
+
+        let bytes = bincode::serde::encode_to_vec(&program, bincode::config::standard()).unwrap();
+        let dsr: Program = bincode::serde::decode_from_slice(&bytes, bincode::config::standard())
+            .unwrap()
+            .0;
+        assert_eq!(program, dsr);
     }
 }
