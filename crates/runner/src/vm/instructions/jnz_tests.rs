@@ -1,4 +1,4 @@
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use super::{InstructionExecutionError, *};
 

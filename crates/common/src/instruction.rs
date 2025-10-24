@@ -1,8 +1,8 @@
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DataType {

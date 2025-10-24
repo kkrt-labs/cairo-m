@@ -2,8 +2,8 @@
 //!
 //! Conjecture of n-bit security level: `n = n_queries * log_blowup_factor + pow_bits`.
 
-use stwo_prover::core::fri::FriConfig;
-use stwo_prover::core::pcs::PcsConfig;
+use stwo::core::fri::FriConfig;
+use stwo::core::pcs::PcsConfig;
 
 /// Configuration to achieve 96-bit security level, with PoW bits inferior to 20.
 ///

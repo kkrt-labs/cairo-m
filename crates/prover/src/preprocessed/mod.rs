@@ -2,11 +2,11 @@
 //! the proof.
 //!
 //! They are similar to regular components but are entirely known by the verifier.
+use stwo::core::fields::m31::BaseField;
+use stwo::prover::backend::simd::SimdBackend;
+use stwo::prover::poly::circle::CircleEvaluation;
+use stwo::prover::poly::BitReversedOrder;
 use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
-use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::fields::m31::BaseField;
-use stwo_prover::core::poly::circle::CircleEvaluation;
-use stwo_prover::core::poly::BitReversedOrder;
 
 use crate::preprocessed::bitwise::Bitwise;
 use crate::preprocessed::range_check::RangeCheck;

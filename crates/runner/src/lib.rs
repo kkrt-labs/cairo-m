@@ -6,7 +6,7 @@ use cairo_m_common::program::{AbiSlot, AbiType};
 use cairo_m_common::{AbiCodecError, CairoMValue, InputValue};
 use cairo_m_common::{Program, PublicAddressRanges};
 use memory::MemoryError;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 use vm::{VmError, VM};
 
 /// Result type for runner operations

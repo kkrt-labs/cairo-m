@@ -1,5 +1,5 @@
 use num_traits::Zero;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 use zkhash::ark_ff::PrimeField;
 use zkhash::fields::m31::FpM31;
 use zkhash::poseidon2::poseidon2::Poseidon2;

@@ -1,5 +1,5 @@
 use cairo_m_common::{Instruction, State};
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use crate::memory::Memory;
 use crate::vm::instructions::print::{print_m31, print_u32};

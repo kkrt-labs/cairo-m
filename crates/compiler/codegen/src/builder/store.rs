@@ -5,7 +5,7 @@
 use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{Literal, Value};
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Store copy of an M31 from src to dest with an exact comment string.
@@ -234,7 +234,7 @@ mod tests {
     use cairo_m_compiler_mir::{Literal, Value, ValueId};
     use proptest::prelude::*;
     use proptest::strategy::{Just, Strategy};
-    use stwo_prover::core::fields::m31::M31;
+    use stwo::core::fields::m31::M31;
 
     // -------------------------
     // Test setup helpers

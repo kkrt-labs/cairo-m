@@ -6,8 +6,8 @@ use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::State as VmRegisters;
 use num_traits::{One, Zero};
 use smallvec::SmallVec;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 
 use crate::adapter::io::VmImportError;
 use crate::preprocessed::range_check::range_check_20::LOG_SIZE_RC_20;
@@ -537,8 +537,8 @@ impl Memory {
 
 #[cfg(test)]
 mod tests {
-    use stwo_prover::core::fields::m31::M31;
-    use stwo_prover::core::fields::qm31::QM31;
+    use stwo::core::fields::m31::M31;
+    use stwo::core::fields::qm31::QM31;
 
     use super::*;
 

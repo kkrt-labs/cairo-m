@@ -43,38 +43,43 @@ cairo-m-test-utils = { path = "crates/test_utils" }
 # External dependencies
 
 # Starkware dependencies
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", features = [
+stwo = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
-], rev = "ab57a1c" }
-stwo-air-utils-derive = { git = "https://github.com/starkware-libs/stwo", rev = "ab57a1c" }
-stwo-air-utils = { git = "https://github.com/starkware-libs/stwo", rev = "ab57a1c" }
+], rev = "75a6b0ac9bcc7101d8658445dded51923ab2586f" }
+stwo-air-utils-derive = { git = "https://github.com/starkware-libs/stwo", rev = "75a6b0ac9bcc7101d8658445dded51923ab2586f" }
+stwo-air-utils = { git = "https://github.com/starkware-libs/stwo", rev = "75a6b0ac9bcc7101d8658445dded51923ab2586f" }
 stwo-constraint-framework = { git = "https://github.com/starkware-libs/stwo", features = [
   "parallel",
-], rev = "ab57a1c" }
+  "prover",
+], rev = "75a6b0ac9bcc7101d8658445dded51923ab2586f" }
+std-shims = { git = "https://github.com/starkware-libs/stwo", rev = "75a6b0ac9bcc7101d8658445dded51923ab2586f", features = [
+  "std",
+], default-features = false }
 
 # General dependencies (including stwo dependencies)
 anyhow = "1.0.96"
 blake2 = "0.10.6"
 blake3 = "1.5.0"
 bytemuck = "1.14.3"
+chumsky = "0.10.1"
 clap = { version = "4.5.40", features = ["derive"] }
+criterion = { version = "0.5", features = ["html_reports"] }
+dhat = "0.3.3"
 educe = "0.5.0"
+hashbrown = ">=0.15.2"
 hex = "0.4.3"
 itertools = "0.12.0"
 num-traits = "0.2.19"
+rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
+rayon = { version = "1.10.0", optional = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.140"
+smallvec = "1.15"
 sonic-rs = "0.5.1"
 tempfile = "3.20"
 thiserror = "2.0.12"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-criterion = { version = "0.5", features = ["html_reports"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.140"
-dhat = "0.3.3"
-rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
-rayon = { version = "1.10.0", optional = false }
-chumsky = "0.10.1"
-smallvec = "1.15"
 
 # Poseidon2 hash function implementation
 # TODO: Remove patch once https://github.com/HorizenLabs/poseidon2/pull/8 is merged
@@ -82,10 +87,10 @@ zkhash = { git = "https://github.com/HorizenLabs/poseidon2.git", branch = "main"
 
 # Patching stwo to use local version
 [patch."https://github.com/starkware-libs/stwo"]
-stwo-prover = { path = "external/stwo/crates/prover" }
-stwo-air-utils = { path = "external/stwo/crates/air_utils" }
-stwo-air-utils-derive = { path = "external/stwo/crates/air_utils_derive" }
-stwo-constraint-framework = { path = "external/stwo/crates/constraint_framework" }
+stwo = { path = "external/stwo/crates/stwo" }
+stwo-air-utils = { path = "external/stwo/crates/air-utils" }
+stwo-air-utils-derive = { path = "external/stwo/crates/air-utils-derive" }
+stwo-constraint-framework = { path = "external/stwo/crates/constraint-framework" }
 
 # Temporary patch for zkhash to support M31 field operations
 # This patches the HorizenLabs/poseidon2 repo to use our custom branch with M31 field support

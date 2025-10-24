@@ -2,16 +2,17 @@
 
 use itertools::chain;
 use num_traits::{One, Zero};
+use stwo::core::channel::MerkleChannel;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
+use stwo::core::pcs::TreeVec;
+use stwo::core::poly::circle::CanonicCoset;
+use stwo::prover::backend::simd::SimdBackend;
+use stwo::prover::backend::{BackendForChannel, Column};
+use stwo::prover::CommitmentSchemeProver;
 use stwo_constraint_framework::relation_tracker::{
     add_to_relation_entries, RelationSummary, RelationTrackerEntry,
 };
-use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::backend::{BackendForChannel, Column};
-use stwo_prover::core::channel::MerkleChannel;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
-use stwo_prover::core::pcs::{CommitmentSchemeProver, TreeVec};
-use stwo_prover::core::poly::circle::CanonicCoset;
 
 use crate::adapter::merkle::TREE_HEIGHT;
 use crate::components::Components;

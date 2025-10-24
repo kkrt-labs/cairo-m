@@ -1,5 +1,5 @@
 use cairo_m_common::State;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 pub trait VmState {
     fn advance_by(self, offset: u32) -> Self;
@@ -78,7 +78,7 @@ impl VmState for State {
 mod tests {
     use cairo_m_common::State;
     use num_traits::{One, Zero};
-    use stwo_prover::core::fields::m31::M31;
+    use stwo::core::fields::m31::M31;
 
     use crate::vm::state::VmState;
 

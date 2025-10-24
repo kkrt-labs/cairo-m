@@ -5,8 +5,8 @@ use cairo_m_common::state::MemoryEntry;
 use num_traits::identities::Zero;
 use num_traits::One;
 use smallvec::SmallVec;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 use thiserror::Error;
 
 /// The number of M31 values that make up a single QM31.

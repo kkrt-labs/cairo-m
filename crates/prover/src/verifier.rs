@@ -1,11 +1,11 @@
 use num_traits::Zero;
 use stwo_constraint_framework::TraceLocationAllocator;
-use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::backend::BackendForChannel;
-use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::fields::qm31::SecureField;
-use stwo_prover::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
-use stwo_prover::core::prover::{verify, VerificationError as StwoVerificationError};
+use stwo::prover::backend::simd::SimdBackend;
+use stwo::prover::backend::BackendForChannel;
+use stwo::core::channel::{Channel, MerkleChannel};
+use stwo::core::fields::qm31::SecureField;
+use stwo::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
+use stwo::core::verifier::{verify, VerificationError as StwoVerificationError};
 use tracing::{info, span, Level};
 
 use crate::components::{Components, Relations};
@@ -77,7 +77,7 @@ where
     // Verify stark.
     info!("verify stark");
     let mut tree_span_provider =
-        TraceLocationAllocator::new_with_preproccessed_columns(&preprocessed_trace.ids());
+        TraceLocationAllocator::new_with_preprocessed_columns(&preprocessed_trace.ids());
     let components = Components::new(
         &mut tree_span_provider,
         &proof.claim,

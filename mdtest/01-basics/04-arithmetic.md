@@ -48,7 +48,7 @@ fn field_division_non_divisible() -> felt {
 ```
 
 ```rust
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 fn field_division_non_divisible() -> M31 {
     let a = M31::from(7);
@@ -69,7 +69,7 @@ fn test_wrap_around_upper() -> felt {
 ```
 
 ```rust
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 fn test_wrap_around_upper() -> M31 {
     let max = M31::from(2147483646);  // 2^31 - 2
@@ -144,7 +144,7 @@ fn test_overflow() -> felt {
 ```
 
 ```rust
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 fn test_overflow() -> M31 {
     let large = M31::from(2147483640);  // Close to 2^31 - 1

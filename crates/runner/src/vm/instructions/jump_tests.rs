@@ -1,5 +1,5 @@
 use cairo_m_common::Instruction;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use super::{InstructionExecutionError, *};
 

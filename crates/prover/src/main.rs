@@ -8,7 +8,7 @@ use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
-use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 #[derive(Parser, Debug)]
 #[command(

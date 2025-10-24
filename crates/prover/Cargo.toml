@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 serde.workspace = true
-stwo-prover.workspace = true
+stwo.workspace = true
 stwo-air-utils.workspace = true
 stwo-air-utils-derive.workspace = true
 stwo-constraint-framework.workspace = true

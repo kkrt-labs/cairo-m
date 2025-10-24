@@ -19,7 +19,7 @@ salsa-macros = "0.22.0"
 cairo-m-compiler-parser.workspace = true
 cairo-m-compiler-semantic.workspace = true
 cairo-m-compiler-diagnostics.workspace = true
-stwo-prover.workspace = true
+stwo.workspace = true
 
 # Chumsky types
 chumsky.workspace = true

@@ -11,8 +11,8 @@ use cairo_m_compiler_mir::{
     BasicBlockId, BinaryOp, DataLayout, Instruction, InstructionKind, Literal, MirFunction,
     MirModule, MirType, Projection, Terminator, Value, ValueId,
 };
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 
 use crate::mir_passes::legalize::legalize_module_for_vm;
 use crate::{
@@ -1928,7 +1928,7 @@ mod tests_asserts {
 #[cfg(test)]
 mod tests_heap_alloc {
     use cairo_m_compiler_mir::{BasicBlock, MirFunction, MirModule, MirType, Terminator, Value};
-    use stwo_prover::core::fields::m31::M31;
+    use stwo::core::fields::m31::M31;
 
     use super::*;
 
@@ -2065,8 +2065,8 @@ mod tests_rodata {
     use cairo_m_compiler_mir::{
         BasicBlock, MirFunction, MirModule, MirType, Place, Terminator, Value,
     };
-    use stwo_prover::core::fields::m31::M31;
-    use stwo_prover::core::fields::qm31::QM31;
+    use stwo::core::fields::m31::M31;
+    use stwo::core::fields::qm31::QM31;
 
     use super::*;
 
@@ -2392,7 +2392,7 @@ mod tests {
     use cairo_m_compiler_mir::{
         BasicBlock, Instruction, MirFunction, MirModule, MirType, Place, Terminator, Value,
     };
-    use stwo_prover::core::fields::m31::M31;
+    use stwo::core::fields::m31::M31;
 
     use super::*;
 

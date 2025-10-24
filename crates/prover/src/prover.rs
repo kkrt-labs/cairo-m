@@ -1,13 +1,15 @@
 use std::time::Instant;
 
 use stwo_constraint_framework::TraceLocationAllocator;
-use stwo_prover::core::backend::simd::SimdBackend;
-use stwo_prover::core::backend::BackendForChannel;
-use stwo_prover::core::channel::{Channel, MerkleChannel};
-use stwo_prover::core::pcs::{CommitmentSchemeProver, PcsConfig};
-use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps};
-use stwo_prover::core::proof_of_work::GrindOps;
-use stwo_prover::core::prover::prove;
+use stwo::prover::backend::simd::SimdBackend;
+use stwo::prover::backend::BackendForChannel;
+use stwo::core::channel::{Channel, MerkleChannel};
+use stwo::core::pcs::PcsConfig;
+use stwo::prover::CommitmentSchemeProver;
+use stwo::core::poly::circle::CanonicCoset;
+use stwo::prover::poly::circle::PolyOps;
+use stwo::core::proof_of_work::GrindOps;
+use stwo::prover::prove;
 use tracing::{info, span, Level};
 
 use crate::adapter::ProverInput;
@@ -103,7 +105,7 @@ where
     // Prove stark.
     info!("prove stark");
     let mut tree_span_provider =
-        TraceLocationAllocator::new_with_preproccessed_columns(&preprocessed_trace.ids());
+        TraceLocationAllocator::new_with_preprocessed_columns(&preprocessed_trace.ids());
     let components = Components::new(
         &mut tree_span_provider,
         &claim,

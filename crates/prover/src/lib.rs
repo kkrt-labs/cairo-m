@@ -39,10 +39,10 @@ use cairo_m_common::PublicAddressRanges;
 use num_traits::Zero;
 use poseidon2::Poseidon2Hash;
 use serde::{Deserialize, Serialize};
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
-use stwo_prover::core::prover::StarkProof;
-use stwo_prover::core::vcs::ops::MerkleHasher;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
+use stwo::core::proof::StarkProof;
+use stwo::core::vcs::MerkleHasher;
 
 use crate::components::{Claim, InteractionClaim};
 use crate::public_data::PublicData;

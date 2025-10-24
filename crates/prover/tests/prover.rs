@@ -14,9 +14,9 @@ use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::{run_cairo_program, RunnerOptions};
 use cairo_m_test_utils::read_fixture;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
-use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
+use stwo::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]

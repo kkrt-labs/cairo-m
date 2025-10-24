@@ -13,7 +13,7 @@ smallvec.workspace = true
 anyhow.workspace = true
 
 # Using workspace dependency for stwo
-stwo-prover.workspace = true
+stwo.workspace = true
 
 [dev-dependencies]
 proptest = "1.7.0"
