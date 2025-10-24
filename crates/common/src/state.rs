@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 
 /// The state of the VM, updated at each step.
 ///

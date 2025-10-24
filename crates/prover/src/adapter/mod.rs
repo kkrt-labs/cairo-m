@@ -10,8 +10,8 @@ use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::{PublicAddressRanges, State as VmRegisters};
 use io::VmImportError;
 pub use memory::ExecutionBundle;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 use tracing::{span, Level};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};

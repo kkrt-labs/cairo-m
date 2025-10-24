@@ -1,6 +1,6 @@
 use num_traits::Zero;
 use proptest::{prelude::*, proptest};
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use crate::memory::MemoryError;
 

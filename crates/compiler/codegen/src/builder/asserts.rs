@@ -1,6 +1,6 @@
 use crate::InstructionBuilder;
 use cairo_m_common::Instruction as CasmInstr;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     pub(crate) fn assert_eq_fp_imm(&mut self, src_off: i32, imm: i32, comment: String) {

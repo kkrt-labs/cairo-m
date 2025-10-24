@@ -467,7 +467,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "stwo-prover",
+ "stwo",
  "thiserror 2.0.17",
 ]
 
@@ -521,7 +521,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "sonic-rs 0.3.17",
- "stwo-prover",
+ "stwo",
  "thiserror 2.0.17",
 ]
 
@@ -549,7 +549,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "salsa",
  "salsa-macros",
- "stwo-prover",
+ "stwo",
 ]
 
 [[package]]
@@ -680,10 +680,10 @@ dependencies = [
  "serde",
  "smallvec",
  "sonic-rs 0.5.5",
+ "stwo",
  "stwo-air-utils",
  "stwo-air-utils-derive",
  "stwo-constraint-framework",
- "stwo-prover",
  "tempfile",
  "thiserror 2.0.17",
  "tracing",
@@ -709,7 +709,7 @@ dependencies = [
  "serde_json",
  "smallvec",
  "sonic-rs 0.5.5",
- "stwo-prover",
+ "stwo",
  "tempfile",
  "thiserror 2.0.17",
  "tracing",
@@ -1986,6 +1986,7 @@ checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
  "hashbrown 0.15.5",
+ "rayon",
  "serde",
  "serde_core",
 ]
@@ -3496,6 +3497,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "std-shims"
+version = "0.1.0"
+source = "git+https://github.com/starkware-libs/stwo?rev=75a6b0ac9bcc7101d8658445dded51923ab2586f#75a6b0ac9bcc7101d8658445dded51923ab2586f"
+
+[[package]]
 name = "stdext"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3508,14 +3514,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
+name = "stwo"
+version = "0.1.0-alpha.1"
+dependencies = [
+ "blake2",
+ "blake3",
+ "bytemuck",
+ "cfg-if",
+ "educe",
+ "fnv",
+ "hashbrown 0.15.5",
+ "hex",
+ "indexmap",
+ "itertools 0.12.1",
+ "num-traits",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "starknet-crypto",
+ "starknet-ff",
+ "std-shims",
+ "thiserror 2.0.17",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "stwo-air-utils"
 version = "0.1.0-alpha.1"
 dependencies = [
  "bytemuck",
  "itertools 0.12.1",
  "rayon",
+ "stwo",
  "stwo-air-utils-derive",
- "stwo-prover",
 ]
 
 [[package]]
@@ -3532,35 +3564,14 @@ dependencies = [
 name = "stwo-constraint-framework"
 version = "0.1.0-alpha.1"
 dependencies = [
+ "hashbrown 0.15.5",
  "itertools 0.12.1",
  "num-traits",
  "rand 0.8.5",
  "rayon",
- "stwo-prover",
+ "std-shims",
+ "stwo",
  "tracing",
-]
-
-[[package]]
-name = "stwo-prover"
-version = "0.1.0-alpha.1"
-dependencies = [
- "blake2",
- "blake3",
- "bytemuck",
- "cfg-if",
- "educe",
- "hex",
- "indexmap",
- "itertools 0.12.1",
- "num-traits",
- "rand 0.8.5",
- "rayon",
- "serde",
- "starknet-crypto",
- "starknet-ff",
- "thiserror 2.0.17",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

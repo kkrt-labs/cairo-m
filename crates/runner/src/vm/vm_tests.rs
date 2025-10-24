@@ -4,8 +4,8 @@ use std::io::Read;
 use cairo_m_common::instruction::InstructionError;
 use cairo_m_common::{Instruction, Program, ProgramData, State};
 use num_traits::{One, Zero};
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 
 // Import test utilities
 use super::test_utils::*;

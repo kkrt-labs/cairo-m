@@ -3,7 +3,7 @@
 /// This module provides a single source of truth for constant evaluation
 /// to ensure consistent semantics across all optimization passes.
 use cairo_m_compiler_parser::parser::UnaryOp;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use crate::{BinaryOp, Literal, Value};
 
@@ -209,7 +209,7 @@ impl ConstEvaluator {
 mod tests {
     use super::*;
     use proptest::prelude::*;
-    use stwo_prover::core::fields::m31::{M31, P};
+    use stwo::core::fields::m31::{M31, P};
 
     proptest! {
         #[test]

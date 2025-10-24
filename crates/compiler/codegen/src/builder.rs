@@ -13,7 +13,7 @@
 
 use cairo_m_compiler_mir::{BinaryOp, DataLayout, Literal, MirType, Value, ValueId};
 use cairo_m_compiler_parser::parser::UnaryOp;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use crate::{CodegenError, CodegenResult, FunctionLayout, InstructionBuilder, Label};
 

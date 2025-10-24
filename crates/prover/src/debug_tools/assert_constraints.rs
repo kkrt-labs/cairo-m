@@ -4,18 +4,18 @@
 use std::ops::Deref;
 
 use itertools::Itertools;
+use stwo::core::channel::{Blake2sChannel, MerkleChannel};
+use stwo::core::fields::m31::M31;
+use stwo::core::pcs::{TreeSubspan, TreeVec};
+use stwo::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo::core::ColumnVec;
+use stwo::prover::backend::{Backend, BackendForChannel, Column};
+use stwo::prover::poly::circle::CircleEvaluation;
+use stwo::prover::poly::BitReversedOrder;
 use stwo_constraint_framework::{
     assert_constraints_on_trace, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
     PREPROCESSED_TRACE_IDX,
 };
-use stwo_prover::core::backend::{Backend, BackendForChannel, Column};
-use stwo_prover::core::channel::{Blake2sChannel, MerkleChannel};
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::pcs::{TreeSubspan, TreeVec};
-use stwo_prover::core::poly::circle::CircleEvaluation;
-use stwo_prover::core::poly::BitReversedOrder;
-use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
-use stwo_prover::core::ColumnVec;
 
 use crate::adapter::ProverInput;
 use crate::components::{Claim, Components, InteractionClaim, Relations};
@@ -47,7 +47,7 @@ pub fn assert_constraints(input: &mut ProverInput) {
     tree_builder.finalize_interaction();
 
     let mut tree_span_provider =
-        TraceLocationAllocator::new_with_preproccessed_columns(&preprocessed_trace.ids());
+        TraceLocationAllocator::new_with_preprocessed_columns(&preprocessed_trace.ids());
 
     let components = Components::new(
         &mut tree_span_provider,
@@ -131,7 +131,7 @@ trait TreeBuilder<B: Backend> {
 }
 
 impl<B: BackendForChannel<MC>, MC: MerkleChannel> TreeBuilder<B>
-    for stwo_prover::core::pcs::TreeBuilder<'_, '_, B, MC>
+    for stwo::prover::TreeBuilder<'_, '_, B, MC>
 {
     fn extend_evals(
         &mut self,
@@ -198,7 +198,7 @@ fn assert_component<E: FrameworkEval + Sync>(
         .sub_tree(component.trace_locations())
         .map(|tree| tree.into_iter().cloned().collect_vec());
     component_trace[PREPROCESSED_TRACE_IDX] = component
-        .preproccessed_column_indices()
+        .preprocessed_column_indices()
         .iter()
         .map(|idx| trace[PREPROCESSED_TRACE_IDX][*idx])
         .collect();

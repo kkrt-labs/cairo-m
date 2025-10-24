@@ -4,7 +4,7 @@
 use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 macro_rules! felt_fp_fp_op {
     ($name:ident, $instr:ident) => {
@@ -339,7 +339,7 @@ mod tests {
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
     use proptest::prelude::*;
-    use stwo_prover::core::fields::m31::{self, M31};
+    use stwo::core::fields::m31::{self, M31};
 
     // =========================================================================
     // Test Setup Helpers

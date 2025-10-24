@@ -11,8 +11,8 @@ use cairo_m_common::instruction::InstructionError;
 use cairo_m_common::{Instruction, Program, ProgramData, State};
 use instructions::instruction_to_fn;
 use num_traits::Zero;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 use thiserror::Error;
 
 use crate::memory::{Memory, MemoryError, MAX_ADDRESS};

@@ -30,7 +30,7 @@ mod assert_tests {
     use super::*;
     use crate::memory::Memory;
     use cairo_m_common::State;
-    use stwo_prover::core::fields::m31::M31;
+    use stwo::core::fields::m31::M31;
 
     #[test]
     fn test_assert_eq_fp_imm_success() {

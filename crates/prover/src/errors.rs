@@ -1,6 +1,5 @@
-use stwo_prover::core::prover::{
-    ProvingError as StwoProvingError, VerificationError as StwoVerificationError,
-};
+use stwo::core::verifier::VerificationError as StwoVerificationError;
+use stwo::prover::ProvingError as StwoProvingError;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]

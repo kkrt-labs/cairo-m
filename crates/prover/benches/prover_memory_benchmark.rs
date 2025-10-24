@@ -11,7 +11,7 @@ use cairo_m_compiler::{compile_cairo, CompilerOptions};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;
-use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 mod sha_bench_utils;
 use sha_bench_utils::{compile_sha256, prepare_sha256_input_1kb};

@@ -34,7 +34,7 @@
 
 use cairo_m_common::{extract_as, Instruction, State};
 use num_traits::One;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 use super::InstructionExecutionError;
 use crate::memory::Memory;

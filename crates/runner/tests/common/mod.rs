@@ -11,7 +11,7 @@ use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 /// Lazily extract all tests once and store them in a static HashMap
 static ALL_TESTS: Lazy<HashMap<String, mdtest::MdTest>> = Lazy::new(|| {
@@ -326,7 +326,7 @@ fn run_rust_differential(
     let rust_args = format_rust_args(args, params);
 
     // Check if the rust source uses M31
-    let uses_m31 = rust_source.contains("use stwo_prover::core::fields::m31::M31");
+    let uses_m31 = rust_source.contains("use stwo::core::fields::m31::M31");
 
     let wrapped_code = if uses_m31 {
         // For M31 returns, we need to extract the numeric value

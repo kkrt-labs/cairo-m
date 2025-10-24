@@ -8,7 +8,7 @@ use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
-use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
+use stwo::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
         runner_output.public_address_ranges,
     )
     .context("Failed to import from runner output")?;
-    let proof: cairo_m_prover::Proof<stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
+    let proof: cairo_m_prover::Proof<stwo::core::vcs::blake2_merkle::Blake2sMerkleHasher> =
         prove_cairo_m::<Blake2sMerkleChannel>(&mut prover_input, None)
             .context("Failed to prove")?;
 

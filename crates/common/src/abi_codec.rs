@@ -1,4 +1,4 @@
-use stwo_prover::core::fields::m31::{M31, P};
+use stwo::core::fields::m31::{M31, P};
 
 /// Untyped input value that can be interpreted based on AbiType
 #[derive(Debug, Clone, PartialEq)]

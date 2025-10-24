@@ -33,10 +33,10 @@ use std::ops::Range;
 use cairo_m_common::{PublicAddressRanges, State as VmRegisters};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::{SecureField, QM31};
+use stwo::core::fields::FieldExpOps;
 use stwo_constraint_framework::Relation;
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::{SecureField, QM31};
-use stwo_prover::core::fields::FieldExpOps;
 
 use crate::adapter::memory::Memory;
 use crate::adapter::merkle::TREE_HEIGHT;

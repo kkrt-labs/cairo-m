@@ -1,6 +1,6 @@
 use num_traits::{One, Zero};
-use stwo_prover::core::backend::simd::m31::{PackedM31, N_LANES};
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
+use stwo::prover::backend::simd::m31::{PackedM31, N_LANES};
 
 /// Used to select/enable active rows when padding traces to powers of 2.
 ///

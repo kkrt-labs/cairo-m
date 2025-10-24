@@ -103,7 +103,7 @@ impl MirPass for ConstantFolding {
 mod tests {
     use super::*;
     use crate::{BinaryOp, MirType, Terminator};
-    use stwo_prover::core::fields::m31::{M31, P};
+    use stwo::core::fields::m31::{M31, P};
 
     #[test]
     fn test_arithmetic_folding() {

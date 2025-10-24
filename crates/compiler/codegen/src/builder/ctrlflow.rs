@@ -3,7 +3,7 @@
 use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{Literal, Value};
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 impl super::CasmBuilder {
     /// Generates an unconditional jump to a label.
@@ -210,7 +210,7 @@ mod tests {
     use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_common::Instruction as CasmInstr;
     use cairo_m_compiler_mir::{Value, ValueId};
-    use stwo_prover::core::fields::m31::M31;
+    use stwo::core::fields::m31::M31;
 
     // =========================================================================
     // Test Setup Helpers

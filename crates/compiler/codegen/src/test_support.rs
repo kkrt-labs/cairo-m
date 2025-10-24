@@ -1,6 +1,6 @@
 use crate::InstructionBuilder;
 use cairo_m_common::instruction::*;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 /// Simple frame memory model for tests (fp-relative, non-negative offsets only).
 pub struct Mem {

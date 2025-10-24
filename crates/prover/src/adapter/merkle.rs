@@ -19,8 +19,8 @@ use std::collections::HashMap;
 
 use cairo_m_common::PublicAddressRanges;
 use num_traits::{One, Zero};
-use stwo_prover::core::fields::m31::M31;
-use stwo_prover::core::fields::qm31::QM31;
+use stwo::core::fields::m31::M31;
+use stwo::core::fields::qm31::QM31;
 
 pub use super::HashInput;
 

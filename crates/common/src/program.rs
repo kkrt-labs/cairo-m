@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
-use stwo_prover::core::fields::qm31::QM31;
-
 use crate::Instruction;
+use stwo::core::fields::qm31::QM31;
 
 /// ABI-visible Cairo-M type description for parameters and return values
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

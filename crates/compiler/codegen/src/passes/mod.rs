@@ -25,7 +25,7 @@
 
 use crate::{CasmBuilder, CodegenError, CodegenResult, InstructionBuilder, Label};
 use cairo_m_common::Instruction as CasmInstr;
-use stwo_prover::core::fields::m31::M31;
+use stwo::core::fields::m31::M31;
 
 /// A transformation pass that runs over a function’s instruction list.
 pub trait CodegenPass {
