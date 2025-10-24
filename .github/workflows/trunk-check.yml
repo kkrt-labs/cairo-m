@@ -26,6 +26,7 @@ jobs:
         run: |
           rustup show
           rustup component add clippy
+          rustup component add rustfmt
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
