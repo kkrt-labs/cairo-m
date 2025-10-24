@@ -457,7 +457,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cairo-m-common"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "bincode",
@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -500,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-codegen"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-diagnostics",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-diagnostics"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "ariadne",
  "chumsky",
@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-mir"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
@@ -554,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-parser"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-diagnostics",
@@ -574,7 +574,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-semantic"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -601,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-formatter"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-parser",
@@ -616,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-ls"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-project"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "ignore",
@@ -660,7 +660,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-prover"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -693,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-runner"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "cairo-m-common",
@@ -719,7 +719,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-test-utils"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "once_cell",
  "pulldown-cmark",
@@ -732,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-wasm"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-codegen",
@@ -753,7 +753,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-cairo-m"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3509,7 +3509,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "stwo-air-utils"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "bytemuck",
  "itertools 0.12.1",
@@ -3530,7 +3530,7 @@ dependencies = [
 
 [[package]]
 name = "stwo-constraint-framework"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "itertools 0.12.1",
  "num-traits",
@@ -3542,7 +3542,7 @@ dependencies = [
 
 [[package]]
 name = "stwo-prover"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.1"
 dependencies = [
  "blake2",
  "blake3",
