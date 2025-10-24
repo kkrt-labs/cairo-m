@@ -1,6 +1,6 @@
 use num_traits::Zero;
-use stwo::prover::backend::simd::m31::PackedM31;
 use stwo::core::fields::m31::M31;
+use stwo::prover::backend::simd::m31::PackedM31;
 
 use crate::adapter::memory::DataAccess;
 use crate::utils::execution_bundle::PackedExecutionBundle;

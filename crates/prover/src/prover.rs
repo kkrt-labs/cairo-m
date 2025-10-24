@@ -1,15 +1,15 @@
 use std::time::Instant;
 
-use stwo_constraint_framework::TraceLocationAllocator;
-use stwo::prover::backend::simd::SimdBackend;
-use stwo::prover::backend::BackendForChannel;
 use stwo::core::channel::{Channel, MerkleChannel};
 use stwo::core::pcs::PcsConfig;
-use stwo::prover::CommitmentSchemeProver;
 use stwo::core::poly::circle::CanonicCoset;
-use stwo::prover::poly::circle::PolyOps;
 use stwo::core::proof_of_work::GrindOps;
+use stwo::prover::backend::simd::SimdBackend;
+use stwo::prover::backend::BackendForChannel;
+use stwo::prover::poly::circle::PolyOps;
 use stwo::prover::prove;
+use stwo::prover::CommitmentSchemeProver;
+use stwo_constraint_framework::TraceLocationAllocator;
 use tracing::{info, span, Level};
 
 use crate::adapter::ProverInput;

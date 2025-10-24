@@ -1,7 +1,7 @@
 use num_traits::Zero;
+use stwo::core::fields::m31::M31;
 use stwo::prover::backend::simd::conversion::Pack;
 use stwo::prover::backend::simd::m31::{PackedM31, N_LANES};
-use stwo::core::fields::m31::M31;
 
 use crate::adapter::ExecutionBundle;
 use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;

@@ -1,11 +1,11 @@
 use num_traits::Zero;
-use stwo_constraint_framework::TraceLocationAllocator;
-use stwo::prover::backend::simd::SimdBackend;
-use stwo::prover::backend::BackendForChannel;
 use stwo::core::channel::{Channel, MerkleChannel};
 use stwo::core::fields::qm31::SecureField;
 use stwo::core::pcs::{CommitmentSchemeVerifier, PcsConfig};
 use stwo::core::verifier::{verify, VerificationError as StwoVerificationError};
+use stwo::prover::backend::simd::SimdBackend;
+use stwo::prover::backend::BackendForChannel;
+use stwo_constraint_framework::TraceLocationAllocator;
 use tracing::{info, span, Level};
 
 use crate::components::{Components, Relations};
@@ -51,10 +51,10 @@ where
     );
 
     // Proof of work.
-    channel.mix_u64(proof.interaction_pow);
-    if channel.trailing_zeros() < relations::INTERACTION_POW_BITS {
+    if !channel.verify_pow_nonce(relations::INTERACTION_POW_BITS, proof.interaction_pow) {
         return Err(VerificationError::Stwo(StwoVerificationError::ProofOfWork));
     }
+    channel.mix_u64(proof.interaction_pow);
 
     info!("interaction trace");
     let relations = Relations::draw(channel);
