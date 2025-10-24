@@ -210,7 +210,7 @@ impl CodeGenerator {
     }
 
     /// Compile the generated code into a CompiledProgram.
-    pub(crate) fn compile(self) -> CodegenResult<Program> {
+    pub fn compile(self) -> CodegenResult<Program> {
         let instructions: Vec<cairo_m_common::Instruction> = self
             .instructions
             .iter()
@@ -256,7 +256,7 @@ impl CodeGenerator {
     }
 
     /// Calculate memory layout for variable-sized instructions
-    fn calculate_memory_layout(&mut self) -> CodegenResult<()> {
+    pub fn calculate_memory_layout(&mut self) -> CodegenResult<()> {
         self.memory_layout.clear();
         let mut current_mem_pc = 0u32;
 
@@ -344,6 +344,51 @@ impl CodeGenerator {
         Ok(out)
     }
 
+    /// Add a pre-built function from a CasmBuilder to the program
+    ///
+    /// This allows external code to build functions using CasmBuilder and add them
+    /// to the program without exposing internal fields. Used by WASM lowering.
+    pub fn add_function_from_builder(
+        &mut self,
+        mut builder: CasmBuilder,
+        params: Vec<AbiSlot>,
+        returns: Vec<AbiSlot>,
+    ) -> CodegenResult<()> {
+        let name = builder.layout.name.clone();
+        // Store layout
+        self.function_layouts
+            .insert(name.clone(), builder.layout.clone());
+
+        // Update entrypoint with current instruction offset
+        let info = EntrypointInfo {
+            pc: self.instructions.len(),
+            params,
+            returns,
+        };
+        self.function_entrypoints.insert(name, info);
+
+        // Update label counter to avoid collisions
+        self.label_counter += builder.label_counter();
+
+        // Run post-builder passes
+        passes::run_all(&mut builder)?;
+
+        // Fix label addresses to be relative to global instruction stream
+        let instruction_offset = self.instructions.len();
+        let mut corrected_labels = builder.labels;
+        for label in &mut corrected_labels {
+            if let Some(local_addr) = label.address {
+                label.address = Some(local_addr + instruction_offset);
+            }
+        }
+
+        // Append generated instructions and corrected labels
+        self.instructions.extend(builder.instructions);
+        self.labels.extend(corrected_labels);
+
+        Ok(())
+    }
+
     /// Generate code for all functions
     fn generate_all_functions(&mut self, module: &MirModule) -> CodegenResult<()> {
         for (_, function) in module.functions() {
@@ -399,36 +444,11 @@ impl CodeGenerator {
             })
             .collect::<CodegenResult<_>>()?;
 
-        let entrypoint_info = EntrypointInfo {
-            pc: self.instructions.len(),
-            params,
-            returns,
-        };
-        self.function_entrypoints
-            .insert(function.name.clone(), entrypoint_info);
-
         builder.emit_add_label(func_label);
-
         self.generate_basic_blocks(function, module, &mut builder)?;
 
-        self.label_counter += builder.label_counter();
-
-        // Run post-builder passes (deduplication, peephole opts, etc.)
-        passes::run_all(&mut builder)?;
-
-        // Fix label addresses to be relative to the global instruction stream
-        let instruction_offset = self.instructions.len();
-        let mut corrected_labels = builder.labels().to_vec();
-        for label in &mut corrected_labels {
-            if let Some(local_addr) = label.address {
-                label.address = Some(local_addr + instruction_offset);
-            }
-        }
-
-        // Append generated instructions and corrected labels
-        self.instructions
-            .extend(builder.instructions().iter().cloned());
-        self.labels.extend(corrected_labels);
+        // Use common logic to append function
+        self.add_function_from_builder(builder, params, returns)?;
 
         Ok(())
     }
@@ -1557,7 +1577,7 @@ impl CodeGenerator {
     }
 
     /// Resolve all label references (second pass)
-    fn resolve_labels(&mut self) -> CodegenResult<()> {
+    pub fn resolve_labels(&mut self) -> CodegenResult<()> {
         // Build a map of label names to their physical addresses
         let mut label_map = HashMap::new();
 

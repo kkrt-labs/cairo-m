@@ -1,21 +1,22 @@
-use super::{wasm_type_to_mir_type, DagToMirContext, DagToMirError};
+use super::{
+    get_function_name, get_function_parameter_types, get_function_return_types, DagToCasmContext,
+    DagToCasmError,
+};
 use crate::loader::BlocklessDagModule;
 use cairo_m_compiler_mir::instruction::CalleeSignature;
-use cairo_m_compiler_mir::{
-    instruction::Instruction, BinaryOp, FunctionId, MirType, Place, Value, ValueId,
-};
+use cairo_m_compiler_mir::{BinaryOp, MirType, Value, ValueId};
 use cairo_m_runner::memory::MAX_ADDRESS;
 use wasmparser::Operator as Op;
 use womir::loader::blockless_dag::Node;
 
-impl DagToMirContext {
-    /// Convert a WASM binary opcode to a MIR binary opcode
+impl DagToCasmContext {
+    /// Convert a WASM binary opcode to a casm binary opcode
     /// TODO : bit shifts, rotations, u8 operations, etc.
     pub(super) fn wasm_binary_opcode_to_mir(
         &self,
         wasm_op: &Op,
         node_idx: usize,
-    ) -> Result<BinaryOp, DagToMirError> {
+    ) -> Result<BinaryOp, DagToCasmError> {
         match wasm_op {
             Op::I32Add => Ok(BinaryOp::U32Add),
             Op::I32Sub => Ok(BinaryOp::U32Sub),
@@ -30,27 +31,27 @@ impl DagToMirContext {
             Op::I32And => Ok(BinaryOp::U32BitwiseAnd),
             Op::I32Or => Ok(BinaryOp::U32BitwiseOr),
             Op::I32Xor => Ok(BinaryOp::U32BitwiseXor),
-            _ => Err(DagToMirError::UnsupportedOperation {
+            _ => Err(DagToCasmError::UnsupportedOperation {
                 op: format!("{:?}", wasm_op),
-                function_name: self.mir_function.name.clone(),
+                function_name: self.casm_builder.layout.name.clone(),
                 node_idx,
                 suggestion: "".to_string(),
             }),
         }
     }
 
-    pub(super) fn convert_wasm_binop_to_mir(
+    pub(super) fn convert_wasm_binop_to_casm(
         &mut self,
         node_idx: usize,
         wasm_op: &Op,
         left: Value,
         right: Value,
         dest_type: MirType,
-    ) -> Result<Option<ValueId>, DagToMirError> {
-        let result_id = self.mir_function.new_typed_value_id(dest_type);
+    ) -> Result<Option<ValueId>, DagToCasmError> {
+        let result_id = self.new_typed_value_id(dest_type);
         let mir_op = self.wasm_binary_opcode_to_mir(wasm_op, node_idx)?;
-        let instruction = Instruction::binary_op(mir_op, result_id, left, right);
-        self.get_current_block()?.push_instruction(instruction);
+        self.casm_builder
+            .binary_op(mir_op, result_id, left, right, None)?;
         Ok(Some(result_id))
     }
 
@@ -61,31 +62,29 @@ impl DagToMirContext {
         &mut self,
         wasm_address: Value,
         wasm_offset: u64,
-    ) -> Result<ValueId, DagToMirError> {
+    ) -> Result<ValueId, DagToCasmError> {
         // temp1 = wasm_address / 2
-        let temp1 = self.mir_function.new_typed_value_id(MirType::U32);
-        let inst_div_by_2 =
-            Instruction::binary_op(BinaryOp::U32Div, temp1, wasm_address, Value::integer(2));
+        let temp1 = self.new_typed_value_id(MirType::U32);
+        self.casm_builder.binary_op(
+            BinaryOp::U32Div,
+            temp1,
+            wasm_address,
+            Value::integer(2),
+            None,
+        )?;
 
-        // temp2 = temp1 as felt
-        let temp2 = self.mir_function.new_typed_value_id(MirType::Felt);
-        let inst_cast =
-            Instruction::cast(temp2, Value::operand(temp1), MirType::U32, MirType::Felt);
-
-        // cm_address = heap_start + cm_offset - temp2
+        // cm_address = heap_start + cm_offset - temp1
         // without globals, heap starts at MAX_ADDRESS
-        let cm_address = self.mir_function.new_typed_value_id(MirType::Felt);
+        let cm_address = self.new_typed_value_id(MirType::Felt);
         let cm_offset = self.cm_offset_from_wasm_i32_offset(wasm_offset);
-        let inst_sub = Instruction::binary_op(
+        self.casm_builder.binary_op(
             BinaryOp::Sub,
             cm_address,
             Value::integer((MAX_ADDRESS as i32 + cm_offset) as u32),
-            Value::operand(temp2),
-        );
+            Value::operand(temp1),
+            None,
+        )?;
 
-        self.get_current_block()?.push_instruction(inst_div_by_2);
-        self.get_current_block()?.push_instruction(inst_cast);
-        self.get_current_block()?.push_instruction(inst_sub);
         Ok(cm_address)
     }
 
@@ -95,13 +94,13 @@ impl DagToMirContext {
     }
 
     /// Convert a WASM operation to MIR instructions
-    pub(super) fn convert_wasm_op_to_mir(
+    pub(super) fn convert_wasm_op_to_casm(
         &mut self,
         node_idx: usize,
         wasm_op: &Op,
         node: &Node,
         module: &BlocklessDagModule,
-    ) -> Result<Option<ValueId>, DagToMirError> {
+    ) -> Result<Option<ValueId>, DagToCasmError> {
         let inputs: Result<Vec<Value>, _> = node
             .inputs
             .iter()
@@ -117,7 +116,7 @@ impl DagToMirContext {
             | Op::I32DivU
             | Op::I32And
             | Op::I32Or
-            | Op::I32Xor => self.convert_wasm_binop_to_mir(
+            | Op::I32Xor => self.convert_wasm_binop_to_casm(
                 node_idx,
                 wasm_op,
                 inputs[0],
@@ -128,66 +127,135 @@ impl DagToMirContext {
             // For comparisons, we produce a boolean result
             // This is not WASM compliant, but works if these values are only used in conditional branches
             // TODO : cast everything correctly or sync with VM so that comparisons between u32 produce u32 booleans
-            Op::I32Eq | Op::I32Ne | Op::I32GtU | Op::I32GeU | Op::I32LtU | Op::I32LeU => self
-                .convert_wasm_binop_to_mir(node_idx, wasm_op, inputs[0], inputs[1], MirType::Bool),
+            Op::I32Eq | Op::I32LtU => self.convert_wasm_binop_to_casm(
+                node_idx,
+                wasm_op,
+                inputs[0],
+                inputs[1],
+                MirType::Bool,
+            ),
+
+            // (a > b) == (b < a)
+            Op::I32GtU => self.convert_wasm_binop_to_casm(
+                node_idx,
+                &Op::I32LtU,
+                inputs[1],
+                inputs[0],
+                MirType::Bool,
+            ),
+
+            // a != b == 1 - (a == b)
+            // TODO : peephole optimization to swap conditional branches instead if possible
+            Op::I32Ne => {
+                let result_id = self.new_typed_value_id(MirType::Bool);
+                let temp = self.new_typed_value_id(MirType::Bool);
+                self.casm_builder
+                    .binary_op(BinaryOp::U32Eq, temp, inputs[0], inputs[1], None)?;
+                self.casm_builder.binary_op(
+                    BinaryOp::Sub,
+                    result_id,
+                    Value::integer(1),
+                    Value::operand(temp),
+                    None,
+                )?;
+                Ok(Some(result_id))
+            }
+
+            // (a <= b) == !(b < a)
+            // (a >= b) == !(a < b)
+            Op::I32LeU | Op::I32GeU => {
+                let temp = self.new_typed_value_id(MirType::Bool);
+                let result_id = self.new_typed_value_id(MirType::Bool);
+                let (left, right, op) = match wasm_op {
+                    Op::I32LeU => (inputs[1], inputs[0], BinaryOp::U32Less),
+                    Op::I32GeU => (inputs[0], inputs[1], BinaryOp::U32Less),
+                    _ => unreachable!(),
+                };
+                self.casm_builder.binary_op(op, temp, left, right, None)?;
+                self.casm_builder.binary_op(
+                    BinaryOp::Sub,
+                    result_id,
+                    Value::integer(1),
+                    Value::operand(temp),
+                    None,
+                )?;
+                Ok(Some(result_id))
+            }
 
             // Signed comparison instructions: convert to unsigned by adding 2^31 (flips sign bit)
             // This maps signed range [-2^31, 2^31-1] to unsigned [0, 2^32-1] preserving order
             Op::I32LtS | Op::I32GtS | Op::I32LeS | Op::I32GeS => {
-                let temp1 = self.mir_function.new_typed_value_id(MirType::U32);
-                let instruction1 = Instruction::binary_op(
+                let temp1 = self.new_typed_value_id(MirType::U32);
+                self.casm_builder.binary_op(
                     BinaryOp::U32Add,
                     temp1,
                     inputs[0],
                     Value::integer(0x80000000),
-                );
-                let temp2 = self.mir_function.new_typed_value_id(MirType::U32);
-                let instruction2 = Instruction::binary_op(
+                    None,
+                )?;
+                let temp2 = self.new_typed_value_id(MirType::U32);
+                self.casm_builder.binary_op(
                     BinaryOp::U32Add,
                     temp2,
                     inputs[1],
                     Value::integer(0x80000000),
-                );
-                let result_id = self.mir_function.new_typed_value_id(MirType::Bool);
-                let op = match wasm_op {
-                    Op::I32LtS => BinaryOp::U32Less,
-                    Op::I32GtS => BinaryOp::U32Greater,
-                    Op::I32LeS => BinaryOp::U32LessEqual,
-                    Op::I32GeS => BinaryOp::U32GreaterEqual,
+                    None,
+                )?;
+                let temp = self.new_typed_value_id(MirType::Bool);
+                let (left, right) = match wasm_op {
+                    Op::I32LtS => (temp1, temp2),
+                    Op::I32GtS => (temp2, temp1),
+                    Op::I32LeS => (temp2, temp1),
+                    Op::I32GeS => (temp1, temp2),
                     _ => unreachable!(),
                 };
-                let instruction3 = Instruction::binary_op(
-                    op,
-                    result_id,
-                    Value::operand(temp1),
-                    Value::operand(temp2),
-                );
-                self.get_current_block()?.push_instruction(instruction1);
-                self.get_current_block()?.push_instruction(instruction2);
-                self.get_current_block()?.push_instruction(instruction3);
+                self.casm_builder.binary_op(
+                    BinaryOp::U32Less,
+                    temp,
+                    Value::operand(left),
+                    Value::operand(right),
+                    None,
+                )?;
+                // For "or equal" variants, we apply the same 1 - (a < b) trick as above
+                let result_id = if wasm_op == &Op::I32LeS || wasm_op == &Op::I32GeS {
+                    let result_id = self.new_typed_value_id(MirType::Bool);
+                    self.casm_builder.binary_op(
+                        BinaryOp::Sub,
+                        result_id,
+                        Value::integer(1),
+                        Value::operand(temp),
+                        None,
+                    )?;
+                    result_id
+                } else {
+                    temp
+                };
                 Ok(Some(result_id))
             }
 
             // Zero comparison instruction, constructed by comparing the input to 0
             // TODO : fix type of result_id
             Op::I32Eqz => {
-                let result_id = self.mir_function.new_typed_value_id(MirType::Bool);
-                let instruction = Instruction::binary_op(
+                let result_id = self.new_typed_value_id(MirType::Bool);
+                self.casm_builder.binary_op(
                     BinaryOp::U32Eq,
                     result_id,
                     inputs[0],
                     Value::integer(0),
-                );
-                self.get_current_block()?.push_instruction(instruction);
+                    None,
+                )?;
                 Ok(Some(result_id))
             }
 
             // Assigning a constant to a variable
             Op::I32Const { value } => {
-                let result_id = self.mir_function.new_typed_value_id(MirType::U32);
-                let instruction =
-                    Instruction::assign(result_id, Value::integer(*value as u32), MirType::U32);
-                self.get_current_block()?.push_instruction(instruction);
+                let result_id = self.new_typed_value_id(MirType::U32);
+                self.casm_builder.assign(
+                    result_id,
+                    Value::integer(*value as u32),
+                    &MirType::U32,
+                    None,
+                )?;
                 Ok(Some(result_id))
             }
 
@@ -197,36 +265,21 @@ impl DagToMirContext {
             }
 
             Op::Call { function_index } => {
-                let callee_id = FunctionId::new(*function_index as usize);
-
-                // Get signature from wasm module
-                let program = &module.0;
-                let func_type = program.m.get_func_type(*function_index);
-
-                // Handle param types with proper error handling
-                let param_types: Vec<MirType> = func_type
-                    .ty
-                    .params()
-                    .iter()
-                    .map(|ty| wasm_type_to_mir_type(ty, "unknown", "function call parameters"))
-                    .collect::<Result<Vec<MirType>, DagToMirError>>()?;
-
-                // Handle return types with proper error handling
-                let return_types: Vec<MirType> = func_type
-                    .ty
-                    .results()
-                    .iter()
-                    .map(|ty| wasm_type_to_mir_type(ty, "unknown", "function call return types"))
-                    .collect::<Result<Vec<MirType>, DagToMirError>>()?;
+                let param_types = get_function_parameter_types(module, *function_index)?;
+                let return_types = get_function_return_types(module, *function_index)?;
 
                 let signature = CalleeSignature {
                     param_types,
                     return_types,
                 };
 
-                let result_id = self.mir_function.new_typed_value_id(MirType::U32);
-                let instruction = Instruction::call(vec![result_id], callee_id, inputs, signature);
-                self.get_current_block()?.push_instruction(instruction);
+                let result_id = self.new_typed_value_id(MirType::U32);
+
+                let func_name = get_function_name(module, *function_index);
+
+                self.casm_builder
+                    .lower_call(&func_name, &inputs, &signature, &[result_id])?;
+
                 Ok(Some(result_id))
             }
 
@@ -239,10 +292,12 @@ impl DagToMirContext {
                 let base_address = inputs[0];
                 let cm_address =
                     self.compute_cm_address_from_wasm_address(base_address, memarg.offset)?;
-                let result_id = self.mir_function.new_typed_value_id(MirType::U32);
-                let place = Place::new(cm_address);
-                let instruction = Instruction::load(result_id, place, MirType::U32);
-                self.get_current_block()?.push_instruction(instruction);
+                let result_id = self.new_typed_value_id(MirType::U32);
+
+                // Load u32 from memory (2 slots)
+                self.casm_builder
+                    .load_from_memory(result_id, cm_address, 2)?;
+
                 Ok(Some(result_id))
             }
 
@@ -252,9 +307,24 @@ impl DagToMirContext {
                 let base_address = inputs[0];
                 let cm_address =
                     self.compute_cm_address_from_wasm_address(base_address, memarg.offset)?;
-                let place = Place::new(cm_address);
-                let instruction = Instruction::store(place, inputs[1], MirType::U32);
-                self.get_current_block()?.push_instruction(instruction);
+                let value = inputs[1];
+
+                // Extract value_id from operand
+                let value_id = match value {
+                    Value::Operand(vid) => vid,
+                    _ => {
+                        return Err(DagToCasmError::UnsupportedOperation {
+                            op: "I32Store with non-operand value".to_string(),
+                            function_name: self.casm_builder.layout.name.clone(),
+                            node_idx,
+                            suggestion: "Store operands only".to_string(),
+                        })
+                    }
+                };
+
+                // Store to memory using public API
+                self.casm_builder.store_to_memory(cm_address, value_id)?;
+
                 Ok(None)
             }
 
@@ -262,9 +332,9 @@ impl DagToMirContext {
                 // Unsupported operation
                 let suggestion = "This WASM operation is not yet implemented in the compiler";
 
-                Err(DagToMirError::UnsupportedOperation {
+                Err(DagToCasmError::UnsupportedOperation {
                     op: format!("{:?}", wasm_op),
-                    function_name: self.mir_function.name.clone(),
+                    function_name: self.casm_builder.layout.name.clone(),
                     node_idx,
                     suggestion: suggestion.to_string(),
                 })

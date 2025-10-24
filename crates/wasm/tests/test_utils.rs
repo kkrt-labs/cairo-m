@@ -8,10 +8,8 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use cairo_m_common::Program;
 /// These tests compare the output of the compiled cairo-m with result from the womir interpreter
-use cairo_m_compiler_codegen::compile_module;
-use cairo_m_compiler_mir::PassManager;
 use cairo_m_wasm::loader::BlocklessDagModule;
-use cairo_m_wasm::lowering::lower_program_to_mir;
+use cairo_m_wasm::lowering::lower_program_to_casm;
 use wasmtime::{Engine, Module};
 
 use cairo_m_common::abi_codec::CairoMValue;
@@ -42,7 +40,9 @@ static WASMTIME_MODULES: LazyLock<Mutex<HashMap<u64, Module>>> =
 /// Else, it will be returned from the cache.
 pub fn get_or_build_wasmtime_module(bytes: &[u8]) -> Module {
     let key = hash_bytes(bytes);
-    let mut cache = WASMTIME_MODULES.lock().unwrap();
+    let mut cache = WASMTIME_MODULES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(m) = cache.get(&key) {
         return m.clone();
     }
@@ -56,13 +56,16 @@ pub fn get_or_build_wasmtime_module(bytes: &[u8]) -> Module {
 /// Else, it will be returned from the cache.
 pub fn get_or_build_cairo_program(bytes: &[u8]) -> Arc<Program> {
     let key = hash_bytes(bytes);
-    let mut cache = COMPILED_PROGRAMS.lock().unwrap();
+    // Handle poisoned mutex gracefully - recover the data even if a previous test panicked
+    let mut cache = COMPILED_PROGRAMS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(p) = cache.get(&key) {
         return Arc::clone(p);
     }
     let dag_module = BlocklessDagModule::from_bytes(bytes).unwrap();
-    let mir_module = lower_program_to_mir(&dag_module, PassManager::standard_pipeline()).unwrap();
-    let compiled_module = compile_module(&mir_module).unwrap();
+    let codegen = lower_program_to_casm(&dag_module).unwrap();
+    let compiled_module = codegen.compile().unwrap();
     let arc = Arc::new(compiled_module);
     cache.insert(key, Arc::clone(&arc));
     arc
@@ -72,7 +75,9 @@ pub fn get_or_build_cairo_program(bytes: &[u8]) -> Arc<Program> {
 /// It builds the project the first time it is called
 /// and then skips subsequent calls.
 pub fn ensure_rust_wasm_built(project_path: &str) {
-    let mut built_projects = BUILT_RUST_PROJECTS.lock().unwrap();
+    let mut built_projects = BUILT_RUST_PROJECTS
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     if !built_projects.contains(project_path) {
         build_wasm_from_rust(&PathBuf::from(project_path));

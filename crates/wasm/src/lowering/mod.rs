@@ -3,16 +3,20 @@ mod cfg;
 mod context;
 mod ops;
 
+use std::collections::HashMap;
+
 use crate::loader::{BlocklessDagModule, WasmLoadError};
-use cairo_m_compiler_mir::{MirFunction, MirModule, MirType, PassManager};
+use cairo_m_common::program::{AbiSlot, AbiType};
+use cairo_m_compiler_codegen::{CasmBuilder, CodeGenerator, CodegenError, FunctionLayout};
+use cairo_m_compiler_mir::{DataLayout, MirType};
 use thiserror::Error;
 use womir::loader::dag::ValueOrigin;
 use womir::loader::FunctionProcessingStage;
 
-use context::DagToMirContext;
+use context::DagToCasmContext;
 
 #[derive(Error, Debug)]
-pub enum DagToMirError {
+pub enum DagToCasmError {
     #[error("Failed to load Wasm module: {0}")]
     WasmLoadError(#[from] WasmLoadError),
     #[error("Unsupported WASM operation {op:?} in function '{function_name}' at node {node_idx}: {suggestion}")]
@@ -48,21 +52,91 @@ pub enum DagToMirError {
         requested_depth: u32,
         available_depth: usize,
     },
+    #[error("Code generation failed: {0}")]
+    CodegenError(#[from] CodegenError),
 }
 
-/// Lower a whole WOMIR program to MIR
-pub fn lower_program_to_mir(
+pub(crate) fn get_function_name(module: &BlocklessDagModule, func_idx: u32) -> String {
+    let wasm_program = &module.0;
+    wasm_program
+        .m
+        .exported_functions
+        .get(&(func_idx))
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("func_{}", func_idx))
+}
+
+pub(crate) fn get_function_parameter_types(
     module: &BlocklessDagModule,
-    mut pipeline: PassManager,
-) -> Result<MirModule, DagToMirError> {
-    let mut mir_module = MirModule::new();
-    let program = &module.0;
-    for (func_idx, _) in program.functions.iter().enumerate() {
-        let mut mir_function = function_to_mir(module, func_idx)?;
-        pipeline.run(&mut mir_function);
-        mir_module.add_function(mir_function);
+    func_idx: u32,
+) -> Result<Vec<MirType>, DagToCasmError> {
+    let wasm_program = &module.0;
+    let func_type = wasm_program.m.get_func_type(func_idx);
+    let func_name = get_function_name(module, func_idx);
+    func_type
+        .ty
+        .params()
+        .iter()
+        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function parameters"))
+        .collect::<Result<Vec<MirType>, DagToCasmError>>()
+}
+
+pub(crate) fn get_function_return_types(
+    module: &BlocklessDagModule,
+    func_idx: u32,
+) -> Result<Vec<MirType>, DagToCasmError> {
+    let wasm_program = &module.0;
+    let func_type = wasm_program.m.get_func_type(func_idx);
+    let func_name = get_function_name(module, func_idx);
+    func_type
+        .ty
+        .results()
+        .iter()
+        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function return types"))
+        .collect::<Result<Vec<MirType>, DagToCasmError>>()
+}
+
+/// Lower a whole WOMIR program to CASM CodeGenerator
+pub fn lower_program_to_casm(module: &BlocklessDagModule) -> Result<CodeGenerator, DagToCasmError> {
+    let mut codegen = CodeGenerator::new();
+    let wasm_program = &module.0;
+
+    let mut label_counter = 0;
+
+    // Process each function
+    for (func_idx, _) in wasm_program.functions.iter().enumerate() {
+        let builder = function_to_casm(module, func_idx as u32, label_counter)?;
+
+        let param_types = get_function_parameter_types(module, func_idx as u32)?;
+        let return_types = get_function_return_types(module, func_idx as u32)?;
+
+        let params = param_types
+            .iter()
+            .enumerate()
+            .map(|(i, _)| AbiSlot {
+                name: format!("param_{}", i),
+                ty: AbiType::U32,
+            })
+            .collect();
+        let returns = return_types
+            .iter()
+            .enumerate()
+            .map(|(i, _)| AbiSlot {
+                name: format!("return_{}", i),
+                ty: AbiType::U32,
+            })
+            .collect();
+
+        label_counter += builder.label_counter();
+
+        codegen.add_function_from_builder(builder, params, returns)?;
     }
-    Ok(mir_module)
+
+    codegen.calculate_memory_layout()?;
+
+    codegen.resolve_labels()?;
+
+    Ok(codegen)
 }
 
 /// Convert WASM type to MIR type (limited support for now)
@@ -70,10 +144,10 @@ fn wasm_type_to_mir_type(
     wasm_type: &wasmparser::ValType,
     function_name: &str,
     context: &str,
-) -> Result<MirType, DagToMirError> {
+) -> Result<MirType, DagToCasmError> {
     match wasm_type {
         wasmparser::ValType::I32 => Ok(MirType::U32),
-        _ => Err(DagToMirError::UnsupportedWasmType {
+        _ => Err(DagToCasmError::UnsupportedWasmType {
             wasm_type: *wasm_type,
             function_name: function_name.to_string(),
             context: context.to_string(),
@@ -82,64 +156,43 @@ fn wasm_type_to_mir_type(
 }
 
 /// Convert a single WASM function to MIR using a two-pass algorithm
-fn function_to_mir(
+fn function_to_casm(
     module: &BlocklessDagModule,
-    func_idx: usize,
-) -> Result<MirFunction, DagToMirError> {
+    func_idx: u32,
+    label_counter: usize,
+) -> Result<CasmBuilder, DagToCasmError> {
     let program = &module.0;
-    let func_name = program
-        .m
-        .exported_functions
-        .get(&(func_idx as u32))
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| format!("func_{}", func_idx));
+    let func_name = get_function_name(module, func_idx);
+    let param_types = get_function_parameter_types(module, func_idx)?;
+    let return_types = get_function_return_types(module, func_idx)?;
 
-    let mut context = DagToMirContext::new(func_name.clone());
+    // Construct layout
+    let layout = FunctionLayout {
+        name: func_name.clone(),
+        value_layouts: HashMap::default(),
+        frame_size: 0,
+        num_parameters: param_types.len(),
+        num_return_values: return_types.len(),
+        num_return_slots: return_types.iter().map(DataLayout::memory_size_of).sum(),
+    };
 
-    // Get function type information for parameters and return types
-    let func_type = program.m.get_func_type(func_idx as u32);
+    let mut context = DagToCasmContext::new(layout, label_counter);
 
-    // Handle param types with proper error handling
-    let param_types: Vec<MirType> = func_type
-        .ty
-        .params()
-        .iter()
-        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function parameters"))
-        .collect::<Result<Vec<MirType>, DagToMirError>>()?;
-
-    // Handle return types with proper error handling
-    let return_types: Vec<MirType> = func_type
-        .ty
-        .results()
-        .iter()
-        .map(|ty| wasm_type_to_mir_type(ty, &func_name, "function return types"))
-        .collect::<Result<Vec<MirType>, DagToMirError>>()?;
-
-    // Allocate parameters
-    for (i, param_type) in param_types.iter().enumerate() {
-        let param_id = context.mir_function.new_typed_value_id(param_type.clone());
-        context.mir_function.parameters.push(param_id);
-        context.insert_value(
-            ValueOrigin {
-                node: 0,
-                output_idx: i as u32,
-            },
-            param_id,
-        );
-    }
+    // Allocate parameters at their proper parameter offsets
+    allocate_function_parameters(&mut context, &param_types, &return_types)?;
 
     // Get the DAG for this function
-    let dag = match program.functions.get(func_idx) {
+    let dag = match program.functions.get(func_idx as usize) {
         Some(FunctionProcessingStage::BlocklessDag(dag)) => dag,
         Some(_) => {
-            return Err(DagToMirError::InvalidControlFlow {
+            return Err(DagToCasmError::InvalidControlFlow {
                 function_name: func_name,
                 reason: "Function not at BlocklessDag stage".to_string(),
                 operation_context: "lowering function".to_string(),
             });
         }
         None => {
-            return Err(DagToMirError::ValueMappingError {
+            return Err(DagToCasmError::ValueMappingError {
                 function_name: func_name,
                 node_idx: 0,
                 reason: format!("Function {} not found", func_idx),
@@ -148,34 +201,66 @@ fn function_to_mir(
         }
     };
 
-    // Preallocate CFG structures and lower body
-    context.allocate_blocks_and_phi_nodes(dag)?;
     context.generate_instructions_from_dag(dag, module)?;
 
-    // Finalize all phi nodes with their operands
-    context.finalize_phi_nodes()?;
+    Ok(context.casm_builder)
+}
 
-    // Set entry block if we created any blocks
-    if !context.mir_function.basic_blocks.is_empty() {
-        context.mir_function.entry_block = 0.into();
-    }
+/// Allocates function parameters at their proper negative FP offsets
+///
+/// Parameters are stored at negative offsets relative to the frame pointer,
+/// following the Cairo-M calling convention layout:
+/// fp - M - K - CALLER_SAVE_SLOTS + cumulative_param_size
+fn allocate_function_parameters(
+    context: &mut DagToCasmContext,
+    param_types: &[MirType],
+    return_types: &[MirType],
+) -> Result<(), DagToCasmError> {
+    // This is very similar to FunctionLayout::allocate_parameters_with_sizes()
+    // TODO : refactor FunctionLayout ABI to fix this
+    use cairo_m_compiler_codegen::layout::ValueLayout;
 
-    // Populate parameter types
-    for (i, &param_value_id) in context.mir_function.parameters.iter().enumerate() {
-        if let Some(param_type) = param_types.get(i) {
+    // Calculate total parameter and return slots for proper offset calculation
+    let m_slots: usize = param_types.iter().map(DataLayout::memory_size_of).sum();
+    let k_slots: usize = return_types.iter().map(DataLayout::memory_size_of).sum();
+    const CALLER_SAVE_SLOTS: i32 = 2;
+
+    // Allocate parameters at their proper parameter offsets
+    let mut cumulative_param_size = 0;
+    for (i, param_type) in param_types.iter().enumerate() {
+        let param_id = context.new_value_id_for_type(param_type.clone());
+        let size = DataLayout::memory_size_of(param_type);
+
+        // Calculate offset using the frame layout formula:
+        // fp - M - K - CALLER_SAVE_SLOTS + cumulative_param_size
+        let offset =
+            -(m_slots as i32) - (k_slots as i32) - CALLER_SAVE_SLOTS + cumulative_param_size as i32;
+
+        // Manually insert the parameter layout
+        if size == 1 {
             context
-                .mir_function
-                .value_types
-                .insert(param_value_id, param_type.clone());
+                .casm_builder
+                .layout
+                .value_layouts
+                .insert(param_id, ValueLayout::Slot { offset });
+        } else {
+            context
+                .casm_builder
+                .layout
+                .value_layouts
+                .insert(param_id, ValueLayout::MultiSlot { offset, size });
         }
+
+        context.insert_value(
+            ValueOrigin {
+                node: 0,
+                output_idx: i as u32,
+            },
+            param_id,
+        );
+
+        cumulative_param_size += size;
     }
 
-    // Define return values from the function signature (types/arity only).
-    // The actual values returned are supplied by each Return terminator.
-    context.mir_function.return_values = return_types
-        .iter()
-        .map(|ty| context.mir_function.new_typed_value_id(ty.clone()))
-        .collect();
-
-    Ok(context.mir_function)
+    Ok(())
 }

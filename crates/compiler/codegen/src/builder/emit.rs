@@ -14,14 +14,14 @@ impl super::CasmBuilder {
     }
 
     /// Generate a fresh label name using the builder's counter.
-    pub(crate) fn emit_new_label_name(&mut self, prefix: &str) -> String {
+    pub fn emit_new_label_name(&mut self, prefix: &str) -> String {
         let label_id = self.label_counter;
         self.label_counter += 1;
         format!("{}_{}", prefix, label_id)
     }
 
     /// Add a label at the current instruction address.
-    pub(crate) fn emit_add_label(&mut self, mut label: Label) {
+    pub fn emit_add_label(&mut self, mut label: Label) {
         label.address = Some(self.instructions.len());
         self.labels.push(label);
     }

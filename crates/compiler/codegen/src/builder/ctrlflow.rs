@@ -8,7 +8,7 @@ use stwo_prover::core::fields::m31::M31;
 impl super::CasmBuilder {
     /// Generates an unconditional jump to a label.
     /// Uses a relative jump (offset resolved in a later pass).
-    pub(crate) fn jump(&mut self, target_label: &str) {
+    pub fn jump(&mut self, target_label: &str) {
         let instr = InstructionBuilder::new(
             CasmInstr::JmpRelImm {
                 offset: M31::from(0),
@@ -22,7 +22,7 @@ impl super::CasmBuilder {
 
     /// Generates a conditional jump instruction that triggers if the value at `cond_off` is non-zero.
     /// The `target_label` is a placeholder that will be resolved to a relative offset later.
-    pub(crate) fn jnz(&mut self, condition: Value, target_label: &str) -> CodegenResult<()> {
+    pub fn jnz(&mut self, condition: Value, target_label: &str) -> CodegenResult<()> {
         // Get the condition value offset
         let cond_off = match condition {
             Value::Operand(cond_id) => self.layout.get_offset(cond_id)?,
@@ -44,7 +44,7 @@ impl super::CasmBuilder {
     }
 
     /// Generates a conditional jump based on a direct fp-relative offset.
-    pub(crate) fn jnz_offset(&mut self, cond_off: i32, target_label: &str) {
+    pub fn jnz_offset(&mut self, cond_off: i32, target_label: &str) {
         let instr = InstructionBuilder::new(
             CasmInstr::JnzFpImm {
                 cond_off: M31::from(cond_off),
@@ -58,12 +58,7 @@ impl super::CasmBuilder {
     }
 
     /// Short-circuit OR: dest = (left != 0) || (right != 0)
-    pub(super) fn sc_or(
-        &mut self,
-        dest_off: i32,
-        left: &Value,
-        right: &Value,
-    ) -> CodegenResult<()> {
+    pub fn sc_or(&mut self, dest_off: i32, left: &Value, right: &Value) -> CodegenResult<()> {
         // Initialize result to 0
         self.store_immediate(0, dest_off, "Initialize OR result to 0".to_string());
         let set_true = self.emit_new_label_name("or_true");
@@ -82,12 +77,7 @@ impl super::CasmBuilder {
     }
 
     /// Short-circuit AND: dest = (left != 0) && (right != 0)
-    pub(super) fn sc_and(
-        &mut self,
-        dest_off: i32,
-        left: &Value,
-        right: &Value,
-    ) -> CodegenResult<()> {
+    pub fn sc_and(&mut self, dest_off: i32, left: &Value, right: &Value) -> CodegenResult<()> {
         // Default to 0
         self.store_immediate(0, dest_off, format!("[fp + {dest_off}] = 0"));
         let check_right = self.emit_new_label_name("and_check_right");
@@ -132,7 +122,7 @@ impl super::CasmBuilder {
     }
 
     /// NOT: dest = ([source] == 0)
-    pub(super) fn sc_not(&mut self, dest_off: i32, source: &Value) -> CodegenResult<()> {
+    pub fn sc_not(&mut self, dest_off: i32, source: &Value) -> CodegenResult<()> {
         let set_zero = self.emit_new_label_name("not_zero");
         let end = self.emit_new_label_name("not_end");
         match source {
@@ -170,7 +160,7 @@ impl super::CasmBuilder {
     /// - When `value` is an operand, emits a JNZ.
     /// - When `value` is a literal and truthy, emits an unconditional JMP if `emit_jmp_if_const_true` is true.
     /// - Returns Some(true/false) when `value` is a constant; None when dynamic.
-    fn branch_if_nonzero_to(
+    pub fn branch_if_nonzero_to(
         &mut self,
         value: &Value,
         label: &str,

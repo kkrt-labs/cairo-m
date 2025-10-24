@@ -3,37 +3,21 @@ source: crates/wasm/tests/wasm_to_mir_tests.rs
 description: "WASM to MIR snapshot: func_call.wat"
 ---
 WASM File: func_call.wat
-Functions loaded: 2
 
-Module Output:
-module {
-  // Function 0
-  fn func_0 {
-    parameters: [0, 1]
-    entry: 0
-
-    0:
-      %2 = %0 U32Add %1
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-  // Function 1
-  fn func_call {
-    entry: 0
-
-    0:
-      %0 = 15 (u32)
-      %1 = 25 (u32)
-      %2 = call 0(%0, %1)
-      jump 1
-
-    1:
-      return %2
-
-  }
-
-}
+Program:
+func_0:
+   0: 15 2147483639 2147483641 0 // u32([fp + 0], [fp + 1]) = u32([fp + -8], [fp + -7]) U32Add u32([fp + -6], [fp + -5])
+   1: 4 0 0 2147483643     // Return value 0 slot 0: [fp -4] = [fp + 0] + 0
+   2: 4 1 0 2147483644     // Return value 0 slot 1: [fp -3] = [fp + 1] + 0
+   3: 11 _ _ _             // return
+func_call:
+   4: 23 15 0 0            // u32([fp + 0], [fp + 1]) = u32(15)
+   5: 23 25 0 2            // u32([fp + 2], [fp + 3]) = u32(25)
+   6: 4 0 0 6              // Arg 0 slot 0: [fp + 6] = [fp + 0] + 0
+   7: 4 1 0 7              // Arg 0 slot 1: [fp + 7] = [fp + 1] + 0
+   8: 4 2 0 8              // Arg 1 slot 0: [fp + 8] = [fp + 2] + 0
+   9: 4 3 0 9              // Arg 1 slot 1: [fp + 9] = [fp + 3] + 0
+  10: 10 12 0 _            // call func_0
+  11: 4 10 0 2147483643    // Return value 0 slot 0: [fp -4] = [fp + 10] + 0
+  12: 4 11 0 2147483644    // Return value 0 slot 1: [fp -3] = [fp + 11] + 0
+  13: 11 _ _ _             // return
