@@ -437,7 +437,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cairo-m-common"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "num-traits",
@@ -452,7 +452,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -479,7 +479,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-codegen"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-diagnostics",
@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-diagnostics"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "ariadne",
  "chumsky",
@@ -514,7 +514,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-mir"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
@@ -533,7 +533,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-parser"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-diagnostics",
@@ -553,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-semantic"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-formatter"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-parser",
@@ -595,7 +595,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-ls"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -626,7 +626,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-project"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "ignore",
@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-prover"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -672,7 +672,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-runner"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "cairo-m-common",
@@ -698,7 +698,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-test-utils"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "once_cell",
  "pulldown-cmark",
@@ -711,7 +711,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-wasm"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-codegen",
@@ -732,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-cairo-m"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -1751,12 +1751,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hashbrown"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5419bdc4f6a9207fbeba6d11b604d481addf78ecd10c11ad51e76c2f6482748d"
-
-[[package]]
 name = "hashlink"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1970,7 +1964,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
 dependencies = [
  "equivalent",
- "hashbrown 0.16.0",
+ "hashbrown 0.15.5",
  "serde",
  "serde_core",
 ]
@@ -3494,7 +3488,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "stwo-air-utils"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "bytemuck",
  "itertools 0.12.1",
@@ -3515,7 +3509,7 @@ dependencies = [
 
 [[package]]
 name = "stwo-constraint-framework"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "itertools 0.12.1",
  "num-traits",
@@ -3527,7 +3521,7 @@ dependencies = [
 
 [[package]]
 name = "stwo-prover"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "blake2",
  "blake3",

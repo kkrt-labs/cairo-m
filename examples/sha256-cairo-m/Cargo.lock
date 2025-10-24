@@ -322,7 +322,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 
 [[package]]
 name = "cairo-m-common"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "num-traits",
@@ -336,7 +336,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -362,7 +362,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-codegen"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "cairo-m-common",
  "cairo-m-compiler-diagnostics",
@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-diagnostics"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "ariadne",
  "chumsky",
@@ -394,7 +394,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-mir"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "cairo-m-compiler-diagnostics",
  "cairo-m-compiler-parser",
@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-parser"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "ariadne",
  "cairo-m-compiler-diagnostics",
@@ -428,7 +428,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-compiler-semantic"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "ariadne",
@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-project"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "ignore",
@@ -466,7 +466,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-runner"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "cairo-m-common",
@@ -487,7 +487,7 @@ dependencies = [
 
 [[package]]
 name = "cairo-m-test-utils"
-version = "0.1.0-alpha"
+version = "0.1.0-alpha.2"
 dependencies = [
  "once_cell",
  "pulldown-cmark",

@@ -7,7 +7,7 @@ edition.workspace = true
 logos = "0.15"
 ariadne = "0.5.1"
 chumsky.workspace = true
-smol_str = "0.3.2"
+smol_str = "=0.3.2"
 insta = "1.43.1"
 rowan = "0.16.1"
 num-traits.workspace = true

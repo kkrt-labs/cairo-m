@@ -7,7 +7,7 @@ edition.workspace = true
 cairo-m-compiler-parser = { workspace = true }
 salsa = "0.22.0"
 salsa-macros = "0.22.0"
-smol_str = "0.3.2"
+smol_str = "=0.3.2"
 thiserror = { workspace = true }
 ariadne = "0.5.1"
 chumsky.workspace = true
