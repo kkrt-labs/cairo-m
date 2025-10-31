@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758187062141,
+  "lastUpdate": 1761927055811,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M VM Benchmarks": [
@@ -2473,6 +2473,36 @@ window.BENCHMARK_DATA = {
             "name": "fibonacci_1m/execution_only",
             "value": 286377007,
             "range": "± 3052103",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "81ae2e2a97a88917b00e9e41f063d31b44bc85ad",
+          "message": "Run trunk fmt --all (#353)",
+          "timestamp": "2025-10-31T18:02:28+02:00",
+          "tree_id": "5eee1d95ad8699cc5da06ec28b9a33a1f072397e",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/81ae2e2a97a88917b00e9e41f063d31b44bc85ad"
+        },
+        "date": 1761927055272,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "fibonacci_1m/execution_only",
+            "value": 288864931,
+            "range": "± 2326387",
             "unit": "ns/iter"
           }
         ]
