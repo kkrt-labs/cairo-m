@@ -1,10 +1,10 @@
+use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 use num_traits::Zero;
 use stwo_prover::core::backend::simd::conversion::Pack;
-use stwo_prover::core::backend::simd::m31::{PackedM31, N_LANES};
+use stwo_prover::core::backend::simd::m31::{N_LANES, PackedM31};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::adapter::ExecutionBundle;
-use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 
 // Flattened PackedExecutionBundle that contains all the M31 components as separate PackedM31 vectors
 // This structure is optimized for SIMD operations

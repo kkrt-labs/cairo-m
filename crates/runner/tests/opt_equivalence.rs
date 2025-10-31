@@ -1,6 +1,6 @@
 use cairo_m_common::{CairoMValue, InputValue};
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_runner::{run_cairo_program, RunnerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
 
 fn run_with_options(
     source: &str,

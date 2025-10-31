@@ -9,9 +9,9 @@ use stwo_prover::core::fields::qm31::QM31;
 
 // Import test utilities
 use super::test_utils::*;
-use crate::memory::Memory;
-use crate::vm::{VmError, VM};
 use crate::RunnerOptions;
+use crate::memory::Memory;
+use crate::vm::{VM, VmError};
 
 #[test]
 fn test_program_from_vec_instructions() {

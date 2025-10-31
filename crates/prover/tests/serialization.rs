@@ -1,7 +1,7 @@
 use std::fs;
 
 use cairo_m_common::Program;
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 
 /// Compiles a Cairo-M file to a Program
 pub fn compile_cairo_file(cairo_file: &str) -> Result<Program, String> {

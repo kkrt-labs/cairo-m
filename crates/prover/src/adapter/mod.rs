@@ -12,11 +12,11 @@ use io::VmImportError;
 pub use memory::ExecutionBundle;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
-use tracing::{span, Level};
+use tracing::{Level, span};
 
 use crate::adapter::io::{MemoryEntryFileIter, TraceFileIter};
 use crate::adapter::memory::{DataAccess, ExecutionBundleIterator, Memory};
-use crate::adapter::merkle::{build_partial_merkle_tree, NodeData, TreeType};
+use crate::adapter::merkle::{NodeData, TreeType, build_partial_merkle_tree};
 use crate::poseidon2::{Poseidon2Hash, T};
 
 /// Hash input type for the merkle tree component (T M31 elements)

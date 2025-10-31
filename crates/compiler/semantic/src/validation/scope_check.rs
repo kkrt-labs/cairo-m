@@ -22,9 +22,9 @@
 
 use std::collections::HashSet;
 
-use crate::builtins::is_builtin_function_name;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 
+use crate::builtins::is_builtin_function_name;
 use crate::db::{Crate, SemanticDb};
 use crate::validation::Validator;
 use crate::{File, SemanticIndex};

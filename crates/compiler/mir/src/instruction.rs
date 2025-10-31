@@ -140,7 +140,7 @@ impl BinaryOp {
                 return Err(format!(
                     "Unsupported binary op {:?} for type {:?}",
                     op, operand_type
-                ))
+                ));
             }
         };
 

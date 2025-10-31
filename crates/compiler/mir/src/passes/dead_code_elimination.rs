@@ -1,9 +1,9 @@
+use std::collections::{HashMap, HashSet};
+
 use index_vec::IndexVec;
 
-use crate::{BasicBlockId, MirFunction, Terminator};
-
 use super::MirPass;
-use std::collections::{HashMap, HashSet};
+use crate::{BasicBlockId, MirFunction, Terminator};
 
 /// Dead Code Elimination Pass
 ///

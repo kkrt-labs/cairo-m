@@ -206,15 +206,15 @@ pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::air::{Component as ComponentVerifier, ComponentProver};
-pub use stwo_prover::core::backend::simd::m31::PackedM31;
-use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
+use stwo_prover::core::backend::simd::SimdBackend;
+pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::Instructions;
 use crate::components::Relations;

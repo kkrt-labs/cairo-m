@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use super::MirPass;
 use crate::{InstructionKind, MirFunction, Value, ValueId};
-use std::collections::HashMap;
 
 /// Copy Propagation Pass
 ///

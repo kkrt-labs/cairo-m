@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::trivia::{scan_comments, Comment};
+use crate::trivia::{Comment, scan_comments};
 
 /// Preserves comments by tracking their line positions in the original source
 #[derive(Debug)]

@@ -10,20 +10,18 @@ use std::sync::Arc;
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSeverity};
 use cairo_m_compiler_parser::parse_file;
 use cairo_m_compiler_parser::parser::{FunctionDef, Parameter, Spanned, Statement, TopLevelItem};
+use cairo_m_compiler_semantic::FileScopeId;
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::definition::{Definition, DefinitionKind};
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
-use cairo_m_compiler_semantic::FileScopeId;
 use rustc_hash::FxHashMap;
-
-use crate::db::MirDb;
-use crate::pipeline::{optimize_module, PipelineConfig};
-use crate::{MirFunction, MirModule, MirType, ValueId};
-use crate::{PrettyPrint, Value};
 
 use super::builder::MirBuilder;
 use super::stmt::LowerStmt;
+use crate::db::MirDb;
+use crate::pipeline::{PipelineConfig, optimize_module};
+use crate::{MirFunction, MirModule, MirType, PrettyPrint, Value, ValueId};
 
 /// The main entry point for MIR generation.
 ///

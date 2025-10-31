@@ -5,7 +5,7 @@
 
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
-use cairo_m_compiler_semantic::{module_semantic_index, SemanticIndex};
+use cairo_m_compiler_semantic::{SemanticIndex, module_semantic_index};
 
 use super::*;
 use crate::crate_from_program;

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::{fs, process};
 
 use cairo_m_compiler::{
-    compile_project, format_diagnostics_multi_file, CompilerError, CompilerOptions,
+    CompilerError, CompilerOptions, compile_project, format_diagnostics_multi_file,
 };
 use cairo_m_compiler_mir::pipeline::OptimizationLevel;
 use cairo_m_project::discover_project;

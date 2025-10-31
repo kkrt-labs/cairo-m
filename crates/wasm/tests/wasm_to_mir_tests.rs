@@ -1,11 +1,10 @@
 //! Main test runner for WASM to MIR conversion.
 
-use insta::assert_snapshot;
-
 // Use the loader from our src module
 use cairo_m_compiler_mir::{PassManager, PrettyPrint};
 use cairo_m_wasm::loader::BlocklessDagModule;
 use cairo_m_wasm::lowering::lower_program_to_mir;
+use insta::assert_snapshot;
 use wat::parse_file;
 
 /// A macro to define a WASM to MIR conversion test case

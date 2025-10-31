@@ -23,9 +23,10 @@
 //! preserving semantics and the prover’s expected read/write patterns per
 //! opcode.
 
-use crate::{CasmBuilder, CodegenError, CodegenResult, InstructionBuilder, Label};
 use cairo_m_common::Instruction as CasmInstr;
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CasmBuilder, CodegenError, CodegenResult, InstructionBuilder, Label};
 
 /// A transformation pass that runs over a function’s instruction list.
 pub trait CodegenPass {
@@ -289,7 +290,7 @@ fn rebuild_felt_fp_fp(orig: &CasmInstr, a: M31, b: M31, d: M31) -> CodegenResult
         _ => {
             return Err(CodegenError::UnsupportedInstruction(
                 "Expected felt fp+fp".into(),
-            ))
+            ));
         }
     })
 }
@@ -336,7 +337,7 @@ fn rebuild_u32_fp_fp(
         _ => {
             return Err(CodegenError::UnsupportedInstruction(
                 "Expected u32 fp+fp".into(),
-            ))
+            ));
         }
     })
 }
@@ -451,9 +452,11 @@ fn rewrite_u32_fp_fp(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_common::Instruction as CasmInstr;
+
+    use super::*;
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
 
     fn run_dedup(instrs: Vec<InstructionBuilder>) -> (CasmBuilder, Vec<InstructionBuilder>) {
         let mut b = CasmBuilder::new(FunctionLayout::new_for_test(), 0);

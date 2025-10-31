@@ -1,4 +1,4 @@
-use super::super::support::{extract_cursors, Fixture};
+use super::super::support::{Fixture, extract_cursors};
 use crate::hover::HoverTransformer;
 use crate::support::insta::test_transform;
 

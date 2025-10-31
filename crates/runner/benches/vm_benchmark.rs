@@ -2,9 +2,9 @@ use std::fs;
 use std::time::Duration;
 
 use cairo_m_common::InputValue;
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_runner::{run_cairo_program, RunnerOptions};
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
+use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 
 const BENCHMARK_DURATION_SECS: u64 = 30;
 const N_ITERATIONS: u32 = 1_000_000;

@@ -2,12 +2,11 @@
 //!
 //! PRINT instructions are no-op instructions that output values to stdout for debugging purposes.
 
-use crate::vm::state::VmState;
-use cairo_m_common::{Instruction, State};
+use cairo_m_common::{Instruction, State, extract_as};
 
 use super::InstructionExecutionError;
 use crate::memory::Memory;
-use cairo_m_common::extract_as;
+use crate::vm::state::VmState;
 
 /// Execute PrintM31 instruction.
 /// Reads a value from [fp + offset] and prints it as an M31 field element.

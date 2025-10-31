@@ -4,8 +4,9 @@
 //! including critical edge detection and splitting, predecessor/successor queries,
 //! and other CFG transformations.
 
-use crate::{BasicBlock, BasicBlockId, MirFunction, Terminator};
 use rustc_hash::FxHashMap;
+
+use crate::{BasicBlock, BasicBlockId, MirFunction, Terminator};
 
 /// Get all successor blocks of a given block
 pub(crate) fn get_successors(function: &MirFunction, block_id: BasicBlockId) -> Vec<BasicBlockId> {

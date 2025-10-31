@@ -1,10 +1,10 @@
-use super::DagToMirError;
-use cairo_m_compiler_mir::{
-    instruction::Instruction, instruction::InstructionKind, BasicBlock, BasicBlockId, MirFunction,
-    MirType, Value, ValueId,
-};
 use std::collections::HashMap;
+
+use cairo_m_compiler_mir::instruction::{Instruction, InstructionKind};
+use cairo_m_compiler_mir::{BasicBlock, BasicBlockId, MirFunction, MirType, Value, ValueId};
 use womir::loader::dag::ValueOrigin;
+
+use super::DagToMirError;
 
 /// Context for converting a single function DAG to MIR
 pub struct DagToMirContext {

@@ -2,10 +2,11 @@
 //!
 //! Centralizes STORE opcodes: immediates, single-slot and multi-slot copies, and u32 copies.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{Literal, Value};
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
 
 impl super::CasmBuilder {
     /// Store copy of an M31 from src to dest with an exact comment string.
@@ -227,14 +228,15 @@ impl super::CasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::builder::CasmBuilder;
-    use crate::layout::FunctionLayout;
-    use crate::test_support::{exec, Mem};
     use cairo_m_compiler_mir::{Literal, Value, ValueId};
     use proptest::prelude::*;
     use proptest::strategy::{Just, Strategy};
     use stwo_prover::core::fields::m31::M31;
+
+    use super::*;
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
+    use crate::test_support::{Mem, exec};
 
     // -------------------------
     // Test setup helpers

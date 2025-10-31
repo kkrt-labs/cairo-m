@@ -4,17 +4,16 @@
 //! from the AST to MIR values.
 
 use cairo_m_compiler_parser::parser::{BinaryOp, Expression, Spanned, UnaryOp};
-use cairo_m_compiler_semantic::builtins::{is_builtin_function_name, BuiltinFn};
+use cairo_m_compiler_semantic::builtins::{BuiltinFn, is_builtin_function_name};
 use cairo_m_compiler_semantic::definition::DefinitionKind;
 use cairo_m_compiler_semantic::place::FileScopeId;
 use cairo_m_compiler_semantic::semantic_index::{DefinitionId, ExpressionId};
 use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
+use super::builder::{CallResult, MirBuilder};
 use crate::instruction::CalleeSignature;
 use crate::{Instruction, MirType, Place, Value};
-
-use super::builder::{CallResult, MirBuilder};
 
 /// Trait for lowering expressions to MIR values
 pub trait LowerExpr<'a> {

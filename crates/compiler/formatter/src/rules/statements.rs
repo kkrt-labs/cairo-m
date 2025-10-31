@@ -1,8 +1,8 @@
 use cairo_m_compiler_parser::parser::{Pattern, Spanned, Statement};
 
+use crate::Format;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
-use crate::Format;
 
 // Implement Format for Spanned<Statement> to handle comments
 impl Format for Spanned<Statement> {

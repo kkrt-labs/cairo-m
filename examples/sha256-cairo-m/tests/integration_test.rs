@@ -1,10 +1,11 @@
+use std::convert::TryInto;
+
 use cairo_m_common::{CairoMValue, InputValue, Program};
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
-use cairo_m_runner::{run_cairo_program, RunnerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
+use cairo_m_runner::{RunnerOptions, run_cairo_program};
 use once_cell::sync::Lazy;
 use proptest::prelude::*;
 use sha2::{Digest, Sha256};
-use std::convert::TryInto;
 
 // ==================================================================================
 // COMPILED PROGRAM (SHARED ACROSS ALL TESTS)

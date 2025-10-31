@@ -1,5 +1,6 @@
-use super::parser::{extract_tests, MdTest};
 use std::path::Path;
+
+use super::parser::{MdTest, extract_tests};
 
 type ProcessorType<'a> = Box<dyn Fn(&str, &str) -> Result<String, String> + 'a>;
 

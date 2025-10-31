@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use cairo_m_compiler_parser::{ParserDatabaseImpl, SourceFile};
-    use cairo_m_formatter::{format_source_file, FormatterConfig};
+    use cairo_m_formatter::{FormatterConfig, format_source_file};
 
     fn format_code(input: &str) -> String {
         let db = ParserDatabaseImpl::default();

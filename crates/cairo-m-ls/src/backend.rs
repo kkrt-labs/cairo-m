@@ -5,11 +5,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use cairo_m_compiler_parser::{SourceFile, Upcast};
+use cairo_m_compiler_semantic::DefinitionKind;
 use cairo_m_compiler_semantic::db::module_semantic_index;
 use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::definition_semantic_type;
 use cairo_m_compiler_semantic::types::TypeId;
-use cairo_m_compiler_semantic::DefinitionKind;
 use chumsky::span::Span; // for SimpleSpan::new
 use dashmap::DashMap;
 use salsa::Setter;

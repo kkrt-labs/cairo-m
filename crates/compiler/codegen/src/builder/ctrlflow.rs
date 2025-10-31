@@ -1,9 +1,10 @@
 //! Control-flow lowering templates for JNZ/JMP sequencing and short-circuit.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{Literal, Value};
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
 
 impl super::CasmBuilder {
     /// Generates an unconditional jump to a label.
@@ -155,7 +156,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Unsupported NOT source".into(),
-                ))
+                ));
             }
         }
         self.store_immediate(1, dest_off, format!("[fp + {dest_off}] = 1"));
@@ -207,10 +208,12 @@ impl super::CasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_common::Instruction as CasmInstr;
     use cairo_m_compiler_mir::{Value, ValueId};
     use stwo_prover::core::fields::m31::M31;
+
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
 
     // =========================================================================
     // Test Setup Helpers
@@ -312,7 +315,7 @@ mod tests {
             .branch_if_nonzero_to(&Value::operand(a), "label", true)
             .unwrap();
         assert_eq!(result, None); // Dynamic value
-                                  // Should generate conditional jump (after the store_imm)
+        // Should generate conditional jump (after the store_imm)
         assert_eq!(
             b.instructions[1].inner_instr(),
             &CasmInstr::JnzFpImm {

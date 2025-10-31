@@ -13,11 +13,12 @@ pub trait MirDb: SemanticDb + Upcast<dyn SemanticDb> {}
 
 #[cfg(test)]
 pub mod tests {
-    use crate::generate_mir;
-    use cairo_m_compiler_semantic::db::Crate;
     use std::path::PathBuf;
 
+    use cairo_m_compiler_semantic::db::Crate;
+
     use super::*;
+    use crate::generate_mir;
 
     /// Test database that implements all required traits for MIR generation
     #[salsa::db]

@@ -1,21 +1,18 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::process::Command;
-
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use cairo_m_common::Program;
+use cairo_m_common::abi_codec::CairoMValue;
+use cairo_m_common::program::AbiType;
 /// These tests compare the output of the compiled cairo-m with result from the womir interpreter
 use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_mir::PassManager;
 use cairo_m_wasm::loader::BlocklessDagModule;
 use cairo_m_wasm::lowering::lower_program_to_mir;
 use wasmtime::{Engine, Module};
-
-use cairo_m_common::abi_codec::CairoMValue;
-use cairo_m_common::program::AbiType;
 
 fn hash_bytes(bytes: &[u8]) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();

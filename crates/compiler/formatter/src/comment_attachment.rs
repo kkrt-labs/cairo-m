@@ -4,7 +4,7 @@ use cairo_m_compiler_parser::parser::{
 use chumsky::span::SimpleSpan;
 
 use crate::trivia::{
-    determine_comment_position, scan_comments, Comment, CommentBuckets, CommentPosition,
+    Comment, CommentBuckets, CommentPosition, determine_comment_position, scan_comments,
 };
 
 /// Trait for AST nodes that have spans

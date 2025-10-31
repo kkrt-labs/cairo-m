@@ -58,8 +58,9 @@ pub const fn canonicalize_commutative_u32(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cairo_m_compiler_mir::BinaryOp;
+
+    use super::*;
 
     #[test]
     fn commutative_felt_immediate_right() {

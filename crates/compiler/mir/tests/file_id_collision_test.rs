@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use cairo_m_compiler_mir::{generate_mir, MirDb};
+use cairo_m_compiler_mir::{MirDb, generate_mir};
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::db::Crate;
 use cairo_m_compiler_semantic::{File, SemanticDb};

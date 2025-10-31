@@ -34,7 +34,7 @@ pub mod test_support;
 // Re-export main components
 pub use backend::{compile_module, validate_for_casm};
 pub use builder::CasmBuilder;
-pub use db::{compile_project as db_compile_project, CodegenDb};
+pub use db::{CodegenDb, compile_project as db_compile_project};
 pub use generator::CodeGenerator;
 pub use layout::FunctionLayout;
 

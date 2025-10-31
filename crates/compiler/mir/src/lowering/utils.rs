@@ -6,10 +6,9 @@
 use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
+use super::builder::MirBuilder;
 use crate::instruction::CalleeSignature;
 use crate::{FunctionId, Instruction, MirType, Value, ValueId};
-
-use super::builder::MirBuilder;
 
 impl<'a, 'db> MirBuilder<'a, 'db> {
     // Note: get_expression_type has been removed - use get_expr_type in builder.rs instead (has caching)

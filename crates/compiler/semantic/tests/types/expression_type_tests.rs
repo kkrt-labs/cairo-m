@@ -339,8 +339,8 @@ fn test_unary_operation_type_errors() {
     let semantic_index = get_main_semantic_index(&db, crate_id);
 
     // Run type validation
-    use cairo_m_compiler_semantic::validation::type_validator::TypeValidator;
     use cairo_m_compiler_semantic::validation::Validator;
+    use cairo_m_compiler_semantic::validation::type_validator::TypeValidator;
 
     let validator = TypeValidator;
     let sink = cairo_m_compiler_diagnostics::VecSink::new();

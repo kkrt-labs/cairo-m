@@ -5,10 +5,11 @@
 mod common;
 
 use cairo_m_compiler_codegen::CodeGenerator;
-use cairo_m_compiler_mir::{generate_mir_with_config, PipelineConfig};
+use cairo_m_compiler_mir::{PipelineConfig, generate_mir_with_config};
 use cairo_m_compiler_semantic::db::project_validate_semantics;
-use cairo_m_test_utils::{mdtest::MdTestRunner, mdtest_path};
-use common::{create_test_crate, TestDatabase};
+use cairo_m_test_utils::mdtest::MdTestRunner;
+use cairo_m_test_utils::mdtest_path;
+use common::{TestDatabase, create_test_crate};
 
 #[test]
 fn test_mdtest_codegen_snapshots() {

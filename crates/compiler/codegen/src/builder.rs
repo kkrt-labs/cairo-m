@@ -396,7 +396,7 @@ impl CasmBuilder {
                     _ => {
                         return Err(CodegenError::InvalidMir(
                             "Cast source must be an operand".to_string(),
-                        ))
+                        ));
                     }
                 };
 
@@ -482,9 +482,10 @@ impl CasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use cairo_m_compiler_mir::instruction::CalleeSignature;
     use cairo_m_compiler_mir::MirType;
+    use cairo_m_compiler_mir::instruction::CalleeSignature;
+
+    use super::*;
 
     #[test]
     fn test_pass_arguments_optimization_single_slot() {

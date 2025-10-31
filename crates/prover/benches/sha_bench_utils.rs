@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use cairo_m_common::{InputValue, Program};
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 
 /// Compile the SHA-256 Cairo-M example program.
 pub fn compile_sha256() -> Program {

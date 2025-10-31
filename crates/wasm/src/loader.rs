@@ -3,9 +3,10 @@
 //! This module provides functionality for loading the WOMIR BlockLess DAG representation of a WASM module.
 
 use std::fmt::{Debug, Display};
+
 use thiserror::Error;
 use womir::generic_ir::GenericIrSetting;
-use womir::loader::{load_wasm, FunctionProcessingStage, PartiallyParsedProgram};
+use womir::loader::{FunctionProcessingStage, PartiallyParsedProgram, load_wasm};
 
 #[derive(Error, Debug)]
 pub enum WasmLoadError {
@@ -32,12 +33,19 @@ impl<'a> BlocklessDagModule<'a> {
         pp.functions = original_functions
             .into_iter()
             .enumerate()
-            .map(|(i, mut stage)| loop {
-                match stage {
-                    FunctionProcessingStage::BlocklessDag(_) => break Ok(stage),
-                    other => {
-                        stage =
-                            other.advance_stage(&pp.s, &pp.m, i as u32, &mut label_gen, None)?;
+            .map(|(i, mut stage)| {
+                loop {
+                    match stage {
+                        FunctionProcessingStage::BlocklessDag(_) => break Ok(stage),
+                        other => {
+                            stage = other.advance_stage(
+                                &pp.s,
+                                &pp.m,
+                                i as u32,
+                                &mut label_gen,
+                                None,
+                            )?;
+                        }
                     }
                 }
             })
@@ -107,8 +115,9 @@ impl<'a> Debug for BlocklessDagModule<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use wat::parse_file;
+
+    use super::*;
 
     #[test]
     fn test_loader_basic() {

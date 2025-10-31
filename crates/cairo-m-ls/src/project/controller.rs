@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use cairo_m_project::{discover_project, find_project_manifest, Project};
+use cairo_m_project::{Project, discover_project, find_project_manifest};
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -232,7 +232,7 @@ impl ProjectController {
                                         cached_entry.last_accessed = Instant::now();
                                     }
                                 } // cache dropped here
-                                  // Use cached file list and convert project to crate info
+                                // Use cached file list and convert project to crate info
                                 let crate_info = CrateInfo {
                                     name: entry.project.name,
                                     root: entry.project.root_directory,

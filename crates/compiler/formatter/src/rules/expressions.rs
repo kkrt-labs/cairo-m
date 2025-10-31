@@ -1,9 +1,9 @@
 use cairo_m_compiler_parser::parser::{BinaryOp, Expression, UnaryOp};
 
+use crate::Format;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
 use crate::utils::*;
-use crate::Format;
 
 impl Format for Expression {
     fn format(&self, ctx: &mut FormatterCtx) -> Doc {
