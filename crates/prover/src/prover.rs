@@ -63,6 +63,7 @@ where
         CommitmentSchemeProver::<SimdBackend, MC>::new(pcs_config, &twiddles);
 
     let public_data = PublicData::new(input);
+    public_data.mix_into(channel);
 
     // Preprocessed traces
     info!("preprocessed trace");
