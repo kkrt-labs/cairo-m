@@ -1,9 +1,9 @@
 use cairo_m_compiler_parser::parser::{NamedType, TypeExpr};
 
+use crate::Format;
 use crate::context::FormatterCtx;
 use crate::doc::Doc;
 use crate::utils::*;
-use crate::Format;
 
 impl Format for TypeExpr {
     fn format(&self, ctx: &mut FormatterCtx) -> Doc {

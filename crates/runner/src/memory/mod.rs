@@ -2,8 +2,8 @@ use std::cell::RefCell;
 
 use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, OPCODE_SIZE_TABLE};
 use cairo_m_common::state::MemoryEntry;
-use num_traits::identities::Zero;
 use num_traits::One;
+use num_traits::identities::Zero;
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -181,7 +181,7 @@ impl Memory {
             .copied()
             .or_else(|| self.heap.get(heap_address).copied())
             .unwrap_or_else(QM31::zero);
-        if !value.1.is_zero() || !value.0 .1.is_zero() {
+        if !value.1.is_zero() || !value.0.1.is_zero() {
             return Err(MemoryError::BaseFieldProjectionFailed { addr, value });
         }
         Ok(value)
@@ -205,7 +205,7 @@ impl Memory {
     pub fn get_data(&self, addr: M31) -> Result<M31, MemoryError> {
         let value = self.get_qm31_no_trace(addr)?;
         self.trace.borrow_mut().push(MemoryEntry { addr, value });
-        Ok(value.0 .0)
+        Ok(value.0.0)
     }
 
     /// Retrieves a value from memory and projects it to a base field element `M31` without recording a trace entry.
@@ -223,7 +223,7 @@ impl Memory {
     /// cannot be projected to a base field element.
     pub fn get_data_no_trace(&self, addr: M31) -> Result<M31, MemoryError> {
         let value = self.get_qm31_no_trace(addr)?;
-        Ok(value.0 .0)
+        Ok(value.0.0)
     }
 
     /// Inserts a `QM31` value at a specified validated memory address.
@@ -356,10 +356,10 @@ impl Memory {
             .flat_map(|entry| {
                 [
                     entry.addr.0,
-                    entry.value.0 .0 .0,
-                    entry.value.0 .1 .0,
-                    entry.value.1 .0 .0,
-                    entry.value.1 .1 .0,
+                    entry.value.0.0.0,
+                    entry.value.0.1.0,
+                    entry.value.1.0.0,
+                    entry.value.1.1.0,
                 ]
             })
             .flat_map(u32::to_le_bytes)
@@ -548,7 +548,7 @@ mod tests {
         let value = QM31::from_m31_array([123, 0, 0, 0].map(Into::into));
 
         memory.insert(addr, value).unwrap();
-        assert_eq!(memory.get_data(addr).unwrap(), value.0 .0);
+        assert_eq!(memory.get_data(addr).unwrap(), value.0.0);
         assert_eq!(memory.locals.len(), 43);
         assert_eq!(memory.trace.borrow().len(), 2);
         assert_eq!(memory.trace.borrow()[0], MemoryEntry { addr, value });

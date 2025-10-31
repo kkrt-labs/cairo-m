@@ -14,21 +14,19 @@
 use std::collections::HashSet;
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
-use cairo_m_compiler_parser::parser::{
-    parse_file, BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem,
-    TypeExpr, UnaryOp,
-};
 use cairo_m_compiler_parser::ParsedModule;
+use cairo_m_compiler_parser::parser::{
+    BinaryOp, Expression, FunctionDef, Pattern, Spanned, Statement, TopLevelItem, TypeExpr,
+    UnaryOp, parse_file,
+};
 use chumsky::span::SimpleSpan;
 
-use crate::builtins::{is_builtin_function_name, BuiltinFn};
+use crate::builtins::{BuiltinFn, is_builtin_function_name};
 use crate::db::{Crate, SemanticDb};
-use crate::semantic_index::DefinitionId as SemDefinitionId;
-use crate::semantic_index::ExpressionInfo;
-use crate::type_resolution::definition_semantic_type as sem_definition_type;
+use crate::semantic_index::{DefinitionId as SemDefinitionId, ExpressionInfo};
 use crate::type_resolution::{
-    are_types_compatible, expression_semantic_type, get_binary_op_signatures,
-    get_unary_op_signatures, resolve_ast_type,
+    are_types_compatible, definition_semantic_type as sem_definition_type,
+    expression_semantic_type, get_binary_op_signatures, get_unary_op_signatures, resolve_ast_type,
 };
 use crate::types::{TypeData, TypeId};
 use crate::validation::Validator;

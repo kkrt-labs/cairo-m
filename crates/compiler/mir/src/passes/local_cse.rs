@@ -1,7 +1,8 @@
-use super::MirPass;
-use crate::{BasicBlockId, BinaryOp, InstructionKind, MirFunction, MirType, Value, ValueId};
 use cairo_m_compiler_parser::parser::UnaryOp;
 use rustc_hash::FxHashMap;
+
+use super::MirPass;
+use crate::{BasicBlockId, BinaryOp, InstructionKind, MirFunction, MirType, Value, ValueId};
 
 /// A key representing a pure expression for memoization within a basic block
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -562,14 +563,18 @@ mod tests {
         let block2_ref = function.get_basic_block(block2).unwrap();
 
         // Each block should still have its computation
-        assert!(block1_ref
-            .instructions
-            .iter()
-            .any(|i| matches!(i.kind, InstructionKind::BinaryOp { .. })));
-        assert!(block2_ref
-            .instructions
-            .iter()
-            .any(|i| matches!(i.kind, InstructionKind::BinaryOp { .. })));
+        assert!(
+            block1_ref
+                .instructions
+                .iter()
+                .any(|i| matches!(i.kind, InstructionKind::BinaryOp { .. }))
+        );
+        assert!(
+            block2_ref
+                .instructions
+                .iter()
+                .any(|i| matches!(i.kind, InstructionKind::BinaryOp { .. }))
+        );
     }
 
     #[test]

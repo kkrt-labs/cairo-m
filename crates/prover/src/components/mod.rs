@@ -9,19 +9,19 @@ pub use stwo_air_utils::trace::component_trace::ComponentTrace;
 pub use stwo_air_utils_derive::{IterMut, ParIterMut, Uninitialized};
 use stwo_constraint_framework::TraceLocationAllocator;
 use stwo_prover::core::air::{Component as ComponentVerifier, ComponentProver};
-pub use stwo_prover::core::backend::simd::m31::PackedM31;
-use stwo_prover::core::backend::simd::SimdBackend;
 use stwo_prover::core::backend::BackendForChannel;
+use stwo_prover::core::backend::simd::SimdBackend;
+pub use stwo_prover::core::backend::simd::m31::PackedM31;
 use stwo_prover::core::channel::{Channel, MerkleChannel};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::SecureField;
 use stwo_prover::core::pcs::TreeVec;
-use stwo_prover::core::poly::circle::CircleEvaluation;
 use stwo_prover::core::poly::BitReversedOrder;
+use stwo_prover::core::poly::circle::CircleEvaluation;
 
 use crate::adapter::ProverInput;
 use crate::preprocessed::bitwise;
-use crate::preprocessed::range_check::{range_check_16, range_check_20, range_check_8};
+use crate::preprocessed::range_check::{range_check_8, range_check_16, range_check_20};
 use crate::public_data::PublicData;
 use crate::relations;
 

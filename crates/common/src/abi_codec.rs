@@ -193,7 +193,7 @@ pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
                         return Err(AbiCodecError::ParseError(format!(
                             "Expected ',' or '{}' at position {} in {}",
                             close as char, self.i, context
-                        )))
+                        )));
                     }
                 }
             }
@@ -262,8 +262,9 @@ pub fn parse_cli_arg(s: &str) -> Result<InputValue, AbiCodecError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json as json;
+
+    use super::*;
 
     // ==================== Unit Tests ====================
     // Tests for specific edge cases and validation logic not covered by proptest
@@ -352,9 +353,8 @@ mod tests {
     // Tests for complex scenarios and JSON serialization
 
     mod integration {
-        use crate::program::AbiType;
-
         use super::*;
+        use crate::program::AbiType;
 
         #[test]
         fn abi_type_json_roundtrip() {

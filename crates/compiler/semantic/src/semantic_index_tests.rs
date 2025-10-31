@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use cairo_m_compiler_parser::SourceFile;
 
 use super::*;
-use crate::db::tests::{test_db, TestDb};
-use crate::{module_semantic_index, SemanticDb};
+use crate::db::tests::{TestDb, test_db};
+use crate::{SemanticDb, module_semantic_index};
 
 struct TestCase {
     db: TestDb,
@@ -83,12 +83,16 @@ fn test_function_with_parameters() {
         .definitions_in_scope(func_scope)
         .map(|(_, d)| (d.name.clone(), &d.kind))
         .collect();
-    assert!(names
-        .iter()
-        .any(|(n, k)| n == "a" && matches!(k, crate::definition::DefinitionKind::Parameter(_))));
-    assert!(names
-        .iter()
-        .any(|(n, k)| n == "b" && matches!(k, crate::definition::DefinitionKind::Parameter(_))));
+    assert!(
+        names
+            .iter()
+            .any(|(n, k)| n == "a" && matches!(k, crate::definition::DefinitionKind::Parameter(_)))
+    );
+    assert!(
+        names
+            .iter()
+            .any(|(n, k)| n == "b" && matches!(k, crate::definition::DefinitionKind::Parameter(_)))
+    );
 }
 
 #[test]

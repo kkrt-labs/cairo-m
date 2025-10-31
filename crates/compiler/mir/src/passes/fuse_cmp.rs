@@ -1,8 +1,8 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
 
+use super::MirPass;
+use super::const_eval::ConstEvaluator;
 use crate::{BinaryOp, InstructionKind, MirFunction, Terminator, Value};
-
-use super::{const_eval::ConstEvaluator, MirPass};
 
 /// Fuse Compare and Branch Pass
 ///

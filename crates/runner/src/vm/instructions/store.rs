@@ -2,7 +2,7 @@
 //!
 //! STORE instructions are used to store values in the memory.
 
-use cairo_m_common::{Instruction, State};
+use cairo_m_common::{Instruction, State, extract_as};
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::QM31;
@@ -10,7 +10,6 @@ use stwo_prover::core::fields::qm31::QM31;
 use super::InstructionExecutionError;
 use crate::memory::{Memory, MemoryError, U32_LIMB_BITS, U32_LIMB_MASK};
 use crate::vm::state::VmState;
-use cairo_m_common::extract_as;
 
 /// Execute a binary op between two U32 operands `[fp + src0_off]` and `[fp + src1_off]`.
 fn exec_u32_bin_op_fp_fp<F>(

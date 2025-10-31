@@ -1,4 +1,4 @@
-use super::support::{client_capabilities, start_mock_client, Fixture};
+use super::support::{Fixture, client_capabilities, start_mock_client};
 
 #[tokio::test]
 async fn test_simple_diagnostics__() {

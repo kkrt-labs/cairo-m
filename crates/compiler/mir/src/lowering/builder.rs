@@ -14,7 +14,7 @@ use cairo_m_compiler_semantic::type_resolution::{
     definition_semantic_type, expression_semantic_type, resolve_ast_type,
 };
 use cairo_m_compiler_semantic::types::TypeData;
-use cairo_m_compiler_semantic::{module_semantic_index, File, SemanticDb};
+use cairo_m_compiler_semantic::{File, SemanticDb, module_semantic_index};
 use rustc_hash::FxHashMap;
 
 use crate::{

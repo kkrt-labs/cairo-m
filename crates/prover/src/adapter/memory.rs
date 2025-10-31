@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 
-use cairo_m_common::instruction::{Instruction, INSTRUCTION_MAX_SIZE};
-use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use cairo_m_common::State as VmRegisters;
+use cairo_m_common::instruction::{INSTRUCTION_MAX_SIZE, Instruction};
+use cairo_m_common::state::MemoryEntry as RunnerMemoryEntry;
 use num_traits::{One, Zero};
 use smallvec::SmallVec;
 use stwo_prover::core::fields::m31::M31;
@@ -294,7 +294,7 @@ where
         let instruction_arg = self.memory.push(instruction_entry);
 
         // Step 2: Parse opcode from first M31 to determine instruction size
-        let opcode_m31 = instruction_entry.value.0 .0;
+        let opcode_m31 = instruction_entry.value.0.0;
         let opcode_value = opcode_m31.0;
 
         // Get instruction size from opcode
@@ -332,10 +332,10 @@ where
 
             // Extract additional M31 limbs from the second QM31
             if instruction_size_m31 > 4 {
-                instruction_values.push(entry.value.0 .0);
+                instruction_values.push(entry.value.0.0);
             }
             if instruction_size_m31 > 5 {
-                instruction_values.push(entry.value.0 .1);
+                instruction_values.push(entry.value.0.1);
             }
         }
 
@@ -377,8 +377,8 @@ where
             let data_access: DataAccess = DataAccess {
                 address: mem_arg.address,
                 prev_clock: mem_arg.prev_clock,
-                prev_value: mem_arg.prev_val.0 .0,
-                value: mem_arg.value.0 .0,
+                prev_value: mem_arg.prev_val.0.0,
+                value: mem_arg.value.0.0,
             };
 
             self.data_accesses.push(data_access);

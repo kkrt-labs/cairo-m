@@ -3,13 +3,14 @@
 //! This module defines the function-level MIR representation, including
 //! the Control Flow Graph (CFG) of basic blocks.
 
-use index_vec::IndexVec;
-use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::HashSet;
 
+use index_vec::IndexVec;
+use rustc_hash::{FxHashMap, FxHashSet};
+
 use crate::{
-    indent_str, BasicBlock, BasicBlockId, Instruction, MirType, PrettyPrint, Terminator, Value,
-    ValueId,
+    BasicBlock, BasicBlockId, Instruction, MirType, PrettyPrint, Terminator, Value, ValueId,
+    indent_str,
 };
 
 /// A simple definition identifier for MIR that doesn't depend on Salsa lifetimes
@@ -255,7 +256,9 @@ impl MirFunction {
                         if block.sealed && sources.len() != block.preds.len() {
                             return Err(format!(
                                 "Block {:?}: Sealed block has {} predecessors but phi has {} operands",
-                                block_id, block.preds.len(), sources.len()
+                                block_id,
+                                block.preds.len(),
+                                sources.len()
                             ));
                         }
 

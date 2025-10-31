@@ -7,7 +7,7 @@ use std::fs;
 use std::path::Path;
 
 use cairo_m_common::{InputValue, Program};
-use cairo_m_compiler::{compile_cairo, CompilerOptions};
+use cairo_m_compiler::{CompilerOptions, compile_cairo};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_runner::run_cairo_program;

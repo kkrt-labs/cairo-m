@@ -28,7 +28,7 @@ use std::collections::HashMap;
 use cairo_m_compiler_diagnostics::DiagnosticCollection;
 use tracing::debug;
 
-use crate::db::{module_all_diagnostics, Crate, SemanticDb};
+use crate::db::{Crate, SemanticDb, module_all_diagnostics};
 
 /// Tracks the revision state for delta-based diagnostics computation
 #[derive(Debug, Clone)]

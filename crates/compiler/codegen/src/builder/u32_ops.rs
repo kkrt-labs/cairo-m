@@ -6,10 +6,11 @@
 //!   trailing comment `/* imm = 0x........ */`.
 //! - For `Sub` with an immediate, we bias using two's complement and note the
 //!   original vs encoded value in the comment.
-use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
 
 macro_rules! u32_fp_fp_op {
     ($name:ident, $instr:ident) => {
@@ -131,7 +132,7 @@ impl super::CasmBuilder {
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(format!(
                             "Unsupported op: {op}"
-                        )))
+                        )));
                     }
                 }
             }
@@ -215,7 +216,11 @@ impl super::CasmBuilder {
         src1_off: i32,
         dest_off: i32,
     ) -> CodegenResult<()> {
-        let comment = format!("[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])", src0_off + 1, src1_off + 1);
+        let comment = format!(
+            "[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])",
+            src0_off + 1,
+            src1_off + 1
+        );
         let instr: InstructionBuilder = match op {
             BinaryOp::U32Eq => InstructionBuilder::from(CasmInstr::U32StoreEqFpFp {
                 src0_off: M31::from(src0_off),
@@ -230,7 +235,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Unsupported u32 cmp op".into(),
-                ))
+                ));
             }
         }
         .with_comment(comment);
@@ -245,7 +250,12 @@ impl super::CasmBuilder {
         src1_off: i32,
         dest_off: i32,
     ) -> CodegenResult<()> {
-        let comment = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])", dest_off + 1, src0_off + 1, src1_off + 1);
+        let comment = format!(
+            "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32([fp + {src1_off}], [fp + {}])",
+            dest_off + 1,
+            src0_off + 1,
+            src1_off + 1
+        );
         match op {
             BinaryOp::U32Add => self.u32_add_fp_fp(src0_off, src1_off, dest_off, comment),
             BinaryOp::U32Sub => self.u32_sub_fp_fp(src0_off, src1_off, dest_off, comment),
@@ -258,7 +268,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Unsupported u32 fp-fp op".into(),
-                ))
+                ));
             }
         };
         Ok(())
@@ -275,10 +285,17 @@ impl super::CasmBuilder {
         let is_cmp_op = matches!(op, BinaryOp::U32Eq | BinaryOp::U32Less);
         let imm_hex = format!("{:#010x}", imm);
         let comment = if is_cmp_op {
-            let base = format!("[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32({imm_lo}, {imm_hi})", src0_off + 1);
+            let base = format!(
+                "[fp + {dest_off}] = u32([fp + {src0_off}], [fp + {}]) {op} u32({imm_lo}, {imm_hi})",
+                src0_off + 1
+            );
             format!("{base} /* imm = {imm_hex} */")
         } else {
-            let base = format!("u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32({imm_lo}, {imm_hi})", dest_off + 1, src0_off + 1);
+            let base = format!(
+                "u32([fp + {dest_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) {op} u32({imm_lo}, {imm_hi})",
+                dest_off + 1,
+                src0_off + 1
+            );
             format!("{base} /* imm = {imm_hex} */")
         };
         match op {
@@ -295,7 +312,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Unsupported u32 fp-imm op".into(),
-                ))
+                ));
             }
         }
         Ok(())
@@ -362,7 +379,13 @@ impl super::CasmBuilder {
         dst_off: i32,
     ) -> CodegenResult<()> {
         let dst_rem_off = self.layout_mut().reserve_stack(2);
-        let comment = format!("u32([fp + {dst_off}], [fp + {}]); u32([fp + {dst_rem_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) / u32([fp + {src1_off}], [fp + {}])", dst_off + 1, dst_rem_off + 1, src0_off + 1, src1_off + 1);
+        let comment = format!(
+            "u32([fp + {dst_off}], [fp + {}]); u32([fp + {dst_rem_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) / u32([fp + {src1_off}], [fp + {}])",
+            dst_off + 1,
+            dst_rem_off + 1,
+            src0_off + 1,
+            src1_off + 1
+        );
         let instr = InstructionBuilder::from(CasmInstr::U32StoreDivRemFpFp {
             src0_off: M31::from(src0_off),
             src1_off: M31::from(src1_off),
@@ -420,7 +443,13 @@ impl super::CasmBuilder {
         // Use U32StoreAddFpImm with two's complement of imm
         let neg = twos_complement_u32(imm);
         let (low, high) = super::split_u32_value(neg);
-        let comment = format!("u32([fp + {dst_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) U32Sub u32({low}, {high}) (two's complement of {imm} -> {neg})", dst_off + 1, src0_off + 1, imm = imm, neg = neg);
+        let comment = format!(
+            "u32([fp + {dst_off}], [fp + {}]) = u32([fp + {src0_off}], [fp + {}]) U32Sub u32({low}, {high}) (two's complement of {imm} -> {neg})",
+            dst_off + 1,
+            src0_off + 1,
+            imm = imm,
+            neg = neg
+        );
         let instr = InstructionBuilder::from(CasmInstr::U32StoreAddFpImm {
             src_off: M31::from(src0_off),
             imm_lo: M31::from(low),
@@ -445,11 +474,12 @@ pub(super) const fn twos_complement_u32(imm: u32) -> u32 {
 //   consistent with hardware-like u32 arithmetic.
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_support::{exec, ExecutionError, Mem};
-    use crate::{builder::CasmBuilder, layout::FunctionLayout};
-
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
+
+    use super::*;
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
+    use crate::test_support::{ExecutionError, Mem, exec};
 
     // Helper to create a builder with two u32 operands
     fn mk_builder_two_ops() -> (CasmBuilder, ValueId, ValueId) {

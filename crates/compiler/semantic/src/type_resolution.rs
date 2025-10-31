@@ -12,17 +12,17 @@
 //! - `function_semantic_signature`: Resolves function signature information
 //! - `are_types_compatible`: Checks type compatibility
 
-use crate::builtins::{self, BuiltinFn};
 use cairo_m_compiler_parser::parser::{
     BinaryOp, Expression, NamedType, Spanned, TypeExpr as AstTypeExpr, UnaryOp,
 };
 
-use crate::db::{module_name_for_file, module_semantic_index, Crate, SemanticDb};
+use crate::File;
+use crate::builtins::{self, BuiltinFn};
+use crate::db::{Crate, SemanticDb, module_name_for_file, module_semantic_index};
 use crate::definition::{DefinitionKind, FunctionDefRef, ParameterDefRef, StructDefRef};
 use crate::place::FileScopeId;
 use crate::semantic_index::{DefinitionId, ExpressionId, Origin};
 use crate::types::{FunctionSignatureId, StructTypeId, TypeData, TypeId};
-use crate::File;
 
 /// Resolves an AST type expression to a `TypeId`
 #[salsa::tracked]

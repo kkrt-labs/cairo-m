@@ -7,7 +7,7 @@ mod array_load_store_lowering_tests {
     use cairo_m_compiler_semantic::db::Crate;
     use cairo_m_compiler_semantic::{File, SemanticDb};
 
-    use crate::{generate_mir, MirDb, PrettyPrint};
+    use crate::{MirDb, PrettyPrint, generate_mir};
 
     #[salsa::db]
     #[derive(Clone, Default)]

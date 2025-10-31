@@ -10,9 +10,9 @@ use cairo_m_compiler_parser::parser::{
 };
 use chumsky::span::SimpleSpan;
 
+use crate::File;
 use crate::place::FileScopeId;
 use crate::semantic_index::ExpressionId;
-use crate::File;
 
 /// A definition that links a semantic place to its AST node
 ///

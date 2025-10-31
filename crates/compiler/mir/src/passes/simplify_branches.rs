@@ -3,7 +3,8 @@
 //! This pass simplifies control flow by folding conditional branches with constant conditions
 //! and reducing complex branch patterns exposed by earlier optimization passes.
 
-use super::{const_eval::ConstEvaluator, MirPass};
+use super::MirPass;
+use super::const_eval::ConstEvaluator;
 use crate::{BasicBlockId, Literal, MirFunction, Terminator, Value};
 
 /// SimplifyBranches Pass

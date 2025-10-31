@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Context;
-use cairo_m_common::{parse_cli_arg, InputValue, Program};
+use cairo_m_common::{InputValue, Program, parse_cli_arg};
 use cairo_m_prover::adapter::import_from_runner_output;
 use cairo_m_prover::prover::prove_cairo_m;
 use cairo_m_prover::verifier::verify_cairo_m;

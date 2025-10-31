@@ -1,12 +1,12 @@
 use cairo_m_compiler_parser::SourceFile;
-use cairo_m_formatter::{format_source_file, FormatterConfig};
+use cairo_m_formatter::{FormatterConfig, format_source_file};
 use cairo_m_ls::db::AnalysisDatabase;
 use lsp_types::{
     DocumentFormattingParams, FormattingOptions, TextDocumentIdentifier, TextEdit,
     WorkDoneProgressParams,
 };
 
-use super::support::{client_capabilities, start_mock_client, Fixture};
+use super::support::{Fixture, client_capabilities, start_mock_client};
 
 #[tokio::test]
 async fn test_format_document() {

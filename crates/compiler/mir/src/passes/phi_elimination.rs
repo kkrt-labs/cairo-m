@@ -15,11 +15,12 @@
 //! - Sreedhar et al. (1999): "Translating Out of Static Single Assignment Form"
 //! - Cooper & Torczon: "Engineering a Compiler" (2nd Ed), Section 9.4
 
-use rustc_hash::FxHashMap;
 use std::collections::{HashSet, VecDeque};
 
+use rustc_hash::FxHashMap;
+
 use crate::{
-    cfg, BasicBlockId, Instruction, InstructionKind, MirFunction, MirPass, Value, ValueId,
+    BasicBlockId, Instruction, InstructionKind, MirFunction, MirPass, Value, ValueId, cfg,
 };
 
 /// Statistics for phi elimination

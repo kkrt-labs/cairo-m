@@ -12,7 +12,7 @@ use cairo_m_compiler_semantic::type_resolution::{
 };
 use cairo_m_compiler_semantic::types::{TypeData, TypeId};
 use cairo_m_compiler_semantic::validation::validator::Validator;
-use cairo_m_compiler_semantic::{module_semantic_index, validation, File, FileScopeId, SemanticDb};
+use cairo_m_compiler_semantic::{File, FileScopeId, SemanticDb, module_semantic_index, validation};
 
 use crate::common::*;
 use crate::named_type;

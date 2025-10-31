@@ -5,8 +5,7 @@ mod tests {
     use crate::instruction::Instruction;
     use crate::mir_types::MirType;
     use crate::value::Value;
-    use crate::MirFunction;
-    use crate::PrettyPrint; // PrettyPrint is in lib.rs
+    use crate::{MirFunction, PrettyPrint}; // PrettyPrint is in lib.rs
 
     fn make_test_function() -> MirFunction {
         MirFunction::new("test".to_string())

@@ -18,7 +18,7 @@
 //!     all paths are covered, a `MissingReturn` diagnostic is emitted.
 //!
 use cairo_m_compiler_diagnostics::Diagnostic;
-use cairo_m_compiler_parser::parser::{parse_file, FunctionDef, Spanned, Statement, TopLevelItem};
+use cairo_m_compiler_parser::parser::{FunctionDef, Spanned, Statement, TopLevelItem, parse_file};
 
 use crate::db::{Crate, SemanticDb};
 use crate::definition::DefinitionKind;

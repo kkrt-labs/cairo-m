@@ -4,8 +4,8 @@ pub mod lexer;
 pub mod parser;
 
 pub use db::{
-    parse_crate, project_validate_parser, Db, DiscoveredCrate, ParsedCrate, ParserDatabaseImpl,
-    SourceFile, Upcast,
+    Db, DiscoveredCrate, ParsedCrate, ParserDatabaseImpl, SourceFile, Upcast, parse_crate,
+    project_validate_parser,
 };
 // Re-export important types from parser module
-pub use parser::{parse_file, ParseOutput, ParsedModule};
+pub use parser::{ParseOutput, ParsedModule, parse_file};

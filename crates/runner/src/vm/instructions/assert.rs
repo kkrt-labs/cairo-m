@@ -1,6 +1,6 @@
 // Assert instructions for the Cairo M VM.
 
-use cairo_m_common::{extract_as, Instruction, InstructionError, State};
+use cairo_m_common::{Instruction, InstructionError, State, extract_as};
 
 use super::InstructionExecutionError;
 use crate::memory::Memory;
@@ -27,10 +27,11 @@ pub fn assert_eq_fp_imm(
 
 #[cfg(test)]
 mod assert_tests {
-    use super::*;
-    use crate::memory::Memory;
     use cairo_m_common::State;
     use stwo_prover::core::fields::m31::M31;
+
+    use super::*;
+    use crate::memory::Memory;
 
     #[test]
     fn test_assert_eq_fp_imm_success() {

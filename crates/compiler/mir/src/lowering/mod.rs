@@ -20,7 +20,6 @@ mod array_memory_tests;
 mod member_access_array_index_tests;
 
 // Re-export the main entry points
-pub use function::{generate_mir, generate_mir_with_config};
-
 // Re-export commonly used items
 pub use builder::MirBuilder;
+pub use function::{generate_mir, generate_mir_with_config};

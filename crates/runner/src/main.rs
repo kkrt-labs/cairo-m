@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Context;
-use cairo_m_common::{parse_cli_arg, Program};
+use cairo_m_common::{Program, parse_cli_arg};
 use cairo_m_runner::run_cairo_program;
 use clap::{Parser, ValueHint};
 

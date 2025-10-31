@@ -2,16 +2,14 @@
 
 use cairo_m_common::abi_codec::InputValue;
 use cairo_m_runner::run_cairo_program;
-
 use proptest::prelude::*;
-
 use wasmtime::{Instance, Store, Val, ValType};
 use wat::parse_file;
 
 mod test_utils;
 use test_utils::{
-    collect_u32s_by_abi, ensure_rust_wasm_built, get_or_build_cairo_program,
-    get_or_build_wasmtime_module, WASMTIME_ENGINE,
+    WASMTIME_ENGINE, collect_u32s_by_abi, ensure_rust_wasm_built, get_or_build_cairo_program,
+    get_or_build_wasmtime_module,
 };
 
 /// Test a program from a .wat file, given a function name and inputs

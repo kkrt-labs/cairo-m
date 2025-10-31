@@ -1,6 +1,7 @@
 use rustc_hash::FxHashMap;
 
-use super::{const_eval::ConstEvaluator, MirPass};
+use super::MirPass;
+use super::const_eval::ConstEvaluator;
 use crate::{InstructionKind, Literal, MirFunction, Place, Projection, Value, ValueId};
 
 /// Lattice of constant propagation

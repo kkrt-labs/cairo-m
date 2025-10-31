@@ -9,10 +9,9 @@ use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 use cairo_m_compiler_semantic::type_resolution::expression_semantic_type;
 use cairo_m_compiler_semantic::types::TypeData;
 
-use crate::{Instruction, MirType, Terminator, Value};
-
 use super::builder::MirBuilder;
 use super::expr::{LowerExpr, LoweredExpr};
+use crate::{Instruction, MirType, Terminator, Value};
 
 /// Internal representation of an lvalue access step on the LHS.
 /// Helps avoid re-evaluating AST while rebuilding nested assignments.

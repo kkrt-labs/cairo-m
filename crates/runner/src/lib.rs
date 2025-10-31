@@ -3,11 +3,10 @@ pub mod vm;
 
 use cairo_m_common::abi_codec::m31_from_i64;
 use cairo_m_common::program::{AbiSlot, AbiType};
-use cairo_m_common::{AbiCodecError, CairoMValue, InputValue};
-use cairo_m_common::{Program, PublicAddressRanges};
+use cairo_m_common::{AbiCodecError, CairoMValue, InputValue, Program, PublicAddressRanges};
 use memory::MemoryError;
 use stwo_prover::core::fields::m31::M31;
-use vm::{VmError, VM};
+use vm::{VM, VmError};
 
 /// Result type for runner operations
 pub type Result<T> = std::result::Result<T, RunnerError>;
@@ -536,7 +535,7 @@ fn encode_value_for_call(
             _ => {
                 return Err(
                     AbiCodecError::TypeMismatch(format!("bool expects 0 or 1, got {}", n)).into(),
-                )
+                );
             }
         },
         (AbiType::Bool, InputValue::Bool(b)) => dst.push(M31::from(if *b { 1u32 } else { 0u32 })),

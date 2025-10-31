@@ -35,11 +35,13 @@ fn test_dead_code_elimination() {
 
     // Verify the unreachable block exists and has content before DCE
     assert_eq!(function.basic_blocks.len(), 3);
-    assert!(!function
-        .get_basic_block(unreachable_block)
-        .unwrap()
-        .instructions
-        .is_empty());
+    assert!(
+        !function
+            .get_basic_block(unreachable_block)
+            .unwrap()
+            .instructions
+            .is_empty()
+    );
 
     // Run dead code elimination
     let mut dce = DeadCodeElimination::new();

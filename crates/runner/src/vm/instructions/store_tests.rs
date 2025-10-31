@@ -1,10 +1,10 @@
 use num_traits::Zero;
-use proptest::{prelude::*, proptest};
+use proptest::prelude::*;
+use proptest::proptest;
 use stwo_prover::core::fields::m31::M31;
 
-use crate::memory::MemoryError;
-
 use super::{InstructionExecutionError, *};
+use crate::memory::MemoryError;
 
 // ---------------------------------------------------------------------------
 // Generic helpers (scalar instructions)

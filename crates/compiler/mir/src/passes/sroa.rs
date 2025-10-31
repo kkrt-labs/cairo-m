@@ -82,12 +82,10 @@
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{
-    instruction::InstructionKind, value::Value, BasicBlockId, Instruction, Literal, MirFunction,
-    MirType, Projection, ValueId,
-};
-
 use super::MirPass;
+use crate::instruction::InstructionKind;
+use crate::value::Value;
+use crate::{BasicBlockId, Instruction, Literal, MirFunction, MirType, Projection, ValueId};
 
 /// Phase-1 SROA: tuples & structs, optional arrays (no dynamic array indexing), no aggregate PHIs.
 ///
@@ -1102,7 +1100,8 @@ impl MirPass for ScalarReplacementOfAggregates {
                         // Only attempt forwarding if base is a tracked aggregate and first step is constant index (array)
                         let Some(crate::Projection::Index(crate::Value::Literal(
                             crate::Literal::Integer(_),
-                        ))) = place.projections.first() else {
+                        ))) = place.projections.first()
+                        else {
                             new_instrs.push(inst);
                             continue;
                         };
@@ -1159,14 +1158,20 @@ impl MirPass for ScalarReplacementOfAggregates {
                         // Forwarding failed. If `value` references a tracked aggregate state,
                         // materialize the aggregate and rewrite the Store to use the new value.
                         if let Value::Operand(agg_id) = value
-                            && matches!(ty, MirType::Tuple(_) | MirType::Struct { .. } | MirType::FixedArray { .. })
+                            && matches!(
+                                ty,
+                                MirType::Tuple(_)
+                                    | MirType::Struct { .. }
+                                    | MirType::FixedArray { .. }
+                            )
                         {
                             if let Some(state) = agg_states.get(agg_id) {
                                 // Create aggregate value from state using the expected store type
                                 let mat_id = materialize(function, &mut new_instrs, state, ty);
                                 // Rewrite Store to use the freshly materialized aggregate
                                 let mut rewritten = inst.clone();
-                                if let InstructionKind::Store { ref mut value, .. } = rewritten.kind {
+                                if let InstructionKind::Store { ref mut value, .. } = rewritten.kind
+                                {
                                     *value = Value::operand(mat_id);
                                 }
                                 new_instrs.push(rewritten);
@@ -1183,7 +1188,8 @@ impl MirPass for ScalarReplacementOfAggregates {
                     InstructionKind::Load { dest, place, ty } if self.config.enable_tuples => {
                         let Some(crate::Projection::Index(crate::Value::Literal(
                             crate::Literal::Integer(_),
-                        ))) = place.projections.first() else {
+                        ))) = place.projections.first()
+                        else {
                             new_instrs.push(inst);
                             continue;
                         };
@@ -1546,13 +1552,14 @@ fn try_forward_store_chain(
     new_value: Value,
 ) -> bool {
     // Require base to be a tracked array/tuple aggregate and first step to be constant index
-    let Some(Projection::Index(Value::Literal(Literal::Integer(idx)))) = place.projections.first() else {
-            return false;
-        };
+    let Some(Projection::Index(Value::Literal(Literal::Integer(idx)))) = place.projections.first()
+    else {
+        return false;
+    };
 
     let Some(state) = agg_states.get_mut(&place.base) else {
-            return false;
-        };
+        return false;
+    };
     let i = *idx as usize;
     if i >= state.elems.len() {
         return false;
@@ -1571,11 +1578,11 @@ fn try_forward_store_chain(
     while let Some(proj) = projections_iter.next() {
         // We must have an operand referencing a tracked aggregate state to go deeper
         let Some(cur_id) = current_val.as_operand() else {
-                return false;
-            };
+            return false;
+        };
         let Some(cur_state) = agg_states.get_mut(&cur_id) else {
-                return false;
-            };
+            return false;
+        };
 
         // Determine the child index based on projection kind
         let child_index_opt: Option<usize> = match proj {
@@ -1587,8 +1594,8 @@ fn try_forward_store_chain(
         };
 
         let Some(child_index) = child_index_opt else {
-                return false;
-            };
+            return false;
+        };
         if child_index >= cur_state.elems.len() {
             return false;
         }

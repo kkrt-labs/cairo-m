@@ -207,9 +207,10 @@ impl ConstEvaluator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use proptest::prelude::*;
     use stwo_prover::core::fields::m31::{M31, P};
+
+    use super::*;
 
     proptest! {
         #[test]

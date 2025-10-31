@@ -3,19 +3,21 @@ mod cfg;
 mod context;
 mod ops;
 
-use crate::loader::{BlocklessDagModule, WasmLoadError};
 use cairo_m_compiler_mir::{MirFunction, MirModule, MirType, PassManager};
-use thiserror::Error;
-use womir::loader::dag::ValueOrigin;
-use womir::loader::FunctionProcessingStage;
-
 use context::DagToMirContext;
+use thiserror::Error;
+use womir::loader::FunctionProcessingStage;
+use womir::loader::dag::ValueOrigin;
+
+use crate::loader::{BlocklessDagModule, WasmLoadError};
 
 #[derive(Error, Debug)]
 pub enum DagToMirError {
     #[error("Failed to load Wasm module: {0}")]
     WasmLoadError(#[from] WasmLoadError),
-    #[error("Unsupported WASM operation {op:?} in function '{function_name}' at node {node_idx}: {suggestion}")]
+    #[error(
+        "Unsupported WASM operation {op:?} in function '{function_name}' at node {node_idx}: {suggestion}"
+    )]
     UnsupportedOperation {
         op: String,
         function_name: String,
@@ -28,7 +30,9 @@ pub enum DagToMirError {
         reason: String,
         operation_context: String,
     },
-    #[error("Value mapping error in function '{function_name}' at node {node_idx}: {reason} (available: {available_count} values)")]
+    #[error(
+        "Value mapping error in function '{function_name}' at node {node_idx}: {reason} (available: {available_count} values)"
+    )]
     ValueMappingError {
         function_name: String,
         node_idx: usize,
@@ -41,7 +45,9 @@ pub enum DagToMirError {
         function_name: String,
         context: String,
     },
-    #[error("Loop structure error in function '{function_name}' at node {node_idx}: depth {requested_depth} exceeds available {available_depth}")]
+    #[error(
+        "Loop structure error in function '{function_name}' at node {node_idx}: depth {requested_depth} exceeds available {available_depth}"
+    )]
     LoopDepthError {
         function_name: String,
         node_idx: usize,

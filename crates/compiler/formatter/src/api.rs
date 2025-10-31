@@ -1,11 +1,11 @@
-use cairo_m_compiler_parser::parser::ParsedModule;
 use cairo_m_compiler_parser::SourceFile;
+use cairo_m_compiler_parser::parser::ParsedModule;
 
+use crate::Format;
 use crate::comment_attachment::attach_comments_to_ast;
 use crate::config::FormatterConfig;
 use crate::context::FormatterCtx;
 use crate::simple_comment_preserver::format_with_comments;
-use crate::Format;
 
 /// Format a source file
 pub fn format_source_file(

@@ -4,13 +4,12 @@
 //! The condition offset is the first instruction argument.
 //! The destination offset when the condition is true is the second instruction argument.
 
-use cairo_m_common::{Instruction, State};
+use cairo_m_common::{Instruction, State, extract_as};
 use num_traits::Zero;
 
 use super::InstructionExecutionError;
 use crate::memory::Memory;
 use crate::vm::state::VmState;
-use cairo_m_common::extract_as;
 
 /// CASM equivalent:
 /// ```casm

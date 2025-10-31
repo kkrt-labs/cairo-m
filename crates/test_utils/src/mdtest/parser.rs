@@ -1,8 +1,10 @@
-use crate::mdtest::config::{Location, MdTestConfig, TestMetadata};
-use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};
 use std::collections::HashMap;
 use std::path::Path;
+
+use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};
 use thiserror::Error;
+
+use crate::mdtest::config::{Location, MdTestConfig, TestMetadata};
 
 #[derive(Debug, Error)]
 pub enum ParseError {

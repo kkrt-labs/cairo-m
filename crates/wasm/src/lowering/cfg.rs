@@ -1,9 +1,10 @@
-use super::{wasm_type_to_mir_type, DagToMirContext, DagToMirError};
-use crate::loader::BlocklessDagModule;
-use crate::lowering::context::ActiveLoop;
 use cairo_m_compiler_mir::{Terminator, Value, ValueId};
 use womir::loader::blockless_dag::{BlocklessDag, BreakTarget, Node, Operation, TargetType};
 use womir::loader::dag::ValueOrigin;
+
+use super::{DagToMirContext, DagToMirError, wasm_type_to_mir_type};
+use crate::loader::BlocklessDagModule;
+use crate::lowering::context::ActiveLoop;
 
 impl DagToMirContext {
     /// Pass 1: Preallocate all the blocks associated with DAG labels and loops

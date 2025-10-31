@@ -4,7 +4,7 @@ use std::time::Duration;
 use cairo_m_ls::lsp_ext::ServerStatus;
 use lsp_types::Diagnostic;
 use tokio::sync::Notify;
-use tokio::time::{timeout, Instant};
+use tokio::time::{Instant, timeout};
 
 use super::notification::NotificationEvent;
 

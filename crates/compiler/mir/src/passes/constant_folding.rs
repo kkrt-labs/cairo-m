@@ -1,8 +1,8 @@
 use cairo_m_compiler_parser::parser::UnaryOp;
 
+use super::MirPass;
+use super::const_eval::ConstEvaluator;
 use crate::{InstructionKind, MirFunction, MirType, Value};
-
-use super::{const_eval::ConstEvaluator, MirPass};
 
 /// Constant Folding Pass
 ///
@@ -101,9 +101,10 @@ impl MirPass for ConstantFolding {
 
 #[cfg(test)]
 mod tests {
+    use stwo_prover::core::fields::m31::{M31, P};
+
     use super::*;
     use crate::{BinaryOp, MirType, Terminator};
-    use stwo_prover::core::fields::m31::{M31, P};
 
     #[test]
     fn test_arithmetic_folding() {

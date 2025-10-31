@@ -55,12 +55,16 @@ pub use instruction::{BinaryOp, Instruction, InstructionKind, MirExpressionId};
 pub use layout::DataLayout;
 pub use mir_types::MirType;
 pub use module::MirModule;
-pub use passes::{
-    arithmetic_simplify::ArithmeticSimplify, constant_folding::ConstantFolding,
-    constant_propagation::ConstantPropagation, copy_propagation::CopyPropagation,
-    dead_code_elimination::DeadCodeElimination, fuse_cmp::FuseCmpBranch, local_cse::LocalCSE,
-    simplify_branches::SimplifyBranches, sroa::ScalarReplacementOfAggregates, MirPass, PassManager,
-};
+pub use passes::arithmetic_simplify::ArithmeticSimplify;
+pub use passes::constant_folding::ConstantFolding;
+pub use passes::constant_propagation::ConstantPropagation;
+pub use passes::copy_propagation::CopyPropagation;
+pub use passes::dead_code_elimination::DeadCodeElimination;
+pub use passes::fuse_cmp::FuseCmpBranch;
+pub use passes::local_cse::LocalCSE;
+pub use passes::simplify_branches::SimplifyBranches;
+pub use passes::sroa::ScalarReplacementOfAggregates;
+pub use passes::{MirPass, PassManager};
 pub use pipeline::{OptimizationLevel, PipelineConfig};
 pub use terminator::Terminator;
 pub use value::{Literal, Place, Projection, Value};

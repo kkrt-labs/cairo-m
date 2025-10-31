@@ -1,12 +1,11 @@
-use super::{wasm_type_to_mir_type, DagToMirContext, DagToMirError};
-use crate::loader::BlocklessDagModule;
-use cairo_m_compiler_mir::instruction::CalleeSignature;
-use cairo_m_compiler_mir::{
-    instruction::Instruction, BinaryOp, FunctionId, MirType, Place, Value, ValueId,
-};
+use cairo_m_compiler_mir::instruction::{CalleeSignature, Instruction};
+use cairo_m_compiler_mir::{BinaryOp, FunctionId, MirType, Place, Value, ValueId};
 use cairo_m_runner::memory::MAX_ADDRESS;
 use wasmparser::Operator as Op;
 use womir::loader::blockless_dag::Node;
+
+use super::{DagToMirContext, DagToMirError, wasm_type_to_mir_type};
+use crate::loader::BlocklessDagModule;
 
 impl DagToMirContext {
     /// Convert a WASM binary opcode to a MIR binary opcode

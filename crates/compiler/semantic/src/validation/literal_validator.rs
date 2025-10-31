@@ -263,9 +263,11 @@ mod tests {
             1,
             "Negative u32 literal should produce one diagnostic"
         );
-        assert!(diagnostics[0]
-            .message
-            .contains("negative literal values are not allowed for type u32"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("negative literal values are not allowed for type u32")
+        );
 
         // Edge case: -0 should still be flagged as negative
         let zero_program = "fn test() { let x: u32 = -0; }";
@@ -281,9 +283,11 @@ mod tests {
             1,
             "Negative zero u32 literal should produce one diagnostic"
         );
-        assert!(diagnostics[0]
-            .message
-            .contains("negative literal values are not allowed for type u32"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("negative literal values are not allowed for type u32")
+        );
     }
 
     #[test]
@@ -320,9 +324,11 @@ mod tests {
             1,
             "Overflowing felt literal should produce one diagnostic"
         );
-        assert!(diagnostics[0]
-            .message
-            .contains("is out of range for type felt"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("is out of range for type felt")
+        );
 
         // Test negative felt
         let negative_program = "fn test() { let x: felt = -42; }";
@@ -338,9 +344,11 @@ mod tests {
             1,
             "Negative felt literal should produce one diagnostic"
         );
-        assert!(diagnostics[0]
-            .message
-            .contains("negative literal values are not allowed for type felt"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("negative literal values are not allowed for type felt")
+        );
     }
 
     #[test]
@@ -362,8 +370,10 @@ mod tests {
             1,
             "Overflowing const felt literal should produce one diagnostic"
         );
-        assert!(diagnostics[0]
-            .message
-            .contains("is out of range for type felt"));
+        assert!(
+            diagnostics[0]
+                .message
+                .contains("is out of range for type felt")
+        );
     }
 }

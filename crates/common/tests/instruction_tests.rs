@@ -3,7 +3,7 @@ use std::mem;
 
 use cairo_m_common::instruction::INSTRUCTION_MAX_SIZE;
 use cairo_m_common::{Instruction, InstructionError};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use stwo_prover::core::fields::m31::M31;
 
 #[test]

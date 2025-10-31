@@ -1,10 +1,11 @@
 //! Felt operations: arithmetic, boolean eq/neq/and/or/not. Delegates opcode
 //! selection to `opcodes` and uses `emit` to push instructions.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
 use cairo_m_compiler_mir::{BinaryOp, Literal, Value};
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
 
 macro_rules! felt_fp_fp_op {
     ($name:ident, $instr:ident) => {
@@ -114,7 +115,7 @@ impl super::CasmBuilder {
                     _ => {
                         return Err(CodegenError::UnsupportedInstruction(
                             "Invalid felt const op".into(),
-                        ))
+                        ));
                     }
                 }
                 .0;
@@ -195,7 +196,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Invalid felt fp-fp op".into(),
-                ))
+                ));
             }
         };
         Ok(())
@@ -217,7 +218,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::UnsupportedInstruction(
                     "Invalid felt fp-imm op".into(),
-                ))
+                ));
             }
         };
         Ok(())
@@ -334,12 +335,14 @@ pub(super) fn fmt_m31_imm(raw: i32) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_support::{exec, ExecutionError, Mem};
-    use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_compiler_mir::{BinaryOp, Value, ValueId};
     use proptest::prelude::*;
     use stwo_prover::core::fields::m31::{self, M31};
+
+    use super::*;
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
+    use crate::test_support::{ExecutionError, Mem, exec};
 
     // =========================================================================
     // Test Setup Helpers
@@ -615,7 +618,7 @@ mod tests {
         match bld.felt_arith(op, dest_off, left, right) {
             Ok(()) => {}
             Err(CodegenError::InvalidMir(msg)) if msg.contains("Division by zero") => {
-                return Err(ExecutionError::InvalidOperands)
+                return Err(ExecutionError::InvalidOperands);
             }
             Err(e) => panic!("Unexpected codegen error: {:?}", e),
         }

@@ -8,7 +8,7 @@ pub mod mock_client;
 pub mod notification;
 pub mod transform;
 
-pub use cursor::{extract_cursors, Cursors};
+pub use cursor::{Cursors, extract_cursors};
 pub use fixture::Fixture;
 pub use mock_client::MockClient;
 pub use serde_json;

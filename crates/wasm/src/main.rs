@@ -1,10 +1,11 @@
+use std::path::PathBuf;
+use std::{fs, process};
+
 use cairo_m_compiler_codegen::compile_module;
 use cairo_m_compiler_mir::PassManager;
 use cairo_m_wasm::loader::{BlocklessDagModule, WasmLoadError};
 use cairo_m_wasm::lowering::lower_program_to_mir;
 use clap::Parser;
-use std::process;
-use std::{fs, path::PathBuf};
 use tracing::Level;
 
 /// Cairo-M WASM to MIR compiler

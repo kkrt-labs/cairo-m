@@ -11,11 +11,11 @@
 //! plus a boolean `Not`, increasing instruction count. We choose to fuse them into independent instructions
 //! to reduce the amount of columns in the prover.
 
-use crate::builder::normalize::is_commutative_u32;
-use cairo_m_compiler_mir::{
-    instruction::InstructionKind, BinaryOp, MirFunction, MirModule, MirType, Value,
-};
+use cairo_m_compiler_mir::instruction::InstructionKind;
+use cairo_m_compiler_mir::{BinaryOp, MirFunction, MirModule, MirType, Value};
 use cairo_m_compiler_parser::parser::UnaryOp;
+
+use crate::builder::normalize::is_commutative_u32;
 
 /// Apply legalization to a whole module (in place).
 pub fn legalize_module_for_vm(module: &mut MirModule) {
@@ -143,8 +143,9 @@ const fn canonicalize_commutative_u32(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use cairo_m_compiler_mir::instruction::Instruction;
+
+    use super::*;
 
     fn mk_simple_fn() -> MirFunction {
         let mut f = MirFunction::new("test".to_string());

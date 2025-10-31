@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use cairo_m_common::Program;
-use cairo_m_compiler_mir::{pipeline::PipelineConfig, MirDb};
+use cairo_m_compiler_mir::MirDb;
+use cairo_m_compiler_mir::pipeline::PipelineConfig;
 use cairo_m_compiler_parser::Upcast;
 use cairo_m_compiler_semantic::db::Crate;
 

@@ -1,8 +1,9 @@
 //! Tests for pointer types and heap allocation `new` expression
 
+use cairo_m_compiler_semantic::semantic_index::DefinitionId;
+
 use super::*;
 use crate::{crate_from_program, get_main_semantic_index};
-use cairo_m_compiler_semantic::semantic_index::DefinitionId;
 
 #[test]
 fn resolve_pointer_types() {

@@ -9,13 +9,13 @@
 
 use cairo_m_compiler_diagnostics::{Diagnostic, DiagnosticCode, DiagnosticSink};
 use cairo_m_compiler_parser::parser::{
-    parse_file, Expression, FunctionDef, NamedType, Spanned, Statement, StructDef, TopLevelItem,
-    TypeExpr,
+    Expression, FunctionDef, NamedType, Spanned, Statement, StructDef, TopLevelItem, TypeExpr,
+    parse_file,
 };
 
 use crate::db::{Crate, SemanticDb};
 use crate::definition::DefinitionKind;
-use crate::validation::{shared, Validator};
+use crate::validation::{Validator, shared};
 use crate::{File, SemanticIndex};
 
 /// Validator for structural semantic rules

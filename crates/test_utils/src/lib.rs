@@ -2,8 +2,9 @@
 
 pub mod mdtest;
 
-use once_cell::sync::Lazy;
 use std::path::PathBuf;
+
+use once_cell::sync::Lazy;
 
 pub(crate) static WORKSPACE_ROOT: Lazy<PathBuf> = Lazy::new(|| {
     let mut current = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

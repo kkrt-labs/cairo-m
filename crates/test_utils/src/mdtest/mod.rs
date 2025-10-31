@@ -2,11 +2,11 @@ pub mod config;
 pub mod parser;
 pub mod runner;
 
-pub use config::{Location, MdTestConfig, TestMetadata};
-pub use parser::{extract_tests, MdTest, ParseError};
-pub use runner::{MdTestRunner, TestSnapshot};
-
 use std::path::{Path, PathBuf};
+
+pub use config::{Location, MdTestConfig, TestMetadata};
+pub use parser::{MdTest, ParseError, extract_tests};
+pub use runner::{MdTestRunner, TestSnapshot};
 
 /// Get the path to the mdtest directory
 pub fn mdtest_path() -> PathBuf {

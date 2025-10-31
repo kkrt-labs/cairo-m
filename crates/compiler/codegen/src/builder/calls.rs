@@ -1,11 +1,11 @@
 //! Function call handling: argument passing and in-place detection.
 
-use crate::{CodegenError, CodegenResult, InstructionBuilder};
 use cairo_m_common::Instruction as CasmInstr;
-use cairo_m_compiler_mir::{
-    instruction::CalleeSignature, DataLayout, Literal, MirType, Value, ValueId,
-};
+use cairo_m_compiler_mir::instruction::CalleeSignature;
+use cairo_m_compiler_mir::{DataLayout, Literal, MirType, Value, ValueId};
 use stwo_prover::core::fields::m31::M31;
+
+use crate::{CodegenError, CodegenResult, InstructionBuilder};
 
 impl super::CasmBuilder {
     /// Shared lowering for all call flavors (void, single, multiple).
@@ -344,10 +344,12 @@ impl super::CasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{builder::CasmBuilder, layout::FunctionLayout};
     use cairo_m_compiler_mir::{MirType, Value, ValueId};
     use stwo_prover::core::fields::m31::M31;
+
+    use super::*;
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
 
     #[test]
     fn test_call_single_emits_call_and_maps_dest() {

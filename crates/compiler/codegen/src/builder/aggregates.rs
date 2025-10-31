@@ -56,7 +56,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::InvalidMir(
                     "ExtractStructField requires operand source".to_string(),
-                ))
+                ));
             }
         };
 
@@ -109,7 +109,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::InvalidMir(
                     "InsertField requires operand source".to_string(),
-                ))
+                ));
             }
         };
 
@@ -232,7 +232,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::InvalidMir(
                     "ExtractTupleElement requires operand source".to_string(),
-                ))
+                ));
             }
         };
 
@@ -285,7 +285,7 @@ impl super::CasmBuilder {
             _ => {
                 return Err(CodegenError::InvalidMir(
                     "InsertTuple requires operand source".to_string(),
-                ))
+                ));
             }
         };
 
@@ -374,15 +374,14 @@ impl super::CasmBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        builder::CasmBuilder,
-        layout::FunctionLayout,
-        test_support::{exec, Mem},
-    };
     use cairo_m_common::instruction::{STORE_FRAME_POINTER, STORE_IMM, U32_STORE_IMM};
     use cairo_m_compiler_mir::{MirFunction, MirType, Value, ValueId};
     use proptest::prelude::*;
+
+    use super::*;
+    use crate::builder::CasmBuilder;
+    use crate::layout::FunctionLayout;
+    use crate::test_support::{Mem, exec};
 
     // =========================================================================
     // Test Setup Helpers

@@ -2,8 +2,8 @@ use cairo_m_common::{Instruction, State};
 use stwo_prover::core::fields::m31::M31;
 
 use crate::memory::Memory;
-use crate::vm::instructions::print::{print_m31, print_u32};
 use crate::vm::instructions::InstructionExecutionError;
+use crate::vm::instructions::print::{print_m31, print_u32};
 
 #[test]
 fn test_print_m31() -> Result<(), InstructionExecutionError> {
