@@ -28,9 +28,7 @@ macro_rules! define_opcodes {
         // Implement Claim methods
         impl Claim {
             pub fn log_sizes(&self) -> TreeVec<Vec<u32>> {
-                let trees = vec![
-                    $(self.$opcode.log_sizes(),)*
-                ];
+                let trees = vec![$(self.$opcode.log_sizes(),)*];
                 TreeVec::concat_cols(trees.into_iter())
             }
 
@@ -48,31 +46,30 @@ macro_rules! define_opcodes {
             where
                 SimdBackend: BackendForChannel<MC>,
             {
+                use paste::paste;
                 $(
-                    // Collect states for all opcodes in this group
                     let mut grouped_states = Vec::new();
-                    paste::paste! {
+                    paste! {
                         $(
                             let state_data = instructions.states_by_opcodes.entry([<$opcode_variant:snake:upper>]).or_default();
                             grouped_states.extend(state_data.drain(..));
                         )+
                     }
-
-                    let (paste::paste! { [<$opcode _claim>] }, paste::paste! { [<$opcode _trace_raw>] }, paste::paste! { [<$opcode _interaction_claim_data>] }) =
+                    let (paste! {[<$opcode _claim>]}, paste! {[<$opcode _trace_raw>]}, paste! {[<$opcode _interaction_claim_data>]}) =
                         $opcode::Claim::write_trace(&mut grouped_states, &instructions.data_accesses);
-                    let paste::paste! { [<$opcode _trace>] } = Box::new(paste::paste! { [<$opcode _trace_raw>] }.to_evals().into_iter());
+                    let paste! {[<$opcode _trace>]} = Box::new(paste! {[<$opcode _trace_raw>]}.to_evals().into_iter());
                 )*
 
                 let claim = Self {
-                    $($opcode: paste::paste! { [<$opcode _claim>] },)*
+                    $($opcode: paste! {[<$opcode _claim>]},)*
                 };
 
                 let interaction_claim_data = InteractionClaimData {
-                    $($opcode: paste::paste! { [<$opcode _interaction_claim_data>] },)*
+                    $($opcode: paste! {[<$opcode _interaction_claim_data>]},)*
                 };
 
                 let trace = std::iter::empty()
-                    $(.chain(paste::paste! { [<$opcode _trace>] }))*;
+                    $(.chain(paste! {[<$opcode _trace>]}))*;
 
                 (claim, trace, interaction_claim_data)
             }
@@ -124,8 +121,9 @@ macro_rules! define_opcodes {
                 Self,
                 impl IntoIterator<Item = CircleEvaluation<SimdBackend, M31, BitReversedOrder>>,
             ) {
+                use paste::paste;
                 $(
-                    let ($opcode, paste::paste! { [<$opcode _interaction_trace>] }) =
+                    let ($opcode, paste! {[<$opcode _interaction_trace>]}) =
                         $opcode::InteractionClaim::write_interaction_trace(
                             &relations,
                             &interaction_claim_data.$opcode,
@@ -137,7 +135,7 @@ macro_rules! define_opcodes {
                 };
 
                 let interaction_trace = std::iter::empty()
-                    $(.chain(paste::paste! { [<$opcode _interaction_trace>] }))*;
+                    $(.chain(paste! {[<$opcode _interaction_trace>]}))*;
 
                 (interaction_claim, interaction_trace)
             }
@@ -164,15 +162,11 @@ macro_rules! define_opcodes {
             }
 
             pub fn provers(&self) -> Vec<&dyn ComponentProver<SimdBackend>> {
-                vec![
-                    $(&self.$opcode,)*
-                ]
+                vec![$(&self.$opcode,)*]
             }
 
             pub fn verifiers(&self) -> Vec<&dyn ComponentVerifier> {
-                vec![
-                    $(&self.$opcode,)*
-                ]
+                vec![$(&self.$opcode,)*]
             }
         }
     };
@@ -227,22 +221,10 @@ define_opcodes!(
     ([JnzFpImm], jnz_fp_imm),
     ([Ret], ret),
     ([StoreImm], store_imm),
-    (
-        [StoreAddFpFp, StoreSubFpFp, StoreMulFpFp, StoreDivFpFp,],
-        store_fp_fp
-    ),
-    (
-        [StoreAddFpImm, StoreMulFpImm,], // StoreSubFpImm, StoreDivFpImm removed
-        store_fp_imm
-    ),
-    (
-        [StoreDoubleDerefFp, StoreToDoubleDerefFpImm],
-        double_deref_fp_imm
-    ),
-    (
-        [StoreDoubleDerefFpFp, StoreToDoubleDerefFpFp],
-        double_deref_fp_fp
-    ),
+    ([StoreAddFpFp, StoreSubFpFp, StoreMulFpFp, StoreDivFpFp,], store_fp_fp),
+    ([StoreAddFpImm, StoreMulFpImm,], store_fp_imm),
+    ([StoreDoubleDerefFp, StoreToDoubleDerefFpImm], double_deref_fp_imm),
+    ([StoreDoubleDerefFpFp, StoreToDoubleDerefFpFp], double_deref_fp_fp),
     ([StoreFramePointer], store_frame_pointer),
     ([U32StoreImm], u32_store_imm),
     ([U32StoreAddFpImm], u32_store_add_fp_imm),
@@ -256,13 +238,7 @@ define_opcodes!(
     ([U32StoreSubFpFp], u32_store_sub_fp_fp),
     ([U32StoreMulFpFp], u32_store_mul_fp_fp),
     ([U32StoreDivRemFpFp], u32_store_div_fp_fp),
-    (
-        [U32StoreAndFpFp, U32StoreOrFpFp, U32StoreXorFpFp],
-        u32_store_bitwise_fp_fp
-    ),
-    (
-        [U32StoreAndFpImm, U32StoreOrFpImm, U32StoreXorFpImm],
-        u32_store_bitwise_fp_imm
-    ),
+    ([U32StoreAndFpFp, U32StoreOrFpFp, U32StoreXorFpFp], u32_store_bitwise_fp_fp),
+    ([U32StoreAndFpImm, U32StoreOrFpImm, U32StoreXorFpImm], u32_store_bitwise_fp_imm),
     ([StoreLeFpImm], store_le_fp_imm),
 );
