@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761927599603,
+  "lastUpdate": 1762165165326,
   "repoUrl": "https://github.com/kkrt-labs/cairo-m",
   "entries": {
     "Cairo-M Prover Memory Benchmarks": [
@@ -2069,6 +2069,40 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/kkrt-labs/cairo-m/commit/81ae2e2a97a88917b00e9e41f063d31b44bc85ad"
         },
         "date": 1761927597964,
+        "tool": "customBiggerIsBetter",
+        "benches": [
+          {
+            "name": "fibonacci_prove_peak_mem",
+            "value": 2422514567,
+            "unit": "bytes"
+          },
+          {
+            "name": "sha256_1kb_prove_peak_mem",
+            "value": 2184172038,
+            "unit": "bytes"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "clement0walter@gmail.com",
+            "name": "Clément Walter",
+            "username": "ClementWalter"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "79c1b1e83f7b959babe3c991eca0902954a31385",
+          "message": "Add mix_into implementation and mix in prover and verifier (#352)",
+          "timestamp": "2025-11-03T12:03:53+02:00",
+          "tree_id": "12bf0befb9d816466418dafbab55b2b580fb8953",
+          "url": "https://github.com/kkrt-labs/cairo-m/commit/79c1b1e83f7b959babe3c991eca0902954a31385"
+        },
+        "date": 1762165163692,
         "tool": "customBiggerIsBetter",
         "benches": [
           {
