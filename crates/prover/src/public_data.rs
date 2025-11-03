@@ -34,6 +34,7 @@ use cairo_m_common::{PublicAddressRanges, State as VmRegisters};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 use stwo_constraint_framework::Relation;
+use stwo_prover::core::channel::Channel;
 use stwo_prover::core::fields::FieldExpOps;
 use stwo_prover::core::fields::m31::M31;
 use stwo_prover::core::fields::qm31::{QM31, SecureField};
@@ -120,6 +121,71 @@ impl PublicEntries {
             .iter()
             .map(|entry| entry.map(|(_, value, _)| value))
             .collect()
+    }
+
+    /// Mixes the public entries into a channel.
+    ///
+    /// This method mixes the public entries into a channel, allowing it to be committed to during the proof generation and verification process.
+    ///
+    /// ## Arguments
+    /// * `channel` - the channel to mix the public entries into
+    pub fn mix_into(&self, channel: &mut impl Channel) {
+        channel.mix_u32s(&[
+            self.program.len() as u32,
+            self.input.len() as u32,
+            self.output.len() as u32,
+        ]);
+        channel.mix_u32s(
+            &self
+                .program
+                .iter()
+                .flatten()
+                .flat_map(|(addr, value, clock)| {
+                    [
+                        addr.0,
+                        value.0.0.0,
+                        value.0.1.0,
+                        value.1.0.0,
+                        value.1.1.0,
+                        clock.0,
+                    ]
+                })
+                .collect::<Vec<_>>(),
+        );
+        channel.mix_u32s(
+            &self
+                .input
+                .iter()
+                .flatten()
+                .flat_map(|(addr, value, clock)| {
+                    [
+                        addr.0,
+                        value.0.0.0,
+                        value.0.1.0,
+                        value.1.0.0,
+                        value.1.1.0,
+                        clock.0,
+                    ]
+                })
+                .collect::<Vec<_>>(),
+        );
+        channel.mix_u32s(
+            &self
+                .output
+                .iter()
+                .flatten()
+                .flat_map(|(addr, value, clock)| {
+                    [
+                        addr.0,
+                        value.0.0.0,
+                        value.0.1.0,
+                        value.1.0.0,
+                        value.1.1.0,
+                        clock.0,
+                    ]
+                })
+                .collect::<Vec<_>>(),
+        );
     }
 }
 
@@ -324,5 +390,24 @@ impl PublicData {
         // Batch invert for efficiency and sum all contributions
         let inverted_values = QM31::batch_inverse(&values_to_inverse);
         inverted_values.iter().sum::<QM31>()
+    }
+
+    /// Mixes the public data into a channel.
+    ///
+    /// This method mixes the public data into a channel, allowing it to be committed to during the proof generation and verification process.
+    ///
+    /// ## Arguments
+    /// * `channel` - the channel to mix the public data into
+    pub fn mix_into(&self, channel: &mut impl Channel) {
+        channel.mix_u32s(&[
+            self.initial_registers.pc.0,
+            self.initial_registers.fp.0,
+            self.final_registers.pc.0,
+            self.final_registers.fp.0,
+            self.clock.0,
+            self.initial_root.0,
+            self.final_root.0,
+        ]);
+        self.public_memory.mix_into(channel);
     }
 }
