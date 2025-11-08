@@ -171,7 +171,7 @@ fn shadowing() {
 - felt: Field element in M31 (2^31 − 1). Default numeric literal type.
 - u32: 32‑bit unsigned integer with wrapping arithmetic.
 - bool: Boolean literal type (`true`, `false`).
-- Tuples: Fixed‑size heterogenous values, e.g. `(felt, bool)`.
+- Tuples: Fixed‑size heterogeneous values, e.g. `(felt, bool)`.
 - Structs: User‑defined aggregates with named fields.
 - Arrays: Fixed‑size arrays `[T; N]` of `felt` or `u32` elements.
 
