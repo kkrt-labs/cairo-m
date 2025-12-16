@@ -122,24 +122,22 @@ pub enum DiagnosticCode {
     TypeInferenceError,
     /// Passing or embedding a const array by pointer (disallowed); user must copy first
     ConstArrayByPointer,
-    // TODO: Add more type-related diagnostic codes:
-    // - InvalidTypeAnnotation
-    // - TypeArgumentMismatch
-    // - IncompatibleTypes
-    // - MissingTypeAnnotation
-    // - CyclicTypeDefinition
+    InvalidTypeAnnotation,
+    TypeArgumentMismatch,
+    IncompatibleTypes,
+    MissingTypeAnnotation,
+    CyclicTypeDefinition,
 
     // Flow-related errors (3000-3999) - placeholder for future
     UnreachableCode,
     MissingReturn,
     BreakOutsideLoop,
     ContinueOutsideLoop,
-    // TODO: Add more control flow diagnostic codes:
-    // - DeadCode
-
+    DeadCode,
+    
     // Internal errors (9000-9999)
     InternalError,
-    // - UnreachablePattern
+    UnreachablePattern,
 
     // TODO: Add more diagnostic categories:
     // - Import/module errors (4000-4999)
@@ -179,6 +177,8 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::MissingReturn => 3002,
             DiagnosticCode::BreakOutsideLoop => 3003,
             DiagnosticCode::ContinueOutsideLoop => 3004,
+            DiagnosticCode::DeadCode => 3005,
+            DiagnosticCode::UnreachablePattern => 3006,
             DiagnosticCode::InvalidAssignmentTarget => 2010,
             DiagnosticCode::MissingReturnValue => 2011,
             DiagnosticCode::TupleIndexOutOfBounds => 2012,
@@ -187,6 +187,11 @@ impl From<DiagnosticCode> for u32 {
             DiagnosticCode::IndexOutOfBounds => 2015,
             DiagnosticCode::TypeInferenceError => 2016,
             DiagnosticCode::ConstArrayByPointer => 2017,
+            DiagnosticCode::InvalidTypeAnnotation => 2018,
+            DiagnosticCode::TypeArgumentMismatch => 2019,
+            DiagnosticCode::IncompatibleTypes => 2020,
+            DiagnosticCode::MissingTypeAnnotation => 2021,
+            DiagnosticCode::CyclicTypeDefinition => 2022,
             DiagnosticCode::InternalError => 9001,
         }
     }
@@ -366,6 +371,87 @@ impl Diagnostic {
         Self::error(
             DiagnosticCode::UnresolvedImport,
             format!("Module '{}' not found", module_name),
+        )
+        .with_location(file_path, span)
+    }
+    
+    /// Convenience method for invalid type annotation error
+    pub fn invalid_type_annotation(
+        file_path: String,
+        message: String,
+        span: SimpleSpan<usize>,
+    ) -> Self {
+        Self::error(DiagnosticCode::InvalidTypeAnnotation, message).with_location(file_path, span)
+    }
+
+    /// Convenience method for type argument mismatch error
+    pub fn type_argument_mismatch(
+        file_path: String,
+        expected: usize,
+        found: usize,
+        span: SimpleSpan<usize>,
+    ) -> Self {
+        Self::error(
+            DiagnosticCode::TypeArgumentMismatch,
+            format!("Type argument mismatch: expected {expected} type argument(s), found {found}"),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for incompatible types error
+    pub fn incompatible_types(
+        file_path: String,
+        from_type: &str,
+        to_type: &str,
+        span: SimpleSpan<usize>,
+    ) -> Self {
+        Self::error(
+            DiagnosticCode::IncompatibleTypes,
+            format!("Cannot convert type '{from_type}' to '{to_type}'"),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for missing type annotation error
+    pub fn missing_type_annotation(
+        file_path: String,
+        context: &str,
+        span: SimpleSpan<usize>,
+    ) -> Self {
+        Self::error(
+            DiagnosticCode::MissingTypeAnnotation,
+            format!("Missing type annotation for {context}"),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for cyclic type definition error
+    pub fn cyclic_type_definition(
+        file_path: String,
+        type_name: &str,
+        span: SimpleSpan<usize>,
+    ) -> Self {
+        Self::error(
+            DiagnosticCode::CyclicTypeDefinition,
+            format!("Cyclic type definition detected in '{type_name}'"),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for dead code warning
+    pub fn dead_code(file_path: String, context: &str, span: SimpleSpan<usize>) -> Self {
+        Self::warning(
+            DiagnosticCode::DeadCode,
+            format!("Dead code: {context} will never be executed"),
+        )
+        .with_location(file_path, span)
+    }
+
+    /// Convenience method for unreachable pattern warning
+    pub fn unreachable_pattern(file_path: String, span: SimpleSpan<usize>) -> Self {
+        Self::warning(
+            DiagnosticCode::UnreachablePattern,
+            "Unreachable pattern: this pattern will never be matched".to_string(),
         )
         .with_location(file_path, span)
     }
@@ -592,3 +678,77 @@ mod tests {
         assert!(display.contains("5:10"));
     }
 }
+
+ #[test]
+    fn test_new_type_diagnostic_codes() {
+        let span = SimpleSpan::from(0..5);
+
+        let diag = Diagnostic::invalid_type_annotation(
+            "test.cm".to_string(),
+            "Invalid syntax".to_string(),
+            span,
+        );
+        assert_eq!(diag.code, DiagnosticCode::InvalidTypeAnnotation);
+        assert_eq!(u32::from(diag.code), 2018);
+
+        let diag = Diagnostic::type_argument_mismatch("test.cm".to_string(), 2, 3, span);
+        assert_eq!(diag.code, DiagnosticCode::TypeArgumentMismatch);
+        assert_eq!(u32::from(diag.code), 2019);
+        assert!(diag.message.contains("expected 2"));
+        assert!(diag.message.contains("found 3"));
+
+        let diag = Diagnostic::incompatible_types("test.cm".to_string(), "u32", "felt", span);
+        assert_eq!(diag.code, DiagnosticCode::IncompatibleTypes);
+        assert_eq!(u32::from(diag.code), 2020);
+        assert!(diag.message.contains("u32"));
+        assert!(diag.message.contains("felt"));
+
+        let diag = Diagnostic::missing_type_annotation("test.cm".to_string(), "variable 'x'", span);
+        assert_eq!(diag.code, DiagnosticCode::MissingTypeAnnotation);
+        assert_eq!(u32::from(diag.code), 2021);
+
+        let diag = Diagnostic::cyclic_type_definition("test.cm".to_string(), "MyStruct", span);
+        assert_eq!(diag.code, DiagnosticCode::CyclicTypeDefinition);
+        assert_eq!(u32::from(diag.code), 2022);
+        assert!(diag.message.contains("MyStruct"));
+    }
+
+    #[test]
+    fn test_new_control_flow_diagnostic_codes() {
+        let span = SimpleSpan::from(10..20);
+
+        let diag = Diagnostic::dead_code("test.cm".to_string(), "statement", span);
+        assert_eq!(diag.code, DiagnosticCode::DeadCode);
+        assert_eq!(diag.severity, DiagnosticSeverity::Warning);
+        assert_eq!(u32::from(diag.code), 3005);
+        assert!(diag.message.contains("Dead code"));
+
+        let diag = Diagnostic::unreachable_pattern("test.cm".to_string(), span);
+        assert_eq!(diag.code, DiagnosticCode::UnreachablePattern);
+        assert_eq!(diag.severity, DiagnosticSeverity::Warning);
+        assert_eq!(u32::from(diag.code), 3006);
+        assert!(diag.message.contains("Unreachable pattern"));
+    }
+
+    #[test]
+    fn test_diagnostic_code_ranges() {
+        assert!(u32::from(DiagnosticCode::LexicalError) < 1000);
+
+        assert!(u32::from(DiagnosticCode::UndeclaredVariable) >= 1000);
+        assert!(u32::from(DiagnosticCode::UndeclaredVariable) < 2000);
+
+        assert!(u32::from(DiagnosticCode::TypeMismatch) >= 2000);
+        assert!(u32::from(DiagnosticCode::TypeMismatch) < 3000);
+        assert!(u32::from(DiagnosticCode::InvalidTypeAnnotation) >= 2000);
+        assert!(u32::from(DiagnosticCode::InvalidTypeAnnotation) < 3000);
+        assert!(u32::from(DiagnosticCode::CyclicTypeDefinition) >= 2000);
+        assert!(u32::from(DiagnosticCode::CyclicTypeDefinition) < 3000);
+
+        assert!(u32::from(DiagnosticCode::UnreachableCode) >= 3000);
+        assert!(u32::from(DiagnosticCode::UnreachableCode) < 4000);
+        assert!(u32::from(DiagnosticCode::DeadCode) >= 3000);
+        assert!(u32::from(DiagnosticCode::DeadCode) < 4000);
+
+        assert!(u32::from(DiagnosticCode::InternalError) >= 9000);
+        assert!(u32::from(DiagnosticCode::InternalError) < 10000);
+    }
